@@ -10,13 +10,16 @@ struct ProviderAdapterRegistry {
 
     var session: URLSession
     var claudeLogDirectory: URL
+    var watermarkStore: (any WatermarkStoring)?
 
     init(
         session: URLSession = .shared,
-        claudeLogDirectory: URL = ProviderAdapterRegistry.defaultClaudeLogDirectory
+        claudeLogDirectory: URL = ProviderAdapterRegistry.defaultClaudeLogDirectory,
+        watermarkStore: (any WatermarkStoring)? = nil
     ) {
         self.session = session
         self.claudeLogDirectory = claudeLogDirectory
+        self.watermarkStore = watermarkStore
     }
 
     static var defaultClaudeLogDirectory: URL {
@@ -32,7 +35,14 @@ struct ProviderAdapterRegistry {
         case .openAI:
             return OpenAIUsageAdapter(session: session)
         case .claude:
-            return ClaudeUsageAdapter(mode: isLocal ? .localLogs : .adminAPI, session: session)
+            guard isLocal else {
+                return ClaudeUsageAdapter(mode: .adminAPI, session: session)
+            }
+
+            let reader = watermarkStore.map {
+                ClaudeCodeLogReader(directory: claudeLogDirectory, watermarkStore: $0)
+            }
+            return ClaudeUsageAdapter(mode: .localLogs, session: session, logReader: reader)
         case .cursor:
             return CursorUsageAdapter(mode: isLocal ? .localStatusOnly : .teamAPI)
         }

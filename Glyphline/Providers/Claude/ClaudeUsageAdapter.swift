@@ -18,17 +18,20 @@ struct ClaudeUsageAdapter: ProviderAdapter {
     var session: URLSession
     var now: @Sendable () -> Date
     var calendar: Calendar
+    var logReader: ClaudeCodeLogReader?
 
     init(
         mode: Mode,
         session: URLSession = .shared,
         now: @escaping @Sendable () -> Date = Date.init,
-        calendar: Calendar = .current
+        calendar: Calendar = .current,
+        logReader: ClaudeCodeLogReader? = nil
     ) {
         self.mode = mode
         self.session = session
         self.now = now
         self.calendar = calendar
+        self.logReader = logReader
     }
 
     var requiresSecret: Bool { mode != .localLogs }
@@ -38,9 +41,31 @@ struct ClaudeUsageAdapter: ProviderAdapter {
         case .adminAPI:
             return try await syncAdminAPI(account: account, secret: secret)
         case .localLogs:
-            return unavailableResult(
-                for: account,
-                message: "Claude local log ingestion is not implemented yet."
+            guard let logReader else {
+                return unavailableResult(
+                    for: account,
+                    message: "Local Claude Code logs are not configured."
+                )
+            }
+
+            let snapshots = try logReader.read(accountID: account.id)
+
+            return ProviderSyncResult(
+                providerID: .claude,
+                accountID: account.id,
+                capabilities: ProviderCapabilities(
+                    supportsUsage: true,
+                    supportsActualCost: false,
+                    supportsResetDate: false,
+                    supportsModelBreakdown: true,
+                    dataQuality: .partial,
+                    message: "Covers Claude Code usage on this Mac only, not claude.ai. Costs are estimated."
+                ),
+                billingPeriod: nil,
+                usageSnapshots: snapshots,
+                costSnapshots: [],
+                estimateSnapshots: [],
+                syncedAt: now()
             )
         case .requiresAdminKey:
             return unavailableResult(

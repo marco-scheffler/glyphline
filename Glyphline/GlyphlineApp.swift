@@ -16,11 +16,12 @@ struct GlyphlineApp: App {
         // Deliberately no in-memory stand-in when the on-disk ledger cannot be
         // opened: the coordinator refuses to sync without a durable ledger and
         // says so, rather than crashing at launch or writing to a scratch file.
+        let ledger = LedgerStore.makeDefault()
         _coordinator = StateObject(
             wrappedValue: SyncCoordinator(
-                ledger: LedgerStore.makeDefault(),
+                ledger: ledger,
                 credentials: KeychainStore(),
-                registry: ProviderAdapterRegistry(),
+                registry: ProviderAdapterRegistry(watermarkStore: ledger),
                 estimator: estimator
             )
         )
