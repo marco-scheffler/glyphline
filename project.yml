@@ -34,6 +34,20 @@ targets:
       - GlyphlineTests/Fixtures
     dependencies:
       - target: Glyphline
+    # The app target owns Glyphline/Resources, so XcodeGen will not add the same
+    # file to a second resources phase. Copy the pricing catalog into the test
+    # bundle so tests can load it through Bundle(for:).
+    postCompileScripts:
+      - name: Copy pricing catalog into test bundle
+        script: |
+          set -euo pipefail
+          mkdir -p "${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}"
+          cp "${SRCROOT}/Glyphline/Resources/pricing-v1.json" \
+            "${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/pricing-v1.json"
+        inputFiles:
+          - $(SRCROOT)/Glyphline/Resources/pricing-v1.json
+        outputFiles:
+          - $(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/pricing-v1.json
     settings:
       GENERATE_INFOPLIST_FILE: YES
       SWIFT_VERSION: 6.0

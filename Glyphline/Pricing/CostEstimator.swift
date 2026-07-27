@@ -13,6 +13,10 @@ struct CostEstimator: Sendable {
         }
 
         let inputMicros = snapshot.inputTokens * entry.inputMicrosPerMillionTokens / 1_000_000
+        let cacheCreationMicros = snapshot.cacheCreationTokens
+            * entry.effectiveCacheCreationMicrosPerMillionTokens / 1_000_000
+        let cacheReadMicros = snapshot.cacheReadTokens
+            * entry.effectiveCacheReadMicrosPerMillionTokens / 1_000_000
         let outputMicros = snapshot.outputTokens * entry.outputMicrosPerMillionTokens / 1_000_000
 
         return EstimateSnapshot(
@@ -21,7 +25,7 @@ struct CostEstimator: Sendable {
             providerID: snapshot.providerID,
             bucketStart: snapshot.bucketStart,
             bucketEnd: snapshot.bucketEnd,
-            estimatedAmountMicros: inputMicros + outputMicros,
+            estimatedAmountMicros: inputMicros + cacheCreationMicros + cacheReadMicros + outputMicros,
             currency: entry.currency,
             quality: estimatedQuality(for: snapshot.quality)
         )

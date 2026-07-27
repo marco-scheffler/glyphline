@@ -5,9 +5,21 @@ struct PricingEntry: Codable, Equatable, Sendable {
     var model: String
     var inputMicrosPerMillionTokens: Int64
     var outputMicrosPerMillionTokens: Int64
+    /// Absent entries fall back to a ratio of the input price.
+    var cacheCreationMicrosPerMillionTokens: Int64?
+    /// Absent entries fall back to a ratio of the input price.
+    var cacheReadMicrosPerMillionTokens: Int64?
     var currency: String
     var effectiveDate: String
     var source: String
+
+    var effectiveCacheCreationMicrosPerMillionTokens: Int64 {
+        cacheCreationMicrosPerMillionTokens ?? inputMicrosPerMillionTokens * 5 / 4
+    }
+
+    var effectiveCacheReadMicrosPerMillionTokens: Int64 {
+        cacheReadMicrosPerMillionTokens ?? inputMicrosPerMillionTokens / 10
+    }
 }
 
 struct PricingCatalog: Sendable {

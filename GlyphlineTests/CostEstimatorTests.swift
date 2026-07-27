@@ -68,4 +68,72 @@ final class CostEstimatorTests: XCTestCase {
         XCTAssertEqual(entry.model, "gpt-5.4")
         XCTAssertEqual(entry.currency, "USD")
     }
+
+    func testEstimatePricesEachTokenClassSeparately() throws {
+        let catalog = PricingCatalog(entries: [
+            PricingEntry(
+                providerID: .claude,
+                model: "claude-opus-4-8",
+                inputMicrosPerMillionTokens: 5_000_000,
+                outputMicrosPerMillionTokens: 25_000_000,
+                cacheCreationMicrosPerMillionTokens: 6_250_000,
+                cacheReadMicrosPerMillionTokens: 500_000,
+                currency: "USD",
+                effectiveDate: "2026-07-27",
+                source: "local"
+            ),
+        ])
+        let estimator = CostEstimator(catalog: catalog)
+        let day = Date(timeIntervalSince1970: 1_800_000_000)
+
+        let usage = UsageSnapshot(
+            id: UUID(),
+            accountID: UUID(),
+            providerID: .claude,
+            bucketStart: day,
+            bucketEnd: day.addingTimeInterval(86_400),
+            model: "claude-opus-4-8",
+            inputTokens: 1_000_000,
+            cacheCreationTokens: 1_000_000,
+            cacheReadTokens: 1_000_000,
+            outputTokens: 1_000_000,
+            requests: nil,
+            quality: .exact
+        )
+
+        let estimate = try estimator.estimate(snapshot: usage)
+
+        // 5_000_000 + 6_250_000 + 500_000 + 25_000_000
+        XCTAssertEqual(estimate.estimatedAmountMicros, 36_750_000)
+        XCTAssertEqual(estimate.quality, .estimated)
+    }
+
+    func testCachePricesFallBackToRatiosOfInputPrice() throws {
+        let entry = PricingEntry(
+            providerID: .openAI,
+            model: "gpt-5.4",
+            inputMicrosPerMillionTokens: 2_000_000,
+            outputMicrosPerMillionTokens: 8_000_000,
+            cacheCreationMicrosPerMillionTokens: nil,
+            cacheReadMicrosPerMillionTokens: nil,
+            currency: "USD",
+            effectiveDate: "2026-07-27",
+            source: "local"
+        )
+
+        XCTAssertEqual(entry.effectiveCacheCreationMicrosPerMillionTokens, 2_500_000)
+        XCTAssertEqual(entry.effectiveCacheReadMicrosPerMillionTokens, 200_000)
+    }
+
+    func testCacheReadsAreFarCheaperThanFreshInput() throws {
+        let catalog = try PricingCatalog.bundled(in: Bundle(for: Self.self))
+        guard let entry = catalog.entry(providerID: .claude, model: "claude-opus-4-8") else {
+            return XCTFail("expected a bundled Claude entry")
+        }
+
+        XCTAssertLessThan(
+            entry.effectiveCacheReadMicrosPerMillionTokens,
+            entry.inputMicrosPerMillionTokens
+        )
+    }
 }

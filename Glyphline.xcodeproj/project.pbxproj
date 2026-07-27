@@ -380,6 +380,7 @@
 			buildConfigurationList = 8F43F0F3ECAD68FD0FFC8DBC /* Build configuration list for PBXNativeTarget "GlyphlineTests" */;
 			buildPhases = (
 				5D9122E048D93A646AE1BC6D /* Sources */,
+				99FDC210B509FA4DEE9D32D3 /* Copy pricing catalog into test bundle */,
 				67028E09BA1C9E1D034C26B9 /* Resources */,
 			);
 			buildRules = (
@@ -470,6 +471,29 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		99FDC210B509FA4DEE9D32D3 /* Copy pricing catalog into test bundle */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/Glyphline/Resources/pricing-v1.json",
+			);
+			name = "Copy pricing catalog into test bundle";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/pricing-v1.json",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -euo pipefail\nmkdir -p \"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}\"\ncp \"${SRCROOT}/Glyphline/Resources/pricing-v1.json\" \\\n  \"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/pricing-v1.json\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		5D9122E048D93A646AE1BC6D /* Sources */ = {
