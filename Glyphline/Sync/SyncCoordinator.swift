@@ -5,15 +5,26 @@ import Foundation
 final class SyncCoordinator: ObservableObject {
     @Published private(set) var activities: [UUID: SyncActivity] = [:]
 
-    private let ledger: LedgerStore
+    /// Set when a sync could not be attempted at all, so the failure is visible
+    /// rather than a silent no-op. Per-account failures use `activities`.
+    @Published private(set) var syncFailureMessage: String?
+
+    /// Nil when the on-disk ledger could not be opened. There is deliberately no
+    /// in-memory stand-in: a sync with nowhere durable to write must refuse
+    /// rather than appear to succeed.
+    private let ledger: LedgerStore?
     private let credentials: any CredentialStore
     private let registry: ProviderAdapterRegistry
     private let estimator: CostEstimator
-    private let scheduler: SyncScheduler
+    private let scheduler: SyncScheduler?
     private let adapterProvider: ((Account) -> any ProviderAdapter)?
 
+    /// Shown whenever a sync is refused for want of a ledger. Truthful in the
+    /// degraded case: nothing was fetched and nothing was written.
+    static let ledgerUnavailableMessage = "Ledger unavailable. Nothing was synced."
+
     init(
-        ledger: LedgerStore,
+        ledger: LedgerStore?,
         credentials: any CredentialStore,
         registry: ProviderAdapterRegistry,
         estimator: CostEstimator,
@@ -24,7 +35,7 @@ final class SyncCoordinator: ObservableObject {
         self.registry = registry
         self.estimator = estimator
         self.adapterProvider = adapterProvider
-        self.scheduler = SyncScheduler(ledger: ledger, credentials: credentials)
+        self.scheduler = ledger.map { SyncScheduler(ledger: $0, credentials: credentials) }
     }
 
     private func adapter(for account: Account) -> any ProviderAdapter {
@@ -32,12 +43,20 @@ final class SyncCoordinator: ObservableObject {
     }
 
     func syncAll() async {
+        guard let ledger else {
+            syncFailureMessage = Self.ledgerUnavailableMessage
+            return
+        }
+
         let accounts: [Account]
         do {
             accounts = try ledger.fetchAccounts().filter(\.isEnabled)
         } catch {
+            syncFailureMessage = "Could not read the ledger. Nothing was synced."
             return
         }
+
+        syncFailureMessage = nil
 
         for account in accounts {
             await syncNow(account: account)
@@ -45,6 +64,12 @@ final class SyncCoordinator: ObservableObject {
     }
 
     func syncNow(account: Account) async {
+        guard let ledger, let scheduler else {
+            activities[account.id] = .failed(Self.ledgerUnavailableMessage)
+            syncFailureMessage = Self.ledgerUnavailableMessage
+            return
+        }
+
         guard activities[account.id]?.isRunning != true else {
             return
         }
@@ -54,7 +79,7 @@ final class SyncCoordinator: ObservableObject {
 
         do {
             try await scheduler.sync(account: account, adapter: resolved)
-            try estimateMissingCosts(for: account)
+            try estimateMissingCosts(for: account, in: ledger)
             activities[account.id] = .idle
         } catch {
             activities[account.id] = .failed(Self.describe(error))
@@ -62,7 +87,7 @@ final class SyncCoordinator: ObservableObject {
     }
 
     /// Produces estimate snapshots for accounts whose provider reports no actual cost.
-    private func estimateMissingCosts(for account: Account) throws {
+    private func estimateMissingCosts(for account: Account, in ledger: LedgerStore) throws {
         guard try ledger.fetchCostSnapshots(accountID: account.id).isEmpty else {
             return
         }

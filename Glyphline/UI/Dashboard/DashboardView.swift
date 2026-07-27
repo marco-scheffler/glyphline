@@ -50,7 +50,8 @@ struct DashboardView: View {
             DashboardOverview(
                 accountSummaries: accountSummaries,
                 historyEntries: historyEntries,
-                loadError: loadError
+                loadError: loadError,
+                syncFailureMessage: coordinator.syncFailureMessage
             )
         case .accounts:
             AccountsView(accounts: accountSummaries, onSyncFinished: loadDashboard)
@@ -148,6 +149,7 @@ private struct DashboardOverview: View {
     let accountSummaries: [AccountUsageSummary]
     let historyEntries: [HistorySummaryEntry]
     let loadError: String?
+    let syncFailureMessage: String?
 
     private let columns = [
         GridItem(.flexible(minimum: 160), spacing: 16),
@@ -163,6 +165,14 @@ private struct DashboardOverview: View {
                         .font(.largeTitle.weight(.bold))
                     Text("Usage snapshots, estimates, data quality at a glance.")
                         .foregroundStyle(.secondary)
+                }
+
+                if let syncFailureMessage {
+                    Label(syncFailureMessage, systemImage: "exclamationmark.triangle")
+                        .foregroundStyle(.red)
+                        .padding(12)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 8))
                 }
 
                 LazyVGrid(columns: columns, spacing: 16) {

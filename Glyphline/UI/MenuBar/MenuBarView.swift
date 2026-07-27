@@ -32,6 +32,12 @@ struct MenuBarView: View {
             .pickerStyle(.segmented)
 
             VStack(alignment: .leading, spacing: 8) {
+                if let syncFailureMessage = coordinator.syncFailureMessage {
+                    Text(syncFailureMessage)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
+
                 if let loadError {
                     Text(loadError)
                         .font(.caption)

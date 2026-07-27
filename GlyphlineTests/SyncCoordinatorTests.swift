@@ -172,6 +172,77 @@ final class SyncCoordinatorTests: XCTestCase {
         XCTAssertNotNil(coordinator.activities[enabled.id])
         XCTAssertNil(coordinator.activities[disabled.id])
     }
+
+    // MARK: - Degraded path: no durable ledger
+
+    func testSyncAllWithoutALedgerReportsRatherThanSilentlyDoingNothing() async {
+        let coordinator = SyncCoordinator(
+            ledger: nil,
+            credentials: InMemoryCredentialStore(),
+            registry: ProviderAdapterRegistry(),
+            estimator: CostEstimator(catalog: PricingCatalog(entries: []))
+        )
+
+        await coordinator.syncAll()
+
+        XCTAssertEqual(coordinator.syncFailureMessage, "Ledger unavailable. Nothing was synced.")
+    }
+
+    func testSyncNowWithoutALedgerFailsTheAccountInsteadOfAppearingToSucceed() async {
+        let account = Account(
+            id: UUID(),
+            providerID: .openAI,
+            displayName: "No ledger",
+            credentialReference: "keychain://glyphline/no-ledger",
+            createdAt: Date(timeIntervalSince1970: 1_800_000_000),
+            isEnabled: true
+        )
+
+        let coordinator = SyncCoordinator(
+            ledger: nil,
+            credentials: InMemoryCredentialStore(),
+            registry: ProviderAdapterRegistry(),
+            estimator: CostEstimator(catalog: PricingCatalog(entries: []))
+        )
+
+        await coordinator.syncNow(account: account)
+
+        // Must not land on .idle, which the accounts list renders as "no problem".
+        XCTAssertEqual(
+            coordinator.activities[account.id],
+            .failed("Ledger unavailable. Nothing was synced.")
+        )
+        XCTAssertEqual(coordinator.syncFailureMessage, "Ledger unavailable. Nothing was synced.")
+    }
+
+    func testTheLedgerUnavailableMessageCarriesNoCredentialDetail() {
+        let message = SyncCoordinator.ledgerUnavailableMessage
+
+        XCTAssertFalse(message.localizedCaseInsensitiveContains("keychain://"))
+        XCTAssertFalse(message.localizedCaseInsensitiveContains("secret"))
+        XCTAssertFalse(message.localizedCaseInsensitiveContains("token"))
+    }
+
+    func testASuccessfulSyncAllClearsAStaleFailureMessage() async throws {
+        let dbQueue = try DatabaseQueueFactory.makeInMemory()
+        try Migrations.migrate(dbQueue)
+        let ledger = LedgerStore(dbQueue: dbQueue)
+
+        let coordinator = SyncCoordinator(
+            ledger: nil,
+            credentials: InMemoryCredentialStore(),
+            registry: ProviderAdapterRegistry(),
+            estimator: CostEstimator(catalog: PricingCatalog(entries: []))
+        )
+        await coordinator.syncAll()
+        XCTAssertNotNil(coordinator.syncFailureMessage)
+
+        // A coordinator that does have a ledger must never carry the message.
+        let healthy = try makeCoordinator(ledger: ledger, credentials: InMemoryCredentialStore())
+        await healthy.syncAll()
+
+        XCTAssertNil(healthy.syncFailureMessage)
+    }
 }
 
 /// Throws an error carrying detail that must never reach the UI.

@@ -1,5 +1,4 @@
 import AppKit
-import GRDB
 import SwiftUI
 
 @main
@@ -11,13 +10,15 @@ struct GlyphlineApp: App {
         let settings = AppSettingsStore()
         _settings = StateObject(wrappedValue: settings)
 
-        let ledger = LedgerStore.makeDefault()
         let estimator = CostEstimator(
             catalog: (try? PricingCatalog.bundled()) ?? PricingCatalog(entries: [])
         )
+        // Deliberately no in-memory stand-in when the on-disk ledger cannot be
+        // opened: the coordinator refuses to sync without a durable ledger and
+        // says so, rather than crashing at launch or writing to a scratch file.
         _coordinator = StateObject(
             wrappedValue: SyncCoordinator(
-                ledger: ledger ?? LedgerStore(dbQueue: try! DatabaseQueueFactory.makeInMemory()),
+                ledger: LedgerStore.makeDefault(),
                 credentials: KeychainStore(),
                 registry: ProviderAdapterRegistry(),
                 estimator: estimator
