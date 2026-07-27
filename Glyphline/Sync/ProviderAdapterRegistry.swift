@@ -32,7 +32,7 @@ struct ProviderAdapterRegistry {
         case .openAI:
             return OpenAIUsageAdapter(session: session)
         case .claude:
-            return ClaudeUsageAdapter(mode: isLocal ? .localLogs : .adminAPI)
+            return ClaudeUsageAdapter(mode: isLocal ? .localLogs : .adminAPI, session: session)
         case .cursor:
             return CursorUsageAdapter(mode: isLocal ? .localStatusOnly : .teamAPI)
         }
