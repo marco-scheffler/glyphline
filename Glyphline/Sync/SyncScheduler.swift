@@ -83,7 +83,7 @@ final class SyncScheduler {
     }
 }
 
-extension SyncScheduler: @unchecked Sendable {}
+extension SyncScheduler: Sendable {}
 
 enum SyncSchedulerError: Error, Equatable {
     case missingCredential(accountID: UUID)
