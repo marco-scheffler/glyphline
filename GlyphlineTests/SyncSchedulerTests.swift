@@ -41,7 +41,7 @@ final class SyncSchedulerTests: XCTestCase {
         XCTAssertNil(syncRuns.first?.message)
     }
 
-    func testSyncThrowsMissingCredentialError() async throws {
+    func testSyncThrowsMissingCredentialWhenSecretUnavailable() async throws {
         let ledger = try makeLedgerStore()
         let credentials = InMemoryCredentialStore()
         let account = makeAccount()
@@ -58,6 +58,56 @@ final class SyncSchedulerTests: XCTestCase {
         }
     }
 
+    func testSyncStoresSanitizedFailureWhenAdapterThrows() async throws {
+        let ledger = try makeLedgerStore()
+        let credentials = InMemoryCredentialStore()
+        let account = makeAccount()
+        let leakedSecret = "sk-test-very-sensitive"
+
+        try ledger.saveAccount(account)
+        try credentials.save(secret: "fixture-secret", for: account.credentialReference)
+
+        let scheduler = SyncScheduler(ledger: ledger, credentials: credentials)
+        let adapter = ThrowingProviderAdapter(
+            providerID: .openAI,
+            error: SecretLeakingAdapterError(secret: leakedSecret)
+        )
+
+        do {
+            try await scheduler.sync(account: account, adapter: adapter)
+            XCTFail("Expected adapter failure")
+        } catch is SecretLeakingAdapterError {
+            let syncRuns = try ledger.fetchSyncRuns(accountID: account.id)
+
+            XCTAssertEqual(syncRuns.count, 1)
+            XCTAssertEqual(syncRuns.first?.status, .failed)
+            XCTAssertEqual(syncRuns.first?.message, "providerSyncFailed")
+            XCTAssertFalse(syncRuns.first?.message?.contains(leakedSecret) ?? false)
+        }
+    }
+
+    func testSyncThrowsProviderMismatchBeforeStartingRun() async throws {
+        let ledger = try makeLedgerStore()
+        let credentials = InMemoryCredentialStore()
+        let account = makeAccount(providerID: .openAI)
+
+        try ledger.saveAccount(account)
+        try credentials.save(secret: "fixture-secret", for: account.credentialReference)
+
+        let scheduler = SyncScheduler(ledger: ledger, credentials: credentials)
+
+        do {
+            try await scheduler.sync(account: account, adapter: FixtureProviderAdapter(providerID: .claude))
+            XCTFail("Expected provider mismatch error")
+        } catch let error as SyncSchedulerError {
+            XCTAssertEqual(
+                error,
+                .providerMismatch(accountProviderID: .openAI, adapterProviderID: .claude)
+            )
+            XCTAssertTrue(try ledger.fetchSyncRuns(accountID: account.id).isEmpty)
+        }
+    }
+
     private func makeLedgerStore() throws -> LedgerStore {
         let dbQueue = try DatabaseQueueFactory.makeInMemory()
         try Migrations.migrate(dbQueue)
@@ -71,7 +121,7 @@ final class SyncSchedulerTests: XCTestCase {
         Account(
             id: UUID(),
             providerID: providerID,
-            displayName: "Fixture",
+            displayName: "Personal",
             credentialReference: "keychain://glyphline/\(UUID().uuidString)",
             createdAt: createdAt,
             isEnabled: true
@@ -144,5 +194,24 @@ private struct CostSnapshotProviderAdapter: ProviderAdapter {
             ],
             syncedAt: start.addingTimeInterval(12)
         )
+    }
+}
+
+private struct ThrowingProviderAdapter: ProviderAdapter {
+    let providerID: ProviderID
+    let error: any Error
+
+    func sync(account: Account, secret: String) async throws -> ProviderSyncResult {
+        _ = account
+        _ = secret
+        throw error
+    }
+}
+
+private struct SecretLeakingAdapterError: Error, CustomStringConvertible {
+    let secret: String
+
+    var description: String {
+        "upstream rejected credential \(secret)"
     }
 }
