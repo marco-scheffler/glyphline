@@ -125,15 +125,18 @@ final class CostEstimatorTests: XCTestCase {
         XCTAssertEqual(entry.effectiveCacheReadMicrosPerMillionTokens, 200_000)
     }
 
-    func testCacheReadsAreFarCheaperThanFreshInput() throws {
-        let catalog = try PricingCatalog.bundled(in: Bundle(for: Self.self))
-        guard let entry = catalog.entry(providerID: .claude, model: "claude-opus-4-8") else {
-            return XCTFail("expected a bundled Claude entry")
-        }
+    func testBundledClaudeEntriesCarryExplicitCachePrices() throws {
+        let catalog = try PricingCatalog.bundled()
+        let entry = try XCTUnwrap(
+            catalog.entry(providerID: .claude, model: "claude-opus-4-8"),
+            "expected a bundled Claude entry"
+        )
 
+        XCTAssertNotNil(entry.cacheCreationMicrosPerMillionTokens)
+        XCTAssertNotNil(entry.cacheReadMicrosPerMillionTokens)
         XCTAssertLessThan(
             entry.effectiveCacheReadMicrosPerMillionTokens,
-            entry.inputMicrosPerMillionTokens
+            entry.inputMicrosPerMillionTokens / 2
         )
     }
 }
