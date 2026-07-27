@@ -1,0 +1,11 @@
+[
+  {
+    "providerID": "openAI",
+    "model": "gpt-5.4",
+    "inputMicrosPerMillionTokens": 2500000,
+    "outputMicrosPerMillionTokens": 15000000,
+    "currency": "USD",
+    "effectiveDate": "2026-07-27",
+    "source": "local-seed"
+  }
+]

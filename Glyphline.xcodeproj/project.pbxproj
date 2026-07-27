@@ -8,12 +8,14 @@
 
 /* Begin PBXBuildFile section */
 		02E55AFA00BD9CCB7061CBD2 /* DatabaseQueueFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9430FC958CF84944A796120 /* DatabaseQueueFactory.swift */; };
+		28C11321FB7E815ECD239AE1 /* PricingCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D596EC370B13AA593C32D79 /* PricingCatalog.swift */; };
 		29DAC97DF9CC2CB3A0D01784 /* AppSettingsStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD5F66FB95D8BBD93EFCBE00 /* AppSettingsStoreTests.swift */; };
 		2A7289DD211158D42C26C9DE /* MenuBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB947F271F18142FE2CD64DB /* MenuBarView.swift */; };
 		2BDACE3AAE0A202FCB9520BC /* AppSettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E78F87ED03A83F2D193EF8B /* AppSettingsStore.swift */; };
 		2DF42C50602C384C26283736 /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = C1D17CF7506CDB47E08BD82A /* GRDB */; };
 		37CFE0A06075136004EBA62F /* AppActivationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64891BE57A59E15EEFF1CD5F /* AppActivationController.swift */; };
 		42DA56777FC9BBAD2671DB97 /* ProviderID.swift in Sources */ = {isa = PBXBuildFile; fileRef = C69732493AABC7109EB74F3F /* ProviderID.swift */; };
+		59022EBC301F5B43468F886F /* CostEstimatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10078AD9B1875C460A90C37 /* CostEstimatorTests.swift */; };
 		65EBE11665000DCF8EDA16D7 /* ProviderAdapterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38E16DBA6601CED2ABB83448 /* ProviderAdapterTests.swift */; };
 		68A1F885C4A8FF2F2D947648 /* GlyphlineSmokeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 412F5489EA0C8B4EE160128C /* GlyphlineSmokeTests.swift */; };
 		6D737C47EC2A7E6325625A55 /* GlyphlineApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF10D82C0BBAB350C0D404AB /* GlyphlineApp.swift */; };
@@ -29,6 +31,8 @@
 		BE2B9EEEA941F5F4FDD5FDEA /* AppMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12E48ACC872A23A3B329B354 /* AppMode.swift */; };
 		D8B77926E2F0A8CA8B0916E2 /* UsageModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE8DBF95730F8FD235AFAC47 /* UsageModels.swift */; };
 		DD65CBEE767BCD073129FC0C /* ProviderAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6BA50B54580BB6EDF13DF33 /* ProviderAdapter.swift */; };
+		EE496A4425EF2D3826391753 /* CostEstimator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B258111FCCAE74A8FC95B9FF /* CostEstimator.swift */; };
+		F1C14BF4C9F663FD03819DAA /* pricing-v1.json in Resources */ = {isa = PBXBuildFile; fileRef = C1291754346ED094133AE0E6 /* pricing-v1.json */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -43,6 +47,7 @@
 
 /* Begin PBXFileReference section */
 		12E48ACC872A23A3B329B354 /* AppMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppMode.swift; sourceTree = "<group>"; };
+		2D596EC370B13AA593C32D79 /* PricingCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PricingCatalog.swift; sourceTree = "<group>"; };
 		38E16DBA6601CED2ABB83448 /* ProviderAdapterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderAdapterTests.swift; sourceTree = "<group>"; };
 		3B1D47E3EFDB4A47186A23AF /* .gitkeep */ = {isa = PBXFileReference; path = .gitkeep; sourceTree = "<group>"; };
 		3E4A6EC8C6579850C8C770C5 /* FixtureProviderAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FixtureProviderAdapter.swift; sourceTree = "<group>"; };
@@ -59,12 +64,15 @@
 		979B2CFA8C52D4A2693A102A /* Migrations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Migrations.swift; sourceTree = "<group>"; };
 		A9430FC958CF84944A796120 /* DatabaseQueueFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseQueueFactory.swift; sourceTree = "<group>"; };
 		AF10D82C0BBAB350C0D404AB /* GlyphlineApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlyphlineApp.swift; sourceTree = "<group>"; };
+		B258111FCCAE74A8FC95B9FF /* CostEstimator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CostEstimator.swift; sourceTree = "<group>"; };
 		BA3B73CA5CAB2E184CE9154D /* KeychainStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStore.swift; sourceTree = "<group>"; };
 		BB947F271F18142FE2CD64DB /* MenuBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarView.swift; sourceTree = "<group>"; };
 		BD5F66FB95D8BBD93EFCBE00 /* AppSettingsStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettingsStoreTests.swift; sourceTree = "<group>"; };
 		BE8DBF95730F8FD235AFAC47 /* UsageModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageModels.swift; sourceTree = "<group>"; };
+		C1291754346ED094133AE0E6 /* pricing-v1.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "pricing-v1.json"; sourceTree = "<group>"; };
 		C69732493AABC7109EB74F3F /* ProviderID.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderID.swift; sourceTree = "<group>"; };
 		C6BA50B54580BB6EDF13DF33 /* ProviderAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderAdapter.swift; sourceTree = "<group>"; };
+		D10078AD9B1875C460A90C37 /* CostEstimatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CostEstimatorTests.swift; sourceTree = "<group>"; };
 		D461F567F4AC93CAD78D6410 /* Account.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Account.swift; sourceTree = "<group>"; };
 		FA3C1D8E770A657CE4E29EF0 /* LedgerStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LedgerStoreTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -108,6 +116,7 @@
 				BADB60B468F1FBD0DA29327C /* Credentials */,
 				E5E9B6E9F94115F5FF5131D5 /* Ledger */,
 				335EEF2FA3EA6D6E5F921492 /* Models */,
+				77E23283691887695B872732 /* Pricing */,
 				6DBA14BDF0D070950EE31645 /* Providers */,
 				9AF583FA1B0FD9CFA34B4D49 /* Resources */,
 				4E5460F43DB545B2D4750940 /* UI */,
@@ -133,10 +142,20 @@
 			path = Providers;
 			sourceTree = "<group>";
 		};
+		77E23283691887695B872732 /* Pricing */ = {
+			isa = PBXGroup;
+			children = (
+				B258111FCCAE74A8FC95B9FF /* CostEstimator.swift */,
+				2D596EC370B13AA593C32D79 /* PricingCatalog.swift */,
+			);
+			path = Pricing;
+			sourceTree = "<group>";
+		};
 		82636854C35E5C5CD4E44549 /* GlyphlineTests */ = {
 			isa = PBXGroup;
 			children = (
 				BD5F66FB95D8BBD93EFCBE00 /* AppSettingsStoreTests.swift */,
+				D10078AD9B1875C460A90C37 /* CostEstimatorTests.swift */,
 				412F5489EA0C8B4EE160128C /* GlyphlineSmokeTests.swift */,
 				89EEFE279720CAF7CA13AEB0 /* KeychainStoreTests.swift */,
 				FA3C1D8E770A657CE4E29EF0 /* LedgerStoreTests.swift */,
@@ -168,6 +187,7 @@
 			isa = PBXGroup;
 			children = (
 				3B1D47E3EFDB4A47186A23AF /* .gitkeep */,
+				C1291754346ED094133AE0E6 /* pricing-v1.json */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -242,6 +262,7 @@
 			buildConfigurationList = 7ECA3EDDF904907CFD8A0E7F /* Build configuration list for PBXNativeTarget "Glyphline" */;
 			buildPhases = (
 				8B934CFA14F28837BF39AA69 /* Sources */,
+				8CABBA24606F0019D549A115 /* Resources */,
 				7EE267B68A192C31885642F4 /* Frameworks */,
 			);
 			buildRules = (
@@ -293,12 +314,24 @@
 		};
 /* End PBXProject section */
 
+/* Begin PBXResourcesBuildPhase section */
+		8CABBA24606F0019D549A115 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F1C14BF4C9F663FD03819DAA /* pricing-v1.json in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		5D9122E048D93A646AE1BC6D /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				29DAC97DF9CC2CB3A0D01784 /* AppSettingsStoreTests.swift in Sources */,
+				59022EBC301F5B43468F886F /* CostEstimatorTests.swift in Sources */,
 				68A1F885C4A8FF2F2D947648 /* GlyphlineSmokeTests.swift in Sources */,
 				6F6854805AD8B45E9AB095BA /* KeychainStoreTests.swift in Sources */,
 				94709AE6F65A1DC6E85EADAE /* LedgerStoreTests.swift in Sources */,
@@ -315,6 +348,7 @@
 				37CFE0A06075136004EBA62F /* AppActivationController.swift in Sources */,
 				BE2B9EEEA941F5F4FDD5FDEA /* AppMode.swift in Sources */,
 				2BDACE3AAE0A202FCB9520BC /* AppSettingsStore.swift in Sources */,
+				EE496A4425EF2D3826391753 /* CostEstimator.swift in Sources */,
 				AEE77B35497B4D068C0E2FA5 /* DashboardView.swift in Sources */,
 				02E55AFA00BD9CCB7061CBD2 /* DatabaseQueueFactory.swift in Sources */,
 				8B403A4B3B94ED8DAA65426D /* FixtureProviderAdapter.swift in Sources */,
@@ -323,6 +357,7 @@
 				B85CA610DA5E8BBC7879D1CD /* LedgerStore.swift in Sources */,
 				2A7289DD211158D42C26C9DE /* MenuBarView.swift in Sources */,
 				81A31CCE7A84A8263856A8DC /* Migrations.swift in Sources */,
+				28C11321FB7E815ECD239AE1 /* PricingCatalog.swift in Sources */,
 				DD65CBEE767BCD073129FC0C /* ProviderAdapter.swift in Sources */,
 				42DA56777FC9BBAD2671DB97 /* ProviderID.swift in Sources */,
 				D8B77926E2F0A8CA8B0916E2 /* UsageModels.swift in Sources */,

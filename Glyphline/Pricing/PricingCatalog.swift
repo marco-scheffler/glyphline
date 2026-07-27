@@ -1,0 +1,43 @@
+import Foundation
+
+struct PricingEntry: Codable, Equatable, Sendable {
+    var providerID: ProviderID
+    var model: String
+    var inputMicrosPerMillionTokens: Int64
+    var outputMicrosPerMillionTokens: Int64
+    var currency: String
+    var effectiveDate: String
+    var source: String
+}
+
+struct PricingCatalog: Sendable {
+    let entries: [PricingEntry]
+
+    func entry(providerID: ProviderID, model: String?) -> PricingEntry? {
+        guard let model else { return nil }
+        return entries.first { $0.providerID == providerID && $0.model == model }
+    }
+
+    static func bundled() throws -> PricingCatalog {
+        let bundle = Bundle.main
+        let resourceURL = bundle.url(forResource: "pricing-v1", withExtension: "json")
+            ?? bundle.url(forResource: "pricing-v1", withExtension: "json", subdirectory: "Resources")
+
+        guard let resourceURL else {
+            throw PricingCatalogError.missingResource(name: "pricing-v1", extension: "json")
+        }
+
+        let data = try Data(contentsOf: resourceURL)
+        return try JSONDecoder().decode([PricingEntry].self, from: data).asCatalog()
+    }
+}
+
+enum PricingCatalogError: Error, Equatable {
+    case missingResource(name: String, extension: String)
+}
+
+private extension Array where Element == PricingEntry {
+    func asCatalog() -> PricingCatalog {
+        PricingCatalog(entries: self)
+    }
+}
