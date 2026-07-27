@@ -14,6 +14,32 @@ final class KeychainStoreTests: XCTestCase {
         XCTAssertNil(try store.readSecret(for: "openai-personal"))
     }
 
+    /// Two accounts syncing at once put concurrent saves and reads on one store. Unsynchronized
+    /// dictionary mutation corrupts the heap rather than merely returning a stale value, so this
+    /// hammers both paths and asserts every read returns a value the store was actually given.
+    func testInMemoryCredentialStoreSurvivesConcurrentSaveAndRead() throws {
+        let store = InMemoryCredentialStore()
+        let references = (0..<32).map { "openai-account-\($0)" }
+        for reference in references {
+            try store.save(secret: "seed", for: reference)
+        }
+
+        DispatchQueue.concurrentPerform(iterations: 256) { iteration in
+            let reference = references[iteration % references.count]
+            if iteration.isMultiple(of: 2) {
+                try? store.save(secret: "sk-\(iteration)", for: reference)
+            } else {
+                let secret = try? store.readSecret(for: reference)
+                XCTAssertNotNil(secret)
+                XCTAssertTrue(secret?.hasPrefix("s") == true)
+            }
+        }
+
+        for reference in references {
+            XCTAssertNotNil(try store.readSecret(for: reference))
+        }
+    }
+
     func testKeychainStoreUpdatesExistingCredentialWithoutDelete() throws {
         let client = MockKeychainClient(updateStatus: errSecSuccess)
         let store = KeychainStore(service: "test.service", client: client)
@@ -49,7 +75,10 @@ final class KeychainStoreTests: XCTestCase {
     }
 }
 
-private final class MockKeychainClient: KeychainClient {
+/// `@unchecked` asserts exactly one thing: every access to this double's mutable state happens while
+/// `lock` is held. That holds because all stored state is private, reached only through the accessors
+/// and methods below, and each one takes the lock for the whole access.
+private final class MockKeychainClient: KeychainClient, @unchecked Sendable {
     enum Call: Equatable {
         case update
         case add
@@ -57,20 +86,36 @@ private final class MockKeychainClient: KeychainClient {
         case delete
     }
 
-    var updateStatus: OSStatus
-    var addStatus: OSStatus
-    var copyData: Data?
-    var copyError: Error?
-    var deleteStatus: OSStatus
+    let updateStatus: OSStatus
+    let addStatus: OSStatus
+    let copyData: Data?
+    let copyError: (any Error)?
+    let deleteStatus: OSStatus
 
-    private(set) var calls: [Call] = []
-    private(set) var updateQuery: [String: Any] = [:]
-    private(set) var updateAttributes: [String: Any] = [:]
-    private(set) var addQuery: [String: Any] = [:]
-    private(set) var copyQuery: [String: Any] = [:]
-    private(set) var deleteQuery: [String: Any] = [:]
-    private(set) var deleteCallCount = 0
-    private(set) var addCallCount = 0
+    private let lock = NSLock()
+    private var _calls: [Call] = []
+    private var _updateQuery: [String: Any] = [:]
+    private var _updateAttributes: [String: Any] = [:]
+    private var _addQuery: [String: Any] = [:]
+    private var _copyQuery: [String: Any] = [:]
+    private var _deleteQuery: [String: Any] = [:]
+    private var _deleteCallCount = 0
+    private var _addCallCount = 0
+
+    private func withLock<T>(_ body: () -> T) -> T {
+        lock.lock()
+        defer { lock.unlock() }
+        return body()
+    }
+
+    var calls: [Call] { withLock { _calls } }
+    var updateQuery: [String: Any] { withLock { _updateQuery } }
+    var updateAttributes: [String: Any] { withLock { _updateAttributes } }
+    var addQuery: [String: Any] { withLock { _addQuery } }
+    var copyQuery: [String: Any] { withLock { _copyQuery } }
+    var deleteQuery: [String: Any] { withLock { _deleteQuery } }
+    var deleteCallCount: Int { withLock { _deleteCallCount } }
+    var addCallCount: Int { withLock { _addCallCount } }
 
     init(
         updateStatus: OSStatus,
@@ -87,22 +132,28 @@ private final class MockKeychainClient: KeychainClient {
     }
 
     func update(query: [String: Any], attributes: [String: Any]) -> OSStatus {
-        calls.append(.update)
-        updateQuery = query
-        updateAttributes = attributes
+        withLock {
+            _calls.append(.update)
+            _updateQuery = query
+            _updateAttributes = attributes
+        }
         return updateStatus
     }
 
     func add(query: [String: Any]) -> OSStatus {
-        calls.append(.add)
-        addCallCount += 1
-        addQuery = query
+        withLock {
+            _calls.append(.add)
+            _addCallCount += 1
+            _addQuery = query
+        }
         return addStatus
     }
 
     func copyMatching(query: [String: Any]) throws -> Data? {
-        calls.append(.copyMatching)
-        copyQuery = query
+        withLock {
+            _calls.append(.copyMatching)
+            _copyQuery = query
+        }
         if let copyError {
             throw copyError
         }
@@ -110,9 +161,11 @@ private final class MockKeychainClient: KeychainClient {
     }
 
     func delete(query: [String: Any]) -> OSStatus {
-        calls.append(.delete)
-        deleteCallCount += 1
-        deleteQuery = query
+        withLock {
+            _calls.append(.delete)
+            _deleteCallCount += 1
+            _deleteQuery = query
+        }
         return deleteStatus
     }
 }

@@ -1,13 +1,13 @@
 import Foundation
 import Security
 
-protocol CredentialStore {
+protocol CredentialStore: Sendable {
     func save(secret: String, for reference: String) throws
     func readSecret(for reference: String) throws -> String?
     func deleteSecret(for reference: String) throws
 }
 
-protocol KeychainClient {
+protocol KeychainClient: Sendable {
     func update(query: [String: Any], attributes: [String: Any]) -> OSStatus
     func add(query: [String: Any]) -> OSStatus
     func copyMatching(query: [String: Any]) throws -> Data?
@@ -43,18 +43,28 @@ struct SystemKeychainClient: KeychainClient {
     }
 }
 
-final class InMemoryCredentialStore: CredentialStore {
+/// `@unchecked` asserts exactly one thing: every access to `secrets` happens while `lock` is held.
+/// That holds because `secrets` is private, the three methods below are its only accessors, and each
+/// takes the lock for the whole access. No reference to `secrets` escapes the lock.
+final class InMemoryCredentialStore: CredentialStore, @unchecked Sendable {
+    private let lock = NSLock()
     private var secrets: [String: String] = [:]
 
     func save(secret: String, for reference: String) throws {
+        lock.lock()
+        defer { lock.unlock() }
         secrets[reference] = secret
     }
 
     func readSecret(for reference: String) throws -> String? {
-        secrets[reference]
+        lock.lock()
+        defer { lock.unlock() }
+        return secrets[reference]
     }
 
     func deleteSecret(for reference: String) throws {
+        lock.lock()
+        defer { lock.unlock() }
         secrets.removeValue(forKey: reference)
     }
 }
@@ -63,7 +73,7 @@ enum KeychainError: Error, Equatable {
     case status(OSStatus)
 }
 
-final class KeychainStore: CredentialStore {
+final class KeychainStore: CredentialStore, Sendable {
     private let service: String
     private let client: any KeychainClient
 
