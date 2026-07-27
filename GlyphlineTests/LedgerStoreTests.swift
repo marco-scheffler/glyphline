@@ -76,30 +76,67 @@ final class LedgerStoreTests: XCTestCase {
         XCTAssertEqual(rows[1].quality, .exact)
     }
 
-    func testSaveAccountRoundTripsStoredMetadata() throws {
+    func testCostSnapshotsAreIdempotentByBucketAndCurrency() throws {
         let store = try makeStore()
         let account = makeAccount()
-
         try store.saveAccount(account)
 
-        XCTAssertEqual(try store.fetchAccounts(), [account])
-    }
-
-    func testEstimateSnapshotsRoundTripForAccount() throws {
-        let store = try makeStore()
-        let account = makeAccount(providerID: .claude)
-        try store.saveAccount(account)
-
-        let first = EstimateSnapshot(
+        let bucketStart = Date(timeIntervalSince1970: 1_800_000_000)
+        let bucketEnd = bucketStart.addingTimeInterval(86_400)
+        let original = CostSnapshot(
             id: UUID(),
             accountID: account.id,
-            providerID: .claude,
-            bucketStart: Date(timeIntervalSince1970: 1_800_100_000),
-            bucketEnd: Date(timeIntervalSince1970: 1_800_186_400),
-            estimatedAmountMicros: 125_000,
+            providerID: .openAI,
+            bucketStart: bucketStart,
+            bucketEnd: bucketEnd,
+            amountMicros: 120_000,
             currency: "USD",
             quality: .estimated
         )
+        let replacement = CostSnapshot(
+            id: UUID(),
+            accountID: account.id,
+            providerID: .openAI,
+            bucketStart: bucketStart,
+            bucketEnd: bucketEnd,
+            amountMicros: 180_000,
+            currency: "USD",
+            quality: .exact
+        )
+
+        try store.upsertCostSnapshots([original])
+        try store.upsertCostSnapshots([replacement])
+
+        let rows = try store.fetchCostSnapshots(accountID: account.id)
+
+        XCTAssertEqual(rows.count, 1)
+        XCTAssertEqual(rows[0].amountMicros, 180_000)
+        XCTAssertEqual(rows[0].currency, "USD")
+        XCTAssertEqual(rows[0].quality, .exact)
+    }
+
+    func testAccountsRoundTripInCreatedAtOrder() throws {
+        let store = try makeStore()
+        let first = makeAccount(
+            providerID: .cursor,
+            createdAt: Date(timeIntervalSince1970: 1_800_000_000)
+        )
+        let second = makeAccount(
+            providerID: .claude,
+            createdAt: Date(timeIntervalSince1970: 1_800_086_400)
+        )
+
+        try store.saveAccount(second)
+        try store.saveAccount(first)
+
+        XCTAssertEqual(try store.fetchAccounts(), [first, second])
+    }
+
+    func testEstimateSnapshotsFetchInBucketOrder() throws {
+        let store = try makeStore()
+        let account = makeAccount()
+        try store.saveAccount(account)
+
         let second = EstimateSnapshot(
             id: UUID(),
             accountID: account.id,
@@ -109,6 +146,16 @@ final class LedgerStoreTests: XCTestCase {
             estimatedAmountMicros: 220_000,
             currency: "USD",
             quality: .exact
+        )
+        let first = EstimateSnapshot(
+            id: UUID(),
+            accountID: account.id,
+            providerID: .claude,
+            bucketStart: Date(timeIntervalSince1970: 1_800_000_000),
+            bucketEnd: Date(timeIntervalSince1970: 1_800_086_400),
+            estimatedAmountMicros: 110_000,
+            currency: "USD",
+            quality: .estimated
         )
 
         try store.upsertEstimateSnapshots([second, first])
@@ -122,13 +169,16 @@ final class LedgerStoreTests: XCTestCase {
         return LedgerStore(dbQueue: dbQueue)
     }
 
-    private func makeAccount(providerID: ProviderID = .openAI) -> Account {
+    private func makeAccount(
+        providerID: ProviderID = .openAI,
+        createdAt: Date = Date(timeIntervalSince1970: 1_800_000_000)
+    ) -> Account {
         Account(
             id: UUID(),
             providerID: providerID,
             displayName: "Personal",
             credentialReference: "keychain://glyphline/\(UUID().uuidString)",
-            createdAt: Date(timeIntervalSince1970: 1_800_000_000),
+            createdAt: createdAt,
             isEnabled: true
         )
     }

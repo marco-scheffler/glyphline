@@ -87,6 +87,43 @@ private struct UsageSnapshotRecord: Codable, FetchableRecord, PersistableRecord,
     }
 }
 
+private struct CostSnapshotRecord: Codable, FetchableRecord, PersistableRecord, TableRecord {
+    static let databaseTableName = LedgerTable.costSnapshots
+
+    var id: String
+    var accountID: String
+    var providerID: String
+    var bucketStart: Date
+    var bucketEnd: Date
+    var amountMicros: Int64
+    var currency: String
+    var quality: String
+
+    init(_ snapshot: CostSnapshot) {
+        id = snapshot.id.uuidString
+        accountID = snapshot.accountID.uuidString
+        providerID = snapshot.providerID.rawValue
+        bucketStart = snapshot.bucketStart
+        bucketEnd = snapshot.bucketEnd
+        amountMicros = snapshot.amountMicros
+        currency = snapshot.currency
+        quality = snapshot.quality.rawValue
+    }
+
+    var snapshot: CostSnapshot {
+        CostSnapshot(
+            id: UUID(uuidString: id)!,
+            accountID: UUID(uuidString: accountID)!,
+            providerID: ProviderID(rawValue: providerID)!,
+            bucketStart: bucketStart,
+            bucketEnd: bucketEnd,
+            amountMicros: amountMicros,
+            currency: currency,
+            quality: DataQuality(rawValue: quality)!
+        )
+    }
+}
+
 private struct EstimateSnapshotRecord: Codable, FetchableRecord, PersistableRecord, TableRecord {
     static let databaseTableName = LedgerTable.estimateSnapshots
 
@@ -144,7 +181,8 @@ final class LedgerStore {
                     \(LedgerColumn.credentialReference),
                     \(LedgerColumn.createdAt),
                     \(LedgerColumn.isEnabled)
-                ) VALUES (?, ?, ?, ?, ?, ?)
+                )
+                VALUES (?, ?, ?, ?, ?, ?)
                 ON CONFLICT(\(LedgerColumn.id)) DO UPDATE SET
                     \(LedgerColumn.providerID) = excluded.\(LedgerColumn.providerID),
                     \(LedgerColumn.displayName) = excluded.\(LedgerColumn.displayName),
@@ -195,7 +233,8 @@ final class LedgerStore {
                         \(LedgerColumn.outputTokens),
                         \(LedgerColumn.requests),
                         \(LedgerColumn.quality)
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ON CONFLICT(
                         \(LedgerColumn.accountID),
                         \(LedgerColumn.providerID),
@@ -235,6 +274,7 @@ final class LedgerStore {
 
         try dbQueue.write { db in
             for snapshot in snapshots {
+                let record = CostSnapshotRecord(snapshot)
                 try db.execute(
                     sql: """
                     INSERT INTO \(LedgerTable.costSnapshots) (
@@ -246,7 +286,8 @@ final class LedgerStore {
                         \(LedgerColumn.amountMicros),
                         \(LedgerColumn.currency),
                         \(LedgerColumn.quality)
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     ON CONFLICT(
                         \(LedgerColumn.accountID),
                         \(LedgerColumn.providerID),
@@ -259,14 +300,14 @@ final class LedgerStore {
                         \(LedgerColumn.quality) = excluded.\(LedgerColumn.quality)
                     """,
                     arguments: [
-                        snapshot.id.uuidString,
-                        snapshot.accountID.uuidString,
-                        snapshot.providerID.rawValue,
-                        snapshot.bucketStart,
-                        snapshot.bucketEnd,
-                        snapshot.amountMicros,
-                        snapshot.currency,
-                        snapshot.quality.rawValue,
+                        record.id,
+                        record.accountID,
+                        record.providerID,
+                        record.bucketStart,
+                        record.bucketEnd,
+                        record.amountMicros,
+                        record.currency,
+                        record.quality,
                     ]
                 )
             }
@@ -292,7 +333,8 @@ final class LedgerStore {
                         \(LedgerColumn.estimatedAmountMicros),
                         \(LedgerColumn.currency),
                         \(LedgerColumn.quality)
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     ON CONFLICT(
                         \(LedgerColumn.accountID),
                         \(LedgerColumn.providerID),
@@ -327,6 +369,20 @@ final class LedgerStore {
                     Column(LedgerColumn.bucketStart),
                     Column(LedgerColumn.bucketEnd),
                     Column(LedgerColumn.modelKey)
+                )
+                .fetchAll(db)
+                .map(\.snapshot)
+        }
+    }
+
+    func fetchCostSnapshots(accountID: UUID) throws -> [CostSnapshot] {
+        try dbQueue.read { db in
+            try CostSnapshotRecord
+                .filter(Column(LedgerColumn.accountID) == accountID.uuidString)
+                .order(
+                    Column(LedgerColumn.bucketStart),
+                    Column(LedgerColumn.bucketEnd),
+                    Column(LedgerColumn.currency)
                 )
                 .fetchAll(db)
                 .map(\.snapshot)
