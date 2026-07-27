@@ -64,7 +64,7 @@ enum Migrations {
                     LedgerColumn.providerID,
                     LedgerColumn.bucketStart,
                     LedgerColumn.bucketEnd,
-                    LedgerColumn.modelKey
+                    LedgerColumn.modelKey,
                 ])
             }
 
@@ -82,7 +82,7 @@ enum Migrations {
                     LedgerColumn.providerID,
                     LedgerColumn.bucketStart,
                     LedgerColumn.bucketEnd,
-                    LedgerColumn.currency
+                    LedgerColumn.currency,
                 ])
             }
 
@@ -100,10 +100,12 @@ enum Migrations {
                     LedgerColumn.providerID,
                     LedgerColumn.bucketStart,
                     LedgerColumn.bucketEnd,
-                    LedgerColumn.currency
+                    LedgerColumn.currency,
                 ])
             }
+        }
 
+        migrator.registerMigration("v2_create_sync_runs") { db in
             try db.create(table: LedgerTable.syncRuns) { table in
                 table.column(LedgerColumn.id, .text).primaryKey()
                 table.column(LedgerColumn.accountID, .text).notNull().indexed()

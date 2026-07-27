@@ -14,10 +14,33 @@ final class SyncScheduler {
             throw SyncSchedulerError.missingCredential(accountID: account.id)
         }
 
-        let result = try await adapter.sync(account: account, secret: secret)
-        try ledger.upsertUsageSnapshots(result.usageSnapshots)
-        try ledger.upsertCostSnapshots(result.costSnapshots)
-        try ledger.upsertEstimateSnapshots(result.estimateSnapshots)
+        let startedAt = Date()
+        let syncRunID = try ledger.startSyncRun(
+            accountID: account.id,
+            providerID: adapter.providerID,
+            startedAt: startedAt
+        )
+
+        do {
+            let result = try await adapter.sync(account: account, secret: secret)
+            try ledger.upsertUsageSnapshots(result.usageSnapshots)
+            try ledger.upsertCostSnapshots(result.costSnapshots)
+            try ledger.upsertEstimateSnapshots(result.estimateSnapshots)
+            try ledger.finishSyncRun(
+                id: syncRunID,
+                status: .succeeded,
+                message: nil,
+                finishedAt: result.syncedAt
+            )
+        } catch {
+            try? ledger.finishSyncRun(
+                id: syncRunID,
+                status: .failed,
+                message: String(describing: error),
+                finishedAt: Date()
+            )
+            throw error
+        }
     }
 }
 

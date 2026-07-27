@@ -11,6 +11,22 @@ private enum LedgerModelIdentity {
     }
 }
 
+struct SyncRun: Identifiable, Equatable, Sendable {
+    enum Status: String, Codable, Equatable, Sendable {
+        case running
+        case succeeded
+        case failed
+    }
+
+    let id: UUID
+    var accountID: UUID
+    var providerID: ProviderID
+    var startedAt: Date
+    var finishedAt: Date?
+    var status: Status
+    var message: String?
+}
+
 private struct AccountRecord: Codable, FetchableRecord, PersistableRecord, TableRecord {
     static let databaseTableName = LedgerTable.accounts
 
@@ -161,6 +177,40 @@ private struct EstimateSnapshotRecord: Codable, FetchableRecord, PersistableReco
     }
 }
 
+private struct SyncRunRecord: Codable, FetchableRecord, PersistableRecord, TableRecord {
+    static let databaseTableName = LedgerTable.syncRuns
+
+    var id: String
+    var accountID: String
+    var providerID: String
+    var startedAt: Date
+    var finishedAt: Date?
+    var status: String
+    var message: String?
+
+    init(_ syncRun: SyncRun) {
+        id = syncRun.id.uuidString
+        accountID = syncRun.accountID.uuidString
+        providerID = syncRun.providerID.rawValue
+        startedAt = syncRun.startedAt
+        finishedAt = syncRun.finishedAt
+        status = syncRun.status.rawValue
+        message = syncRun.message
+    }
+
+    var syncRun: SyncRun {
+        SyncRun(
+            id: UUID(uuidString: id)!,
+            accountID: UUID(uuidString: accountID)!,
+            providerID: ProviderID(rawValue: providerID)!,
+            startedAt: startedAt,
+            finishedAt: finishedAt,
+            status: SyncRun.Status(rawValue: status)!,
+            message: message
+        )
+    }
+}
+
 final class LedgerStore {
     private let dbQueue: DatabaseQueue
 
@@ -174,22 +224,22 @@ final class LedgerStore {
         try dbQueue.write { db in
             try db.execute(
                 sql: """
-                INSERT INTO \(LedgerTable.accounts) (
-                    \(LedgerColumn.id),
-                    \(LedgerColumn.providerID),
-                    \(LedgerColumn.displayName),
-                    \(LedgerColumn.credentialReference),
-                    \(LedgerColumn.createdAt),
-                    \(LedgerColumn.isEnabled)
-                )
-                VALUES (?, ?, ?, ?, ?, ?)
-                ON CONFLICT(\(LedgerColumn.id)) DO UPDATE SET
-                    \(LedgerColumn.providerID) = excluded.\(LedgerColumn.providerID),
-                    \(LedgerColumn.displayName) = excluded.\(LedgerColumn.displayName),
-                    \(LedgerColumn.credentialReference) = excluded.\(LedgerColumn.credentialReference),
-                    \(LedgerColumn.createdAt) = excluded.\(LedgerColumn.createdAt),
-                    \(LedgerColumn.isEnabled) = excluded.\(LedgerColumn.isEnabled)
-                """,
+                    INSERT INTO \(LedgerTable.accounts) (
+                        \(LedgerColumn.id),
+                        \(LedgerColumn.providerID),
+                        \(LedgerColumn.displayName),
+                        \(LedgerColumn.credentialReference),
+                        \(LedgerColumn.createdAt),
+                        \(LedgerColumn.isEnabled)
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(\(LedgerColumn.id)) DO UPDATE SET
+                        \(LedgerColumn.providerID) = excluded.\(LedgerColumn.providerID),
+                        \(LedgerColumn.displayName) = excluded.\(LedgerColumn.displayName),
+                        \(LedgerColumn.credentialReference) = excluded.\(LedgerColumn.credentialReference),
+                        \(LedgerColumn.createdAt) = excluded.\(LedgerColumn.createdAt),
+                        \(LedgerColumn.isEnabled) = excluded.\(LedgerColumn.isEnabled)
+                    """,
                 arguments: [
                     record.id,
                     record.providerID,
@@ -221,34 +271,34 @@ final class LedgerStore {
                 let record = UsageSnapshotRecord(snapshot)
                 try db.execute(
                     sql: """
-                    INSERT INTO \(LedgerTable.usageSnapshots) (
-                        \(LedgerColumn.id),
-                        \(LedgerColumn.accountID),
-                        \(LedgerColumn.providerID),
-                        \(LedgerColumn.bucketStart),
-                        \(LedgerColumn.bucketEnd),
-                        \(LedgerColumn.model),
-                        \(LedgerColumn.modelKey),
-                        \(LedgerColumn.inputTokens),
-                        \(LedgerColumn.outputTokens),
-                        \(LedgerColumn.requests),
-                        \(LedgerColumn.quality)
-                    )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    ON CONFLICT(
-                        \(LedgerColumn.accountID),
-                        \(LedgerColumn.providerID),
-                        \(LedgerColumn.bucketStart),
-                        \(LedgerColumn.bucketEnd),
-                        \(LedgerColumn.modelKey)
-                    ) DO UPDATE SET
-                        \(LedgerColumn.id) = excluded.\(LedgerColumn.id),
-                        \(LedgerColumn.model) = excluded.\(LedgerColumn.model),
-                        \(LedgerColumn.inputTokens) = excluded.\(LedgerColumn.inputTokens),
-                        \(LedgerColumn.outputTokens) = excluded.\(LedgerColumn.outputTokens),
-                        \(LedgerColumn.requests) = excluded.\(LedgerColumn.requests),
-                        \(LedgerColumn.quality) = excluded.\(LedgerColumn.quality)
-                    """,
+                        INSERT INTO \(LedgerTable.usageSnapshots) (
+                            \(LedgerColumn.id),
+                            \(LedgerColumn.accountID),
+                            \(LedgerColumn.providerID),
+                            \(LedgerColumn.bucketStart),
+                            \(LedgerColumn.bucketEnd),
+                            \(LedgerColumn.model),
+                            \(LedgerColumn.modelKey),
+                            \(LedgerColumn.inputTokens),
+                            \(LedgerColumn.outputTokens),
+                            \(LedgerColumn.requests),
+                            \(LedgerColumn.quality)
+                        )
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ON CONFLICT(
+                            \(LedgerColumn.accountID),
+                            \(LedgerColumn.providerID),
+                            \(LedgerColumn.bucketStart),
+                            \(LedgerColumn.bucketEnd),
+                            \(LedgerColumn.modelKey)
+                        ) DO UPDATE SET
+                            \(LedgerColumn.id) = excluded.\(LedgerColumn.id),
+                            \(LedgerColumn.model) = excluded.\(LedgerColumn.model),
+                            \(LedgerColumn.inputTokens) = excluded.\(LedgerColumn.inputTokens),
+                            \(LedgerColumn.outputTokens) = excluded.\(LedgerColumn.outputTokens),
+                            \(LedgerColumn.requests) = excluded.\(LedgerColumn.requests),
+                            \(LedgerColumn.quality) = excluded.\(LedgerColumn.quality)
+                        """,
                     arguments: [
                         record.id,
                         record.accountID,
@@ -277,28 +327,28 @@ final class LedgerStore {
                 let record = CostSnapshotRecord(snapshot)
                 try db.execute(
                     sql: """
-                    INSERT INTO \(LedgerTable.costSnapshots) (
-                        \(LedgerColumn.id),
-                        \(LedgerColumn.accountID),
-                        \(LedgerColumn.providerID),
-                        \(LedgerColumn.bucketStart),
-                        \(LedgerColumn.bucketEnd),
-                        \(LedgerColumn.amountMicros),
-                        \(LedgerColumn.currency),
-                        \(LedgerColumn.quality)
-                    )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                    ON CONFLICT(
-                        \(LedgerColumn.accountID),
-                        \(LedgerColumn.providerID),
-                        \(LedgerColumn.bucketStart),
-                        \(LedgerColumn.bucketEnd),
-                        \(LedgerColumn.currency)
-                    ) DO UPDATE SET
-                        \(LedgerColumn.id) = excluded.\(LedgerColumn.id),
-                        \(LedgerColumn.amountMicros) = excluded.\(LedgerColumn.amountMicros),
-                        \(LedgerColumn.quality) = excluded.\(LedgerColumn.quality)
-                    """,
+                        INSERT INTO \(LedgerTable.costSnapshots) (
+                            \(LedgerColumn.id),
+                            \(LedgerColumn.accountID),
+                            \(LedgerColumn.providerID),
+                            \(LedgerColumn.bucketStart),
+                            \(LedgerColumn.bucketEnd),
+                            \(LedgerColumn.amountMicros),
+                            \(LedgerColumn.currency),
+                            \(LedgerColumn.quality)
+                        )
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        ON CONFLICT(
+                            \(LedgerColumn.accountID),
+                            \(LedgerColumn.providerID),
+                            \(LedgerColumn.bucketStart),
+                            \(LedgerColumn.bucketEnd),
+                            \(LedgerColumn.currency)
+                        ) DO UPDATE SET
+                            \(LedgerColumn.id) = excluded.\(LedgerColumn.id),
+                            \(LedgerColumn.amountMicros) = excluded.\(LedgerColumn.amountMicros),
+                            \(LedgerColumn.quality) = excluded.\(LedgerColumn.quality)
+                        """,
                     arguments: [
                         record.id,
                         record.accountID,
@@ -324,28 +374,28 @@ final class LedgerStore {
                 let record = EstimateSnapshotRecord(snapshot)
                 try db.execute(
                     sql: """
-                    INSERT INTO \(LedgerTable.estimateSnapshots) (
-                        \(LedgerColumn.id),
-                        \(LedgerColumn.accountID),
-                        \(LedgerColumn.providerID),
-                        \(LedgerColumn.bucketStart),
-                        \(LedgerColumn.bucketEnd),
-                        \(LedgerColumn.estimatedAmountMicros),
-                        \(LedgerColumn.currency),
-                        \(LedgerColumn.quality)
-                    )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                    ON CONFLICT(
-                        \(LedgerColumn.accountID),
-                        \(LedgerColumn.providerID),
-                        \(LedgerColumn.bucketStart),
-                        \(LedgerColumn.bucketEnd),
-                        \(LedgerColumn.currency)
-                    ) DO UPDATE SET
-                        \(LedgerColumn.id) = excluded.\(LedgerColumn.id),
-                        \(LedgerColumn.estimatedAmountMicros) = excluded.\(LedgerColumn.estimatedAmountMicros),
-                        \(LedgerColumn.quality) = excluded.\(LedgerColumn.quality)
-                    """,
+                        INSERT INTO \(LedgerTable.estimateSnapshots) (
+                            \(LedgerColumn.id),
+                            \(LedgerColumn.accountID),
+                            \(LedgerColumn.providerID),
+                            \(LedgerColumn.bucketStart),
+                            \(LedgerColumn.bucketEnd),
+                            \(LedgerColumn.estimatedAmountMicros),
+                            \(LedgerColumn.currency),
+                            \(LedgerColumn.quality)
+                        )
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        ON CONFLICT(
+                            \(LedgerColumn.accountID),
+                            \(LedgerColumn.providerID),
+                            \(LedgerColumn.bucketStart),
+                            \(LedgerColumn.bucketEnd),
+                            \(LedgerColumn.currency)
+                        ) DO UPDATE SET
+                            \(LedgerColumn.id) = excluded.\(LedgerColumn.id),
+                            \(LedgerColumn.estimatedAmountMicros) = excluded.\(LedgerColumn.estimatedAmountMicros),
+                            \(LedgerColumn.quality) = excluded.\(LedgerColumn.quality)
+                        """,
                     arguments: [
                         record.id,
                         record.accountID,
@@ -358,6 +408,68 @@ final class LedgerStore {
                     ]
                 )
             }
+        }
+    }
+
+    func startSyncRun(accountID: UUID, providerID: ProviderID, startedAt: Date) throws -> UUID {
+        let syncRun = SyncRun(
+            id: UUID(),
+            accountID: accountID,
+            providerID: providerID,
+            startedAt: startedAt,
+            finishedAt: nil,
+            status: .running,
+            message: nil
+        )
+        let record = SyncRunRecord(syncRun)
+
+        try dbQueue.write { db in
+            try db.execute(
+                sql: """
+                    INSERT INTO \(LedgerTable.syncRuns) (
+                        \(LedgerColumn.id),
+                        \(LedgerColumn.accountID),
+                        \(LedgerColumn.providerID),
+                        \(LedgerColumn.startedAt),
+                        \(LedgerColumn.finishedAt),
+                        \(LedgerColumn.status),
+                        \(LedgerColumn.message)
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                arguments: [
+                    record.id,
+                    record.accountID,
+                    record.providerID,
+                    record.startedAt,
+                    record.finishedAt,
+                    record.status,
+                    record.message,
+                ]
+            )
+        }
+
+        return syncRun.id
+    }
+
+    func finishSyncRun(id: UUID, status: SyncRun.Status, message: String?, finishedAt: Date) throws {
+        try dbQueue.write { db in
+            try db.execute(
+                sql: """
+                    UPDATE \(LedgerTable.syncRuns)
+                    SET
+                        \(LedgerColumn.finishedAt) = ?,
+                        \(LedgerColumn.status) = ?,
+                        \(LedgerColumn.message) = ?
+                    WHERE \(LedgerColumn.id) = ?
+                    """,
+                arguments: [
+                    finishedAt,
+                    status.rawValue,
+                    message,
+                    id.uuidString,
+                ]
+            )
         }
     }
 
@@ -396,6 +508,16 @@ final class LedgerStore {
                 .order(Column(LedgerColumn.bucketStart), Column(LedgerColumn.bucketEnd))
                 .fetchAll(db)
                 .map(\.snapshot)
+        }
+    }
+
+    func fetchSyncRuns(accountID: UUID) throws -> [SyncRun] {
+        try dbQueue.read { db in
+            try SyncRunRecord
+                .filter(Column(LedgerColumn.accountID) == accountID.uuidString)
+                .order(Column(LedgerColumn.startedAt).desc, Column(LedgerColumn.id).desc)
+                .fetchAll(db)
+                .map(\.syncRun)
         }
     }
 }
