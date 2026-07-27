@@ -30,6 +30,8 @@ targets:
     deploymentTarget: "14.0"
     sources:
       - GlyphlineTests
+    resources:
+      - GlyphlineTests/Fixtures
     dependencies:
       - target: Glyphline
     settings:

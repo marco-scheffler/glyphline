@@ -1,0 +1,16 @@
+{
+  "data": [
+    {
+      "start_time": 1800000000,
+      "end_time": 1800086400,
+      "results": [
+        {
+          "model": "gpt-5.4",
+          "input_tokens": 1000,
+          "output_tokens": 500,
+          "num_model_requests": 3
+        }
+      ]
+    }
+  ]
+}
