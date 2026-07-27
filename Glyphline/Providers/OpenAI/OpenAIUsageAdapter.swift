@@ -28,31 +28,28 @@ struct OpenAIUsageAdapter: ProviderAdapter {
         let syncedAt = now()
         let periodStart = calendar.dateInterval(of: .month, for: syncedAt)?.start ?? syncedAt
         let periodEnd = calendar.date(byAdding: .month, value: 1, to: periodStart)
+
         let usage = try await fetchUsage(secret: secret, start: periodStart, end: syncedAt)
-        let usageSnapshots = makeUsageSnapshots(from: usage, accountID: account.id)
-        let usageQuality: DataQuality = usageSnapshots.isEmpty ? .unavailable : .exact
-        let capabilityMessage = usageSnapshots.isEmpty
-            ? "No OpenAI usage buckets were returned for the current billing period."
-            : "OpenAI usage is exact. Actual cost sync is not implemented in Task 9."
+        let costs = try await fetchCosts(secret: secret, start: periodStart, end: syncedAt)
 
         return ProviderSyncResult(
             providerID: .openAI,
             accountID: account.id,
             capabilities: ProviderCapabilities(
                 supportsUsage: true,
-                supportsActualCost: false,
+                supportsActualCost: true,
                 supportsResetDate: false,
                 supportsModelBreakdown: true,
-                dataQuality: usageQuality,
-                message: capabilityMessage
+                dataQuality: .exact,
+                message: nil
             ),
             billingPeriod: BillingPeriod(
                 startsAt: periodStart,
                 endsAt: nil,
                 resetAt: periodEnd
             ),
-            usageSnapshots: usageSnapshots,
-            costSnapshots: [],
+            usageSnapshots: makeUsageSnapshots(from: usage, accountID: account.id),
+            costSnapshots: makeCostSnapshots(from: costs, accountID: account.id),
             estimateSnapshots: [],
             syncedAt: syncedAt
         )
@@ -69,7 +66,7 @@ struct OpenAIUsageAdapter: ProviderAdapter {
                         accountID: accountID,
                         bucketStart: bucketStart,
                         bucketEnd: bucketEnd,
-                        model: result.model
+                        discriminator: result.model ?? "usage"
                     ),
                     accountID: accountID,
                     providerID: .openAI,
@@ -85,17 +82,134 @@ struct OpenAIUsageAdapter: ProviderAdapter {
         }
     }
 
-    func makeUsageRequest(secret: String, start: Date, end: Date) throws -> URLRequest {
+    func makeCostSnapshots(from response: OpenAICostsResponse, accountID: UUID) -> [CostSnapshot] {
+        response.data.flatMap { bucket in
+            let bucketStart = Date(timeIntervalSince1970: TimeInterval(bucket.startTime))
+            let bucketEnd = Date(timeIntervalSince1970: TimeInterval(bucket.endTime))
+            var snapshots: [CostSnapshot] = []
+
+            for (index, result) in bucket.results.enumerated() {
+                guard let amountMicros = micros(from: result.amount?.value),
+                      let currency = result.amount?.currency else {
+                    continue
+                }
+
+                let discriminatorParts = [
+                    result.lineItem ?? "cost",
+                    result.projectID ?? "project",
+                    result.apiKeyID ?? "key",
+                    "\(index)",
+                ]
+
+                snapshots.append(
+                    CostSnapshot(
+                        id: makeSnapshotID(
+                            accountID: accountID,
+                            bucketStart: bucketStart,
+                            bucketEnd: bucketEnd,
+                            discriminator: discriminatorParts.joined(separator: "|")
+                        ),
+                        accountID: accountID,
+                        providerID: .openAI,
+                        bucketStart: bucketStart,
+                        bucketEnd: bucketEnd,
+                        amountMicros: amountMicros,
+                        currency: currency,
+                        quality: .exact
+                    )
+                )
+            }
+
+            return snapshots
+        }
+    }
+
+    private func fetchUsage(secret: String, start: Date, end: Date) async throws -> OpenAIUsageResponse {
+        var buckets: [OpenAIUsageBucket] = []
+        var page: String?
+
+        repeat {
+            let response = try await fetchUsagePage(secret: secret, start: start, end: end, page: page)
+            buckets.append(contentsOf: response.data)
+            page = response.hasMore ? response.nextPage : nil
+        } while page != nil
+
+        return OpenAIUsageResponse(object: "page", data: buckets, hasMore: false, nextPage: nil)
+    }
+
+    private func fetchCosts(secret: String, start: Date, end: Date) async throws -> OpenAICostsResponse {
+        var buckets: [OpenAICostBucket] = []
+        var page: String?
+
+        repeat {
+            let response = try await fetchCostsPage(secret: secret, start: start, end: end, page: page)
+            buckets.append(contentsOf: response.data)
+            page = response.hasMore ? response.nextPage : nil
+        } while page != nil
+
+        return OpenAICostsResponse(object: "page", data: buckets, hasMore: false, nextPage: nil)
+    }
+
+    private func fetchUsagePage(
+        secret: String,
+        start: Date,
+        end: Date,
+        page: String?
+    ) async throws -> OpenAIUsageResponse {
+        let request = try makeUsageRequest(secret: secret, start: start, end: end, page: page)
+        return try await perform(request, as: OpenAIUsageResponse.self)
+    }
+
+    private func fetchCostsPage(
+        secret: String,
+        start: Date,
+        end: Date,
+        page: String?
+    ) async throws -> OpenAICostsResponse {
+        let request = try makeCostsRequest(secret: secret, start: start, end: end, page: page)
+        return try await perform(request, as: OpenAICostsResponse.self)
+    }
+
+    private func perform<Response: Decodable>(_ request: URLRequest, as type: Response.Type) async throws -> Response {
+        let (data, response) = try await session.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw OpenAIUsageAdapterError.invalidResponse
+        }
+
+        guard (200 ... 299).contains(httpResponse.statusCode) else {
+            throw OpenAIUsageAdapterError.requestFailed
+        }
+
+        do {
+            return try JSONDecoder().decode(type, from: data)
+        } catch {
+            throw OpenAIUsageAdapterError.decodeFailed
+        }
+    }
+
+    private func makeUsageRequest(
+        secret: String,
+        start: Date,
+        end: Date,
+        page: String?
+    ) throws -> URLRequest {
         var components = URLComponents()
         components.scheme = "https"
         components.host = "api.openai.com"
         components.path = "/v1/organization/usage/completions"
-        components.queryItems = [
+
+        var queryItems = [
             URLQueryItem(name: "start_time", value: String(Int(start.timeIntervalSince1970))),
             URLQueryItem(name: "end_time", value: String(Int(end.timeIntervalSince1970))),
-            URLQueryItem(name: "bucket_width", value: "1d"),
-            URLQueryItem(name: "group_by", value: "model")
+            URLQueryItem(name: "group_by", value: "model"),
         ]
+
+        if let page {
+            queryItems.append(URLQueryItem(name: "page", value: page))
+        }
+
+        components.queryItems = queryItems
 
         guard let url = components.url else {
             throw OpenAIUsageAdapterError.invalidRequest
@@ -104,41 +218,63 @@ struct OpenAIUsageAdapter: ProviderAdapter {
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue("Bearer \(secret)", forHTTPHeaderField: "Authorization")
-
         return request
     }
 
-    private func fetchUsage(secret: String, start: Date, end: Date) async throws -> OpenAIUsageResponse {
-        let request = try makeUsageRequest(secret: secret, start: start, end: end)
-        let (data, response) = try await session.data(for: request)
+    private func makeCostsRequest(
+        secret: String,
+        start: Date,
+        end: Date,
+        page: String?
+    ) throws -> URLRequest {
+        var components = URLComponents()
+        components.scheme = "https"
+        components.host = "api.openai.com"
+        components.path = "/v1/organization/costs"
 
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw OpenAIUsageAdapterError.invalidResponse
+        var queryItems = [
+            URLQueryItem(name: "start_time", value: String(Int(start.timeIntervalSince1970))),
+            URLQueryItem(name: "end_time", value: String(Int(end.timeIntervalSince1970))),
+        ]
+
+        if let page {
+            queryItems.append(URLQueryItem(name: "page", value: page))
         }
 
-        guard (200...299).contains(httpResponse.statusCode) else {
-            throw OpenAIUsageAdapterError.requestFailed
+        components.queryItems = queryItems
+
+        guard let url = components.url else {
+            throw OpenAIUsageAdapterError.invalidRequest
         }
 
-        do {
-            return try JSONDecoder().decode(OpenAIUsageResponse.self, from: data)
-        } catch {
-            throw OpenAIUsageAdapterError.decodeFailed
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("Bearer \(secret)", forHTTPHeaderField: "Authorization")
+        return request
+    }
+
+    private func micros(from value: Decimal?) -> Int64? {
+        guard var value else {
+            return nil
         }
+
+        var scaled = Decimal()
+        NSDecimalMultiplyByPowerOf10(&scaled, &value, 6, .plain)
+        return NSDecimalNumber(decimal: scaled).int64Value
     }
 
     private func makeSnapshotID(
         accountID: UUID,
         bucketStart: Date,
         bucketEnd: Date,
-        model: String?
+        discriminator: String
     ) -> UUID {
         let key = [
             accountID.uuidString,
             providerID.rawValue,
             String(bucketStart.timeIntervalSince1970),
             String(bucketEnd.timeIntervalSince1970),
-            model ?? "nil"
+            discriminator,
         ].joined(separator: "|")
 
         let bytes = Self.makeUUIDBytes(from: key)
@@ -165,7 +301,7 @@ struct OpenAIUsageAdapter: ProviderAdapter {
         }
 
         var bytes = [UInt8](repeating: 0, count: 16)
-        for index in 0..<8 {
+        for index in 0 ..< 8 {
             bytes[index] = UInt8(truncatingIfNeeded: upper >> ((7 - index) * 8))
             bytes[index + 8] = UInt8(truncatingIfNeeded: lower >> ((7 - index) * 8))
         }
