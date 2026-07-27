@@ -118,7 +118,7 @@ final class SnapshotSummaryTests: XCTestCase {
                     dayStart: makeUTCDate(year: 2026, month: 7, day: 25, hour: 0),
                     inputTokens: 0,
                     outputTokens: 0,
-                    requests: 0,
+                    requests: nil,
                     estimatedAmountMicros: 95_000,
                     currency: "USD",
                     quality: .partial
@@ -180,6 +180,137 @@ final class SnapshotSummaryTests: XCTestCase {
 
         XCTAssertEqual(entries.count, 2)
         XCTAssertNotEqual(entries[0].id, entries[1].id)
+    }
+
+    func testDailySummaryTotalTokensIncludesCacheClasses() throws {
+        let store = try makeStore()
+        let account = makeAccount()
+        let day = makeUTCDate(year: 2026, month: 7, day: 24, hour: 8)
+
+        try store.upsertUsageSnapshots([
+            UsageSnapshot(
+                id: UUID(),
+                accountID: account.id,
+                providerID: .claude,
+                bucketStart: day,
+                bucketEnd: day.addingTimeInterval(3_600),
+                model: "claude-opus-4-8",
+                inputTokens: 10,
+                cacheCreationTokens: 200,
+                cacheReadTokens: 3_000,
+                outputTokens: 40,
+                requests: 1,
+                quality: .exact
+            ),
+        ])
+
+        let summaries = try store.fetchDailySummaries(accountID: account.id)
+
+        XCTAssertEqual(summaries.count, 1)
+        XCTAssertEqual(summaries[0].cacheCreationTokens, 200)
+        XCTAssertEqual(summaries[0].cacheReadTokens, 3_000)
+        XCTAssertEqual(summaries[0].totalTokens, 3_250)
+    }
+
+    func testDailySummaryRequestsStayNilWhenNoSnapshotReportsThem() throws {
+        let store = try makeStore()
+        let account = makeAccount()
+        let day = makeUTCDate(year: 2026, month: 7, day: 24, hour: 8)
+
+        try store.upsertUsageSnapshots([
+            UsageSnapshot(
+                id: UUID(),
+                accountID: account.id,
+                providerID: .claude,
+                bucketStart: day,
+                bucketEnd: day.addingTimeInterval(3_600),
+                model: "claude-opus-4-8",
+                inputTokens: 10,
+                outputTokens: 40,
+                requests: nil,
+                quality: .exact
+            ),
+        ])
+
+        let summaries = try store.fetchDailySummaries(accountID: account.id)
+
+        XCTAssertEqual(summaries.count, 1)
+        XCTAssertNil(summaries[0].requests)
+    }
+
+    func testDailySummaryRequestsSumOnlyTheSnapshotsThatReportThem() throws {
+        let store = try makeStore()
+        let account = makeAccount()
+        let day = makeUTCDate(year: 2026, month: 7, day: 24, hour: 8)
+
+        try store.upsertUsageSnapshots([
+            UsageSnapshot(
+                id: UUID(),
+                accountID: account.id,
+                providerID: .claude,
+                bucketStart: day,
+                bucketEnd: day.addingTimeInterval(3_600),
+                model: "claude-opus-4-8",
+                inputTokens: 10,
+                outputTokens: 40,
+                requests: nil,
+                quality: .exact
+            ),
+            UsageSnapshot(
+                id: UUID(),
+                accountID: account.id,
+                providerID: .claude,
+                bucketStart: day.addingTimeInterval(11 * 3_600),
+                bucketEnd: day.addingTimeInterval(12 * 3_600),
+                model: "claude-sonnet-4-8",
+                inputTokens: 10,
+                outputTokens: 40,
+                requests: 5,
+                quality: .exact
+            ),
+        ])
+
+        let summaries = try store.fetchDailySummaries(accountID: account.id)
+
+        XCTAssertEqual(summaries.count, 1)
+        XCTAssertEqual(summaries[0].requests, 5)
+    }
+
+    func testAccountSummaryTotalsCacheTokensAndKeepsUnreportedRequestsNil() throws {
+        let store = try makeStore()
+        let account = makeAccount(providerID: .claude)
+        try store.saveAccount(account)
+        let day = makeUTCDate(year: 2026, month: 7, day: 24, hour: 8)
+
+        try store.upsertUsageSnapshots([
+            UsageSnapshot(
+                id: UUID(),
+                accountID: account.id,
+                providerID: .claude,
+                bucketStart: day,
+                bucketEnd: day.addingTimeInterval(3_600),
+                model: "claude-opus-4-8",
+                inputTokens: 10,
+                cacheCreationTokens: 200,
+                cacheReadTokens: 3_000,
+                outputTokens: 40,
+                requests: nil,
+                quality: .exact
+            ),
+        ])
+
+        let summaries = try store.fetchAccountSummaries()
+
+        XCTAssertEqual(summaries.count, 1)
+        XCTAssertEqual(summaries[0].cacheCreationTokens, 200)
+        XCTAssertEqual(summaries[0].cacheReadTokens, 3_000)
+        XCTAssertEqual(summaries[0].totalTokens, 3_250)
+        XCTAssertNil(summaries[0].requestCount)
+    }
+
+    func testRequestsFormattingRendersUnreportedCountAsEmDash() {
+        XCTAssertEqual(AccountSummaryFormatting.requests(nil), "—")
+        XCTAssertEqual(AccountSummaryFormatting.requests(0), "0 requests")
     }
 
     private func makeStore() throws -> LedgerStore {

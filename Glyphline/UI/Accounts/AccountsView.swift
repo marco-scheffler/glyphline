@@ -50,10 +50,7 @@ struct AccountsView: View {
                                     )
                                     AccountMetric(
                                         title: "Tokens",
-                                        value: AccountSummaryFormatting.tokens(
-                                            input: summary.inputTokens,
-                                            output: summary.outputTokens
-                                        )
+                                        value: AccountSummaryFormatting.tokens(summary.totalTokens)
                                     )
                                 }
                                 .frame(maxWidth: .infinity, alignment: .leading)

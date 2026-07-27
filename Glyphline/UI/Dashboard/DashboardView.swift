@@ -242,8 +242,16 @@ private struct DashboardOverview: View {
         }
     }
 
-    private var totalRequests: Int64 {
-        accountSummaries.reduce(Int64(0)) { $0 + $1.requestCount }
+    /// Nil while no account exposes a request count, so the panel shows an em
+    /// dash instead of claiming a measured zero.
+    private var totalRequests: Int64? {
+        accountSummaries.reduce(nil) { partial, summary -> Int64? in
+            guard let requestCount = summary.requestCount else {
+                return partial
+            }
+
+            return (partial ?? 0) + requestCount
+        }
     }
 
     private var totalCostSummary: String {

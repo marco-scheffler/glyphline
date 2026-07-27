@@ -31,14 +31,19 @@ struct DailyUsageSummary: Identifiable, Equatable, Sendable {
     let accountID: UUID
     var dayStart: Date
     var inputTokens: Int64
+    var cacheCreationTokens: Int64 = 0
+    var cacheReadTokens: Int64 = 0
     var outputTokens: Int64
-    var requests: Int64
+    /// Nil when no contributing snapshot carried a request count.
+    var requests: Int64?
     var estimatedAmountMicros: Int64?
     var currency: String?
     var quality: DataQuality
 
     var id: String { "\(accountID.uuidString)-\(dayStart.timeIntervalSinceReferenceDate)" }
-    var totalTokens: Int64 { inputTokens + outputTokens }
+    var totalTokens: Int64 {
+        inputTokens + cacheCreationTokens + cacheReadTokens + outputTokens
+    }
 }
 
 struct AccountUsageSummary: Identifiable, Equatable, Sendable {
@@ -47,15 +52,20 @@ struct AccountUsageSummary: Identifiable, Equatable, Sendable {
     var billingPeriod: BillingPeriod?
     var latestSyncRun: SyncRun?
     var inputTokens: Int64
+    var cacheCreationTokens: Int64 = 0
+    var cacheReadTokens: Int64 = 0
     var outputTokens: Int64
-    var requestCount: Int64
+    /// Nil when no contributing snapshot carried a request count.
+    var requestCount: Int64?
     var actualAmountMicros: Int64?
     var estimatedAmountMicros: Int64?
     var displayCurrency: String?
     var dataQuality: DataQuality
 
     var id: UUID { account.id }
-    var totalTokens: Int64 { inputTokens + outputTokens }
+    var totalTokens: Int64 {
+        inputTokens + cacheCreationTokens + cacheReadTokens + outputTokens
+    }
     var displayAmountMicros: Int64? { actualAmountMicros ?? estimatedAmountMicros }
     var usesActualCost: Bool { actualAmountMicros != nil }
 }
@@ -64,16 +74,26 @@ private struct DailyUsageAccumulator {
     let accountID: UUID
     let dayStart: Date
     var inputTokens: Int64 = 0
+    var cacheCreationTokens: Int64 = 0
+    var cacheReadTokens: Int64 = 0
     var outputTokens: Int64 = 0
-    var requests: Int64 = 0
+    var requests: Int64?
     var estimatedAmountMicros: Int64?
     var currency: String?
     var quality: DataQuality?
 
     mutating func add(_ snapshot: UsageSnapshot) {
         inputTokens += snapshot.inputTokens
+        cacheCreationTokens += snapshot.cacheCreationTokens
+        cacheReadTokens += snapshot.cacheReadTokens
         outputTokens += snapshot.outputTokens
-        requests += snapshot.requests ?? 0
+
+        // A snapshot without a request count contributes nothing rather than a
+        // measured zero; the bucket stays nil until some snapshot reports one.
+        if let snapshotRequests = snapshot.requests {
+            requests = (requests ?? 0) + snapshotRequests
+        }
+
         mergeQuality(snapshot.quality)
     }
 
@@ -95,6 +115,8 @@ private struct DailyUsageAccumulator {
             accountID: accountID,
             dayStart: dayStart,
             inputTokens: inputTokens,
+            cacheCreationTokens: cacheCreationTokens,
+            cacheReadTokens: cacheReadTokens,
             outputTokens: outputTokens,
             requests: requests,
             estimatedAmountMicros: estimatedAmountMicros,
@@ -920,8 +942,19 @@ final class LedgerStore {
         estimateSnapshots: [EstimateSnapshot]
     ) -> AccountUsageSummary {
         let inputTokens = usageSnapshots.reduce(Int64(0)) { $0 + $1.inputTokens }
+        let cacheCreationTokens = usageSnapshots.reduce(Int64(0)) { $0 + $1.cacheCreationTokens }
+        let cacheReadTokens = usageSnapshots.reduce(Int64(0)) { $0 + $1.cacheReadTokens }
         let outputTokens = usageSnapshots.reduce(Int64(0)) { $0 + $1.outputTokens }
-        let requests = usageSnapshots.reduce(Int64(0)) { $0 + ($1.requests ?? 0) }
+
+        // Nil unless at least one snapshot reported a request count. Snapshots
+        // without one are skipped rather than counted as a measured zero.
+        let requests = usageSnapshots.reduce(nil) { partial, snapshot -> Int64? in
+            guard let snapshotRequests = snapshot.requests else {
+                return partial
+            }
+
+            return (partial ?? 0) + snapshotRequests
+        }
 
         var actualTotal = SnapshotMoneyTotal()
         for snapshot in costSnapshots {
@@ -955,6 +988,8 @@ final class LedgerStore {
             billingPeriod: state?.billingPeriod,
             latestSyncRun: latestSyncRun,
             inputTokens: inputTokens,
+            cacheCreationTokens: cacheCreationTokens,
+            cacheReadTokens: cacheReadTokens,
             outputTokens: outputTokens,
             requestCount: requests,
             actualAmountMicros: actualTotal.amountMicros,

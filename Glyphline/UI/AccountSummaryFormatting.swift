@@ -10,13 +10,18 @@ enum AccountSummaryFormatting {
         return amount.formatted(.currency(code: currency).precision(.fractionLength(2)))
     }
 
-    static func requests(_ count: Int64) -> String {
-        "\(count.formatted(.number)) requests"
+    /// Nil means the provider does not expose a request count at all, which is
+    /// shown as an em dash rather than a misleading zero.
+    static func requests(_ count: Int64?) -> String {
+        guard let count else {
+            return "—"
+        }
+
+        return "\(count.formatted(.number)) requests"
     }
 
-    static func tokens(input: Int64, output: Int64) -> String {
-        let total = input + output
-        return "\(total.formatted(.number)) tokens"
+    static func tokens(_ total: Int64) -> String {
+        "\(total.formatted(.number)) tokens"
     }
 
     static func status(_ summary: AccountUsageSummary) -> String {

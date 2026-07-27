@@ -80,11 +80,11 @@ struct HistorySummaryRow: View {
     }
 
     private var detailSummary: String {
-        "\(entry.summary.requests.formatted(.number)) requests"
+        AccountSummaryFormatting.requests(entry.summary.requests)
     }
 
     private var tokenSummary: String {
-        "\(entry.summary.totalTokens.formatted(.number)) tokens"
+        AccountSummaryFormatting.tokens(entry.summary.totalTokens)
     }
 
     private var costSummary: String? {
