@@ -20,7 +20,7 @@ struct ProviderSyncResult: Codable, Equatable, Sendable {
     var syncedAt: Date
 }
 
-protocol ProviderAdapter {
+protocol ProviderAdapter: Sendable {
     var providerID: ProviderID { get }
 
     /// False for adapters that read local files rather than a credentialed API.
