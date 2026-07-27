@@ -18,10 +18,9 @@ struct PricingCatalog: Sendable {
         return entries.first { $0.providerID == providerID && $0.model == model }
     }
 
-    static func bundled() throws -> PricingCatalog {
-        let bundle = Bundle.main
-        let resourceURL = bundle.url(forResource: "pricing-v1", withExtension: "json")
-            ?? bundle.url(forResource: "pricing-v1", withExtension: "json", subdirectory: "Resources")
+    static func bundled(in bundle: Bundle = .main) throws -> PricingCatalog {
+        let resourceURL = bundle.url(forResource: "pricing-v1", withExtension: "json", subdirectory: "Resources")
+            ?? bundle.url(forResource: "pricing-v1", withExtension: "json")
 
         guard let resourceURL else {
             throw PricingCatalogError.missingResource(name: "pricing-v1", extension: "json")

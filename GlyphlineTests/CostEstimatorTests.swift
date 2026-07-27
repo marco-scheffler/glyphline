@@ -34,4 +34,38 @@ final class CostEstimatorTests: XCTestCase {
         XCTAssertEqual(estimate.currency, "USD")
         XCTAssertEqual(estimate.quality, .estimated)
     }
+
+    func testThrowsMissingPricingWhenCatalogDoesNotContainEntry() {
+        let catalog = PricingCatalog(entries: [])
+        let estimator = CostEstimator(catalog: catalog)
+        let usage = UsageSnapshot(
+            id: UUID(),
+            accountID: UUID(),
+            providerID: .openAI,
+            bucketStart: Date(timeIntervalSince1970: 1_700_000_000),
+            bucketEnd: Date(timeIntervalSince1970: 1_700_003_600),
+            model: "gpt-5.4",
+            inputTokens: 1_000,
+            outputTokens: 2_000,
+            requests: 1,
+            quality: .exact
+        )
+
+        XCTAssertThrowsError(try estimator.estimate(snapshot: usage)) { error in
+            XCTAssertEqual(
+                error as? CostEstimatorError,
+                .missingPricing(providerID: .openAI, model: "gpt-5.4")
+            )
+        }
+    }
+
+    func testLoadsBundledPricingCatalogFromResourceBundle() throws {
+        let catalog = try PricingCatalog.bundled(in: .main)
+
+        let entry = try XCTUnwrap(catalog.entry(providerID: .openAI, model: "gpt-5.4"))
+
+        XCTAssertEqual(entry.providerID, .openAI)
+        XCTAssertEqual(entry.model, "gpt-5.4")
+        XCTAssertEqual(entry.currency, "USD")
+    }
 }
