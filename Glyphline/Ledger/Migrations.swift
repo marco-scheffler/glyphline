@@ -6,6 +6,7 @@ enum LedgerTable {
     static let costSnapshots = "costSnapshots"
     static let estimateSnapshots = "estimateSnapshots"
     static let syncRuns = "syncRuns"
+    static let accountSyncStates = "accountSyncStates"
 }
 
 enum LedgerColumn {
@@ -31,6 +32,14 @@ enum LedgerColumn {
     static let finishedAt = "finishedAt"
     static let status = "status"
     static let message = "message"
+    static let supportsUsage = "supportsUsage"
+    static let supportsActualCost = "supportsActualCost"
+    static let supportsResetDate = "supportsResetDate"
+    static let supportsModelBreakdown = "supportsModelBreakdown"
+    static let billingStartsAt = "billingStartsAt"
+    static let billingEndsAt = "billingEndsAt"
+    static let billingResetAt = "billingResetAt"
+    static let updatedAt = "updatedAt"
 }
 
 enum Migrations {
@@ -114,6 +123,23 @@ enum Migrations {
                 table.column(LedgerColumn.finishedAt, .datetime)
                 table.column(LedgerColumn.status, .text).notNull()
                 table.column(LedgerColumn.message, .text)
+            }
+        }
+
+        migrator.registerMigration("v3_create_account_sync_states") { db in
+            try db.create(table: LedgerTable.accountSyncStates) { table in
+                table.column(LedgerColumn.accountID, .text).primaryKey()
+                table.column(LedgerColumn.providerID, .text).notNull()
+                table.column(LedgerColumn.supportsUsage, .boolean).notNull()
+                table.column(LedgerColumn.supportsActualCost, .boolean).notNull()
+                table.column(LedgerColumn.supportsResetDate, .boolean).notNull()
+                table.column(LedgerColumn.supportsModelBreakdown, .boolean).notNull()
+                table.column(LedgerColumn.quality, .text).notNull()
+                table.column(LedgerColumn.message, .text)
+                table.column(LedgerColumn.billingStartsAt, .datetime)
+                table.column(LedgerColumn.billingEndsAt, .datetime)
+                table.column(LedgerColumn.billingResetAt, .datetime)
+                table.column(LedgerColumn.updatedAt, .datetime).notNull()
             }
         }
 

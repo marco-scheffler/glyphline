@@ -20,7 +20,7 @@ struct SettingsView: View {
             }
 
             Section("Data Quality Legend") {
-                ForEach(PlaceholderContent.qualityLegend, id: \.rawValue) { quality in
+                ForEach(DataQuality.allCases, id: \.rawValue) { quality in
                     HStack {
                         DataQualityBadge(quality: quality)
                         Text(qualityDescription(for: quality))
@@ -36,13 +36,10 @@ struct SettingsView: View {
 
     private var appModeBinding: Binding<AppMode> {
         Binding(
-            get: {
-                settings.appMode
-            },
+            get: { settings.appMode },
             set: { newMode in
                 let previousMode = settings.appMode
                 settings.appMode = newMode
-
                 if newMode.requiresDashboardOpen(afterTransitioningFrom: previousMode) {
                     openWindow(id: AppMode.dashboardWindowID)
                 }
@@ -53,24 +50,24 @@ struct SettingsView: View {
     private var modeDescription: String {
         switch settings.appMode {
         case .menuBarOnly:
-            "Glyphline stays in the menu bar and closes the dashboard window."
+            return "Glyphline stays in the menu bar and closes the dashboard window."
         case .windowOnly:
-            "Glyphline behaves like a standard macOS app without a menu bar extra."
+            return "Glyphline behaves like a standard macOS app without a menu bar extra."
         case .menuBarAndWindow:
-            "Glyphline keeps both the dashboard window and menu bar extra available."
+            return "Glyphline keeps both the dashboard window and menu bar extra available."
         }
     }
 
     private func qualityDescription(for quality: DataQuality) -> String {
         switch quality {
         case .exact:
-            "Sample data labeled as provider-reported."
+            return "Provider-reported usage or cost."
         case .estimated:
-            "Sample data derived from a pricing example."
+            return "Derived from local pricing rules."
         case .partial:
-            "Sample data with some fields intentionally omitted."
+            return "Some provider fields are unavailable."
         case .unavailable:
-            "Sample data with no dependable usage value."
+            return "No dependable usage value yet."
         }
     }
 }

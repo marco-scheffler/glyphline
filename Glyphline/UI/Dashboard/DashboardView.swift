@@ -2,12 +2,13 @@ import SwiftUI
 
 struct DashboardView: View {
     @State private var selection: DashboardDestination? = .overview
+    @State private var accountSummaries: [AccountUsageSummary] = []
     @State private var historyEntries: [HistorySummaryEntry] = []
-    @State private var historyLoadError: String?
+    @State private var loadError: String?
 
     private let ledgerStore: LedgerStore?
 
-    init(ledgerStore: LedgerStore? = DashboardView.makeDefaultLedgerStore()) {
+    init(ledgerStore: LedgerStore? = LedgerStore.makeDefault()) {
         self.ledgerStore = ledgerStore
     }
 
@@ -25,18 +26,21 @@ struct DashboardView: View {
         }
         .navigationSplitViewStyle(.balanced)
         .frame(minWidth: 980, minHeight: 640)
-        .onAppear(perform: loadHistory)
+        .onAppear(perform: loadDashboard)
     }
 
-    @ViewBuilder
-    private var detailView: some View {
+    @ViewBuilder private var detailView: some View {
         switch selection ?? .overview {
         case .overview:
-            DashboardOverview(historyEntries: historyEntries, historyLoadError: historyLoadError)
+            DashboardOverview(
+                accountSummaries: accountSummaries,
+                historyEntries: historyEntries,
+                loadError: loadError
+            )
         case .accounts:
-            AccountsView(accounts: PlaceholderContent.accounts)
+            AccountsView(accounts: accountSummaries)
         case .addAccount:
-            AddAccountView(providers: PlaceholderContent.providerOptions)
+            AddAccountView(ledgerStore: ledgerStore, onSave: loadDashboard)
         case .history:
             HistoryView(entries: historyEntries)
         case .settings:
@@ -44,49 +48,44 @@ struct DashboardView: View {
         }
     }
 
-    private func loadHistory() {
+    private func loadDashboard() {
         guard let ledgerStore else {
-            historyLoadError = "Ledger unavailable."
+            loadError = "Ledger unavailable."
+            accountSummaries = []
             historyEntries = []
             return
         }
 
         do {
-            let accounts = try ledgerStore.fetchAccounts()
-            historyEntries = try accounts
-                .flatMap { account in
-                    try ledgerStore.fetchDailySummaries(accountID: account.id).map { summary in
-                        HistorySummaryEntry(accountName: account.displayName, summary: summary)
+            accountSummaries = try ledgerStore.fetchAccountSummaries()
+            historyEntries = try accountSummaries
+                .flatMap { summary in
+                    try ledgerStore.fetchDailySummaries(accountID: summary.account.id).map { dailySummary in
+                        HistorySummaryEntry(
+                            accountName: summary.account.displayName,
+                            summary: dailySummary
+                        )
                     }
                 }
                 .sorted { lhs, rhs in
-                        if lhs.summary.dayStart == rhs.summary.dayStart {
-                            let lhsName = lhs.accountName ?? ""
-                            let rhsName = rhs.accountName ?? ""
-
-                            if lhsName == rhsName {
-                                return lhs.summary.accountID.uuidString < rhs.summary.accountID.uuidString
-                            }
-
-                            return lhsName < rhsName
+                    if lhs.summary.dayStart == rhs.summary.dayStart {
+                        let lhsName = lhs.accountName ?? ""
+                        let rhsName = rhs.accountName ?? ""
+                        if lhsName == rhsName {
+                            return lhs.summary.accountID.uuidString < rhs.summary.accountID.uuidString
                         }
+
+                        return lhsName < rhsName
+                    }
 
                     return lhs.summary.dayStart > rhs.summary.dayStart
                 }
-            historyLoadError = nil
+            loadError = nil
         } catch {
+            accountSummaries = []
             historyEntries = []
-            historyLoadError = "Unable to load history."
+            loadError = "Could not load ledger data."
         }
-    }
-
-    private static func makeDefaultLedgerStore() -> LedgerStore? {
-        guard let dbQueue = try? DatabaseQueueFactory.makeDefault() else {
-            return nil
-        }
-
-        try? Migrations.migrate(dbQueue)
-        return LedgerStore(dbQueue: dbQueue)
     }
 }
 
@@ -102,7 +101,7 @@ private enum DashboardDestination: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .overview:
-            "Dashboard"
+            "Overview"
         case .accounts:
             "Accounts"
         case .addAccount:
@@ -131,8 +130,9 @@ private enum DashboardDestination: String, CaseIterable, Identifiable {
 }
 
 private struct DashboardOverview: View {
+    let accountSummaries: [AccountUsageSummary]
     let historyEntries: [HistorySummaryEntry]
-    let historyLoadError: String?
+    let loadError: String?
 
     private let columns = [
         GridItem(.flexible(minimum: 160), spacing: 16),
@@ -146,25 +146,25 @@ private struct DashboardOverview: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Dashboard")
                         .font(.largeTitle.weight(.bold))
-                    Text("Usage snapshots, estimates, and data quality at a glance.")
+                    Text("Usage snapshots, estimates, data quality at a glance.")
                         .foregroundStyle(.secondary)
                 }
 
                 LazyVGrid(columns: columns, spacing: 16) {
                     SummaryPanel(
                         title: "Enabled Accounts",
-                        value: "\(PlaceholderContent.enabledAccounts)",
-                        note: "Saved providers ready for sync"
+                        value: "\(accountSummaries.filter(\.account.isEnabled).count)",
+                        note: "Saved providers ready to sync"
                     )
                     SummaryPanel(
-                        title: "Monthly Estimate",
-                        value: PlaceholderContent.monthlyEstimateSummary,
-                        note: "Mixed exact and estimated totals"
+                        title: "API Cost",
+                        value: totalCostSummary,
+                        note: "Actual cost preferred over estimates"
                     )
                     SummaryPanel(
                         title: "Request Volume",
-                        value: PlaceholderContent.requestVolumeSummary,
-                        note: "Latest sync window"
+                        value: AccountSummaryFormatting.requests(totalRequests),
+                        note: "Persisted usage snapshots"
                     )
                 }
 
@@ -172,8 +172,8 @@ private struct DashboardOverview: View {
                     Text("Recent History")
                         .font(.title3.weight(.semibold))
 
-                    if let historyLoadError, historyEntries.isEmpty {
-                        Text(historyLoadError)
+                    if let loadError, historyEntries.isEmpty {
+                        Text(loadError)
                             .foregroundStyle(.secondary)
                     } else if historyEntries.isEmpty {
                         Text("No synced usage history yet.")
@@ -192,26 +192,36 @@ private struct DashboardOverview: View {
                     Text("Account Health")
                         .font(.title3.weight(.semibold))
 
-                    ForEach(PlaceholderContent.accounts) { summary in
-                        HStack(alignment: .top, spacing: 12) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(summary.account.displayName)
-                                    .font(.headline)
-                                Text(summary.costSourceSummary)
-                                    .foregroundStyle(.secondary)
-                            }
+                    if accountSummaries.isEmpty {
+                        Text("No accounts saved yet.")
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(accountSummaries) { summary in
+                            HStack(alignment: .top, spacing: 12) {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(summary.account.displayName)
+                                        .font(.headline)
+                                    Text(AccountSummaryFormatting.costSource(summary))
+                                        .foregroundStyle(.secondary)
+                                }
 
-                            Spacer(minLength: 12)
+                                Spacer(minLength: 12)
 
-                            VStack(alignment: .trailing, spacing: 6) {
-                                DataQualityBadge(quality: summary.dataQuality)
-                                Text(summary.monthlyCostSummary)
+                                VStack(alignment: .trailing, spacing: 6) {
+                                    DataQualityBadge(quality: summary.dataQuality)
+                                    Text(AccountSummaryFormatting.money(
+                                        summary.displayAmountMicros,
+                                        currency: summary.displayCurrency
+                                    ))
                                     .font(.headline)
+                                    Text(AccountSummaryFormatting.billing(summary))
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
                             }
+                            .padding(14)
+                            .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 8))
                         }
-                        .padding(14)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 8))
                     }
                 }
 
@@ -219,10 +229,10 @@ private struct DashboardOverview: View {
                     Text("Data Quality")
                         .font(.title3.weight(.semibold))
 
-                    ForEach(PlaceholderContent.qualityLegend, id: \.rawValue) { quality in
+                    ForEach(DataQuality.allCases, id: \.rawValue) { quality in
                         HStack(spacing: 12) {
                             DataQualityBadge(quality: quality)
-                            Text(qualitySummary(for: quality))
+                            Text(qualityDescription(for: quality))
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -232,16 +242,37 @@ private struct DashboardOverview: View {
         }
     }
 
-    private func qualitySummary(for quality: DataQuality) -> String {
+    private var totalRequests: Int64 {
+        accountSummaries.reduce(Int64(0)) { $0 + $1.requestCount }
+    }
+
+    private var totalCostSummary: String {
+        let costRows = accountSummaries.compactMap { summary -> (Int64, String)? in
+            guard let amount = summary.displayAmountMicros, let currency = summary.displayCurrency else {
+                return nil
+            }
+
+            return (amount, currency)
+        }
+
+        guard let currency = costRows.first?.1, costRows.allSatisfy({ $0.1 == currency }) else {
+            return costRows.isEmpty ? "No cost yet" : "Mixed currencies"
+        }
+
+        let total = costRows.reduce(Int64(0)) { $0 + $1.0 }
+        return AccountSummaryFormatting.money(total, currency: currency)
+    }
+
+    private func qualityDescription(for quality: DataQuality) -> String {
         switch quality {
         case .exact:
-            "The provider delivered the usage value directly."
+            return "Provider-reported usage or cost."
         case .estimated:
-            "Glyphline derived the number from usage and known pricing."
+            return "Derived from local pricing rules."
         case .partial:
-            "Some provider fields were present, but the full picture was not."
+            return "Some provider fields are unavailable."
         case .unavailable:
-            "No reliable usage data could be shown."
+            return "No dependable usage value yet."
         }
     }
 }
@@ -258,13 +289,13 @@ private struct SummaryPanel: View {
                 .foregroundStyle(.secondary)
             Text(value)
                 .font(.title2.weight(.semibold))
+                .monospacedDigit()
             Text(note)
-                .font(.callout)
+                .font(.caption)
                 .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
         }
+        .frame(maxWidth: .infinity, minHeight: 108, alignment: .leading)
         .padding(16)
-        .frame(maxWidth: .infinity, minHeight: 120, alignment: .topLeading)
         .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 8))
     }
 }

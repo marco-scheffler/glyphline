@@ -1,6 +1,6 @@
 import Foundation
 
-enum DataQuality: String, Codable, Sendable {
+enum DataQuality: String, CaseIterable, Codable, Sendable {
     case exact
     case estimated
     case partial

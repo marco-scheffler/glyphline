@@ -29,7 +29,7 @@ struct SyncRun: Identifiable, Equatable, Sendable {
 
 struct DailyUsageSummary: Identifiable, Equatable, Sendable {
     let accountID: UUID
-    let dayStart: Date
+    var dayStart: Date
     var inputTokens: Int64
     var outputTokens: Int64
     var requests: Int64
@@ -39,6 +39,25 @@ struct DailyUsageSummary: Identifiable, Equatable, Sendable {
 
     var id: String { "\(accountID.uuidString)-\(dayStart.timeIntervalSinceReferenceDate)" }
     var totalTokens: Int64 { inputTokens + outputTokens }
+}
+
+struct AccountUsageSummary: Identifiable, Equatable, Sendable {
+    var account: Account
+    var capabilities: ProviderCapabilities?
+    var billingPeriod: BillingPeriod?
+    var latestSyncRun: SyncRun?
+    var inputTokens: Int64
+    var outputTokens: Int64
+    var requestCount: Int64
+    var actualAmountMicros: Int64?
+    var estimatedAmountMicros: Int64?
+    var displayCurrency: String?
+    var dataQuality: DataQuality
+
+    var id: UUID { account.id }
+    var totalTokens: Int64 { inputTokens + outputTokens }
+    var displayAmountMicros: Int64? { actualAmountMicros ?? estimatedAmountMicros }
+    var usesActualCost: Bool { actualAmountMicros != nil }
 }
 
 private struct DailyUsageAccumulator {
@@ -102,6 +121,36 @@ private enum DailySummaryCalendar {
         calendar.timeZone = TimeZone(secondsFromGMT: 0)!
         return calendar
     }()
+}
+
+private struct SnapshotMoneyTotal {
+    var amountMicros: Int64?
+    var currency: String?
+    var quality: DataQuality?
+
+    mutating func add(amountMicros: Int64, currency: String, quality: DataQuality) {
+        if let currentCurrency = self.currency, currentCurrency != currency {
+            self.amountMicros = nil
+            self.currency = nil
+            self.quality = .partial
+            return
+        }
+
+        self.amountMicros = (self.amountMicros ?? 0) + amountMicros
+        self.currency = currency
+        mergeQuality(quality)
+    }
+
+    private mutating func mergeQuality(_ candidate: DataQuality) {
+        guard let quality else {
+            self.quality = candidate
+            return
+        }
+
+        if quality.isBetterThan(candidate) {
+            self.quality = candidate
+        }
+    }
 }
 
 private struct AccountRecord: Codable, FetchableRecord, PersistableRecord, TableRecord {
@@ -288,6 +337,61 @@ private struct SyncRunRecord: Codable, FetchableRecord, PersistableRecord, Table
     }
 }
 
+private struct AccountSyncStateRecord: Codable, FetchableRecord, PersistableRecord, TableRecord {
+    static let databaseTableName = LedgerTable.accountSyncStates
+
+    var accountID: String
+    var providerID: String
+    var supportsUsage: Bool
+    var supportsActualCost: Bool
+    var supportsResetDate: Bool
+    var supportsModelBreakdown: Bool
+    var quality: String
+    var message: String?
+    var billingStartsAt: Date?
+    var billingEndsAt: Date?
+    var billingResetAt: Date?
+    var updatedAt: Date
+
+    init(result: ProviderSyncResult, updatedAt: Date) {
+        accountID = result.accountID.uuidString
+        providerID = result.providerID.rawValue
+        supportsUsage = result.capabilities.supportsUsage
+        supportsActualCost = result.capabilities.supportsActualCost
+        supportsResetDate = result.capabilities.supportsResetDate
+        supportsModelBreakdown = result.capabilities.supportsModelBreakdown
+        quality = result.capabilities.dataQuality.rawValue
+        message = result.capabilities.message
+        billingStartsAt = result.billingPeriod?.startsAt
+        billingEndsAt = result.billingPeriod?.endsAt
+        billingResetAt = result.billingPeriod?.resetAt
+        self.updatedAt = updatedAt
+    }
+
+    var capabilities: ProviderCapabilities {
+        ProviderCapabilities(
+            supportsUsage: supportsUsage,
+            supportsActualCost: supportsActualCost,
+            supportsResetDate: supportsResetDate,
+            supportsModelBreakdown: supportsModelBreakdown,
+            dataQuality: DataQuality(rawValue: quality)!,
+            message: message
+        )
+    }
+
+    var billingPeriod: BillingPeriod? {
+        guard billingStartsAt != nil || billingEndsAt != nil || billingResetAt != nil else {
+            return nil
+        }
+
+        return BillingPeriod(
+            startsAt: billingStartsAt ?? updatedAt,
+            endsAt: billingEndsAt,
+            resetAt: billingResetAt
+        )
+    }
+}
+
 final class LedgerStore {
     private let dbQueue: DatabaseQueue
 
@@ -339,152 +443,20 @@ final class LedgerStore {
     }
 
     func upsertUsageSnapshots(_ snapshots: [UsageSnapshot]) throws {
-        guard !snapshots.isEmpty else {
-            return
-        }
-
         try dbQueue.write { db in
-            for snapshot in snapshots {
-                let record = UsageSnapshotRecord(snapshot)
-                try db.execute(
-                    sql: """
-                        INSERT INTO \(LedgerTable.usageSnapshots) (
-                            \(LedgerColumn.id),
-                            \(LedgerColumn.accountID),
-                            \(LedgerColumn.providerID),
-                            \(LedgerColumn.bucketStart),
-                            \(LedgerColumn.bucketEnd),
-                            \(LedgerColumn.model),
-                            \(LedgerColumn.modelKey),
-                            \(LedgerColumn.inputTokens),
-                            \(LedgerColumn.outputTokens),
-                            \(LedgerColumn.requests),
-                            \(LedgerColumn.quality)
-                        )
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        ON CONFLICT(
-                            \(LedgerColumn.accountID),
-                            \(LedgerColumn.providerID),
-                            \(LedgerColumn.bucketStart),
-                            \(LedgerColumn.bucketEnd),
-                            \(LedgerColumn.modelKey)
-                        ) DO UPDATE SET
-                            \(LedgerColumn.id) = excluded.\(LedgerColumn.id),
-                            \(LedgerColumn.model) = excluded.\(LedgerColumn.model),
-                            \(LedgerColumn.inputTokens) = excluded.\(LedgerColumn.inputTokens),
-                            \(LedgerColumn.outputTokens) = excluded.\(LedgerColumn.outputTokens),
-                            \(LedgerColumn.requests) = excluded.\(LedgerColumn.requests),
-                            \(LedgerColumn.quality) = excluded.\(LedgerColumn.quality)
-                        """,
-                    arguments: [
-                        record.id,
-                        record.accountID,
-                        record.providerID,
-                        record.bucketStart,
-                        record.bucketEnd,
-                        record.model,
-                        record.modelKey,
-                        record.inputTokens,
-                        record.outputTokens,
-                        record.requests,
-                        record.quality,
-                    ]
-                )
-            }
+            try Self.upsertUsageSnapshots(snapshots, db: db)
         }
     }
 
     func upsertCostSnapshots(_ snapshots: [CostSnapshot]) throws {
-        guard !snapshots.isEmpty else {
-            return
-        }
-
         try dbQueue.write { db in
-            for snapshot in snapshots {
-                let record = CostSnapshotRecord(snapshot)
-                try db.execute(
-                    sql: """
-                        INSERT INTO \(LedgerTable.costSnapshots) (
-                            \(LedgerColumn.id),
-                            \(LedgerColumn.accountID),
-                            \(LedgerColumn.providerID),
-                            \(LedgerColumn.bucketStart),
-                            \(LedgerColumn.bucketEnd),
-                            \(LedgerColumn.amountMicros),
-                            \(LedgerColumn.currency),
-                            \(LedgerColumn.quality)
-                        )
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                        ON CONFLICT(
-                            \(LedgerColumn.accountID),
-                            \(LedgerColumn.providerID),
-                            \(LedgerColumn.bucketStart),
-                            \(LedgerColumn.bucketEnd),
-                            \(LedgerColumn.currency)
-                        ) DO UPDATE SET
-                            \(LedgerColumn.id) = excluded.\(LedgerColumn.id),
-                            \(LedgerColumn.amountMicros) = excluded.\(LedgerColumn.amountMicros),
-                            \(LedgerColumn.quality) = excluded.\(LedgerColumn.quality)
-                        """,
-                    arguments: [
-                        record.id,
-                        record.accountID,
-                        record.providerID,
-                        record.bucketStart,
-                        record.bucketEnd,
-                        record.amountMicros,
-                        record.currency,
-                        record.quality,
-                    ]
-                )
-            }
+            try Self.upsertCostSnapshots(snapshots, db: db)
         }
     }
 
     func upsertEstimateSnapshots(_ snapshots: [EstimateSnapshot]) throws {
-        guard !snapshots.isEmpty else {
-            return
-        }
-
         try dbQueue.write { db in
-            for snapshot in snapshots {
-                let record = EstimateSnapshotRecord(snapshot)
-                try db.execute(
-                    sql: """
-                        INSERT INTO \(LedgerTable.estimateSnapshots) (
-                            \(LedgerColumn.id),
-                            \(LedgerColumn.accountID),
-                            \(LedgerColumn.providerID),
-                            \(LedgerColumn.bucketStart),
-                            \(LedgerColumn.bucketEnd),
-                            \(LedgerColumn.estimatedAmountMicros),
-                            \(LedgerColumn.currency),
-                            \(LedgerColumn.quality)
-                        )
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                        ON CONFLICT(
-                            \(LedgerColumn.accountID),
-                            \(LedgerColumn.providerID),
-                            \(LedgerColumn.bucketStart),
-                            \(LedgerColumn.bucketEnd),
-                            \(LedgerColumn.currency)
-                        ) DO UPDATE SET
-                            \(LedgerColumn.id) = excluded.\(LedgerColumn.id),
-                            \(LedgerColumn.estimatedAmountMicros) = excluded.\(LedgerColumn.estimatedAmountMicros),
-                            \(LedgerColumn.quality) = excluded.\(LedgerColumn.quality)
-                        """,
-                    arguments: [
-                        record.id,
-                        record.accountID,
-                        record.providerID,
-                        record.bucketStart,
-                        record.bucketEnd,
-                        record.estimatedAmountMicros,
-                        record.currency,
-                        record.quality,
-                    ]
-                )
-            }
+            try Self.upsertEstimateSnapshots(snapshots, db: db)
         }
     }
 
@@ -529,23 +501,39 @@ final class LedgerStore {
         return syncRun.id
     }
 
-    func finishSyncRun(id: UUID, status: SyncRun.Status, message: String?, finishedAt: Date) throws {
+    func finishSyncRun(
+        id: UUID,
+        status: SyncRun.Status,
+        message: String?,
+        finishedAt: Date
+    ) throws {
         try dbQueue.write { db in
-            try db.execute(
-                sql: """
-                    UPDATE \(LedgerTable.syncRuns)
-                    SET
-                        \(LedgerColumn.finishedAt) = ?,
-                        \(LedgerColumn.status) = ?,
-                        \(LedgerColumn.message) = ?
-                    WHERE \(LedgerColumn.id) = ?
-                    """,
-                arguments: [
-                    finishedAt,
-                    status.rawValue,
-                    message,
-                    id.uuidString,
-                ]
+            try Self.finishSyncRun(
+                id: id,
+                status: status,
+                message: message,
+                finishedAt: finishedAt,
+                db: db
+            )
+        }
+    }
+
+    func applySuccessfulSyncResult(
+        _ result: ProviderSyncResult,
+        syncRunID: UUID,
+        finishedAt: Date
+    ) throws {
+        try dbQueue.write { db in
+            try Self.upsertUsageSnapshots(result.usageSnapshots, db: db)
+            try Self.upsertCostSnapshots(result.costSnapshots, db: db)
+            try Self.upsertEstimateSnapshots(result.estimateSnapshots, db: db)
+            try Self.upsertAccountSyncState(result, updatedAt: finishedAt, db: db)
+            try Self.finishSyncRun(
+                id: syncRunID,
+                status: .succeeded,
+                message: nil,
+                finishedAt: finishedAt,
+                db: db
             )
         }
     }
@@ -578,59 +566,395 @@ final class LedgerStore {
         }
     }
 
-func fetchEstimateSnapshots(accountID: UUID) throws -> [EstimateSnapshot] {
- try dbQueue.read { db in
- try EstimateSnapshotRecord
- .filter(Column(LedgerColumn.accountID) == accountID.uuidString)
- .order(Column(LedgerColumn.bucketStart), Column(LedgerColumn.bucketEnd))
- .fetchAll(db)
- .map(\.snapshot)
- }
- }
-
- func fetchDailySummaries(accountID: UUID) throws -> [DailyUsageSummary] {
- try dbQueue.read { db in
- let usageSnapshots = try UsageSnapshotRecord
- .filter(Column(LedgerColumn.accountID) == accountID.uuidString)
- .fetchAll(db)
- .map(\.snapshot)
-
- let estimateSnapshots = try EstimateSnapshotRecord
- .filter(Column(LedgerColumn.accountID) == accountID.uuidString)
- .fetchAll(db)
- .map(\.snapshot)
-
- var summariesByDay: [Date: DailyUsageAccumulator] = [:]
-
- for snapshot in usageSnapshots {
- let dayStart = DailySummaryCalendar.utc.startOfDay(for: snapshot.bucketStart)
- var accumulator = summariesByDay[dayStart] ?? DailyUsageAccumulator(accountID: accountID, dayStart: dayStart)
- accumulator.add(snapshot)
- summariesByDay[dayStart] = accumulator
- }
-
- for snapshot in estimateSnapshots {
- let dayStart = DailySummaryCalendar.utc.startOfDay(for: snapshot.bucketStart)
- var accumulator = summariesByDay[dayStart] ?? DailyUsageAccumulator(accountID: accountID, dayStart: dayStart)
- accumulator.add(snapshot)
- summariesByDay[dayStart] = accumulator
- }
-
- return summariesByDay.values
- .map { $0.summary() }
- .sorted { lhs, rhs in
- lhs.dayStart > rhs.dayStart
- }
- }
- }
-
- func fetchSyncRuns(accountID: UUID) throws -> [SyncRun] {
- try dbQueue.read { db in
- try SyncRunRecord
+    func fetchEstimateSnapshots(accountID: UUID) throws -> [EstimateSnapshot] {
+        try dbQueue.read { db in
+            try EstimateSnapshotRecord
                 .filter(Column(LedgerColumn.accountID) == accountID.uuidString)
-                .order(Column(LedgerColumn.startedAt).desc, Column(LedgerColumn.id).desc)
+                .order(
+                    Column(LedgerColumn.bucketStart),
+                    Column(LedgerColumn.bucketEnd),
+                    Column(LedgerColumn.currency)
+                )
+                .fetchAll(db)
+                .map(\.snapshot)
+        }
+    }
+
+    func fetchSyncRuns(accountID: UUID) throws -> [SyncRun] {
+        try dbQueue.read { db in
+            try SyncRunRecord
+                .filter(Column(LedgerColumn.accountID) == accountID.uuidString)
+                .order(Column(LedgerColumn.startedAt), Column(LedgerColumn.id))
                 .fetchAll(db)
                 .map(\.syncRun)
+        }
+    }
+
+    func fetchDailySummaries(accountID: UUID) throws -> [DailyUsageSummary] {
+        try dbQueue.read { db in
+            let usageSnapshots = try UsageSnapshotRecord
+                .filter(Column(LedgerColumn.accountID) == accountID.uuidString)
+                .fetchAll(db)
+                .map(\.snapshot)
+            let estimateSnapshots = try EstimateSnapshotRecord
+                .filter(Column(LedgerColumn.accountID) == accountID.uuidString)
+                .fetchAll(db)
+                .map(\.snapshot)
+
+            var summariesByDay: [Date: DailyUsageAccumulator] = [:]
+
+            for snapshot in usageSnapshots {
+                let dayStart = DailySummaryCalendar.utc.startOfDay(for: snapshot.bucketStart)
+                var accumulator = summariesByDay[dayStart] ?? DailyUsageAccumulator(
+                    accountID: accountID,
+                    dayStart: dayStart
+                )
+                accumulator.add(snapshot)
+                summariesByDay[dayStart] = accumulator
+            }
+
+            for snapshot in estimateSnapshots {
+                let dayStart = DailySummaryCalendar.utc.startOfDay(for: snapshot.bucketStart)
+                var accumulator = summariesByDay[dayStart] ?? DailyUsageAccumulator(
+                    accountID: accountID,
+                    dayStart: dayStart
+                )
+                accumulator.add(snapshot)
+                summariesByDay[dayStart] = accumulator
+            }
+
+            return summariesByDay.values
+                .map { $0.summary() }
+                .sorted {
+                    if $0.dayStart == $1.dayStart {
+                        return $0.accountID.uuidString < $1.accountID.uuidString
+                    }
+
+                    return $0.dayStart > $1.dayStart
+                }
+        }
+    }
+
+    func fetchAccountSummaries() throws -> [AccountUsageSummary] {
+        try dbQueue.read { db in
+            let accounts = try AccountRecord
+                .order(Column(LedgerColumn.createdAt), Column(LedgerColumn.id))
+                .fetchAll(db)
+                .map(\.account)
+
+            return try accounts.map { account in
+                let accountID = account.id.uuidString
+                let usageSnapshots = try UsageSnapshotRecord
+                    .filter(Column(LedgerColumn.accountID) == accountID)
+                    .fetchAll(db)
+                    .map(\.snapshot)
+                let costSnapshots = try CostSnapshotRecord
+                    .filter(Column(LedgerColumn.accountID) == accountID)
+                    .fetchAll(db)
+                    .map(\.snapshot)
+                let estimateSnapshots = try EstimateSnapshotRecord
+                    .filter(Column(LedgerColumn.accountID) == accountID)
+                    .fetchAll(db)
+                    .map(\.snapshot)
+                let state = try AccountSyncStateRecord
+                    .filter(Column(LedgerColumn.accountID) == accountID)
+                    .fetchOne(db)
+                let latestSyncRun = try SyncRunRecord
+                    .filter(Column(LedgerColumn.accountID) == accountID)
+                    .order(Column(LedgerColumn.startedAt).desc, Column(LedgerColumn.id).desc)
+                    .fetchOne(db)?
+                    .syncRun
+
+                return Self.makeAccountSummary(
+                    account: account,
+                    state: state,
+                    latestSyncRun: latestSyncRun,
+                    usageSnapshots: usageSnapshots,
+                    costSnapshots: costSnapshots,
+                    estimateSnapshots: estimateSnapshots
+                )
+            }
+        }
+    }
+
+    private static func upsertUsageSnapshots(_ snapshots: [UsageSnapshot], db: Database) throws {
+        guard !snapshots.isEmpty else {
+            return
+        }
+
+        for snapshot in snapshots {
+            let record = UsageSnapshotRecord(snapshot)
+            try db.execute(
+                sql: """
+                    INSERT INTO \(LedgerTable.usageSnapshots) (
+                        \(LedgerColumn.id),
+                        \(LedgerColumn.accountID),
+                        \(LedgerColumn.providerID),
+                        \(LedgerColumn.bucketStart),
+                        \(LedgerColumn.bucketEnd),
+                        \(LedgerColumn.model),
+                        \(LedgerColumn.modelKey),
+                        \(LedgerColumn.inputTokens),
+                        \(LedgerColumn.outputTokens),
+                        \(LedgerColumn.requests),
+                        \(LedgerColumn.quality)
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(
+                        \(LedgerColumn.accountID),
+                        \(LedgerColumn.providerID),
+                        \(LedgerColumn.bucketStart),
+                        \(LedgerColumn.bucketEnd),
+                        \(LedgerColumn.modelKey)
+                    ) DO UPDATE SET
+                        \(LedgerColumn.id) = excluded.\(LedgerColumn.id),
+                        \(LedgerColumn.model) = excluded.\(LedgerColumn.model),
+                        \(LedgerColumn.inputTokens) = excluded.\(LedgerColumn.inputTokens),
+                        \(LedgerColumn.outputTokens) = excluded.\(LedgerColumn.outputTokens),
+                        \(LedgerColumn.requests) = excluded.\(LedgerColumn.requests),
+                        \(LedgerColumn.quality) = excluded.\(LedgerColumn.quality)
+                    """,
+                arguments: [
+                    record.id,
+                    record.accountID,
+                    record.providerID,
+                    record.bucketStart,
+                    record.bucketEnd,
+                    record.model,
+                    record.modelKey,
+                    record.inputTokens,
+                    record.outputTokens,
+                    record.requests,
+                    record.quality,
+                ]
+            )
+        }
+    }
+
+    private static func upsertCostSnapshots(_ snapshots: [CostSnapshot], db: Database) throws {
+        guard !snapshots.isEmpty else {
+            return
+        }
+
+        for snapshot in snapshots {
+            let record = CostSnapshotRecord(snapshot)
+            try db.execute(
+                sql: """
+                    INSERT INTO \(LedgerTable.costSnapshots) (
+                        \(LedgerColumn.id),
+                        \(LedgerColumn.accountID),
+                        \(LedgerColumn.providerID),
+                        \(LedgerColumn.bucketStart),
+                        \(LedgerColumn.bucketEnd),
+                        \(LedgerColumn.amountMicros),
+                        \(LedgerColumn.currency),
+                        \(LedgerColumn.quality)
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(
+                        \(LedgerColumn.accountID),
+                        \(LedgerColumn.providerID),
+                        \(LedgerColumn.bucketStart),
+                        \(LedgerColumn.bucketEnd),
+                        \(LedgerColumn.currency)
+                    ) DO UPDATE SET
+                        \(LedgerColumn.id) = excluded.\(LedgerColumn.id),
+                        \(LedgerColumn.amountMicros) = excluded.\(LedgerColumn.amountMicros),
+                        \(LedgerColumn.quality) = excluded.\(LedgerColumn.quality)
+                    """,
+                arguments: [
+                    record.id,
+                    record.accountID,
+                    record.providerID,
+                    record.bucketStart,
+                    record.bucketEnd,
+                    record.amountMicros,
+                    record.currency,
+                    record.quality,
+                ]
+            )
+        }
+    }
+
+    private static func upsertEstimateSnapshots(_ snapshots: [EstimateSnapshot], db: Database) throws {
+        guard !snapshots.isEmpty else {
+            return
+        }
+
+        for snapshot in snapshots {
+            let record = EstimateSnapshotRecord(snapshot)
+            try db.execute(
+                sql: """
+                    INSERT INTO \(LedgerTable.estimateSnapshots) (
+                        \(LedgerColumn.id),
+                        \(LedgerColumn.accountID),
+                        \(LedgerColumn.providerID),
+                        \(LedgerColumn.bucketStart),
+                        \(LedgerColumn.bucketEnd),
+                        \(LedgerColumn.estimatedAmountMicros),
+                        \(LedgerColumn.currency),
+                        \(LedgerColumn.quality)
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(
+                        \(LedgerColumn.accountID),
+                        \(LedgerColumn.providerID),
+                        \(LedgerColumn.bucketStart),
+                        \(LedgerColumn.bucketEnd),
+                        \(LedgerColumn.currency)
+                    ) DO UPDATE SET
+                        \(LedgerColumn.id) = excluded.\(LedgerColumn.id),
+                        \(LedgerColumn.estimatedAmountMicros) = excluded.\(LedgerColumn.estimatedAmountMicros),
+                        \(LedgerColumn.quality) = excluded.\(LedgerColumn.quality)
+                    """,
+                arguments: [
+                    record.id,
+                    record.accountID,
+                    record.providerID,
+                    record.bucketStart,
+                    record.bucketEnd,
+                    record.estimatedAmountMicros,
+                    record.currency,
+                    record.quality,
+                ]
+            )
+        }
+    }
+
+    private static func upsertAccountSyncState(
+        _ result: ProviderSyncResult,
+        updatedAt: Date,
+        db: Database
+    ) throws {
+        let record = AccountSyncStateRecord(result: result, updatedAt: updatedAt)
+        try db.execute(
+            sql: """
+                INSERT INTO \(LedgerTable.accountSyncStates) (
+                    \(LedgerColumn.accountID),
+                    \(LedgerColumn.providerID),
+                    \(LedgerColumn.supportsUsage),
+                    \(LedgerColumn.supportsActualCost),
+                    \(LedgerColumn.supportsResetDate),
+                    \(LedgerColumn.supportsModelBreakdown),
+                    \(LedgerColumn.quality),
+                    \(LedgerColumn.message),
+                    \(LedgerColumn.billingStartsAt),
+                    \(LedgerColumn.billingEndsAt),
+                    \(LedgerColumn.billingResetAt),
+                    \(LedgerColumn.updatedAt)
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(\(LedgerColumn.accountID)) DO UPDATE SET
+                    \(LedgerColumn.providerID) = excluded.\(LedgerColumn.providerID),
+                    \(LedgerColumn.supportsUsage) = excluded.\(LedgerColumn.supportsUsage),
+                    \(LedgerColumn.supportsActualCost) = excluded.\(LedgerColumn.supportsActualCost),
+                    \(LedgerColumn.supportsResetDate) = excluded.\(LedgerColumn.supportsResetDate),
+                    \(LedgerColumn.supportsModelBreakdown) = excluded.\(LedgerColumn.supportsModelBreakdown),
+                    \(LedgerColumn.quality) = excluded.\(LedgerColumn.quality),
+                    \(LedgerColumn.message) = excluded.\(LedgerColumn.message),
+                    \(LedgerColumn.billingStartsAt) = excluded.\(LedgerColumn.billingStartsAt),
+                    \(LedgerColumn.billingEndsAt) = excluded.\(LedgerColumn.billingEndsAt),
+                    \(LedgerColumn.billingResetAt) = excluded.\(LedgerColumn.billingResetAt),
+                    \(LedgerColumn.updatedAt) = excluded.\(LedgerColumn.updatedAt)
+                """,
+            arguments: [
+                record.accountID,
+                record.providerID,
+                record.supportsUsage,
+                record.supportsActualCost,
+                record.supportsResetDate,
+                record.supportsModelBreakdown,
+                record.quality,
+                record.message,
+                record.billingStartsAt,
+                record.billingEndsAt,
+                record.billingResetAt,
+                record.updatedAt,
+            ]
+        )
+    }
+
+    private static func finishSyncRun(
+        id: UUID,
+        status: SyncRun.Status,
+        message: String?,
+        finishedAt: Date,
+        db: Database
+    ) throws {
+        try db.execute(
+            sql: """
+                UPDATE \(LedgerTable.syncRuns)
+                SET
+                    \(LedgerColumn.finishedAt) = ?,
+                    \(LedgerColumn.status) = ?,
+                    \(LedgerColumn.message) = ?
+                WHERE \(LedgerColumn.id) = ?
+                """,
+            arguments: [
+                finishedAt,
+                status.rawValue,
+                message,
+                id.uuidString,
+            ]
+        )
+    }
+
+    private static func makeAccountSummary(
+        account: Account,
+        state: AccountSyncStateRecord?,
+        latestSyncRun: SyncRun?,
+        usageSnapshots: [UsageSnapshot],
+        costSnapshots: [CostSnapshot],
+        estimateSnapshots: [EstimateSnapshot]
+    ) -> AccountUsageSummary {
+        let inputTokens = usageSnapshots.reduce(Int64(0)) { $0 + $1.inputTokens }
+        let outputTokens = usageSnapshots.reduce(Int64(0)) { $0 + $1.outputTokens }
+        let requests = usageSnapshots.reduce(Int64(0)) { $0 + $1.requests }
+
+        var actualTotal = SnapshotMoneyTotal()
+        for snapshot in costSnapshots {
+            actualTotal.add(
+                amountMicros: snapshot.amountMicros,
+                currency: snapshot.currency,
+                quality: snapshot.quality
+            )
+        }
+
+        var estimateTotal = SnapshotMoneyTotal()
+        for snapshot in estimateSnapshots {
+            estimateTotal.add(
+                amountMicros: snapshot.estimatedAmountMicros,
+                currency: snapshot.currency,
+                quality: snapshot.quality
+            )
+        }
+
+        let quality = state?.capabilities.dataQuality
+            ?? worstQuality(
+                usageSnapshots.map(\.quality)
+                    + costSnapshots.map(\.quality)
+                    + estimateSnapshots.map(\.quality)
+            )
+            ?? .unavailable
+
+        return AccountUsageSummary(
+            account: account,
+            capabilities: state?.capabilities,
+            billingPeriod: state?.billingPeriod,
+            latestSyncRun: latestSyncRun,
+            inputTokens: inputTokens,
+            outputTokens: outputTokens,
+            requestCount: requests,
+            actualAmountMicros: actualTotal.amountMicros,
+            estimatedAmountMicros: estimateTotal.amountMicros,
+            displayCurrency: actualTotal.currency ?? estimateTotal.currency,
+            dataQuality: quality
+        )
+    }
+
+    private static func worstQuality(_ qualities: [DataQuality]) -> DataQuality? {
+        qualities.max { lhs, rhs in
+            lhs.isBetterThan(rhs)
         }
     }
 }

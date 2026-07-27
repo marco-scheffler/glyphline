@@ -2,14 +2,14 @@ import Foundation
 
 final class SyncScheduler {
     private let ledger: LedgerStore
-    private let credentials: CredentialStore
+    private let credentials: any CredentialStore
 
-    init(ledger: LedgerStore, credentials: CredentialStore) {
+    init(ledger: LedgerStore, credentials: any CredentialStore) {
         self.ledger = ledger
         self.credentials = credentials
     }
 
-    func sync(account: Account, adapter: ProviderAdapter) async throws {
+    func sync(account: Account, adapter: any ProviderAdapter) async throws {
         guard adapter.providerID == account.providerID else {
             throw SyncSchedulerError.providerMismatch(
                 accountProviderID: account.providerID,
@@ -40,13 +40,9 @@ final class SyncScheduler {
         }
 
         do {
-            try ledger.upsertUsageSnapshots(result.usageSnapshots)
-            try ledger.upsertCostSnapshots(result.costSnapshots)
-            try ledger.upsertEstimateSnapshots(result.estimateSnapshots)
-            try ledger.finishSyncRun(
-                id: syncRunID,
-                status: .succeeded,
-                message: nil,
+            try ledger.applySuccessfulSyncResult(
+                result,
+                syncRunID: syncRunID,
                 finishedAt: result.syncedAt
             )
         } catch {
