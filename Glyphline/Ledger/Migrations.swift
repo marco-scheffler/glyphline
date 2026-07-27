@@ -7,6 +7,7 @@ enum LedgerTable {
     static let estimateSnapshots = "estimateSnapshots"
     static let syncRuns = "syncRuns"
     static let accountSyncStates = "accountSyncStates"
+    static let syncWatermarks = "syncWatermarks"
 }
 
 enum LedgerColumn {
@@ -42,6 +43,11 @@ enum LedgerColumn {
     static let billingEndsAt = "billingEndsAt"
     static let billingResetAt = "billingResetAt"
     static let updatedAt = "updatedAt"
+    static let sourceKey = "sourceKey"
+    static let fileSize = "fileSize"
+    static let fileMTime = "fileMTime"
+    static let byteOffset = "byteOffset"
+    static let backfillCompletedThrough = "backfillCompletedThrough"
 }
 
 enum Migrations {
@@ -212,6 +218,21 @@ enum Migrations {
 
             try db.drop(table: LedgerTable.usageSnapshots)
             try db.rename(table: rebuilt, to: LedgerTable.usageSnapshots)
+        }
+
+        migrator.registerMigration("v5_sync_watermarks") { db in
+            try db.create(table: LedgerTable.syncWatermarks) { table in
+                table.column(LedgerColumn.sourceKey, .text).primaryKey()
+                table.column(LedgerColumn.accountID, .text).notNull().indexed()
+                table.column(LedgerColumn.fileSize, .integer).notNull()
+                table.column(LedgerColumn.fileMTime, .datetime).notNull()
+                table.column(LedgerColumn.byteOffset, .integer).notNull()
+                table.column(LedgerColumn.updatedAt, .datetime).notNull()
+            }
+
+            try db.alter(table: LedgerTable.accountSyncStates) { table in
+                table.add(column: LedgerColumn.backfillCompletedThrough, .datetime)
+            }
         }
 
         return migrator

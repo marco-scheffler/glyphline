@@ -27,6 +27,16 @@ struct SyncRun: Identifiable, Equatable, Sendable {
     var message: String?
 }
 
+struct SyncWatermark: Equatable, Sendable {
+    /// Stable identifier for the source. For local logs, the file path.
+    var sourceKey: String
+    var accountID: UUID
+    var fileSize: Int64
+    var fileMTime: Date
+    var byteOffset: Int64
+    var updatedAt: Date
+}
+
 struct DailyUsageSummary: Identifiable, Equatable, Sendable {
     let accountID: UUID
     var dayStart: Date
@@ -420,6 +430,37 @@ private struct AccountSyncStateRecord: Codable, FetchableRecord, PersistableReco
     }
 }
 
+private struct SyncWatermarkRecord: Codable, FetchableRecord, PersistableRecord, TableRecord {
+    static let databaseTableName = LedgerTable.syncWatermarks
+
+    var sourceKey: String
+    var accountID: String
+    var fileSize: Int64
+    var fileMTime: Date
+    var byteOffset: Int64
+    var updatedAt: Date
+
+    init(_ watermark: SyncWatermark) {
+        sourceKey = watermark.sourceKey
+        accountID = watermark.accountID.uuidString
+        fileSize = watermark.fileSize
+        fileMTime = watermark.fileMTime
+        byteOffset = watermark.byteOffset
+        updatedAt = watermark.updatedAt
+    }
+
+    var watermark: SyncWatermark {
+        SyncWatermark(
+            sourceKey: sourceKey,
+            accountID: UUID(uuidString: accountID)!,
+            fileSize: fileSize,
+            fileMTime: fileMTime,
+            byteOffset: byteOffset,
+            updatedAt: updatedAt
+        )
+    }
+}
+
 final class LedgerStore {
     private let dbQueue: DatabaseQueue
 
@@ -702,6 +743,76 @@ final class LedgerStore {
                     estimateSnapshots: estimateSnapshots
                 )
             }
+        }
+    }
+
+    func fetchWatermark(sourceKey: String) throws -> SyncWatermark? {
+        try dbQueue.read { db in
+            try SyncWatermarkRecord
+                .filter(Column(LedgerColumn.sourceKey) == sourceKey)
+                .fetchOne(db)?
+                .watermark
+        }
+    }
+
+    func saveWatermark(_ watermark: SyncWatermark) throws {
+        let record = SyncWatermarkRecord(watermark)
+
+        try dbQueue.write { db in
+            try db.execute(
+                sql: """
+                    INSERT INTO \(LedgerTable.syncWatermarks) (
+                        \(LedgerColumn.sourceKey),
+                        \(LedgerColumn.accountID),
+                        \(LedgerColumn.fileSize),
+                        \(LedgerColumn.fileMTime),
+                        \(LedgerColumn.byteOffset),
+                        \(LedgerColumn.updatedAt)
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(\(LedgerColumn.sourceKey)) DO UPDATE SET
+                        \(LedgerColumn.accountID) = excluded.\(LedgerColumn.accountID),
+                        \(LedgerColumn.fileSize) = excluded.\(LedgerColumn.fileSize),
+                        \(LedgerColumn.fileMTime) = excluded.\(LedgerColumn.fileMTime),
+                        \(LedgerColumn.byteOffset) = excluded.\(LedgerColumn.byteOffset),
+                        \(LedgerColumn.updatedAt) = excluded.\(LedgerColumn.updatedAt)
+                    """,
+                arguments: [
+                    record.sourceKey,
+                    record.accountID,
+                    record.fileSize,
+                    record.fileMTime,
+                    record.byteOffset,
+                    record.updatedAt,
+                ]
+            )
+        }
+    }
+
+    func fetchBackfillCompletedThrough(accountID: UUID) throws -> Date? {
+        try dbQueue.read { db in
+            try Date.fetchOne(
+                db,
+                sql: """
+                    SELECT \(LedgerColumn.backfillCompletedThrough)
+                    FROM \(LedgerTable.accountSyncStates)
+                    WHERE \(LedgerColumn.accountID) = ?
+                    """,
+                arguments: [accountID.uuidString]
+            )
+        }
+    }
+
+    func saveBackfillCompletedThrough(_ day: Date, accountID: UUID) throws {
+        try dbQueue.write { db in
+            try db.execute(
+                sql: """
+                    UPDATE \(LedgerTable.accountSyncStates)
+                    SET \(LedgerColumn.backfillCompletedThrough) = ?
+                    WHERE \(LedgerColumn.accountID) = ?
+                    """,
+                arguments: [day, accountID.uuidString]
+            )
         }
     }
 
