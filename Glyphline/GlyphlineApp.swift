@@ -14,14 +14,15 @@ struct GlyphlineApp: App {
         WindowGroup {
             ModeAwareWindowRoot(settings: settings) {
                 DashboardView()
+                    .environmentObject(settings)
             }
         }
         .windowStyle(.titleBar)
 
         MenuBarExtra("Glyphline", systemImage: "chart.line.uptrend.xyaxis") {
-            // The menu bar scene stays declared for all modes; Task 7 will move this behind user-facing settings.
             ModeAwareMenuBarRoot(settings: settings) {
                 MenuBarView()
+                    .environmentObject(settings)
             }
         }
     }
@@ -42,14 +43,22 @@ private struct ModeAwareWindowRoot<Content: View>: View {
         .onAppear {
             AppActivationController.apply(mode: settings.appMode)
             if settings.appMode == .menuBarOnly {
-                NSApp.keyWindow?.close()
+                closeVisibleWindows()
             }
         }
         .onChange(of: settings.appMode) { _, newValue in
             AppActivationController.apply(mode: newValue)
             if newValue == .menuBarOnly {
-                NSApp.keyWindow?.close()
+                closeVisibleWindows()
+            } else {
+                NSApp.activate(ignoringOtherApps: true)
             }
+        }
+    }
+
+    private func closeVisibleWindows() {
+        for window in NSApp.windows where window.isVisible {
+            window.close()
         }
     }
 }
