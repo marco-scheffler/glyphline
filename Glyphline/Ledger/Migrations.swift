@@ -5,6 +5,7 @@ enum LedgerTable {
     static let usageSnapshots = "usageSnapshots"
     static let costSnapshots = "costSnapshots"
     static let estimateSnapshots = "estimateSnapshots"
+    static let syncRuns = "syncRuns"
 }
 
 enum LedgerColumn {
@@ -26,6 +27,10 @@ enum LedgerColumn {
     static let amountMicros = "amountMicros"
     static let estimatedAmountMicros = "estimatedAmountMicros"
     static let currency = "currency"
+    static let startedAt = "startedAt"
+    static let finishedAt = "finishedAt"
+    static let status = "status"
+    static let message = "message"
 }
 
 enum Migrations {
@@ -59,7 +64,7 @@ enum Migrations {
                     LedgerColumn.providerID,
                     LedgerColumn.bucketStart,
                     LedgerColumn.bucketEnd,
-                    LedgerColumn.modelKey,
+                    LedgerColumn.modelKey
                 ])
             }
 
@@ -77,7 +82,7 @@ enum Migrations {
                     LedgerColumn.providerID,
                     LedgerColumn.bucketStart,
                     LedgerColumn.bucketEnd,
-                    LedgerColumn.currency,
+                    LedgerColumn.currency
                 ])
             }
 
@@ -95,8 +100,18 @@ enum Migrations {
                     LedgerColumn.providerID,
                     LedgerColumn.bucketStart,
                     LedgerColumn.bucketEnd,
-                    LedgerColumn.currency,
+                    LedgerColumn.currency
                 ])
+            }
+
+            try db.create(table: LedgerTable.syncRuns) { table in
+                table.column(LedgerColumn.id, .text).primaryKey()
+                table.column(LedgerColumn.accountID, .text).notNull().indexed()
+                table.column(LedgerColumn.providerID, .text).notNull()
+                table.column(LedgerColumn.startedAt, .datetime).notNull()
+                table.column(LedgerColumn.finishedAt, .datetime)
+                table.column(LedgerColumn.status, .text).notNull()
+                table.column(LedgerColumn.message, .text)
             }
         }
 
