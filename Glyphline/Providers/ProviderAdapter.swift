@@ -9,7 +9,7 @@ struct ProviderCapabilities: Codable, Equatable, Sendable {
     var message: String?
 }
 
-struct ProviderSyncResult: Sendable {
+struct ProviderSyncResult: Codable, Equatable, Sendable {
     var providerID: ProviderID
     var accountID: UUID
     var capabilities: ProviderCapabilities
