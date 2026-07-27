@@ -28,6 +28,7 @@ struct SyncRun: Identifiable, Equatable, Sendable {
 }
 
 struct DailyUsageSummary: Identifiable, Equatable, Sendable {
+    let accountID: UUID
     let dayStart: Date
     var inputTokens: Int64
     var outputTokens: Int64
@@ -36,11 +37,12 @@ struct DailyUsageSummary: Identifiable, Equatable, Sendable {
     var currency: String?
     var quality: DataQuality
 
-    var id: Date { dayStart }
+    var id: String { "\(accountID.uuidString)-\(dayStart.timeIntervalSinceReferenceDate)" }
     var totalTokens: Int64 { inputTokens + outputTokens }
 }
 
 private struct DailyUsageAccumulator {
+    let accountID: UUID
     let dayStart: Date
     var inputTokens: Int64 = 0
     var outputTokens: Int64 = 0
@@ -71,6 +73,7 @@ private struct DailyUsageAccumulator {
 
     func summary() -> DailyUsageSummary {
         DailyUsageSummary(
+            accountID: accountID,
             dayStart: dayStart,
             inputTokens: inputTokens,
             outputTokens: outputTokens,
@@ -601,14 +604,14 @@ func fetchEstimateSnapshots(accountID: UUID) throws -> [EstimateSnapshot] {
 
  for snapshot in usageSnapshots {
  let dayStart = DailySummaryCalendar.utc.startOfDay(for: snapshot.bucketStart)
- var accumulator = summariesByDay[dayStart] ?? DailyUsageAccumulator(dayStart: dayStart)
+ var accumulator = summariesByDay[dayStart] ?? DailyUsageAccumulator(accountID: accountID, dayStart: dayStart)
  accumulator.add(snapshot)
  summariesByDay[dayStart] = accumulator
  }
 
  for snapshot in estimateSnapshots {
  let dayStart = DailySummaryCalendar.utc.startOfDay(for: snapshot.bucketStart)
- var accumulator = summariesByDay[dayStart] ?? DailyUsageAccumulator(dayStart: dayStart)
+ var accumulator = summariesByDay[dayStart] ?? DailyUsageAccumulator(accountID: accountID, dayStart: dayStart)
  accumulator.add(snapshot)
  summariesByDay[dayStart] = accumulator
  }

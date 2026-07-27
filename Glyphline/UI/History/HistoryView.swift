@@ -5,7 +5,7 @@ struct HistorySummaryEntry: Identifiable, Equatable {
     let summary: DailyUsageSummary
 
     var id: String {
-        "\(accountName ?? "all")-\(summary.dayStart.timeIntervalSinceReferenceDate)"
+        summary.id
     }
 }
 
@@ -29,7 +29,7 @@ struct HistoryView: View {
                     description: Text("Sync an account to start building local usage history over time.")
                 )
             } else {
-                List(entries) { entry in
+                List(entries, id: \.id) { entry in
                     HistorySummaryRow(entry: entry)
                         .padding(.vertical, 6)
                 }

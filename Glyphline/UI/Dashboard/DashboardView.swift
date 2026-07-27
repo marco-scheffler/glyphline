@@ -60,9 +60,16 @@ struct DashboardView: View {
                     }
                 }
                 .sorted { lhs, rhs in
-                    if lhs.summary.dayStart == rhs.summary.dayStart {
-                        return (lhs.accountName ?? "") < (rhs.accountName ?? "")
-                    }
+                        if lhs.summary.dayStart == rhs.summary.dayStart {
+                            let lhsName = lhs.accountName ?? ""
+                            let rhsName = rhs.accountName ?? ""
+
+                            if lhsName == rhsName {
+                                return lhs.summary.accountID.uuidString < rhs.summary.accountID.uuidString
+                            }
+
+                            return lhsName < rhsName
+                        }
 
                     return lhs.summary.dayStart > rhs.summary.dayStart
                 }
@@ -172,7 +179,7 @@ private struct DashboardOverview: View {
                         Text("No synced usage history yet.")
                             .foregroundStyle(.secondary)
                     } else {
-                        ForEach(Array(historyEntries.prefix(5))) { entry in
+                        ForEach(Array(historyEntries.prefix(5)), id: \.id) { entry in
                             HistorySummaryRow(entry: entry, compact: true)
                                 .padding(14)
                                 .frame(maxWidth: .infinity, alignment: .leading)
