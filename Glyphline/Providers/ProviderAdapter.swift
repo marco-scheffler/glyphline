@@ -23,5 +23,12 @@ struct ProviderSyncResult: Codable, Equatable, Sendable {
 protocol ProviderAdapter {
     var providerID: ProviderID { get }
 
+    /// False for adapters that read local files rather than a credentialed API.
+    var requiresSecret: Bool { get }
+
     func sync(account: Account, secret: String) async throws -> ProviderSyncResult
+}
+
+extension ProviderAdapter {
+    var requiresSecret: Bool { true }
 }

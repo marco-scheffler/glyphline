@@ -17,8 +17,14 @@ final class SyncScheduler {
             )
         }
 
-        guard let secret = try credentials.readSecret(for: account.credentialReference) else {
-            throw SyncSchedulerError.missingCredential(accountID: account.id)
+        let secret: String
+        if adapter.requiresSecret {
+            guard let stored = try credentials.readSecret(for: account.credentialReference) else {
+                throw SyncSchedulerError.missingCredential(accountID: account.id)
+            }
+            secret = stored
+        } else {
+            secret = ""
         }
 
         let syncRunID = try ledger.startSyncRun(

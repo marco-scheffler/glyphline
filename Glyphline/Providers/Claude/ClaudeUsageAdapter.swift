@@ -4,10 +4,13 @@ struct ClaudeUsageAdapter: ProviderAdapter {
     enum Mode: Sendable, Equatable {
         case requiresAdminKey
         case adminAPI
+        case localLogs
     }
 
     let providerID: ProviderID = .claude
     var mode: Mode
+
+    var requiresSecret: Bool { mode != .localLogs }
 
     func sync(account: Account, secret: String) async throws -> ProviderSyncResult {
         _ = secret
@@ -19,6 +22,8 @@ struct ClaudeUsageAdapter: ProviderAdapter {
                 return "Claude non-admin credentials are unavailable."
             case .adminAPI:
                 return "Claude admin API mode is exact."
+            case .localLogs:
+                return "Claude local log ingestion not implemented yet."
             }
         }()
 

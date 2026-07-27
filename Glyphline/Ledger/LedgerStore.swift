@@ -1116,3 +1116,6 @@ final class LedgerStore {
         }
     }
 }
+
+/// Safe because all access goes through GRDB's `DatabaseQueue`, which serializes reads and writes.
+extension LedgerStore: @unchecked Sendable {}
