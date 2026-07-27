@@ -38,8 +38,13 @@ struct UsageSnapshot: Identifiable, Codable, Equatable, Sendable {
     var bucketEnd: Date
     var model: String?
     var inputTokens: Int64
+    /// Tokens written to a provider cache. Anthropic 5m and 1h creation are summed here.
+    var cacheCreationTokens: Int64 = 0
+    /// Tokens served from a provider cache, priced far below fresh input.
+    var cacheReadTokens: Int64 = 0
     var outputTokens: Int64
-    var requests: Int64
+    /// Nil where the provider reports no request count — the Anthropic usage report has none.
+    var requests: Int64?
     var quality: DataQuality
 }
 

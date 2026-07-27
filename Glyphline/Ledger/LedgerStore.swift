@@ -73,7 +73,7 @@ private struct DailyUsageAccumulator {
     mutating func add(_ snapshot: UsageSnapshot) {
         inputTokens += snapshot.inputTokens
         outputTokens += snapshot.outputTokens
-        requests += snapshot.requests
+        requests += snapshot.requests ?? 0
         mergeQuality(snapshot.quality)
     }
 
@@ -195,8 +195,10 @@ private struct UsageSnapshotRecord: Codable, FetchableRecord, PersistableRecord,
     var model: String?
     var modelKey: String
     var inputTokens: Int64
+    var cacheCreationTokens: Int64
+    var cacheReadTokens: Int64
     var outputTokens: Int64
-    var requests: Int64
+    var requests: Int64?
     var quality: String
 
     init(_ snapshot: UsageSnapshot) {
@@ -208,6 +210,8 @@ private struct UsageSnapshotRecord: Codable, FetchableRecord, PersistableRecord,
         model = snapshot.model
         modelKey = LedgerModelIdentity.makeKey(for: snapshot.model)
         inputTokens = snapshot.inputTokens
+        cacheCreationTokens = snapshot.cacheCreationTokens
+        cacheReadTokens = snapshot.cacheReadTokens
         outputTokens = snapshot.outputTokens
         requests = snapshot.requests
         quality = snapshot.quality.rawValue
@@ -222,6 +226,8 @@ private struct UsageSnapshotRecord: Codable, FetchableRecord, PersistableRecord,
             bucketEnd: bucketEnd,
             model: model,
             inputTokens: inputTokens,
+            cacheCreationTokens: cacheCreationTokens,
+            cacheReadTokens: cacheReadTokens,
             outputTokens: outputTokens,
             requests: requests,
             quality: DataQuality(rawValue: quality)!
@@ -695,11 +701,13 @@ final class LedgerStore {
                         \(LedgerColumn.model),
                         \(LedgerColumn.modelKey),
                         \(LedgerColumn.inputTokens),
+                        \(LedgerColumn.cacheCreationTokens),
+                        \(LedgerColumn.cacheReadTokens),
                         \(LedgerColumn.outputTokens),
                         \(LedgerColumn.requests),
                         \(LedgerColumn.quality)
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ON CONFLICT(
                         \(LedgerColumn.accountID),
                         \(LedgerColumn.providerID),
@@ -710,6 +718,8 @@ final class LedgerStore {
                         \(LedgerColumn.id) = excluded.\(LedgerColumn.id),
                         \(LedgerColumn.model) = excluded.\(LedgerColumn.model),
                         \(LedgerColumn.inputTokens) = excluded.\(LedgerColumn.inputTokens),
+                        \(LedgerColumn.cacheCreationTokens) = excluded.\(LedgerColumn.cacheCreationTokens),
+                        \(LedgerColumn.cacheReadTokens) = excluded.\(LedgerColumn.cacheReadTokens),
                         \(LedgerColumn.outputTokens) = excluded.\(LedgerColumn.outputTokens),
                         \(LedgerColumn.requests) = excluded.\(LedgerColumn.requests),
                         \(LedgerColumn.quality) = excluded.\(LedgerColumn.quality)
@@ -723,6 +733,8 @@ final class LedgerStore {
                     record.model,
                     record.modelKey,
                     record.inputTokens,
+                    record.cacheCreationTokens,
+                    record.cacheReadTokens,
                     record.outputTokens,
                     record.requests,
                     record.quality,
@@ -909,7 +921,7 @@ final class LedgerStore {
     ) -> AccountUsageSummary {
         let inputTokens = usageSnapshots.reduce(Int64(0)) { $0 + $1.inputTokens }
         let outputTokens = usageSnapshots.reduce(Int64(0)) { $0 + $1.outputTokens }
-        let requests = usageSnapshots.reduce(Int64(0)) { $0 + $1.requests }
+        let requests = usageSnapshots.reduce(Int64(0)) { $0 + ($1.requests ?? 0) }
 
         var actualTotal = SnapshotMoneyTotal()
         for snapshot in costSnapshots {
