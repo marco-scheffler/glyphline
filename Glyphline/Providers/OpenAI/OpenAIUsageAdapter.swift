@@ -89,10 +89,11 @@ struct OpenAIUsageAdapter: ProviderAdapter {
             var snapshots: [CostSnapshot] = []
 
             for (index, result) in bucket.results.enumerated() {
-                guard let amountMicros = micros(from: result.amount?.value),
+                guard let value = result.amount?.value,
                       let currency = result.amount?.currency else {
                     continue
                 }
+                let amountMicros = MoneyAmount.micros(fromDollars: value)
 
                 let discriminatorParts = [
                     result.lineItem ?? "cost",
@@ -251,16 +252,6 @@ struct OpenAIUsageAdapter: ProviderAdapter {
         request.httpMethod = "GET"
         request.setValue("Bearer \(secret)", forHTTPHeaderField: "Authorization")
         return request
-    }
-
-    private func micros(from value: Decimal?) -> Int64? {
-        guard var value else {
-            return nil
-        }
-
-        var scaled = Decimal()
-        NSDecimalMultiplyByPowerOf10(&scaled, &value, 6, .plain)
-        return NSDecimalNumber(decimal: scaled).int64Value
     }
 
     private func makeSnapshotID(
