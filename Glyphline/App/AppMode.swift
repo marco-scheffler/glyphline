@@ -1,6 +1,8 @@
 import Foundation
 
 enum AppMode: String, CaseIterable, Identifiable {
+    static let dashboardWindowID = "dashboard"
+
     case menuBarOnly
     case windowOnly
     case menuBarAndWindow
@@ -16,5 +18,17 @@ enum AppMode: String, CaseIterable, Identifiable {
         case .menuBarAndWindow:
             "Both"
         }
+    }
+
+    var showsMenuBarExtra: Bool {
+        self != .windowOnly
+    }
+
+    var showsDashboardWindow: Bool {
+        self != .menuBarOnly
+    }
+
+    func requiresDashboardOpen(afterTransitioningFrom previousMode: AppMode) -> Bool {
+        showsDashboardWindow && !previousMode.showsDashboardWindow
     }
 }

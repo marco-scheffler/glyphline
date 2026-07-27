@@ -11,7 +11,7 @@ struct GlyphlineApp: App {
     }
 
     var body: some Scene {
-        WindowGroup {
+        WindowGroup(id: AppMode.dashboardWindowID) {
             ModeAwareWindowRoot(settings: settings) {
                 DashboardView()
                     .environmentObject(settings)
@@ -19,12 +19,31 @@ struct GlyphlineApp: App {
         }
         .windowStyle(.titleBar)
 
-        MenuBarExtra("Glyphline", systemImage: "chart.line.uptrend.xyaxis") {
+        MenuBarExtra(
+            "Glyphline",
+            systemImage: "chart.line.uptrend.xyaxis",
+            isInserted: menuBarExtraInsertion
+        ) {
             ModeAwareMenuBarRoot(settings: settings) {
                 MenuBarView()
                     .environmentObject(settings)
             }
         }
+    }
+
+    private var menuBarExtraInsertion: Binding<Bool> {
+        Binding(
+            get: {
+                settings.appMode.showsMenuBarExtra
+            },
+            set: { isInserted in
+                guard isInserted != settings.appMode.showsMenuBarExtra else {
+                    return
+                }
+
+                settings.appMode = isInserted ? .menuBarAndWindow : .windowOnly
+            }
+        )
     }
 }
 
@@ -34,21 +53,21 @@ private struct ModeAwareWindowRoot<Content: View>: View {
 
     var body: some View {
         Group {
-            if settings.appMode == .menuBarOnly {
-                EmptyView()
-            } else {
+            if settings.appMode.showsDashboardWindow {
                 content()
+            } else {
+                EmptyView()
             }
         }
         .onAppear {
             AppActivationController.apply(mode: settings.appMode)
-            if settings.appMode == .menuBarOnly {
+            if !settings.appMode.showsDashboardWindow {
                 closeVisibleWindows()
             }
         }
         .onChange(of: settings.appMode) { _, newValue in
             AppActivationController.apply(mode: newValue)
-            if newValue == .menuBarOnly {
+            if !newValue.showsDashboardWindow {
                 closeVisibleWindows()
             } else {
                 NSApp.activate(ignoringOtherApps: true)
@@ -68,18 +87,12 @@ private struct ModeAwareMenuBarRoot<Content: View>: View {
     let content: () -> Content
 
     var body: some View {
-        Group {
-            if settings.appMode == .windowOnly {
-                EmptyView()
-            } else {
-                content()
+        content()
+            .onAppear {
+                AppActivationController.apply(mode: settings.appMode)
             }
-        }
-        .onAppear {
-            AppActivationController.apply(mode: settings.appMode)
-        }
-        .onChange(of: settings.appMode) { _, newValue in
-            AppActivationController.apply(mode: newValue)
-        }
+            .onChange(of: settings.appMode) { _, newValue in
+                AppActivationController.apply(mode: newValue)
+            }
     }
 }

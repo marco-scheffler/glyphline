@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 
 struct MenuBarView: View {
+    @Environment(\.openWindow) private var openWindow
     @EnvironmentObject private var settings: AppSettingsStore
 
     var body: some View {
@@ -9,11 +10,11 @@ struct MenuBarView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Glyphline")
                     .font(.headline)
-                Text(PlaceholderContent.monthlyEstimateSummary + " this cycle")
+                Text(PlaceholderContent.monthlyEstimateSummary + " sample total")
                     .foregroundStyle(.secondary)
             }
 
-            Picker("Mode", selection: $settings.appMode) {
+            Picker("Mode", selection: appModeBinding) {
                 ForEach(AppMode.allCases) { mode in
                     Text(mode.displayName)
                         .tag(mode)
@@ -28,7 +29,6 @@ struct MenuBarView: View {
                             Text(summary.account.displayName)
                                 .font(.subheadline.weight(.medium))
                                 .lineLimit(1)
-
                             Text(summary.statusSummary)
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
@@ -55,11 +55,29 @@ struct MenuBarView: View {
         .frame(width: 320)
     }
 
+    private var appModeBinding: Binding<AppMode> {
+        Binding(
+            get: {
+                settings.appMode
+            },
+            set: { newMode in
+                let previousMode = settings.appMode
+                settings.appMode = newMode
+
+                if newMode.requiresDashboardOpen(afterTransitioningFrom: previousMode) {
+                    openDashboard()
+                }
+            }
+        )
+    }
+
     private func openDashboard() {
-        AppActivationController.apply(mode: settings.appMode)
-        NSApp.activate(ignoringOtherApps: true)
-        if let window = NSApp.windows.first(where: \.canBecomeMain) {
-            window.makeKeyAndOrderFront(nil)
+        if !settings.appMode.showsDashboardWindow {
+            settings.appMode = .menuBarAndWindow
         }
+
+        AppActivationController.apply(mode: settings.appMode)
+        openWindow(id: AppMode.dashboardWindowID)
+        NSApp.activate(ignoringOtherApps: true)
     }
 }

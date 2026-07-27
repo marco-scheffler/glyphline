@@ -38,107 +38,107 @@ enum PlaceholderContent {
             account: Account(
                 id: UUID(uuidString: "11111111-1111-1111-1111-111111111111")!,
                 providerID: .openAI,
-                displayName: "OpenAI Production",
-                credentialReference: "keychain://openai-prod",
-                createdAt: Date(timeIntervalSince1970: 1_720_000_000),
+                displayName: "Sample Workspace Alpha",
+                credentialReference: "demo-reference-openai-alpha",
+                createdAt: Date(timeIntervalSince1970: 1_704_067_200),
                 isEnabled: true
             ),
             dataQuality: .exact,
-            statusSummary: "Synced 12 minutes ago",
+            statusSummary: "Demo fixture: provider-reported sample",
             monthlyCostSummary: "$4.82",
-            requestSummary: "842 requests",
-            tokenSummary: "96k tokens",
-            billingSummary: "Renews on August 13",
-            lastSyncSummary: "Latest sync returned usage and reset date.",
-            costSourceSummary: "Exact invoice data"
+            requestSummary: "842 sample requests",
+            tokenSummary: "96k sample tokens",
+            billingSummary: "Example billing window: Aug 1-Aug 31",
+            lastSyncSummary: "Demo timeline entry for a provider-reported sample.",
+            costSourceSummary: "Sample provider-reported total"
         ),
         PlaceholderAccountSummary(
             account: Account(
                 id: UUID(uuidString: "22222222-2222-2222-2222-222222222222")!,
                 providerID: .claude,
-                displayName: "Claude Research",
-                credentialReference: "keychain://claude-research",
-                createdAt: Date(timeIntervalSince1970: 1_721_000_000),
+                displayName: "Sample Workspace Beta",
+                credentialReference: "demo-reference-claude-beta",
+                createdAt: Date(timeIntervalSince1970: 1_706_745_600),
                 isEnabled: true
             ),
             dataQuality: .estimated,
-            statusSummary: "Synced 41 minutes ago",
+            statusSummary: "Demo fixture: estimated sample",
             monthlyCostSummary: "$3.51",
-            requestSummary: "517 requests",
-            tokenSummary: "71k tokens",
-            billingSummary: "Estimate based on pricing catalog.",
-            lastSyncSummary: "Usage returned without provider-side invoice totals.",
-            costSourceSummary: "Estimated from usage"
+            requestSummary: "517 sample requests",
+            tokenSummary: "71k sample tokens",
+            billingSummary: "Example total derived from a sample price sheet",
+            lastSyncSummary: "Demo timeline entry showing an estimated sample calculation.",
+            costSourceSummary: "Sample estimated total"
         ),
         PlaceholderAccountSummary(
             account: Account(
                 id: UUID(uuidString: "33333333-3333-3333-3333-333333333333")!,
                 providerID: .cursor,
-                displayName: "Cursor Team",
-                credentialReference: "keychain://cursor-team",
-                createdAt: Date(timeIntervalSince1970: 1_722_000_000),
+                displayName: "Sample Workspace Gamma",
+                credentialReference: "demo-reference-cursor-gamma",
+                createdAt: Date(timeIntervalSince1970: 1_709_164_800),
                 isEnabled: true
             ),
             dataQuality: .partial,
-            statusSummary: "Synced 2 hours ago",
+            statusSummary: "Demo fixture: partial sample",
             monthlyCostSummary: "$0.00",
-            requestSummary: "548 requests",
-            tokenSummary: "Unavailable",
-            billingSummary: "Provider reported request counts only.",
-            lastSyncSummary: "Token totals missing for shared-workspace activity.",
-            costSourceSummary: "Partial provider response"
+            requestSummary: "548 sample requests",
+            tokenSummary: "Token detail omitted in sample",
+            billingSummary: "Example row with partial fields only",
+            lastSyncSummary: "Demo timeline entry with intentionally missing detail.",
+            costSourceSummary: "Sample partial total"
         ),
         PlaceholderAccountSummary(
             account: Account(
                 id: UUID(uuidString: "44444444-4444-4444-4444-444444444444")!,
                 providerID: .openAI,
-                displayName: "Sandbox Account",
-                credentialReference: "keychain://openai-sandbox",
-                createdAt: Date(timeIntervalSince1970: 1_723_000_000),
+                displayName: "Sample Workspace Delta",
+                credentialReference: "demo-reference-openai-delta",
+                createdAt: Date(timeIntervalSince1970: 1_711_843_200),
                 isEnabled: false
             ),
             dataQuality: .unavailable,
-            statusSummary: "Needs reconnect",
+            statusSummary: "Demo fixture: unavailable sample",
             monthlyCostSummary: "--",
-            requestSummary: "No recent sync",
-            tokenSummary: "--",
-            billingSummary: "Disabled until credentials are refreshed.",
-            lastSyncSummary: "Last sync failed with an authentication error.",
-            costSourceSummary: "No current provider data"
+            requestSummary: "No sample requests loaded",
+            tokenSummary: "No sample tokens loaded",
+            billingSummary: "Example empty state for unavailable data",
+            lastSyncSummary: "Demo timeline entry for missing usage values.",
+            costSourceSummary: "Sample unavailable total"
         )
     ]
 
     static let history: [PlaceholderHistoryEntry] = [
         PlaceholderHistoryEntry(
             id: UUID(uuidString: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")!,
-            title: "Usage sync completed",
-            accountName: "OpenAI Production",
-            occurredAtSummary: "Today at 09:42",
-            detailSummary: "Captured usage, cost estimate, and reset date.",
+            title: "Sample provider snapshot loaded",
+            accountName: "Sample Workspace Alpha",
+            occurredAtSummary: "Example event A",
+            detailSummary: "Loaded a demo fixture with provider-reported values.",
             dataQuality: .exact
         ),
         PlaceholderHistoryEntry(
             id: UUID(uuidString: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")!,
-            title: "Estimate recalculated",
-            accountName: "Claude Research",
-            occurredAtSummary: "Today at 09:13",
-            detailSummary: "Pricing catalog filled in missing provider totals.",
+            title: "Sample estimate recalculated",
+            accountName: "Sample Workspace Beta",
+            occurredAtSummary: "Example event B",
+            detailSummary: "Recomputed a demo estimate from placeholder pricing.",
             dataQuality: .estimated
         ),
         PlaceholderHistoryEntry(
             id: UUID(uuidString: "cccccccc-cccc-cccc-cccc-cccccccccccc")!,
-            title: "Partial sync saved",
-            accountName: "Cursor Team",
-            occurredAtSummary: "Today at 07:58",
-            detailSummary: "Request counts updated without token-level breakdown.",
+            title: "Sample partial data saved",
+            accountName: "Sample Workspace Gamma",
+            occurredAtSummary: "Example event C",
+            detailSummary: "Stored a demo row with only request counts filled in.",
             dataQuality: .partial
         ),
         PlaceholderHistoryEntry(
             id: UUID(uuidString: "dddddddd-dddd-dddd-dddd-dddddddddddd")!,
-            title: "Credential check failed",
-            accountName: "Sandbox Account",
-            occurredAtSummary: "Yesterday at 18:21",
-            detailSummary: "Stored secret was rejected by the provider.",
+            title: "Sample unavailable state shown",
+            accountName: "Sample Workspace Delta",
+            occurredAtSummary: "Example event D",
+            detailSummary: "Presented a demo unavailable state without any live credential check.",
             dataQuality: .unavailable
         )
     ]
@@ -146,21 +146,21 @@ enum PlaceholderContent {
     static let providerOptions: [PlaceholderProviderOption] = [
         PlaceholderProviderOption(
             providerID: .openAI,
-            credentialLabel: "API key",
-            qualitySummary: "Usage, estimates, and reset date",
-            setupSummary: "Best for exact or near-exact spend visibility."
+            credentialLabel: "Sample credential",
+            qualitySummary: "Demo UI: provider-reported or estimated samples",
+            setupSummary: "Example provider option for previewing the add-account form."
         ),
         PlaceholderProviderOption(
             providerID: .claude,
-            credentialLabel: "Console key",
-            qualitySummary: "Usage with estimated spend",
-            setupSummary: "Good for tracking requests and modeled cost."
+            credentialLabel: "Sample credential",
+            qualitySummary: "Demo UI: estimated usage samples",
+            setupSummary: "Example provider option for previewing placeholder setup copy."
         ),
         PlaceholderProviderOption(
             providerID: .cursor,
-            credentialLabel: "Session token",
-            qualitySummary: "Request totals with partial quality",
-            setupSummary: "Useful when you mainly need activity monitoring."
+            credentialLabel: "Sample credential",
+            qualitySummary: "Demo UI: partial usage samples",
+            setupSummary: "Example provider option for previewing partial-data states."
         )
     ]
 
@@ -180,6 +180,6 @@ enum PlaceholderContent {
     }
 
     static var requestVolumeSummary: String {
-        "1,907 requests"
+        "1,907 sample requests"
     }
 }
