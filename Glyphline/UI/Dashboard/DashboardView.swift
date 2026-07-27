@@ -6,6 +6,8 @@ struct DashboardView: View {
     @State private var historyEntries: [HistorySummaryEntry] = []
     @State private var loadError: String?
 
+    @EnvironmentObject private var coordinator: SyncCoordinator
+
     private let ledgerStore: LedgerStore?
 
     init(ledgerStore: LedgerStore? = LedgerStore.makeDefault()) {
@@ -26,6 +28,19 @@ struct DashboardView: View {
         }
         .navigationSplitViewStyle(.balanced)
         .frame(minWidth: 980, minHeight: 640)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    Task {
+                        await coordinator.syncAll()
+                        loadDashboard()
+                    }
+                } label: {
+                    Label("Sync All", systemImage: "arrow.triangle.2.circlepath")
+                }
+                .disabled(coordinator.activities.values.contains(where: \.isRunning))
+            }
+        }
         .onAppear(perform: loadDashboard)
     }
 
@@ -38,7 +53,7 @@ struct DashboardView: View {
                 loadError: loadError
             )
         case .accounts:
-            AccountsView(accounts: accountSummaries)
+            AccountsView(accounts: accountSummaries, onSyncFinished: loadDashboard)
         case .addAccount:
             AddAccountView(ledgerStore: ledgerStore, onSave: loadDashboard)
         case .history:

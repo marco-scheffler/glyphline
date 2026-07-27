@@ -77,6 +77,72 @@ final class SyncCoordinatorTests: XCTestCase {
         guard case .failed = coordinator.activities[account.id] else {
             return XCTFail("expected a failed activity, got \(String(describing: coordinator.activities[account.id]))")
         }
+
+        // The accounts list renders this string verbatim, so it is pinned here.
+        // It must not claim the sync never ran or that data was discarded: the
+        // coordinator also reports .failed when cost estimation fails after
+        // snapshots were already persisted.
+        XCTAssertEqual(coordinator.activities[account.id], .failed("Credential missing in Keychain."))
+    }
+
+    func testProviderMismatchSurfacesItsOwnMessage() async throws {
+        let dbQueue = try DatabaseQueueFactory.makeInMemory()
+        try Migrations.migrate(dbQueue)
+        let ledger = LedgerStore(dbQueue: dbQueue)
+
+        let account = Account(
+            id: UUID(),
+            providerID: .openAI,
+            displayName: "Mismatched",
+            credentialReference: "keychain://glyphline/mismatch",
+            createdAt: Date(timeIntervalSince1970: 1_800_000_000),
+            isEnabled: true
+        )
+        try ledger.saveAccount(account)
+
+        let credentials = InMemoryCredentialStore()
+        try credentials.save(secret: "secret", for: account.credentialReference)
+
+        let coordinator = try makeCoordinator(
+            ledger: ledger,
+            credentials: credentials,
+            adapter: FixtureProviderAdapter(providerID: .cursor)
+        )
+        await coordinator.syncNow(account: account)
+
+        XCTAssertEqual(
+            coordinator.activities[account.id],
+            .failed("Account and adapter provider disagree.")
+        )
+    }
+
+    func testUnrecognisedFailuresUseTheGenericMessage() async throws {
+        let dbQueue = try DatabaseQueueFactory.makeInMemory()
+        try Migrations.migrate(dbQueue)
+        let ledger = LedgerStore(dbQueue: dbQueue)
+
+        let account = Account(
+            id: UUID(),
+            providerID: .openAI,
+            displayName: "Adapter throws",
+            credentialReference: "keychain://glyphline/throwing",
+            createdAt: Date(timeIntervalSince1970: 1_800_000_000),
+            isEnabled: true
+        )
+        try ledger.saveAccount(account)
+
+        let credentials = InMemoryCredentialStore()
+        try credentials.save(secret: "secret", for: account.credentialReference)
+
+        let coordinator = try makeCoordinator(
+            ledger: ledger,
+            credentials: credentials,
+            adapter: FailingProviderAdapter()
+        )
+        await coordinator.syncNow(account: account)
+
+        // The raw error never reaches the UI: adapter errors can carry request detail.
+        XCTAssertEqual(coordinator.activities[account.id], .failed("Sync failed."))
     }
 
     func testSyncAllSkipsDisabledAccounts() async throws {
@@ -105,5 +171,19 @@ final class SyncCoordinatorTests: XCTestCase {
 
         XCTAssertNotNil(coordinator.activities[enabled.id])
         XCTAssertNil(coordinator.activities[disabled.id])
+    }
+}
+
+/// Throws an error carrying detail that must never reach the UI.
+private struct FailingProviderAdapter: ProviderAdapter {
+    struct Failure: Error {
+        let detail = "Authorization: Bearer super-secret"
+    }
+
+    let providerID: ProviderID = .openAI
+    var requiresSecret: Bool { true }
+
+    func sync(account: Account, secret: String) async throws -> ProviderSyncResult {
+        throw Failure()
     }
 }

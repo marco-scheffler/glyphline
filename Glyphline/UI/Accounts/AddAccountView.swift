@@ -9,6 +9,7 @@ struct AddAccountView: View {
     @State private var displayName = ""
     @State private var credentialValue = ""
     @State private var isEnabled = true
+    @State private var usesLocalSource = false
     @State private var saveMessage: String?
     @State private var saveError: String?
 
@@ -31,9 +32,24 @@ struct AddAccountView: View {
                             .tag(provider)
                     }
                 }
+                .onChange(of: selectedProviderID) { _, newValue in
+                    if newValue != .claude {
+                        usesLocalSource = false
+                    }
+                }
+
+                if selectedProviderID == .claude {
+                    Picker("Source", selection: $usesLocalSource) {
+                        Text("Admin API key").tag(false)
+                        Text("Local Claude Code logs").tag(true)
+                    }
+                    .pickerStyle(.radioGroup)
+                }
 
                 TextField("Display Name", text: $displayName)
-                SecureField(credentialLabel, text: $credentialValue)
+                if !usesLocalSource {
+                    SecureField(credentialLabel, text: $credentialValue)
+                }
                 Toggle("Enable account after save", isOn: $isEnabled)
             }
 
@@ -71,8 +87,8 @@ struct AddAccountView: View {
     }
 
     private var canSave: Bool {
-        !displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            && !credentialValue.isEmpty
+        let hasName = !displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        return hasName && (usesLocalSource || !credentialValue.isEmpty)
     }
 
     private var credentialLabel: String {
@@ -118,7 +134,8 @@ struct AddAccountView: View {
         }
 
         let accountID = UUID()
-        let reference = "keychain://glyphline/\(accountID.uuidString)"
+        let usesLocal = usesLocalSource && selectedProviderID == .claude
+        let reference = AccountCredentialReference.make(accountID: accountID, usesLocalSource: usesLocal)
         let account = Account(
             id: accountID,
             providerID: selectedProviderID,
@@ -129,17 +146,22 @@ struct AddAccountView: View {
         )
 
         do {
-            try credentialStore.save(secret: credentialValue, for: reference)
+            if !usesLocal {
+                try credentialStore.save(secret: credentialValue, for: reference)
+            }
             do {
                 try ledgerStore.saveAccount(account)
             } catch {
-                try? credentialStore.deleteSecret(for: reference)
+                if !usesLocal {
+                    try? credentialStore.deleteSecret(for: reference)
+                }
                 throw error
             }
 
             displayName = ""
             credentialValue = ""
             isEnabled = true
+            usesLocalSource = false
             saveMessage = "Account saved."
             onSave()
         } catch {

@@ -1,13 +1,28 @@
 import AppKit
+import GRDB
 import SwiftUI
 
 @main
 struct GlyphlineApp: App {
     @StateObject private var settings: AppSettingsStore
+    @StateObject private var coordinator: SyncCoordinator
 
     init() {
         let settings = AppSettingsStore()
         _settings = StateObject(wrappedValue: settings)
+
+        let ledger = LedgerStore.makeDefault()
+        let estimator = CostEstimator(
+            catalog: (try? PricingCatalog.bundled()) ?? PricingCatalog(entries: [])
+        )
+        _coordinator = StateObject(
+            wrappedValue: SyncCoordinator(
+                ledger: ledger ?? LedgerStore(dbQueue: try! DatabaseQueueFactory.makeInMemory()),
+                credentials: KeychainStore(),
+                registry: ProviderAdapterRegistry(),
+                estimator: estimator
+            )
+        )
     }
 
     var body: some Scene {
@@ -15,6 +30,7 @@ struct GlyphlineApp: App {
             ModeAwareWindowRoot(settings: settings) {
                 DashboardView()
                     .environmentObject(settings)
+                    .environmentObject(coordinator)
             }
         }
         .windowStyle(.titleBar)
@@ -27,6 +43,7 @@ struct GlyphlineApp: App {
             ModeAwareMenuBarRoot(settings: settings) {
                 MenuBarView()
                     .environmentObject(settings)
+                    .environmentObject(coordinator)
             }
         }
     }

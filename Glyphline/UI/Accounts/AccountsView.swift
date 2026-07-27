@@ -2,6 +2,9 @@ import SwiftUI
 
 struct AccountsView: View {
     let accounts: [AccountUsageSummary]
+    var onSyncFinished: () -> Void = {}
+
+    @EnvironmentObject private var coordinator: SyncCoordinator
 
     var body: some View {
         Group {
@@ -30,6 +33,15 @@ struct AccountsView: View {
                                     Spacer(minLength: 12)
 
                                     DataQualityBadge(quality: summary.dataQuality)
+
+                                    Button("Sync Now") {
+                                        Task {
+                                            await coordinator.syncNow(account: summary.account)
+                                            onSyncFinished()
+                                        }
+                                    }
+                                    .buttonStyle(.bordered)
+                                    .disabled(coordinator.activities[summary.account.id]?.isRunning == true)
                                 }
 
                                 HStack(spacing: 16) {
@@ -54,6 +66,20 @@ struct AccountsView: View {
                                     )
                                 }
                                 .frame(maxWidth: .infinity, alignment: .leading)
+
+                                if let activity = coordinator.activities[summary.account.id] {
+                                    switch activity {
+                                    case .idle:
+                                        EmptyView()
+                                    case let .running(phase):
+                                        HStack(spacing: 8) {
+                                            ProgressView().controlSize(.small)
+                                            Text(phase).font(.caption).foregroundStyle(.secondary)
+                                        }
+                                    case let .failed(message):
+                                        Text(message).font(.caption).foregroundStyle(.red)
+                                    }
+                                }
 
                                 Divider()
 

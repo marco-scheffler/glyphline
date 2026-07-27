@@ -4,6 +4,7 @@ import SwiftUI
 struct MenuBarView: View {
     @Environment(\.openWindow) private var openWindow
     @EnvironmentObject private var settings: AppSettingsStore
+    @EnvironmentObject private var coordinator: SyncCoordinator
     @State private var accountSummaries: [AccountUsageSummary] = []
     @State private var loadError: String?
 
@@ -64,7 +65,13 @@ struct MenuBarView: View {
 
             HStack(spacing: 10) {
                 Button("Open Dashboard", action: openDashboard)
-                Button("Refresh", action: loadSummaries)
+                Button("Sync Now") {
+                    Task {
+                        await coordinator.syncAll()
+                        loadSummaries()
+                    }
+                }
+                .disabled(coordinator.activities.values.contains(where: \.isRunning))
                 Button("Quit") {
                     NSApp.terminate(nil)
                 }
