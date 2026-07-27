@@ -31,6 +31,7 @@
 		6F6854805AD8B45E9AB095BA /* KeychainStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89EEFE279720CAF7CA13AEB0 /* KeychainStoreTests.swift */; };
 		81A31CCE7A84A8263856A8DC /* Migrations.swift in Sources */ = {isa = PBXBuildFile; fileRef = 979B2CFA8C52D4A2693A102A /* Migrations.swift */; };
 		8B403A4B3B94ED8DAA65426D /* FixtureProviderAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E4A6EC8C6579850C8C770C5 /* FixtureProviderAdapter.swift */; };
+		8D607080C948477FBB3824D8 /* SnapshotSummaryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 230C8F0DA577453090BCF228 /* SnapshotSummaryTests.swift */; };
 		94436C6F24A2177D2143A0AA /* openai-usage.json in Resources */ = {isa = PBXBuildFile; fileRef = 5F8C45A35D6CA259D7E4F57E /* openai-usage.json */; };
 		94709AE6F65A1DC6E85EADAE /* LedgerStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA3C1D8E770A657CE4E29EF0 /* LedgerStoreTests.swift */; };
 		9682FBE1BC37960675E230A5 /* OpenAIUsageAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E8DE8808B732D4745FB73B9 /* OpenAIUsageAdapter.swift */; };
@@ -70,6 +71,7 @@
 		13BDD3026F2E41219624D71A /* CursorUsageAdapterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CursorUsageAdapterTests.swift; sourceTree = "<group>"; };
 		ACC0D78FD4604FEF94911E63 /* ClaudeUsageAdapterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeUsageAdapterTests.swift; sourceTree = "<group>"; };
 		22E542C9EA7C75092240822A /* openai-costs.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "openai-costs.json"; sourceTree = "<group>"; };
+		230C8F0DA577453090BCF228 /* SnapshotSummaryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapshotSummaryTests.swift; sourceTree = "<group>"; };
 		2D596EC370B13AA593C32D79 /* PricingCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PricingCatalog.swift; sourceTree = "<group>"; };
 		347CEC22ED71F6DCC815DB03 /* AppModeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModeTests.swift; sourceTree = "<group>"; };
 		38E16DBA6601CED2ABB83448 /* ProviderAdapterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderAdapterTests.swift; sourceTree = "<group>"; };
@@ -234,6 +236,7 @@
 				FA3C1D8E770A657CE4E29EF0 /* LedgerStoreTests.swift */,
 				16E33CDE8ED6B06736C4DD65 /* OpenAIUsageAdapterTests.swift */,
 				38E16DBA6601CED2ABB83448 /* ProviderAdapterTests.swift */,
+				230C8F0DA577453090BCF228 /* SnapshotSummaryTests.swift */,
 				CF478BE00C2540E5A49D1E46 /* SyncSchedulerTests.swift */,
 				6038A4E395A2847039481F0D /* UsageModelsTests.swift */,
 				95CD64829F4A19BE7CB0CACB /* Fixtures */,
@@ -452,6 +455,7 @@
 				8CF18E172747472ABF543B91 /* CursorUsageAdapterTests.swift in Sources */,
 				89EAEB906D5642C889B684D2 /* ClaudeUsageAdapterTests.swift in Sources */,
 				65EBE11665000DCF8EDA16D7 /* ProviderAdapterTests.swift in Sources */,
+				8D607080C948477FBB3824D8 /* SnapshotSummaryTests.swift in Sources */,
 				00087DA33D2058EA9A73DDD6 /* SyncSchedulerTests.swift in Sources */,
 				B8B5DF46E5F52175C3B0C9F8 /* UsageModelsTests.swift in Sources */,
 			);

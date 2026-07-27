@@ -2,6 +2,14 @@ import SwiftUI
 
 struct DashboardView: View {
     @State private var selection: DashboardDestination? = .overview
+    @State private var historyEntries: [HistorySummaryEntry] = []
+    @State private var historyLoadError: String?
+
+    private let ledgerStore: LedgerStore?
+
+    init(ledgerStore: LedgerStore? = DashboardView.makeDefaultLedgerStore()) {
+        self.ledgerStore = ledgerStore
+    }
 
     var body: some View {
         NavigationSplitView {
@@ -17,22 +25,61 @@ struct DashboardView: View {
         }
         .navigationSplitViewStyle(.balanced)
         .frame(minWidth: 980, minHeight: 640)
+        .onAppear(perform: loadHistory)
     }
 
     @ViewBuilder
     private var detailView: some View {
         switch selection ?? .overview {
         case .overview:
-            DashboardOverview()
+            DashboardOverview(historyEntries: historyEntries, historyLoadError: historyLoadError)
         case .accounts:
             AccountsView(accounts: PlaceholderContent.accounts)
         case .addAccount:
             AddAccountView(providers: PlaceholderContent.providerOptions)
         case .history:
-            HistoryView(entries: PlaceholderContent.history)
+            HistoryView(entries: historyEntries)
         case .settings:
             SettingsView()
         }
+    }
+
+    private func loadHistory() {
+        guard let ledgerStore else {
+            historyLoadError = "Ledger unavailable."
+            historyEntries = []
+            return
+        }
+
+        do {
+            let accounts = try ledgerStore.fetchAccounts()
+            historyEntries = try accounts
+                .flatMap { account in
+                    try ledgerStore.fetchDailySummaries(accountID: account.id).map { summary in
+                        HistorySummaryEntry(accountName: account.displayName, summary: summary)
+                    }
+                }
+                .sorted { lhs, rhs in
+                    if lhs.summary.dayStart == rhs.summary.dayStart {
+                        return (lhs.accountName ?? "") < (rhs.accountName ?? "")
+                    }
+
+                    return lhs.summary.dayStart > rhs.summary.dayStart
+                }
+            historyLoadError = nil
+        } catch {
+            historyEntries = []
+            historyLoadError = "Unable to load history."
+        }
+    }
+
+    private static func makeDefaultLedgerStore() -> LedgerStore? {
+        guard let dbQueue = try? DatabaseQueueFactory.makeDefault() else {
+            return nil
+        }
+
+        try? Migrations.migrate(dbQueue)
+        return LedgerStore(dbQueue: dbQueue)
     }
 }
 
@@ -77,10 +124,13 @@ private enum DashboardDestination: String, CaseIterable, Identifiable {
 }
 
 private struct DashboardOverview: View {
+    let historyEntries: [HistorySummaryEntry]
+    let historyLoadError: String?
+
     private let columns = [
         GridItem(.flexible(minimum: 160), spacing: 16),
         GridItem(.flexible(minimum: 160), spacing: 16),
-        GridItem(.flexible(minimum: 160), spacing: 16)
+        GridItem(.flexible(minimum: 160), spacing: 16),
     ]
 
     var body: some View {
@@ -89,14 +139,46 @@ private struct DashboardOverview: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Dashboard")
                         .font(.largeTitle.weight(.bold))
-                    Text("Track provider usage, understand data quality, and spot accounts that need attention.")
+                    Text("Usage snapshots, estimates, and data quality at a glance.")
                         .foregroundStyle(.secondary)
                 }
 
-                LazyVGrid(columns: columns, alignment: .leading, spacing: 16) {
-                    SummaryPanel(title: "Enabled Accounts", value: "\(PlaceholderContent.enabledAccounts)", note: "Across all configured providers")
-                    SummaryPanel(title: "Monthly Estimate", value: PlaceholderContent.monthlyEstimateSummary, note: "Mixed exact and estimated totals")
-                    SummaryPanel(title: "Request Volume", value: PlaceholderContent.requestVolumeSummary, note: "Latest sync window")
+                LazyVGrid(columns: columns, spacing: 16) {
+                    SummaryPanel(
+                        title: "Enabled Accounts",
+                        value: "\(PlaceholderContent.enabledAccounts)",
+                        note: "Saved providers ready for sync"
+                    )
+                    SummaryPanel(
+                        title: "Monthly Estimate",
+                        value: PlaceholderContent.monthlyEstimateSummary,
+                        note: "Mixed exact and estimated totals"
+                    )
+                    SummaryPanel(
+                        title: "Request Volume",
+                        value: PlaceholderContent.requestVolumeSummary,
+                        note: "Latest sync window"
+                    )
+                }
+
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Recent History")
+                        .font(.title3.weight(.semibold))
+
+                    if let historyLoadError, historyEntries.isEmpty {
+                        Text(historyLoadError)
+                            .foregroundStyle(.secondary)
+                    } else if historyEntries.isEmpty {
+                        Text("No synced usage history yet.")
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(Array(historyEntries.prefix(5))) { entry in
+                            HistorySummaryRow(entry: entry, compact: true)
+                                .padding(14)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 8))
+                        }
+                    }
                 }
 
                 VStack(alignment: .leading, spacing: 12) {

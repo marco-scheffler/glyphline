@@ -27,6 +27,80 @@ struct SyncRun: Identifiable, Equatable, Sendable {
     var message: String?
 }
 
+struct DailyUsageSummary: Identifiable, Equatable, Sendable {
+    let dayStart: Date
+    var inputTokens: Int64
+    var outputTokens: Int64
+    var requests: Int64
+    var estimatedAmountMicros: Int64?
+    var currency: String?
+    var quality: DataQuality
+
+    var id: Date { dayStart }
+    var totalTokens: Int64 { inputTokens + outputTokens }
+}
+
+private struct DailyUsageAccumulator {
+    let dayStart: Date
+    var inputTokens: Int64 = 0
+    var outputTokens: Int64 = 0
+    var requests: Int64 = 0
+    var estimatedAmountMicros: Int64?
+    var currency: String?
+    var quality: DataQuality?
+
+    mutating func add(_ snapshot: UsageSnapshot) {
+        inputTokens += snapshot.inputTokens
+        outputTokens += snapshot.outputTokens
+        requests += snapshot.requests
+        mergeQuality(snapshot.quality)
+    }
+
+    mutating func add(_ snapshot: EstimateSnapshot) {
+        if let currency, currency != snapshot.currency {
+            estimatedAmountMicros = nil
+            self.currency = nil
+            mergeQuality(.partial)
+        } else {
+            estimatedAmountMicros = (estimatedAmountMicros ?? 0) + snapshot.estimatedAmountMicros
+            currency = snapshot.currency
+        }
+
+        mergeQuality(snapshot.quality)
+    }
+
+    func summary() -> DailyUsageSummary {
+        DailyUsageSummary(
+            dayStart: dayStart,
+            inputTokens: inputTokens,
+            outputTokens: outputTokens,
+            requests: requests,
+            estimatedAmountMicros: estimatedAmountMicros,
+            currency: currency,
+            quality: quality ?? .unavailable
+        )
+    }
+
+    private mutating func mergeQuality(_ candidate: DataQuality) {
+        guard let quality else {
+            self.quality = candidate
+            return
+        }
+
+        if quality.isBetterThan(candidate) {
+            self.quality = candidate
+        }
+    }
+}
+
+private enum DailySummaryCalendar {
+    static let utc: Calendar = {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        return calendar
+    }()
+}
+
 private struct AccountRecord: Codable, FetchableRecord, PersistableRecord, TableRecord {
     static let databaseTableName = LedgerTable.accounts
 
@@ -501,19 +575,55 @@ final class LedgerStore {
         }
     }
 
-    func fetchEstimateSnapshots(accountID: UUID) throws -> [EstimateSnapshot] {
-        try dbQueue.read { db in
-            try EstimateSnapshotRecord
-                .filter(Column(LedgerColumn.accountID) == accountID.uuidString)
-                .order(Column(LedgerColumn.bucketStart), Column(LedgerColumn.bucketEnd))
-                .fetchAll(db)
-                .map(\.snapshot)
-        }
-    }
+func fetchEstimateSnapshots(accountID: UUID) throws -> [EstimateSnapshot] {
+ try dbQueue.read { db in
+ try EstimateSnapshotRecord
+ .filter(Column(LedgerColumn.accountID) == accountID.uuidString)
+ .order(Column(LedgerColumn.bucketStart), Column(LedgerColumn.bucketEnd))
+ .fetchAll(db)
+ .map(\.snapshot)
+ }
+ }
 
-    func fetchSyncRuns(accountID: UUID) throws -> [SyncRun] {
-        try dbQueue.read { db in
-            try SyncRunRecord
+ func fetchDailySummaries(accountID: UUID) throws -> [DailyUsageSummary] {
+ try dbQueue.read { db in
+ let usageSnapshots = try UsageSnapshotRecord
+ .filter(Column(LedgerColumn.accountID) == accountID.uuidString)
+ .fetchAll(db)
+ .map(\.snapshot)
+
+ let estimateSnapshots = try EstimateSnapshotRecord
+ .filter(Column(LedgerColumn.accountID) == accountID.uuidString)
+ .fetchAll(db)
+ .map(\.snapshot)
+
+ var summariesByDay: [Date: DailyUsageAccumulator] = [:]
+
+ for snapshot in usageSnapshots {
+ let dayStart = DailySummaryCalendar.utc.startOfDay(for: snapshot.bucketStart)
+ var accumulator = summariesByDay[dayStart] ?? DailyUsageAccumulator(dayStart: dayStart)
+ accumulator.add(snapshot)
+ summariesByDay[dayStart] = accumulator
+ }
+
+ for snapshot in estimateSnapshots {
+ let dayStart = DailySummaryCalendar.utc.startOfDay(for: snapshot.bucketStart)
+ var accumulator = summariesByDay[dayStart] ?? DailyUsageAccumulator(dayStart: dayStart)
+ accumulator.add(snapshot)
+ summariesByDay[dayStart] = accumulator
+ }
+
+ return summariesByDay.values
+ .map { $0.summary() }
+ .sorted { lhs, rhs in
+ lhs.dayStart > rhs.dayStart
+ }
+ }
+ }
+
+ func fetchSyncRuns(accountID: UUID) throws -> [SyncRun] {
+ try dbQueue.read { db in
+ try SyncRunRecord
                 .filter(Column(LedgerColumn.accountID) == accountID.uuidString)
                 .order(Column(LedgerColumn.startedAt).desc, Column(LedgerColumn.id).desc)
                 .fetchAll(db)
