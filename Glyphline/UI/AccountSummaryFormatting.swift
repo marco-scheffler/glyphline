@@ -48,6 +48,16 @@ enum AccountSummaryFormatting {
     }
 
     static func billing(_ summary: AccountUsageSummary) -> String {
+        // The capability flag decides, not the stored period. `upsertAccountSyncState`
+        // COALESCEs the three billing columns so a backfill slice cannot NULL out the
+        // real period, which means a period outlives the sync that reported it. A
+        // provider that has stopped reporting a cycle — Cursor when its spend endpoint
+        // fails — would otherwise keep rendering the last date it ever sent, right
+        // beside a capability message saying there is no reset date.
+        guard summary.capabilities?.supportsResetDate != false else {
+            return "Reset date unavailable"
+        }
+
         guard let billingPeriod = summary.billingPeriod else {
             return "Reset date unavailable"
         }

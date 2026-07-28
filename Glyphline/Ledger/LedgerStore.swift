@@ -1020,9 +1020,14 @@ final class LedgerStore {
     /// adapter returns `billingPeriod: nil` on purpose — a historic week is not a
     /// billing period — and a plain `= excluded.…` would let each of the ~53 slices
     /// NULL out the true period phase one had just written, so the reset date would
-    /// vanish from the UI until the next routine sync. A stale period is never
-    /// presented as fresh: `supportsResetDate` is still assigned unconditionally, so
-    /// a provider that stops reporting one still says so.
+    /// vanish from the UI until the next routine sync.
+    ///
+    /// The cost is that the three billing columns can go stale: they outlive the sync
+    /// that wrote them, and nothing here can tell "no period reported this time" from
+    /// "no period any more". Only `supportsResetDate`, which *is* assigned
+    /// unconditionally, carries that distinction, so it — not these columns — is what
+    /// decides whether a reset date may be shown. `AccountSummaryFormatting.billing`
+    /// is where that reading happens.
     private static func upsertAccountSyncState(
         _ result: ProviderSyncResult,
         updatedAt: Date,
