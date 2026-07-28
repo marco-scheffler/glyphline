@@ -98,12 +98,14 @@ private struct ModeAwareWindowRoot<Content: View>: View {
         }
     }
 
-    /// Restarting on change is the simplest correct way to apply a new interval;
-    /// the loop sleeps before its first sync, so a restart triggers no burst.
+    /// The coordinator ignores a re-application of the schedule it is already
+    /// running, so `onAppear` firing again on scene recreation cannot push the
+    /// next sync out by another full interval.
     private func applyScheduler() {
-        coordinator.stopScheduler()
-        guard settings.automaticSyncEnabled else { return }
-        coordinator.startScheduler(intervalSeconds: TimeInterval(settings.syncIntervalMinutes * 60))
+        coordinator.applySchedule(
+            enabled: settings.automaticSyncEnabled,
+            intervalSeconds: TimeInterval(settings.syncIntervalMinutes * 60)
+        )
     }
 
     private func closeVisibleWindows() {

@@ -12,6 +12,14 @@ final class SyncCoordinator: ObservableObject {
 
     @Published private(set) var isSchedulerRunning = false
 
+    /// The interval the running loop was started with, or nil when stopped.
+    private(set) var currentIntervalSeconds: TimeInterval?
+
+    /// Counts how many times a loop has actually been started. A restart is
+    /// otherwise invisible from the outside, since a loop cancelled before its
+    /// first suspension never runs at all.
+    private(set) var schedulerStartCount = 0
+
     /// Nil when the on-disk ledger could not be opened. There is deliberately no
     /// in-memory stand-in: a sync with nowhere durable to write must refuse
     /// rather than appear to succeed.
@@ -50,6 +58,28 @@ final class SyncCoordinator: ObservableObject {
         self.scheduler = ledger.map { SyncScheduler(ledger: $0, credentials: credentials) }
     }
 
+    /// Applies a desired schedule without disturbing one that already matches.
+    ///
+    /// The loop sleeps a full interval *before* its first sync, so an
+    /// unconditional stop-then-start would push the next sync out by a whole
+    /// interval every time it ran. This is called from `onAppear`, which fires
+    /// again each time the dashboard scene is recreated, so a user reopening the
+    /// window more often than the interval would never get a scheduled sync at
+    /// all. Re-applying an unchanged configuration is therefore a no-op.
+    func applySchedule(enabled: Bool, intervalSeconds: TimeInterval) {
+        guard enabled else {
+            stopScheduler()
+            return
+        }
+
+        guard !(isSchedulerRunning && currentIntervalSeconds == intervalSeconds) else {
+            return
+        }
+
+        stopScheduler()
+        startScheduler(intervalSeconds: intervalSeconds)
+    }
+
     /// Deliberately a long-lived task rather than a `Timer`: a menu bar app is
     /// subject to App Nap, under which timers fire unreliably.
     func startScheduler(intervalSeconds: TimeInterval) {
@@ -57,6 +87,8 @@ final class SyncCoordinator: ObservableObject {
             return
         }
 
+        currentIntervalSeconds = intervalSeconds
+        schedulerStartCount += 1
         isSchedulerRunning = true
         schedulerTask = Task { [weak self] in
             while !Task.isCancelled {
@@ -78,6 +110,7 @@ final class SyncCoordinator: ObservableObject {
         schedulerTask?.cancel()
         schedulerTask = nil
         isSchedulerRunning = false
+        currentIntervalSeconds = nil
 
         if let wakeObserver {
             NSWorkspace.shared.notificationCenter.removeObserver(wakeObserver)

@@ -304,6 +304,72 @@ final class SyncCoordinatorTests: XCTestCase {
         coordinator.stopScheduler()
         XCTAssertFalse(coordinator.isSchedulerRunning)
     }
+
+    func testReapplyingTheSameScheduleDoesNotResetThePhase() async throws {
+        let dbQueue = try DatabaseQueueFactory.makeInMemory()
+        try Migrations.migrate(dbQueue)
+
+        let intervals = IntervalRecorder()
+        // Each loop start produces exactly one sleep call, because the injected
+        // sleep never returns until the task is cancelled. The recorded intervals
+        // are therefore the restart history of the scheduler.
+        let firstStart = expectation(description: "scheduler started once")
+        let secondStart = expectation(description: "scheduler restarted")
+        secondStart.expectedFulfillmentCount = 2
+        firstStart.assertForOverFulfill = false
+        secondStart.assertForOverFulfill = false
+
+        let coordinator = SyncCoordinator(
+            ledger: LedgerStore(dbQueue: dbQueue),
+            credentials: InMemoryCredentialStore(),
+            registry: ProviderAdapterRegistry(),
+            estimator: CostEstimator(catalog: PricingCatalog(entries: [])),
+            sleepForSeconds: { seconds in
+                await intervals.record(seconds)
+                firstStart.fulfill()
+                secondStart.fulfill()
+                try await Task.sleep(for: .seconds(3_600))
+            }
+        )
+
+        coordinator.applySchedule(enabled: true, intervalSeconds: 900)
+        await fulfillment(of: [firstStart], timeout: 10)
+        XCTAssertTrue(coordinator.isSchedulerRunning)
+        XCTAssertEqual(coordinator.currentIntervalSeconds, 900)
+
+        // Stands in for onAppear firing again when the dashboard scene is recreated.
+        coordinator.applySchedule(enabled: true, intervalSeconds: 900)
+        coordinator.applySchedule(enabled: true, intervalSeconds: 900)
+        XCTAssertTrue(coordinator.isSchedulerRunning)
+        XCTAssertEqual(
+            coordinator.schedulerStartCount, 1,
+            "re-applying an unchanged schedule must not restart the loop and push the next sync out"
+        )
+
+        // A genuine interval change must still restart the loop.
+        coordinator.applySchedule(enabled: true, intervalSeconds: 1_800)
+        await fulfillment(of: [secondStart], timeout: 10)
+        XCTAssertEqual(coordinator.currentIntervalSeconds, 1_800)
+        XCTAssertEqual(coordinator.schedulerStartCount, 2)
+
+        // Had the unchanged re-applications restarted the loop, this would read
+        // [900, 900] at this point instead of the new interval.
+        let recorded = await intervals.values
+        XCTAssertEqual(recorded, [900, 1_800])
+
+        coordinator.applySchedule(enabled: false, intervalSeconds: 1_800)
+        XCTAssertFalse(coordinator.isSchedulerRunning)
+        XCTAssertNil(coordinator.currentIntervalSeconds)
+    }
+}
+
+/// Records the interval each scheduler start slept on, across concurrency domains.
+actor IntervalRecorder {
+    private(set) var values: [TimeInterval] = []
+
+    func record(_ seconds: TimeInterval) {
+        values.append(seconds)
+    }
 }
 
 /// Small actor so the injected sleep can be counted across concurrency domains.
