@@ -67,7 +67,7 @@ final class ClaudeCodeLogReader: @unchecked Sendable {
     /// Sized to the ledger's own rounding, nothing more: dates are stored at
     /// millisecond precision and rounded, so an untouched file can come back up to
     /// half a millisecond behind its own mtime. Two milliseconds absorbs that with
-    /// room to spare. Anything larger is blind spot in the one check that decides
+    /// room to spare. Anything larger is a blind spot in the one check that decides
     /// whether a stored byte offset can still be trusted — a file rewritten in
     /// place within the tolerance would be resumed from a stale offset.
     private static let mTimeTolerance: TimeInterval = 0.002
@@ -177,8 +177,9 @@ final class ClaudeCodeLogReader: @unchecked Sendable {
         let stored = try watermarkStore.fetchWatermark(sourceKey: file.path)
         // A file that shrank or moved backwards in time was rewritten; start over.
         // The ledger stores dates at millisecond precision and rounds, so an
-        // unchanged file can come back a hair ahead of its own mtime; only a
-        // move of more than a second counts as backwards.
+        // unchanged file can come back a hair ahead of its own mtime; the
+        // tolerance is sized just above that sub-millisecond error, see
+        // `mTimeTolerance`.
         let rewritten = stored.map { watermark in
             size < watermark.fileSize
                 || modified.timeIntervalSince(watermark.fileMTime) < -Self.mTimeTolerance
