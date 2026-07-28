@@ -147,6 +147,31 @@ final class CursorTeamAdapterTests: XCTestCase {
         XCTAssertTrue(result.capabilities.supportsUsage)
     }
 
+    /// A `hasNextPage` that never clears used to spin `while true` forever. Under
+    /// scheduled sync that is not a stuck button but a wedged Task: `startScheduler`
+    /// awaits `syncAll()` and never returns, so every later tick is lost silently.
+    func testAPaginationFlagThatNeverClearsFailsInsteadOfSpinning() async throws {
+        for _ in 0 ..< CursorUsageAdapter.maxPages {
+            StubURLProtocol.enqueue(
+                path: "/teams/filtered-usage-events",
+                body: Data(#"{"usageEvents": [], "pagination": {"hasNextPage": true}}"#.utf8)
+            )
+        }
+
+        do {
+            _ = try await makeAdapter().sync(account: account, secret: "key_valid")
+            XCTFail("an unbounded pagination loop must not be allowed to run")
+        } catch {
+            XCTAssertEqual(error as? CursorUsageAdapterError, .pageLimitExceeded)
+        }
+
+        XCTAssertEqual(
+            StubURLProtocol.requestedURLs.count,
+            CursorUsageAdapter.maxPages,
+            "the cap must be what stopped it, not the stub queue running dry"
+        )
+    }
+
     /// A 500 on the events endpoint is the provider being unwell, not the key being
     /// wrong. It used to take the same branch as a 403 and told the user a team admin
     /// key was required.

@@ -8,6 +8,8 @@ enum ClaudeUsageAdapterError: Error, Equatable {
     /// apart from a provider outage; it never carries the secret or any header.
     case requestFailed(statusCode: Int)
     case decodeFailed
+    /// The pagination cursor never cleared. See `ClaudeUsageAdapter.maxPages`.
+    case pageLimitExceeded
 }
 
 struct ClaudeUsageAdapter: ProviderAdapter {
@@ -238,32 +240,51 @@ struct ClaudeUsageAdapter: ProviderAdapter {
         }
     }
 
+    /// Hard stop on the pagination loops.
+    ///
+    /// The loops used to trust `has_more` unconditionally. Under manual sync a
+    /// cursor that never cleared was a visibly stuck button; under scheduled sync it
+    /// is a wedged `Task`, because `startScheduler`'s loop awaits `syncAll()` and
+    /// never returns — so *every* future tick is lost, silently. At `limit=31` daily
+    /// buckets per page the widest window this adapter ever asks for is one or two
+    /// pages, so a hundred means the pagination contract is broken and the sync
+    /// should fail rather than spin.
+    static let maxPages = 100
+
     private func fetchUsage(secret: String, start: Date, end: Date) async throws -> [ClaudeUsageBucket] {
         var buckets: [ClaudeUsageBucket] = []
         var page: String?
 
-        repeat {
+        for _ in 0 ..< Self.maxPages {
             let request = try Self.makeUsageRequest(secret: secret, start: start, end: end, page: page)
             let report: ClaudeUsageReport = try await perform(request)
             buckets.append(contentsOf: report.data)
-            page = report.hasMore ? report.nextPage : nil
-        } while page != nil
 
-        return buckets
+            guard report.hasMore, let next = report.nextPage else {
+                return buckets
+            }
+            page = next
+        }
+
+        throw ClaudeUsageAdapterError.pageLimitExceeded
     }
 
     private func fetchCosts(secret: String, start: Date, end: Date) async throws -> [ClaudeCostBucket] {
         var buckets: [ClaudeCostBucket] = []
         var page: String?
 
-        repeat {
+        for _ in 0 ..< Self.maxPages {
             let request = try Self.makeCostRequest(secret: secret, start: start, end: end, page: page)
             let report: ClaudeCostReport = try await perform(request)
             buckets.append(contentsOf: report.data)
-            page = report.hasMore ? report.nextPage : nil
-        } while page != nil
 
-        return buckets
+            guard report.hasMore, let next = report.nextPage else {
+                return buckets
+            }
+            page = next
+        }
+
+        throw ClaudeUsageAdapterError.pageLimitExceeded
     }
 
     private func perform<Response: Decodable>(_ request: URLRequest) async throws -> Response {

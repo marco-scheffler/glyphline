@@ -8,6 +8,8 @@ enum OpenAIUsageAdapterError: Error, Equatable {
     /// apart from a provider outage; it never carries the secret or any header.
     case requestFailed(statusCode: Int)
     case decodeFailed
+    /// The pagination cursor never cleared. See `OpenAIUsageAdapter.maxPages`.
+    case pageLimitExceeded
 }
 
 struct OpenAIUsageAdapter: ProviderAdapter {
@@ -208,30 +210,48 @@ struct OpenAIUsageAdapter: ProviderAdapter {
         }
     }
 
+    /// Hard stop on the pagination loops.
+    ///
+    /// The loops used to trust `has_more` unconditionally. Under manual sync a cursor
+    /// that never cleared was a visibly stuck button; under scheduled sync it is a
+    /// wedged `Task`, because `startScheduler`'s loop awaits `syncAll()` and never
+    /// returns — so *every* future tick is lost, silently. The widest window this
+    /// adapter asks for is a calendar month of daily buckets, so a hundred pages
+    /// means the pagination contract is broken and the sync should fail, not spin.
+    static let maxPages = 100
+
     private func fetchUsage(secret: String, start: Date, end: Date) async throws -> OpenAIUsageResponse {
         var buckets: [OpenAIUsageBucket] = []
         var page: String?
 
-        repeat {
+        for _ in 0 ..< Self.maxPages {
             let response = try await fetchUsagePage(secret: secret, start: start, end: end, page: page)
             buckets.append(contentsOf: response.data)
-            page = response.hasMore ? response.nextPage : nil
-        } while page != nil
 
-        return OpenAIUsageResponse(object: "page", data: buckets, hasMore: false, nextPage: nil)
+            guard response.hasMore, let next = response.nextPage else {
+                return OpenAIUsageResponse(object: "page", data: buckets, hasMore: false, nextPage: nil)
+            }
+            page = next
+        }
+
+        throw OpenAIUsageAdapterError.pageLimitExceeded
     }
 
     private func fetchCosts(secret: String, start: Date, end: Date) async throws -> OpenAICostsResponse {
         var buckets: [OpenAICostBucket] = []
         var page: String?
 
-        repeat {
+        for _ in 0 ..< Self.maxPages {
             let response = try await fetchCostsPage(secret: secret, start: start, end: end, page: page)
             buckets.append(contentsOf: response.data)
-            page = response.hasMore ? response.nextPage : nil
-        } while page != nil
 
-        return OpenAICostsResponse(object: "page", data: buckets, hasMore: false, nextPage: nil)
+            guard response.hasMore, let next = response.nextPage else {
+                return OpenAICostsResponse(object: "page", data: buckets, hasMore: false, nextPage: nil)
+            }
+            page = next
+        }
+
+        throw OpenAIUsageAdapterError.pageLimitExceeded
     }
 
     private func fetchUsagePage(

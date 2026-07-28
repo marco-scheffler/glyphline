@@ -105,6 +105,31 @@ final class ClaudeAdminAdapterTests: XCTestCase {
         XCTAssertNotNil(result.capabilities.message)
     }
 
+    /// A `has_more` that never clears used to spin the loop forever. Under scheduled
+    /// sync that is not a stuck button but a wedged Task: `startScheduler` awaits
+    /// `syncAll()` and never returns, so every later tick is lost silently.
+    func testAPaginationCursorThatNeverClearsFailsInsteadOfSpinning() async throws {
+        for _ in 0 ..< ClaudeUsageAdapter.maxPages {
+            StubURLProtocol.enqueue(
+                path: "/v1/organizations/usage_report/messages",
+                body: Data(#"{"data": [], "has_more": true, "next_page": "always-more"}"#.utf8)
+            )
+        }
+
+        do {
+            _ = try await makeAdapter().sync(account: account, secret: "sk-ant-admin-valid")
+            XCTFail("an unbounded pagination loop must not be allowed to run")
+        } catch {
+            XCTAssertEqual(error as? ClaudeUsageAdapterError, .pageLimitExceeded)
+        }
+
+        XCTAssertEqual(
+            StubURLProtocol.requestedURLs.count,
+            ClaudeUsageAdapter.maxPages,
+            "the cap must be what stopped it, not the stub queue running dry"
+        )
+    }
+
     /// "Not an HTTP response" and "any non-2xx" used to collapse into one error case,
     /// so a 500 was reported to the user as "Claude rejected the credential. An
     /// organization admin key is required." — sending them to rotate a key that was

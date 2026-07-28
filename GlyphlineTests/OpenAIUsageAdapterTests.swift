@@ -124,6 +124,38 @@ final class OpenAIUsageAdapterTests: XCTestCase {
         )
     }
 
+    /// A `has_more` that never clears used to spin the loop forever. Under scheduled
+    /// sync that is not a stuck button but a wedged Task: `startScheduler` awaits
+    /// `syncAll()` and never returns, so every later tick is lost silently.
+    func testAPaginationCursorThatNeverClearsFailsInsteadOfSpinning() async throws {
+        let adapter = OpenAIUsageAdapter(
+            session: Self.makeSession(),
+            now: { Date(timeIntervalSince1970: 1_800_100_000) }
+        )
+
+        MockURLProtocol.requestHandler = { request in
+            Self.httpResponse(
+                url: try XCTUnwrap(request.url),
+                json: """
+                {"object": "page", "data": [], "has_more": true, "next_page": "always-more"}
+                """
+            )
+        }
+
+        do {
+            _ = try await adapter.sync(account: Self.makeAccount(), secret: "sk-admin-valid")
+            XCTFail("an unbounded pagination loop must not be allowed to run")
+        } catch {
+            XCTAssertEqual(error as? OpenAIUsageAdapterError, .pageLimitExceeded)
+        }
+
+        XCTAssertEqual(
+            MockURLProtocol.requests.count,
+            OpenAIUsageAdapter.maxPages,
+            "the cap must be what stopped it"
+        )
+    }
+
     private static func decodeUsage(
         inputTokens: Int64,
         cachedTokens: Int64?,

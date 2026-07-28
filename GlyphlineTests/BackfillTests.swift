@@ -250,14 +250,23 @@ final class BackfillTests: XCTestCase {
         }
     }
 
-    func testCancelStopsTheBackfillAndKeepsProgress() async throws {
+    /// Renamed from `testCancelStopsTheBackfillAndKeepsProgress`, which claimed a
+    /// guarantee it did not check: `backfill` is `@MainActor`, so the task body
+    /// cannot begin before the synchronous `cancelBackfill` on the same actor runs,
+    /// and at that point there is no registered task to cancel. Nothing was ever
+    /// cancelled here. What it does establish is that the no-op cancel neither
+    /// wedges the coordinator nor truncates the walk that follows — worth keeping,
+    /// under a name that says so. Mid-flight cancellation is covered by
+    /// `testCancelMidFlightStopsFurtherSlicesAndKeepsProgress`.
+    func testCancellingWhenNoBackfillIsRunningIsANoOp() async throws {
         let (ledger, credentials, account) = try makeFixture()
         let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let log = RecordingAdapter.Log()
         let coordinator = makeCoordinator(
             ledger: ledger,
             credentials: credentials,
             now: now,
-            adapter: RecordingAdapter(providerID: .openAI, log: RecordingAdapter.Log())
+            adapter: RecordingAdapter(providerID: .openAI, log: log)
         )
 
         await coordinator.syncNow(account: account)
@@ -267,6 +276,60 @@ final class BackfillTests: XCTestCase {
         await task.value
 
         XCTAssertEqual(coordinator.activities[account.id], .idle)
+
+        let today = utc.startOfDay(for: now)
+        let horizon = try XCTUnwrap(
+            utc.date(byAdding: .day, value: -SyncCoordinator.backfillHorizonDays, to: today)
+        )
+        XCTAssertEqual(
+            log.intervals.count,
+            Int(ceil(Double(SyncCoordinator.backfillHorizonDays) / Double(SyncCoordinator.backfillSliceDays))),
+            "the walk that follows a no-op cancel must still cover the whole horizon"
+        )
+        XCTAssertEqual(log.intervals.last?.start, horizon)
+        XCTAssertEqual(
+            try ledger.fetchBackfillCompletedThrough(accountID: account.id),
+            horizon,
+            "progress must be recorded all the way back"
+        )
+    }
+
+    /// The counterpart to the slicing path: an account missing from the ledger makes
+    /// `saveBackfillCompletedThrough` throw `LedgerStoreError.unknownAccount`, and
+    /// this branch used to swallow it with `try?` — re-silencing exactly the error a
+    /// Task 3 fix was written to surface.
+    func testAnUnscopableSourceSurfacesALedgerWriteFailure() async throws {
+        let dbQueue = try DatabaseQueueFactory.makeInMemory()
+        try Migrations.migrate(dbQueue)
+        let ledger = LedgerStore(dbQueue: dbQueue)
+        let credentials = InMemoryCredentialStore()
+
+        // Deliberately never saved to the ledger.
+        let account = Account(
+            id: UUID(),
+            providerID: .openAI,
+            displayName: "Unknown",
+            credentialReference: "keychain://glyphline/unknown",
+            createdAt: Date(timeIntervalSince1970: 1_800_000_000),
+            isEnabled: true
+        )
+
+        let coordinator = makeCoordinator(
+            ledger: ledger,
+            credentials: credentials,
+            now: Date(timeIntervalSince1970: 1_800_000_000),
+            adapter: UnscopableAdapter(providerID: .openAI)
+        )
+
+        await coordinator.backfill(account: account)
+
+        guard case .failed = coordinator.activities[account.id] else {
+            return XCTFail(
+                "a ledger write that failed must be surfaced, not reported as completed backfill; got "
+                    + String(describing: coordinator.activities[account.id])
+            )
+        }
+        XCTAssertNil(try ledger.fetchBackfillCompletedThrough(accountID: account.id))
     }
 
     // MARK: - Bucket-integrity and cancellation guarantees
@@ -619,9 +682,15 @@ final class BackfillTests: XCTestCase {
         XCTAssertEqual(summary.billingPeriod, new, "a fresh period must still win")
     }
 
-    /// A backfilled bucket and a routine-synced bucket must not overwrite each other
-    /// with partial data, in either order: both write the same absolute day total.
-    func testBackfilledAndRoutineBucketsAgreeInEitherOrder() throws {
+    /// Renamed from `testBackfilledAndRoutineBucketsAgreeInEitherOrder`, which named
+    /// a guarantee it did not check: it writes the same snapshot twice through the
+    /// same call and asserts on the value it constructed, so no producer is involved
+    /// and no order is exercised. What it does establish — that the usage upsert
+    /// replaces a whole-day bucket rather than duplicating it under a second row —
+    /// is the property everything else depends on, so it stays under an honest name.
+    /// The producers agreeing on the boundary is covered by
+    /// `testSliceBoundariesAreUTCMidnightsAndNeverCutABucket`.
+    func testUpsertingTheSameWholeDayBucketTwiceIsIdempotent() throws {
         let (ledger, _, account) = try makeFixture()
         let day = utc.startOfDay(for: Date(timeIntervalSince1970: 1_700_000_000))
         let nextDay = try XCTUnwrap(utc.date(byAdding: .day, value: 1, to: day))

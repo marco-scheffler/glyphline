@@ -8,6 +8,8 @@ enum CursorUsageAdapterError: Error, Equatable {
     /// apart from a provider outage; it never carries the secret or any header.
     case requestFailed(statusCode: Int)
     case decodeFailed
+    /// `hasNextPage` never cleared. See `CursorUsageAdapter.maxPages`.
+    case pageLimitExceeded
 }
 
 struct CursorUsageAdapter: ProviderAdapter {
@@ -239,20 +241,28 @@ struct CursorUsageAdapter: ProviderAdapter {
         return (usage, costs)
     }
 
+    /// Hard stop on the pagination loop.
+    ///
+    /// `while true` used to trust `hasNextPage` unconditionally. Under manual sync a
+    /// flag that never cleared was a visibly stuck button; under scheduled sync it is
+    /// a wedged `Task`, because `startScheduler`'s loop awaits `syncAll()` and never
+    /// returns — so *every* future tick is lost, silently. At 1000 events a page over
+    /// a window capped at 30 days, a hundred pages is far past any real team, so
+    /// reaching it means the pagination contract is broken.
+    static let maxPages = 100
+
     private func fetchEvents(secret: String, start: Date, end: Date) async throws -> [CursorUsageEvent] {
         var events: [CursorUsageEvent] = []
-        var page = 1
 
-        while true {
+        for page in 1 ... Self.maxPages {
             let request = try Self.makeEventsRequest(secret: secret, start: start, end: end, page: page)
             let response: CursorUsageEventsResponse = try await perform(request)
             events.append(contentsOf: response.usageEvents)
 
-            guard response.pagination?.hasNextPage == true else { break }
-            page += 1
+            guard response.pagination?.hasNextPage == true else { return events }
         }
 
-        return events
+        throw CursorUsageAdapterError.pageLimitExceeded
     }
 
     private func fetchCycleStart(secret: String) async throws -> Date? {

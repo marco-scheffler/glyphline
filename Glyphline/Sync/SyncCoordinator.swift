@@ -240,8 +240,17 @@ final class SyncCoordinator: ObservableObject {
 
         // A source that cannot address a date range already ingested everything it
         // has during phase one. Record completion rather than slicing pointlessly.
+        //
+        // Surfaced, not swallowed: `saveBackfillCompletedThrough` throws
+        // `LedgerStoreError.unknownAccount`, which a Task 3 fix was written to make
+        // visible, and the slicing path below already reports it as `.failed`. A
+        // `try?` here made the same failure silent on this branch alone.
         guard !resolved.scopedIsNoOp else {
-            try? ledger.saveBackfillCompletedThrough(horizon, accountID: account.id)
+            do {
+                try ledger.saveBackfillCompletedThrough(horizon, accountID: account.id)
+            } catch {
+                activities[account.id] = .failed(Self.describe(error))
+            }
             return
         }
 
