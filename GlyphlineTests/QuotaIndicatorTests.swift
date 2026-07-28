@@ -150,4 +150,35 @@ final class QuotaIndicatorTests: XCTestCase {
         ]
         XCTAssertEqual(QuotaIndicator.light(for: states, now: now, freshness: freshness), .green)
     }
+
+    func testEachLightStateHasItsOwnSymbol() {
+        let symbols = Set([
+            QuotaIndicator.symbolName(for: .green),
+            QuotaIndicator.symbolName(for: .red),
+            QuotaIndicator.symbolName(for: .grey),
+        ])
+        XCTAssertEqual(symbols.count, 3, "the three states must visually distinguishable")
+    }
+
+    func testARowShowsThePercentageAndTheResetInstant() {
+        let window = RateWindow(
+            kind: .rollingFiveHours,
+            usedFraction: 0.62,
+            resetAt: now.addingTimeInterval(3_600),
+            observedAt: now
+        )
+        let text = QuotaIndicator.rowText(for: window, now: now)
+        XCTAssertTrue(text.contains("62"), "expected percentage in \(text)")
+    }
+
+    func testARowWithoutAFractionSaysSoRatherThanShowingZero() {
+        let window = RateWindow(
+            kind: .weekly,
+            usedFraction: nil,
+            resetAt: now.addingTimeInterval(3_600),
+            observedAt: now
+        )
+        let text = QuotaIndicator.rowText(for: window, now: now)
+        XCTAssertFalse(text.contains("0%"), "a missing fraction must not render as zero")
+    }
 }

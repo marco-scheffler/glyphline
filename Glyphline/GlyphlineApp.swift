@@ -37,16 +37,19 @@ struct GlyphlineApp: App {
         }
         .windowStyle(.titleBar)
 
-        MenuBarExtra(
-            "Glyphline",
-            systemImage: "chart.line.uptrend.xyaxis",
-            isInserted: menuBarExtraInsertion
-        ) {
+        MenuBarExtra(isInserted: menuBarExtraInsertion) {
             ModeAwareMenuBarRoot(settings: settings) {
                 MenuBarView()
                     .environmentObject(settings)
                     .environmentObject(coordinator)
             }
+        } label: {
+            // The icon *is* the light: it follows `quotaLight` rather than
+            // staying fixed.
+            Label(
+                "Glyphline",
+                systemImage: QuotaIndicator.symbolName(for: coordinator.quotaLight)
+            )
         }
     }
 

@@ -31,6 +31,42 @@ struct MenuBarView: View {
             }
             .pickerStyle(.segmented)
 
+            if !coordinator.quotaStates.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    if let nextFree = QuotaIndicator.nextFree(
+                        for: coordinator.quotaStates,
+                        now: Date(),
+                        freshness: 3_600
+                    ) {
+                        Text("Next free: \(nextFree)")
+                            .font(.caption.weight(.medium))
+                    }
+
+                    ForEach(coordinator.quotaStates, id: \.accountID) { state in
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(state.displayName)
+                                .font(.caption)
+
+                            if let message = state.message {
+                                // Accounts without data appear with their reason,
+                                // not hidden.
+                                Text(message)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            } else {
+                                ForEach(state.windows, id: \.kind) { window in
+                                    Text(QuotaIndicator.rowText(for: window, now: Date()))
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Divider()
+            }
+
             VStack(alignment: .leading, spacing: 8) {
                 if let syncFailureMessage = coordinator.syncFailureMessage {
                     Text(syncFailureMessage)
@@ -87,6 +123,9 @@ struct MenuBarView: View {
         .padding(14)
         .frame(width: 320)
         .onAppear(perform: loadSummaries)
+        .task {
+            await coordinator.refreshRateWindowsOnDemand()
+        }
     }
 
     private var totalCostSummary: String {

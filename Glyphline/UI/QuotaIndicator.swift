@@ -105,4 +105,36 @@ enum QuotaIndicator {
         formatter.dateStyle = .none
         return "\(soonest.0) at \(formatter.string(from: soonest.1))"
     }
+
+    /// Three symbols that differ in fill as well as in name, so the light is
+    /// legible in a monochrome menu bar rather than only in code.
+    static func symbolName(for state: QuotaLightState) -> String {
+        switch state {
+        case .green: "circle.fill"
+        case .red: "circle.slash.fill"
+        case .grey: "circle.dotted"
+        }
+    }
+
+    /// One window as a menu row. A missing fraction says so rather than
+    /// rendering as 0%, which would read as "untouched".
+    static func rowText(for window: RateWindow, now: Date) -> String {
+        let label: String
+        switch window.kind {
+        case .rollingFiveHours: label = "5h"
+        case .weekly: label = "Week"
+        case .billingCycle: label = "Cycle"
+        }
+
+        // A local, not a `static let`: `DateFormatter` is not `Sendable`.
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        formatter.dateStyle = .none
+        let reset = formatter.string(from: window.resetAt)
+
+        guard let fraction = window.usedFraction else {
+            return "\(label) — usage unknown, resets \(reset)"
+        }
+        return "\(label) \(Int((fraction * 100).rounded()))% — resets \(reset)"
+    }
 }

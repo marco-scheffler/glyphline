@@ -34,6 +34,31 @@ final class SyncCoordinator: ObservableObject {
     /// Per-account reason why quota is not being shown. Cleared on a good fetch.
     @Published private(set) var rateWindowMessages: [UUID: String] = [:]
 
+    /// Accounts currently being fetched, so an on-demand refresh cannot double up
+    /// with a scheduled one. Mirrors the `activities[...]?.isRunning` guard the
+    /// cost path already uses.
+    private var rateWindowFetchesInFlight: Set<UUID> = []
+
+    /// What the menu renders: every enabled account, including those with no
+    /// data, which appear with their reason rather than being filtered out.
+    @Published private(set) var quotaStates: [QuotaAccountState] = []
+
+    var quotaLight: QuotaLightState {
+        QuotaIndicator.light(for: quotaStates, now: now(), freshness: quotaFreshness)
+    }
+
+    /// Twice the poll interval: an observation older than that is not displayed.
+    private var quotaFreshness: TimeInterval {
+        (currentIntervalSeconds ?? 1_800) * 2
+    }
+
+    /// Called when the menu opens, so the figure is current at the moment it is
+    /// read. The in-flight guard inside `collectRateWindows` keeps this from
+    /// racing a scheduled tick.
+    func refreshRateWindowsOnDemand() async {
+        await collectRateWindows()
+    }
+
     /// Injected so scheduling can be exercised without waiting on wall-clock time.
     private let sleepForSeconds: @Sendable (TimeInterval) async throws -> Void
     private var schedulerTask: Task<Void, Never>?
@@ -204,6 +229,12 @@ final class SyncCoordinator: ObservableObject {
         }
 
         for account in accounts {
+            // A menu opened during a scheduled tick must not issue a second
+            // concurrent fetch for the same account.
+            guard !rateWindowFetchesInFlight.contains(account.id) else { continue }
+            rateWindowFetchesInFlight.insert(account.id)
+            defer { rateWindowFetchesInFlight.remove(account.id) }
+
             // A billing cycle the cost sync already established is worth showing
             // even when no quota source exists for this account.
             if let summary = (try? ledger.fetchAccountSummaries())?
@@ -245,6 +276,30 @@ final class SyncCoordinator: ObservableObject {
                 rateWindowMessages[account.id] = RateWindowSourceError.transportFailure.message
             }
         }
+
+        // Rebuilt for every enabled account, including ones that were skipped or
+        // failed: an account with no data belongs in the menu with its reason,
+        // not filtered out.
+        //
+        // Sorted by display name rather than left in ledger order: `nextFree`
+        // names the *first* account with headroom, so an unstable order would
+        // make it name a different account run to run. Sorting also makes the
+        // account it names the first one the user reads down the menu.
+        quotaStates = accounts
+            .sorted {
+                let byName = $0.displayName.localizedStandardCompare($1.displayName)
+                return byName == .orderedSame
+                    ? $0.id.uuidString < $1.id.uuidString
+                    : byName == .orderedAscending
+            }
+            .map { account in
+                QuotaAccountState(
+                    accountID: account.id,
+                    displayName: account.displayName,
+                    windows: (try? ledger.fetchLatestRateWindows(accountID: account.id)) ?? [],
+                    message: rateWindowMessages[account.id]
+                )
+            }
 
         // Retention runs regardless of how the fetches went.
         try? ledger.deleteRateWindowSamples(olderThan: now().addingTimeInterval(-365 * 86_400))
