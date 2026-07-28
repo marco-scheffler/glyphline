@@ -505,6 +505,120 @@ final class BackfillTests: XCTestCase {
         XCTAssertEqual((adapter.scoped(to: window) as? CursorUsageAdapter)?.window, window)
     }
 
+    // MARK: - Backfill must not erase what routine sync wrote
+
+    /// Regression: a scoped adapter returns `billingPeriod: nil` on purpose, but
+    /// `upsertAccountSyncState` used to assign the billing columns unconditionally,
+    /// so nil meant NULL rather than "leave alone". Phase one wrote the true period
+    /// and each of the ~53 backfill slices immediately erased it, making the reset
+    /// date vanish from the UI until the next routine sync.
+    ///
+    /// Asserted through the ledger, not at the adapter boundary: an adapter-level
+    /// `XCTAssertNil(result.billingPeriod)` is exactly what let this through.
+    func testScopedSliceDoesNotEraseTheBillingPeriodRoutineSyncWrote() throws {
+        let (ledger, _, account) = try makeFixture()
+
+        func result(billingPeriod: BillingPeriod?) -> ProviderSyncResult {
+            ProviderSyncResult(
+                providerID: .openAI,
+                accountID: account.id,
+                capabilities: ProviderCapabilities(
+                    supportsUsage: true,
+                    supportsActualCost: true,
+                    supportsResetDate: billingPeriod != nil,
+                    supportsModelBreakdown: false,
+                    dataQuality: .exact,
+                    message: nil
+                ),
+                billingPeriod: billingPeriod,
+                usageSnapshots: [],
+                costSnapshots: [],
+                estimateSnapshots: [],
+                syncedAt: Date(timeIntervalSince1970: 1_800_000_000)
+            )
+        }
+
+        func persist(_ result: ProviderSyncResult, at finishedAt: Date) throws {
+            let runID = try ledger.startSyncRun(accountID: account.id, providerID: .openAI, startedAt: finishedAt)
+            try ledger.applySuccessfulSyncResult(result, syncRunID: runID, finishedAt: finishedAt)
+        }
+
+        // Phase one records the account's real billing period.
+        let period = BillingPeriod(
+            startsAt: Date(timeIntervalSince1970: 1_798_761_600),
+            endsAt: nil,
+            resetAt: Date(timeIntervalSince1970: 1_801_440_000)
+        )
+        try persist(result(billingPeriod: period), at: Date(timeIntervalSince1970: 1_800_000_000))
+
+        let afterPhaseOne = try XCTUnwrap(
+            try ledger.fetchAccountSummaries().first { $0.account.id == account.id }
+        )
+        XCTAssertEqual(afterPhaseOne.billingPeriod, period)
+
+        // A backfill slice lands: correct usage, deliberately no billing period.
+        try persist(result(billingPeriod: nil), at: Date(timeIntervalSince1970: 1_800_000_060))
+
+        let afterSlice = try XCTUnwrap(
+            try ledger.fetchAccountSummaries().first { $0.account.id == account.id }
+        )
+        XCTAssertEqual(
+            afterSlice.billingPeriod,
+            period,
+            "a scoped slice must not erase the period routine sync wrote"
+        )
+    }
+
+    /// The counterpart: a later routine sync that *does* report a period still
+    /// replaces the stored one, so COALESCE cannot freeze a stale value in place.
+    func testARoutineSyncStillReplacesTheStoredBillingPeriod() throws {
+        let (ledger, _, account) = try makeFixture()
+
+        func result(billingPeriod: BillingPeriod?) -> ProviderSyncResult {
+            ProviderSyncResult(
+                providerID: .openAI,
+                accountID: account.id,
+                capabilities: ProviderCapabilities(
+                    supportsUsage: true,
+                    supportsActualCost: true,
+                    supportsResetDate: billingPeriod != nil,
+                    supportsModelBreakdown: false,
+                    dataQuality: .exact,
+                    message: nil
+                ),
+                billingPeriod: billingPeriod,
+                usageSnapshots: [],
+                costSnapshots: [],
+                estimateSnapshots: [],
+                syncedAt: Date(timeIntervalSince1970: 1_800_000_000)
+            )
+        }
+
+        func persist(_ result: ProviderSyncResult, at finishedAt: Date) throws {
+            let runID = try ledger.startSyncRun(accountID: account.id, providerID: .openAI, startedAt: finishedAt)
+            try ledger.applySuccessfulSyncResult(result, syncRunID: runID, finishedAt: finishedAt)
+        }
+
+        let old = BillingPeriod(
+            startsAt: Date(timeIntervalSince1970: 1_798_761_600),
+            endsAt: nil,
+            resetAt: Date(timeIntervalSince1970: 1_801_440_000)
+        )
+        let new = BillingPeriod(
+            startsAt: Date(timeIntervalSince1970: 1_801_440_000),
+            endsAt: nil,
+            resetAt: Date(timeIntervalSince1970: 1_804_118_400)
+        )
+
+        try persist(result(billingPeriod: old), at: Date(timeIntervalSince1970: 1_800_000_000))
+        try persist(result(billingPeriod: new), at: Date(timeIntervalSince1970: 1_801_500_000))
+
+        let summary = try XCTUnwrap(
+            try ledger.fetchAccountSummaries().first { $0.account.id == account.id }
+        )
+        XCTAssertEqual(summary.billingPeriod, new, "a fresh period must still win")
+    }
+
     /// A backfilled bucket and a routine-synced bucket must not overwrite each other
     /// with partial data, in either order: both write the same absolute day total.
     func testBackfilledAndRoutineBucketsAgreeInEitherOrder() throws {

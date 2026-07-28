@@ -1012,6 +1012,17 @@ final class LedgerStore {
         }
     }
 
+    /// Persists the capabilities and billing period a sync reported.
+    ///
+    /// The three billing columns are `COALESCE`d rather than assigned, because a
+    /// result carrying no billing period means "this sync did not learn one", not
+    /// "this account has none". Backfill makes the difference load-bearing: a scoped
+    /// adapter returns `billingPeriod: nil` on purpose — a historic week is not a
+    /// billing period — and a plain `= excluded.…` would let each of the ~53 slices
+    /// NULL out the true period phase one had just written, so the reset date would
+    /// vanish from the UI until the next routine sync. A stale period is never
+    /// presented as fresh: `supportsResetDate` is still assigned unconditionally, so
+    /// a provider that stops reporting one still says so.
     private static func upsertAccountSyncState(
         _ result: ProviderSyncResult,
         updatedAt: Date,
@@ -1043,9 +1054,18 @@ final class LedgerStore {
                     \(LedgerColumn.supportsModelBreakdown) = excluded.\(LedgerColumn.supportsModelBreakdown),
                     \(LedgerColumn.quality) = excluded.\(LedgerColumn.quality),
                     \(LedgerColumn.message) = excluded.\(LedgerColumn.message),
-                    \(LedgerColumn.billingStartsAt) = excluded.\(LedgerColumn.billingStartsAt),
-                    \(LedgerColumn.billingEndsAt) = excluded.\(LedgerColumn.billingEndsAt),
-                    \(LedgerColumn.billingResetAt) = excluded.\(LedgerColumn.billingResetAt),
+                    \(LedgerColumn.billingStartsAt) = COALESCE(
+                        excluded.\(LedgerColumn.billingStartsAt),
+                        \(LedgerColumn.billingStartsAt)
+                    ),
+                    \(LedgerColumn.billingEndsAt) = COALESCE(
+                        excluded.\(LedgerColumn.billingEndsAt),
+                        \(LedgerColumn.billingEndsAt)
+                    ),
+                    \(LedgerColumn.billingResetAt) = COALESCE(
+                        excluded.\(LedgerColumn.billingResetAt),
+                        \(LedgerColumn.billingResetAt)
+                    ),
                     \(LedgerColumn.updatedAt) = excluded.\(LedgerColumn.updatedAt)
                 """,
             arguments: [
