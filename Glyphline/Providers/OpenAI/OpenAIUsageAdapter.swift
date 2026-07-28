@@ -148,7 +148,14 @@ struct OpenAIUsageAdapter: ProviderAdapter {
                     bucketStart: bucketStart,
                     bucketEnd: bucketEnd,
                     model: result.model,
-                    inputTokens: result.inputTokens,
+                    // A reclassification, never an addition: OpenAI's `input_tokens`
+                    // already contains the cached ones, so the two fields are the
+                    // split of that single number and `totalTokens` is unchanged.
+                    // OpenAI's completions usage endpoint reports no cache-write
+                    // class, so `cacheCreationTokens` stays at its zero default
+                    // rather than being invented.
+                    inputTokens: result.uncachedInputTokens,
+                    cacheReadTokens: result.cachedInputTokens,
                     outputTokens: result.outputTokens,
                     requests: result.requests,
                     quality: .exact

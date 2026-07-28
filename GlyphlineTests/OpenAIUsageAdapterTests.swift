@@ -52,10 +52,109 @@ final class OpenAIUsageAdapterTests: XCTestCase {
         XCTAssertEqual(snapshots.first?.accountID, accountID)
         XCTAssertEqual(snapshots.first?.providerID, .openAI)
         XCTAssertEqual(snapshots.first?.model, "gpt-5.4")
-        XCTAssertEqual(snapshots.first?.inputTokens, 1_000)
+        XCTAssertEqual(snapshots.first?.inputTokens, 600)
+        XCTAssertEqual(snapshots.first?.cacheReadTokens, 400)
         XCTAssertEqual(snapshots.first?.outputTokens, 500)
         XCTAssertEqual(snapshots.first?.requests, 3)
         XCTAssertEqual(snapshots.first?.quality, .exact)
+    }
+
+    /// OpenAI's `input_tokens` is **inclusive** of `input_cached_tokens`, unlike
+    /// Anthropic's `uncached_input_tokens`. Splitting the two out for per-token-class
+    /// pricing must therefore be a reclassification, not an addition: the totals were
+    /// correct before precisely because the cached tokens were already inside
+    /// `input_tokens`, and adding them alongside would double-count every cache hit.
+    func testCachedInputIsSplitOutOfInputWithoutChangingTheTotal() throws {
+        let snapshot = try XCTUnwrap(
+            OpenAIUsageAdapter()
+                .makeUsageSnapshots(
+                    from: try Self.decodeUsage(inputTokens: 1_000, cachedTokens: 400, outputTokens: 500),
+                    accountID: UUID()
+                )
+                .first
+        )
+
+        XCTAssertEqual(snapshot.inputTokens, 600, "input must be reported net of the cached part")
+        XCTAssertEqual(snapshot.cacheReadTokens, 400)
+        XCTAssertEqual(
+            snapshot.cacheCreationTokens,
+            0,
+            "the completions usage endpoint reports no cache-write class; none may be invented"
+        )
+        XCTAssertEqual(snapshot.outputTokens, 500)
+        XCTAssertEqual(
+            snapshot.inputTokens + snapshot.cacheCreationTokens + snapshot.cacheReadTokens + snapshot.outputTokens,
+            1_500,
+            "the total must stay input_tokens + output_tokens"
+        )
+    }
+
+    func testAResponseWithoutCachedInputIsUnchanged() throws {
+        let snapshot = try XCTUnwrap(
+            OpenAIUsageAdapter()
+                .makeUsageSnapshots(
+                    from: try Self.decodeUsage(inputTokens: 1_000, cachedTokens: nil, outputTokens: 500),
+                    accountID: UUID()
+                )
+                .first
+        )
+
+        XCTAssertEqual(snapshot.inputTokens, 1_000)
+        XCTAssertEqual(snapshot.cacheReadTokens, 0)
+    }
+
+    /// A cached count larger than the total it is drawn from would be a provider bug,
+    /// but a negative input count would corrupt every total derived from it.
+    func testACachedCountLargerThanInputCannotProduceNegativeInput() throws {
+        let snapshot = try XCTUnwrap(
+            OpenAIUsageAdapter()
+                .makeUsageSnapshots(
+                    from: try Self.decodeUsage(inputTokens: 100, cachedTokens: 250, outputTokens: 10),
+                    accountID: UUID()
+                )
+                .first
+        )
+
+        XCTAssertEqual(snapshot.inputTokens, 0)
+        XCTAssertEqual(snapshot.cacheReadTokens, 100)
+        XCTAssertEqual(
+            snapshot.inputTokens + snapshot.cacheReadTokens,
+            100,
+            "the pair must always sum back to the reported input_tokens"
+        )
+    }
+
+    private static func decodeUsage(
+        inputTokens: Int64,
+        cachedTokens: Int64?,
+        outputTokens: Int64
+    ) throws -> OpenAIUsageResponse {
+        let cached = cachedTokens.map { "\"input_cached_tokens\": \($0)," } ?? ""
+        let json = """
+        {
+          "object": "page",
+          "data": [
+            {
+              "object": "bucket",
+              "start_time": 1800000000,
+              "end_time": 1800086400,
+              "results": [
+                {
+                  "object": "organization.usage.completions.result",
+                  "model": "gpt-5.4",
+                  "input_tokens": \(inputTokens),
+                  \(cached)
+                  "output_tokens": \(outputTokens),
+                  "num_model_requests": 1
+                }
+              ]
+            }
+          ],
+          "has_more": false,
+          "next_page": null
+        }
+        """
+        return try JSONDecoder().decode(OpenAIUsageResponse.self, from: Data(json.utf8))
     }
 
     func testSyncFetchesAllUsagePagesAndActualCosts() async throws {
