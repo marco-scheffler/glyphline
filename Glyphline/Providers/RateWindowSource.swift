@@ -19,13 +19,22 @@ protocol RateWindowSource: Sendable {
     func fetchWindows(account: Account, secret: String?) async throws -> RateWindowResult
 }
 
-/// The four ways a quota fetch fails, each with its own message, because
-/// "error" does not tell the user what to do.
+/// The ways a quota fetch fails, each with its own message, because "error" does
+/// not tell the user what to do.
+///
+/// `notConfigured` and `notAvailable` are deliberately separate. One invites the
+/// user to act, the other tells them there is nothing to act on — and the access
+/// spike found that for Claude rate windows no route exists at any price, so
+/// telling that user to "set one up" sends them after something that is not
+/// there. `notConfigured` is kept for the providers where a route does exist and
+/// simply has not been configured yet, which is where the spike left Cursor.
 ///
 /// Carries a status code but never a header, a token, or a response body.
 enum RateWindowSourceError: Error, Equatable, Sendable {
-    /// The account has no quota source configured at all.
+    /// A route exists for this provider, but this account has not been given one.
     case notConfigured
+    /// No route to quota exists for this subscription at all. Not the user's to fix.
+    case notAvailable
     /// 401 or 403 — the case the user can fix.
     case credentialRejected(statusCode: Int)
     /// Network or provider unreachable. Transient.
@@ -38,6 +47,8 @@ enum RateWindowSourceError: Error, Equatable, Sendable {
         switch self {
         case .notConfigured:
             "No quota source is set up for this subscription."
+        case .notAvailable:
+            "Quota reporting is not available for this subscription."
         case .credentialRejected:
             "The stored quota token was rejected. Re-authorise this subscription."
         case .transportFailure:

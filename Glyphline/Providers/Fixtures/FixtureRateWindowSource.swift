@@ -24,7 +24,7 @@ struct FixtureRateWindowSource: RateWindowSource {
             return RateWindowResult(
                 windows: [],
                 dataQuality: .unavailable,
-                message: "No quota source is set up for this subscription."
+                message: RateWindowSourceError.notAvailable.message
             )
         case .healthy:
             return RateWindowResult(

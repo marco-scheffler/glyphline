@@ -31,19 +31,34 @@ final class RateWindowSourceTests: XCTestCase {
 
         XCTAssertEqual(result.dataQuality, .unavailable)
         XCTAssertTrue(result.windows.isEmpty)
-        XCTAssertNotNil(result.message)
+        // Pinned against the enum rather than a duplicated literal: two copies of
+        // the same user-facing sentence drift, and the fixture's copy did.
+        XCTAssertEqual(result.message, RateWindowSourceError.notAvailable.message)
     }
 
     func testEachFailureKindHasItsOwnMessage() {
         let messages = [
             RateWindowSourceError.notConfigured.message,
+            RateWindowSourceError.notAvailable.message,
             RateWindowSourceError.credentialRejected(statusCode: 401).message,
             RateWindowSourceError.transportFailure.message,
             RateWindowSourceError.unreadableResponse.message,
         ]
 
-        XCTAssertEqual(Set(messages).count, 4, "\"error\" does not tell the user what to do")
+        XCTAssertEqual(Set(messages).count, 5, "\"error\" does not tell the user what to do")
         XCTAssertTrue(messages.allSatisfy { !$0.isEmpty })
+    }
+
+    /// The two are not interchangeable. `notConfigured` invites the user to act;
+    /// `notAvailable` tells them there is nothing to act on. The spike found no
+    /// route to Claude rate windows at any price, so offering "set one up" there
+    /// sends the user after something that does not exist.
+    func testNotAvailableDoesNotInviteTheUserToSetSomethingUp() {
+        let message = RateWindowSourceError.notAvailable.message
+
+        XCTAssertTrue(message.localizedCaseInsensitiveContains("not available"))
+        XCTAssertFalse(message.localizedCaseInsensitiveContains("set up"))
+        XCTAssertNotEqual(message, RateWindowSourceError.notConfigured.message)
     }
 
     func testNoFailureMessageLeaksACredential() {

@@ -235,6 +235,10 @@ final class SyncCoordinator: ObservableObject {
             return
         }
 
+        // One aggregate query for the whole tick rather than one per account: this
+        // runs on the main actor every time the menu opens.
+        let summaries = (try? ledger.fetchAccountSummaries()) ?? []
+
         for account in accounts {
             // A menu opened during a scheduled tick must not issue a second
             // concurrent fetch for the same account.
@@ -244,8 +248,7 @@ final class SyncCoordinator: ObservableObject {
 
             // A billing cycle the cost sync already established is worth showing
             // even when no quota source exists for this account.
-            if let summary = (try? ledger.fetchAccountSummaries())?
-                .first(where: { $0.account.id == account.id }),
+            if let summary = summaries.first(where: { $0.account.id == account.id }),
                let period = summary.billingPeriod,
                let resetAt = period.resetAt {
                 try? ledger.saveRateWindow(
@@ -260,7 +263,10 @@ final class SyncCoordinator: ObservableObject {
             }
 
             guard let source = rateWindowSourceProvider(account) else {
-                rateWindowMessages[account.id] = RateWindowSourceError.notConfigured.message
+                // `notAvailable`, not `notConfigured`: the spike found no route to
+                // quota for these subscriptions, so inviting the user to set one up
+                // would send them after something that does not exist.
+                rateWindowMessages[account.id] = RateWindowSourceError.notAvailable.message
                 continue
             }
 
@@ -269,7 +275,8 @@ final class SyncCoordinator: ObservableObject {
                 let result = try await source.fetchWindows(account: account, secret: secret)
 
                 if result.dataQuality == .unavailable {
-                    rateWindowMessages[account.id] = result.message ?? "Quota is unavailable for this subscription."
+                    rateWindowMessages[account.id] = result.message
+                        ?? RateWindowSourceError.notAvailable.message
                     continue
                 }
 
@@ -290,8 +297,10 @@ final class SyncCoordinator: ObservableObject {
         //
         // Sorted by display name rather than left in ledger order: `nextFree`
         // names the *first* account with headroom, so an unstable order would
-        // make it name a different account run to run. Sorting also makes the
-        // account it names the first one the user reads down the menu.
+        // make it name a different account run to run. It does not follow that
+        // the named account is the first row on screen — it is the first row
+        // *with headroom*, which may sit below exhausted or silent neighbours.
+        // The sort buys determinism, not adjacency.
         quotaStates = accounts
             .sorted {
                 let byName = $0.displayName.localizedStandardCompare($1.displayName)

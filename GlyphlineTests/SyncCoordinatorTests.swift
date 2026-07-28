@@ -502,6 +502,41 @@ final class SyncCoordinatorTests: XCTestCase {
         XCTAssertFalse(try ledger.fetchUsageSnapshots(accountID: account.id).isEmpty)
     }
 
+    /// Every real account takes this path — the registry resolves no source for
+    /// any of them — so this string is what every user reads. It must not imply
+    /// there is a setup step available: the spike found none.
+    func testAnAccountWithNoSourceIsToldQuotaIsUnavailableNotUnconfigured() async throws {
+        let dbQueue = try DatabaseQueueFactory.makeInMemory()
+        try Migrations.makeMigrator().migrate(dbQueue)
+        let ledger = LedgerStore(dbQueue: dbQueue)
+
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let account = Account(
+            id: UUID(), providerID: .claude, displayName: "Max #1",
+            credentialReference: "local-source://x", createdAt: now, isEnabled: true
+        )
+        try ledger.saveAccount(account)
+
+        let coordinator = SyncCoordinator(
+            ledger: ledger,
+            credentials: InMemoryCredentialStore(),
+            registry: ProviderAdapterRegistry(watermarkStore: ledger),
+            estimator: CostEstimator(catalog: PricingCatalog(entries: [])),
+            now: { now }
+        )
+
+        await coordinator.collectRateWindows()
+
+        XCTAssertEqual(
+            coordinator.rateWindowMessages[account.id],
+            RateWindowSourceError.notAvailable.message
+        )
+        XCTAssertNotEqual(
+            coordinator.rateWindowMessages[account.id],
+            RateWindowSourceError.notConfigured.message
+        )
+    }
+
     /// The menu-bar symbol and the "Next free" line must never disagree about
     /// which observations are still believable.
     ///
