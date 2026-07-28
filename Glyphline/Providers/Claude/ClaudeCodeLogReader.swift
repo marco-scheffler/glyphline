@@ -62,8 +62,31 @@ final class ClaudeCodeLogReader: @unchecked Sendable {
         self.calendar = utc
     }
 
-    /// Slack allowed on the stored modification date before a file counts as rewritten.
-    private static let mTimeTolerance: TimeInterval = 1
+    /// Tolerance on the stored modification date before a file counts as rewritten.
+    ///
+    /// Sized to the ledger's own rounding, nothing more: dates are stored at
+    /// millisecond precision and rounded, so an untouched file can come back up to
+    /// half a millisecond behind its own mtime. Two milliseconds absorbs that with
+    /// room to spare. Anything larger is blind spot in the one check that decides
+    /// whether a stored byte offset can still be trusted — a file rewritten in
+    /// place within the tolerance would be resumed from a stale offset.
+    private static let mTimeTolerance: TimeInterval = 0.002
+
+    /// How far back from `now` the "still open" bucket boundary is pulled.
+    ///
+    /// A sync captures `now()` once and calls everything before it closed. Without
+    /// this margin a sync starting a hair after 00:00 UTC declares the day that just
+    /// ended complete, consumes its bytes and advances the watermark to EOF — and a
+    /// line for that day flushed milliseconds later is then read by the *next* sync
+    /// as a lone fragment, which the replacing ledger upsert writes over that day's
+    /// full total. The day is never rescanned, so the loss is silent and permanent.
+    /// Manual sync made that a millisecond-wide window; scheduled sync runs
+    /// unattended on a fixed interval and will land in it eventually.
+    ///
+    /// The cost of the margin is re-reading a day that just closed for another
+    /// fifteen minutes, which is what the reader already does for the open day all
+    /// day long: it is idempotent and emits absolute day totals.
+    private static let openBucketGrace: TimeInterval = 15 * 60
 
     private struct BucketKey: Hashable {
         var dayStart: Date
@@ -79,9 +102,11 @@ final class ClaudeCodeLogReader: @unchecked Sendable {
 
     func read(accountID: UUID) throws -> [UsageSnapshot] {
         var totals: [BucketKey: Totals] = [:]
-        // Everything from the current UTC day onwards belongs to a bucket that can
-        // still grow, so those bytes stay unconsumed and are re-read every sync.
-        let openDayStart = calendar.startOfDay(for: now())
+        // Everything from this day onwards belongs to a bucket that can still grow,
+        // so those bytes stay unconsumed and are re-read every sync. Taken from
+        // `now` minus the grace period, so a sync that crosses midnight does not
+        // close the day it is still straddling. See `openBucketGrace`.
+        let openDayStart = calendar.startOfDay(for: now().addingTimeInterval(-Self.openBucketGrace))
         // Built once per sync, not once per line: `ISO8601DateFormatter` is
         // expensive to construct and `read` parses millions of lines on a cold start.
         let dates = TimestampParser()

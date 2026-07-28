@@ -151,6 +151,97 @@ final class ClaudeCodeLogReaderTests: XCTestCase {
         XCTAssertTrue(try reader.read(accountID: accountID).isEmpty, "a completed day is consumed once")
     }
 
+    /// A sync that starts just after 00:00 UTC must not declare the day it is
+    /// straddling complete. Doing so consumes that day's bytes and advances the
+    /// watermark to EOF, so a line the transcript flushes moments later is picked up
+    /// by the next sync as a lone fragment — and the ledger's usage upsert *replaces*
+    /// a bucket, so that fragment overwrites the day's real total. The day is never
+    /// rescanned, so nothing ever repairs it.
+    func testASyncCrossingMidnightDoesNotCloseTheDayItIsStraddling() throws {
+        // 2026-07-02T00:00:00.500Z — half a second into the new UTC day.
+        let reader = ClaudeCodeLogReader(
+            directory: directory,
+            watermarkStore: ledger,
+            now: { Date(timeIntervalSince1970: 1_782_950_400.5) }
+        )
+
+        try write(
+            line(model: "claude-opus-4-8", input: 100, cacheWrite: 0, cacheRead: 0, output: 10, timestamp: "2026-07-01T09:00:00.000Z") + "\n",
+            to: "session.jsonl"
+        )
+        let first = try reader.read(accountID: accountID)
+        XCTAssertEqual(first.first?.inputTokens, 100)
+
+        // Written by Claude Code a moment after the sync began, still stamped
+        // with the day that was closing.
+        try append(
+            line(model: "claude-opus-4-8", input: 20, cacheWrite: 0, cacheRead: 0, output: 2, timestamp: "2026-07-01T23:59:59.500Z") + "\n",
+            to: "session.jsonl"
+        )
+
+        let second = try reader.read(accountID: accountID)
+
+        XCTAssertEqual(second.count, 1)
+        XCTAssertEqual(
+            second.first?.inputTokens,
+            120,
+            "the straddled day must still be emitted whole, not as the appended delta"
+        )
+
+        let account = Account(
+            id: accountID,
+            providerID: .claude,
+            displayName: "Local",
+            credentialReference: "local-source://claude-code",
+            createdAt: Date(timeIntervalSince1970: 1_780_000_000),
+            isEnabled: true
+        )
+        try ledger.saveAccount(account)
+        try ledger.upsertUsageSnapshots(first)
+        try ledger.upsertUsageSnapshots(second)
+
+        let persisted = try ledger.fetchUsageSnapshots(accountID: accountID)
+        XCTAssertEqual(persisted.count, 1)
+        XCTAssertEqual(
+            persisted.first?.inputTokens,
+            120,
+            "a replacing upsert must not be handed a fragment of a closed day"
+        )
+    }
+
+    /// The tolerance exists for the ledger's millisecond rounding of stored dates,
+    /// which is bounded at half a millisecond. A file whose mtime moved back further
+    /// than that was genuinely rewritten and must be re-read from the beginning,
+    /// however similar in size it happens to be.
+    func testAFileRewrittenWithinTheOldOneSecondSlackIsStillReReadFromTheStart() throws {
+        try write(
+            line(model: "claude-opus-4-8", input: 10, cacheWrite: 0, cacheRead: 0, output: 10, timestamp: "2026-07-01T09:00:00.000Z") + "\n",
+            to: "session.jsonl"
+        )
+
+        let reader = ClaudeCodeLogReader(
+            directory: directory,
+            watermarkStore: ledger,
+            now: { Date(timeIntervalSince1970: 1_782_997_200) } // 2026-07-02T13:00:00Z
+        )
+        XCTAssertEqual(try reader.read(accountID: accountID).count, 1)
+
+        // Same length, mtime half a second earlier: inside the old one-second slack,
+        // so the stale byte offset used to be trusted and the whole file skipped.
+        let url = directory.appendingPathComponent("project-a/session.jsonl")
+        let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
+        let mTime = try XCTUnwrap(attributes[.modificationDate] as? Date)
+        try FileManager.default.setAttributes(
+            [.modificationDate: mTime.addingTimeInterval(-0.5)],
+            ofItemAtPath: url.path
+        )
+
+        let reread = try reader.read(accountID: accountID)
+
+        XCTAssertEqual(reread.count, 1, "a rewritten file must be read from the beginning")
+        XCTAssertEqual(reread.first?.inputTokens, 10)
+    }
+
     func testTruncatedFileIsReadFromTheBeginning() throws {
         try write(
             [
