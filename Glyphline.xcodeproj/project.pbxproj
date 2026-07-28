@@ -11,9 +11,12 @@
 		02E55AFA00BD9CCB7061CBD2 /* DatabaseQueueFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9430FC958CF84944A796120 /* DatabaseQueueFactory.swift */; };
 		0909C91D5EE4CE808530935F /* ClaudeCodeLogReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B784EDCB98F4CFE937F3132 /* ClaudeCodeLogReader.swift */; };
 		0B7A1E6883B9421F947F5D5A /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4FD0B8F6937F8D5E989AF9C /* HistoryView.swift */; };
+		0EA259904E9F90950A325E9F /* cursor-usage-events-page2.json in Resources */ = {isa = PBXBuildFile; fileRef = 67B0A4E12703B081ADF5F49A /* cursor-usage-events-page2.json */; };
 		1D1137DB62EEA16A172F4F1D /* MoneyAmount.swift in Sources */ = {isa = PBXBuildFile; fileRef = 675ADA919D8753AAAEFAB44F /* MoneyAmount.swift */; };
 		1E46A6F4CEAD273122B13271 /* ClaudeUsageAdapterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB4A7EC82D5A0FF89DFAD496 /* ClaudeUsageAdapterTests.swift */; };
 		1F057127236C7C74BCADB639 /* AppModeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 347CEC22ED71F6DCC815DB03 /* AppModeTests.swift */; };
+		21A5FBD03E9CF0CCBF8ABB15 /* CursorUsageDTOs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04C815A4377CFB6BA4DAF4D5 /* CursorUsageDTOs.swift */; };
+		22CB952ABB615DBD15F9EF76 /* CursorTeamAdapterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D425CF4A2F4B9E8FFB8776C7 /* CursorTeamAdapterTests.swift */; };
 		2466E6A178B38615D36C1133 /* AccountSyncStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E04A9E41666FF246015BB1AE /* AccountSyncStateTests.swift */; };
 		28C11321FB7E815ECD239AE1 /* PricingCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D596EC370B13AA593C32D79 /* PricingCatalog.swift */; };
 		29DAC97DF9CC2CB3A0D01784 /* AppSettingsStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD5F66FB95D8BBD93EFCBE00 /* AppSettingsStoreTests.swift */; };
@@ -42,6 +45,7 @@
 		81A31CCE7A84A8263856A8DC /* Migrations.swift in Sources */ = {isa = PBXBuildFile; fileRef = 979B2CFA8C52D4A2693A102A /* Migrations.swift */; };
 		8316A63CFE39646FC877156D /* claude-cost-report.json in Resources */ = {isa = PBXBuildFile; fileRef = 5893DAA5F7BF8CB90DDFEB4E /* claude-cost-report.json */; };
 		846B6297F1082269DD709A5C /* claude-usage-report.json in Resources */ = {isa = PBXBuildFile; fileRef = 5FE15C8F6E3DE5DF53B643AA /* claude-usage-report.json */; };
+		847B3A0F939A62C16DC07DF2 /* cursor-spend.json in Resources */ = {isa = PBXBuildFile; fileRef = E42FEF51480E9EE7A6F5CB44 /* cursor-spend.json */; };
 		8B403A4B3B94ED8DAA65426D /* FixtureProviderAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E4A6EC8C6579850C8C770C5 /* FixtureProviderAdapter.swift */; };
 		94436C6F24A2177D2143A0AA /* openai-usage.json in Resources */ = {isa = PBXBuildFile; fileRef = 5F8C45A35D6CA259D7E4F57E /* openai-usage.json */; };
 		94709AE6F65A1DC6E85EADAE /* LedgerStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA3C1D8E770A657CE4E29EF0 /* LedgerStoreTests.swift */; };
@@ -66,6 +70,7 @@
 		D3E95C4A8677984AD229DE0B /* StubURLProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = F23BD4A6011089522A8246FA /* StubURLProtocol.swift */; };
 		D6E6B247A10DCFB995E7450F /* CursorUsageAdapterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D8AAD8E1773BDD67C9C462A /* CursorUsageAdapterTests.swift */; };
 		D8B77926E2F0A8CA8B0916E2 /* UsageModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE8DBF95730F8FD235AFAC47 /* UsageModels.swift */; };
+		D9A5D612D6C4A3437775ADC3 /* cursor-usage-events.json in Resources */ = {isa = PBXBuildFile; fileRef = 5E57F6B2EA86558037E4D70F /* cursor-usage-events.json */; };
 		DD65CBEE767BCD073129FC0C /* ProviderAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6BA50B54580BB6EDF13DF33 /* ProviderAdapter.swift */; };
 		E3ADEBC94C92A0EC346D4FDF /* OpenAIUsageDTOs.swift in Sources */ = {isa = PBXBuildFile; fileRef = F55EFBB4240EAC3D099E29A3 /* OpenAIUsageDTOs.swift */; };
 		E9F07FC2418C6707018C3666 /* MoneyAmountTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55BA8694018F37636CBB9BF7 /* MoneyAmountTests.swift */; };
@@ -87,6 +92,7 @@
 
 /* Begin PBXFileReference section */
 		041B91F7984C6D847ABF7C01 /* SyncScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncScheduler.swift; sourceTree = "<group>"; };
+		04C815A4377CFB6BA4DAF4D5 /* CursorUsageDTOs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CursorUsageDTOs.swift; sourceTree = "<group>"; };
 		0D3611646607A35E26BFEE51 /* ClaudeUsageAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeUsageAdapter.swift; sourceTree = "<group>"; };
 		0D8AAD8E1773BDD67C9C462A /* CursorUsageAdapterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CursorUsageAdapterTests.swift; sourceTree = "<group>"; };
 		12E48ACC872A23A3B329B354 /* AppMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppMode.swift; sourceTree = "<group>"; };
@@ -107,6 +113,7 @@
 		55BA8694018F37636CBB9BF7 /* MoneyAmountTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoneyAmountTests.swift; sourceTree = "<group>"; };
 		5893DAA5F7BF8CB90DDFEB4E /* claude-cost-report.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "claude-cost-report.json"; sourceTree = "<group>"; };
 		5925F83C461A2E9765557F05 /* Glyphline.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Glyphline.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		5E57F6B2EA86558037E4D70F /* cursor-usage-events.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "cursor-usage-events.json"; sourceTree = "<group>"; };
 		5F8C45A35D6CA259D7E4F57E /* openai-usage.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "openai-usage.json"; sourceTree = "<group>"; };
 		5FE15C8F6E3DE5DF53B643AA /* claude-usage-report.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "claude-usage-report.json"; sourceTree = "<group>"; };
 		6038A4E395A2847039481F0D /* UsageModelsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageModelsTests.swift; sourceTree = "<group>"; };
@@ -116,6 +123,7 @@
 		65C301199FDCC9595DC906A9 /* AccountSummaryFormatting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountSummaryFormatting.swift; sourceTree = "<group>"; };
 		65F46725420D301A64582EF6 /* ProviderAdapterRegistryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderAdapterRegistryTests.swift; sourceTree = "<group>"; };
 		675ADA919D8753AAAEFAB44F /* MoneyAmount.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoneyAmount.swift; sourceTree = "<group>"; };
+		67B0A4E12703B081ADF5F49A /* cursor-usage-events-page2.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "cursor-usage-events-page2.json"; sourceTree = "<group>"; };
 		68867B1F76ECF4DE1E6FA098 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		69F038C1101F3228D2C607FB /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
 		6E8DE8808B732D4745FB73B9 /* OpenAIUsageAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIUsageAdapter.swift; sourceTree = "<group>"; };
@@ -144,10 +152,12 @@
 		C6BA50B54580BB6EDF13DF33 /* ProviderAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderAdapter.swift; sourceTree = "<group>"; };
 		CF478BE00C2540E5A49D1E46 /* SyncSchedulerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncSchedulerTests.swift; sourceTree = "<group>"; };
 		D10078AD9B1875C460A90C37 /* CostEstimatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CostEstimatorTests.swift; sourceTree = "<group>"; };
+		D425CF4A2F4B9E8FFB8776C7 /* CursorTeamAdapterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CursorTeamAdapterTests.swift; sourceTree = "<group>"; };
 		D461F567F4AC93CAD78D6410 /* Account.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Account.swift; sourceTree = "<group>"; };
 		D4FD0B8F6937F8D5E989AF9C /* HistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryView.swift; sourceTree = "<group>"; };
 		E04A9E41666FF246015BB1AE /* AccountSyncStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountSyncStateTests.swift; sourceTree = "<group>"; };
 		E2ACCDCE077861E9661ECBFF /* LedgerStoreFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LedgerStoreFactory.swift; sourceTree = "<group>"; };
+		E42FEF51480E9EE7A6F5CB44 /* cursor-spend.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "cursor-spend.json"; sourceTree = "<group>"; };
 		F06FF5203E4C15863CAB3EE3 /* AccountsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountsView.swift; sourceTree = "<group>"; };
 		F0CDFE7985B9A951A9272425 /* claude-usage-report-page2.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "claude-usage-report-page2.json"; sourceTree = "<group>"; };
 		F23BD4A6011089522A8246FA /* StubURLProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StubURLProtocol.swift; sourceTree = "<group>"; };
@@ -282,6 +292,7 @@
 				919CF627AF46F1C143EA18B9 /* ClaudeCodeLogReaderTests.swift */,
 				BB4A7EC82D5A0FF89DFAD496 /* ClaudeUsageAdapterTests.swift */,
 				D10078AD9B1875C460A90C37 /* CostEstimatorTests.swift */,
+				D425CF4A2F4B9E8FFB8776C7 /* CursorTeamAdapterTests.swift */,
 				0D8AAD8E1773BDD67C9C462A /* CursorUsageAdapterTests.swift */,
 				412F5489EA0C8B4EE160128C /* GlyphlineSmokeTests.swift */,
 				89EEFE279720CAF7CA13AEB0 /* KeychainStoreTests.swift */,
@@ -325,6 +336,9 @@
 				5893DAA5F7BF8CB90DDFEB4E /* claude-cost-report.json */,
 				F0CDFE7985B9A951A9272425 /* claude-usage-report-page2.json */,
 				5FE15C8F6E3DE5DF53B643AA /* claude-usage-report.json */,
+				E42FEF51480E9EE7A6F5CB44 /* cursor-spend.json */,
+				67B0A4E12703B081ADF5F49A /* cursor-usage-events-page2.json */,
+				5E57F6B2EA86558037E4D70F /* cursor-usage-events.json */,
 				22E542C9EA7C75092240822A /* openai-costs.json */,
 				5F8C45A35D6CA259D7E4F57E /* openai-usage.json */,
 			);
@@ -378,6 +392,7 @@
 			isa = PBXGroup;
 			children = (
 				F92E1F1D1168A5B8A662B28F /* CursorUsageAdapter.swift */,
+				04C815A4377CFB6BA4DAF4D5 /* CursorUsageDTOs.swift */,
 			);
 			path = Cursor;
 			sourceTree = "<group>";
@@ -507,6 +522,9 @@
 				8316A63CFE39646FC877156D /* claude-cost-report.json in Resources */,
 				C1BFC704266E19283D0B70B0 /* claude-usage-report-page2.json in Resources */,
 				846B6297F1082269DD709A5C /* claude-usage-report.json in Resources */,
+				847B3A0F939A62C16DC07DF2 /* cursor-spend.json in Resources */,
+				0EA259904E9F90950A325E9F /* cursor-usage-events-page2.json in Resources */,
+				D9A5D612D6C4A3437775ADC3 /* cursor-usage-events.json in Resources */,
 				6DCD55D33D666FD9D4402F89 /* openai-costs.json in Resources */,
 				94436C6F24A2177D2143A0AA /* openai-usage.json in Resources */,
 			);
@@ -535,6 +553,7 @@
 				A385281B699E65EE57FD572E /* ClaudeCodeLogReaderTests.swift in Sources */,
 				1E46A6F4CEAD273122B13271 /* ClaudeUsageAdapterTests.swift in Sources */,
 				59022EBC301F5B43468F886F /* CostEstimatorTests.swift in Sources */,
+				22CB952ABB615DBD15F9EF76 /* CursorTeamAdapterTests.swift in Sources */,
 				D6E6B247A10DCFB995E7450F /* CursorUsageAdapterTests.swift in Sources */,
 				68A1F885C4A8FF2F2D947648 /* GlyphlineSmokeTests.swift in Sources */,
 				6F6854805AD8B45E9AB095BA /* KeychainStoreTests.swift in Sources */,
@@ -569,6 +588,7 @@
 				F5C131BA61A0099B6347D420 /* ClaudeUsageDTOs.swift in Sources */,
 				EE496A4425EF2D3826391753 /* CostEstimator.swift in Sources */,
 				373696DD1AD3D4D19DAF6605 /* CursorUsageAdapter.swift in Sources */,
+				21A5FBD03E9CF0CCBF8ABB15 /* CursorUsageDTOs.swift in Sources */,
 				AEE77B35497B4D068C0E2FA5 /* DashboardView.swift in Sources */,
 				C088F3B6FD54977DC360F61D /* DataQualityBadge.swift in Sources */,
 				02E55AFA00BD9CCB7061CBD2 /* DatabaseQueueFactory.swift in Sources */,
