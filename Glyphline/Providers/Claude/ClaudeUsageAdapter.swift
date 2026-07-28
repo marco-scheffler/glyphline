@@ -2,7 +2,11 @@ import Foundation
 
 enum ClaudeUsageAdapterError: Error, Equatable {
     case invalidRequest
+    /// The URL loading system returned something that was not an HTTP response.
     case invalidResponse
+    /// A non-2xx status. The code is carried so a refused credential can be told
+    /// apart from a provider outage; it never carries the secret or any header.
+    case requestFailed(statusCode: Int)
     case decodeFailed
 }
 
@@ -110,7 +114,10 @@ struct ClaudeUsageAdapter: ProviderAdapter {
         do {
             usage = try await fetchUsage(secret: secret, start: periodStart, end: periodEnd)
             costs = try await fetchCosts(secret: secret, start: periodStart, end: periodEnd)
-        } catch ClaudeUsageAdapterError.invalidResponse {
+        } catch ClaudeUsageAdapterError.requestFailed(let statusCode)
+            where ProviderHTTPStatus.isCredentialRejection(statusCode) {
+            // Only 401/403. A 500 used to reach this branch too and told the user
+            // their key was wrong when the service was simply down.
             return unavailableResult(
                 for: account,
                 message: "Claude rejected the credential. An organization admin key is required."
@@ -267,7 +274,7 @@ struct ClaudeUsageAdapter: ProviderAdapter {
         }
 
         guard (200 ... 299).contains(http.statusCode) else {
-            throw ClaudeUsageAdapterError.invalidResponse
+            throw ClaudeUsageAdapterError.requestFailed(statusCode: http.statusCode)
         }
 
         do {

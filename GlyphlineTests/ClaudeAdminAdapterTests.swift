@@ -105,6 +105,25 @@ final class ClaudeAdminAdapterTests: XCTestCase {
         XCTAssertNotNil(result.capabilities.message)
     }
 
+    /// "Not an HTTP response" and "any non-2xx" used to collapse into one error case,
+    /// so a 500 was reported to the user as "Claude rejected the credential. An
+    /// organization admin key is required." — sending them to rotate a key that was
+    /// fine.
+    func testAProviderOutageIsNotReportedAsACredentialProblem() async throws {
+        StubURLProtocol.enqueue(
+            path: "/v1/organizations/usage_report/messages",
+            statusCode: 500,
+            body: Data()
+        )
+
+        do {
+            _ = try await makeAdapter().sync(account: account, secret: "sk-ant-admin-valid")
+            XCTFail("a 500 must surface as a failure, not as a degraded result")
+        } catch {
+            XCTAssertEqual(error as? ClaudeUsageAdapterError, .requestFailed(statusCode: 500))
+        }
+    }
+
     /// The Admin API is queried in UTC with `bucket_width=1d`, so the periods and
     /// buckets derived from its answers must be UTC too. A local calendar would
     /// label them with the wrong day for any user off UTC.

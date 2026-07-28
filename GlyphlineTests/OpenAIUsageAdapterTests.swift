@@ -239,6 +239,59 @@ final class OpenAIUsageAdapterTests: XCTestCase {
         XCTAssertNil(result.capabilities.message)
     }
 
+    /// The Claude and Cursor adapters both degrade a refused credential into an
+    /// `.unavailable` result naming the kind of key required. OpenAI propagated
+    /// instead, so the user saw only the generic "Sync failed." — for the provider
+    /// selected by default when adding an account. Worse, a thrown sync never
+    /// reaches `applySuccessfulSyncResult`, so `accountSyncStates` kept the previous
+    /// row and the dashboard went on reporting `.exact` beside frozen totals.
+    func testARefusedCredentialDegradesInsteadOfThrowing() async throws {
+        let adapter = OpenAIUsageAdapter(
+            session: Self.makeSession(),
+            now: { Date(timeIntervalSince1970: 1_800_100_000) }
+        )
+
+        MockURLProtocol.requestHandler = { request in
+            Self.httpResponse(url: try XCTUnwrap(request.url), statusCode: 401, json: "{}")
+        }
+
+        let result = try await adapter.sync(account: Self.makeAccount(), secret: "sk-proj-not-an-admin-key")
+
+        XCTAssertEqual(result.capabilities.dataQuality, .unavailable)
+        XCTAssertFalse(result.capabilities.supportsUsage)
+        XCTAssertFalse(result.capabilities.supportsActualCost)
+        XCTAssertTrue(result.usageSnapshots.isEmpty)
+        XCTAssertTrue(result.costSnapshots.isEmpty)
+        XCTAssertNil(result.billingPeriod)
+
+        let message = try XCTUnwrap(result.capabilities.message)
+        XCTAssertTrue(message.contains("admin"), "the message must say what kind of key is needed")
+        XCTAssertFalse(
+            message.contains("sk-proj-not-an-admin-key"),
+            "a user-visible message must never carry the secret"
+        )
+    }
+
+    /// A 500 is the provider being unwell, not the key being wrong. Telling the user
+    /// an admin key is required would send them hunting for a problem they do not have.
+    func testAProviderOutageIsNotReportedAsACredentialProblem() async throws {
+        let adapter = OpenAIUsageAdapter(
+            session: Self.makeSession(),
+            now: { Date(timeIntervalSince1970: 1_800_100_000) }
+        )
+
+        MockURLProtocol.requestHandler = { request in
+            Self.httpResponse(url: try XCTUnwrap(request.url), statusCode: 500, json: "{}")
+        }
+
+        do {
+            _ = try await adapter.sync(account: Self.makeAccount(), secret: "sk-admin-valid")
+            XCTFail("a 500 must surface as a failure, not as a degraded result")
+        } catch {
+            XCTAssertEqual(error as? OpenAIUsageAdapterError, .requestFailed(statusCode: 500))
+        }
+    }
+
     /// The period the adapter derives becomes the `start_time` it queries with, and
     /// backfill supplies UTC-midnight slices for that same parameter. A local
     /// calendar would make routine sync and backfill key the same real day under two
@@ -387,8 +440,12 @@ final class OpenAIUsageAdapterTests: XCTestCase {
         )
     }
 
-    private static func httpResponse(url: URL, json: String) -> (HTTPURLResponse, Data) {
-        let response = HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)
+    private static func httpResponse(
+        url: URL,
+        statusCode: Int = 200,
+        json: String
+    ) -> (HTTPURLResponse, Data) {
+        let response = HTTPURLResponse(url: url, statusCode: statusCode, httpVersion: nil, headerFields: nil)
         return (response ?? HTTPURLResponse(), Data(json.utf8))
     }
 }

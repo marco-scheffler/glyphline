@@ -2,7 +2,11 @@ import Foundation
 
 enum CursorUsageAdapterError: Error, Equatable {
     case invalidRequest
+    /// The URL loading system returned something that was not an HTTP response.
     case invalidResponse
+    /// A non-2xx status. The code is carried so a refused credential can be told
+    /// apart from a provider outage; it never carries the secret or any header.
+    case requestFailed(statusCode: Int)
     case decodeFailed
 }
 
@@ -71,7 +75,10 @@ struct CursorUsageAdapter: ProviderAdapter {
         let events: [CursorUsageEvent]
         do {
             events = try await fetchEvents(secret: secret, start: windowStart, end: windowEnd)
-        } catch CursorUsageAdapterError.invalidResponse {
+        } catch CursorUsageAdapterError.requestFailed(let statusCode)
+            where ProviderHTTPStatus.isCredentialRejection(statusCode) {
+            // Only 401/403. A 500 used to reach this branch too and told the user
+            // their key was wrong when the service was simply down.
             return unavailableResult(
                 for: account,
                 message: "Cursor rejected the credential. A team admin API key is required."
@@ -263,7 +270,7 @@ struct CursorUsageAdapter: ProviderAdapter {
         }
 
         guard (200 ... 299).contains(http.statusCode) else {
-            throw CursorUsageAdapterError.invalidResponse
+            throw CursorUsageAdapterError.requestFailed(statusCode: http.statusCode)
         }
 
         do {

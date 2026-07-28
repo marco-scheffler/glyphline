@@ -20,6 +20,18 @@ struct ProviderSyncResult: Codable, Equatable, Sendable {
     var syncedAt: Date
 }
 
+/// Tells "this credential was refused" apart from "this provider is unwell".
+///
+/// Every adapter degrades a refused credential to `.unavailable` carrying an
+/// instruction about the kind of key the provider needs. That message is wrong,
+/// and actively misleading, for a 500 or a 429: it sends the user looking for a
+/// key problem that does not exist. Only these statuses may take that branch.
+enum ProviderHTTPStatus {
+    static func isCredentialRejection(_ statusCode: Int) -> Bool {
+        statusCode == 401 || statusCode == 403
+    }
+}
+
 protocol ProviderAdapter: Sendable {
     var providerID: ProviderID { get }
 

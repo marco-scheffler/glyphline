@@ -1,9 +1,12 @@
 import Foundation
 
-enum OpenAIUsageAdapterError: Error {
+enum OpenAIUsageAdapterError: Error, Equatable {
     case invalidRequest
+    /// The URL loading system returned something that was not an HTTP response.
     case invalidResponse
-    case requestFailed
+    /// A non-2xx status. The code is carried so a refused credential can be told
+    /// apart from a provider outage; it never carries the secret or any header.
+    case requestFailed(statusCode: Int)
     case decodeFailed
 }
 
@@ -65,8 +68,23 @@ struct OpenAIUsageAdapter: ProviderAdapter {
             ? calendar.date(byAdding: .month, value: 1, to: periodStart)
             : nil
 
-        let usage = try await fetchUsage(secret: secret, start: periodStart, end: periodEnd)
-        let costs = try await fetchCosts(secret: secret, start: periodStart, end: periodEnd)
+        let usage: OpenAIUsageResponse
+        let costs: OpenAICostsResponse
+        do {
+            usage = try await fetchUsage(secret: secret, start: periodStart, end: periodEnd)
+            costs = try await fetchCosts(secret: secret, start: periodStart, end: periodEnd)
+        } catch OpenAIUsageAdapterError.requestFailed(let statusCode)
+            where ProviderHTTPStatus.isCredentialRejection(statusCode) {
+            // The other two adapters already degrade here. Without it a user who
+            // pasted a plain API key — the default selection when adding an account
+            // — saw only "Sync failed.", and because a thrown sync never reaches
+            // `applySuccessfulSyncResult`, the stored capabilities kept saying
+            // `.exact` beside totals that had stopped moving.
+            return unavailableResult(
+                for: account,
+                message: "OpenAI rejected the credential. An organization admin key is required."
+            )
+        }
 
         return ProviderSyncResult(
             providerID: .openAI,
@@ -88,6 +106,26 @@ struct OpenAIUsageAdapter: ProviderAdapter {
             costSnapshots: makeCostSnapshots(from: costs, accountID: account.id),
             estimateSnapshots: [],
             syncedAt: syncedAt
+        )
+    }
+
+    private func unavailableResult(for account: Account, message: String) -> ProviderSyncResult {
+        ProviderSyncResult(
+            providerID: .openAI,
+            accountID: account.id,
+            capabilities: ProviderCapabilities(
+                supportsUsage: false,
+                supportsActualCost: false,
+                supportsResetDate: false,
+                supportsModelBreakdown: false,
+                dataQuality: .unavailable,
+                message: message
+            ),
+            billingPeriod: nil,
+            usageSnapshots: [],
+            costSnapshots: [],
+            estimateSnapshots: [],
+            syncedAt: now()
         )
     }
 
@@ -217,7 +255,7 @@ struct OpenAIUsageAdapter: ProviderAdapter {
         }
 
         guard (200 ... 299).contains(httpResponse.statusCode) else {
-            throw OpenAIUsageAdapterError.requestFailed
+            throw OpenAIUsageAdapterError.requestFailed(statusCode: httpResponse.statusCode)
         }
 
         do {

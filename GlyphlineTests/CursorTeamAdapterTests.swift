@@ -147,6 +147,20 @@ final class CursorTeamAdapterTests: XCTestCase {
         XCTAssertTrue(result.capabilities.supportsUsage)
     }
 
+    /// A 500 on the events endpoint is the provider being unwell, not the key being
+    /// wrong. It used to take the same branch as a 403 and told the user a team admin
+    /// key was required.
+    func testAProviderOutageOnTheEventsEndpointIsNotACredentialProblem() async throws {
+        StubURLProtocol.enqueue(path: "/teams/filtered-usage-events", statusCode: 500, body: Data())
+
+        do {
+            _ = try await makeAdapter().sync(account: account, secret: "key_valid")
+            XCTFail("a 500 must surface as a failure, not as a degraded result")
+        } catch {
+            XCTAssertEqual(error as? CursorUsageAdapterError, .requestFailed(statusCode: 500))
+        }
+    }
+
     func testUnauthorizedBecomesUnavailable() async throws {
         StubURLProtocol.enqueue(path: "/teams/filtered-usage-events", statusCode: 403, body: Data())
 
