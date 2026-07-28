@@ -21,6 +21,8 @@ targets:
         product: GRDB
     settings:
       PRODUCT_BUNDLE_IDENTIFIER: com.marcoscheffler.glyphline
+      MARKETING_VERSION: "1.0"
+      CURRENT_PROJECT_VERSION: "1"
       INFOPLIST_FILE: Glyphline/Info.plist
       SWIFT_VERSION: 6.0
       CODE_SIGN_STYLE: Automatic

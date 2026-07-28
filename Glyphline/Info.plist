@@ -2,9 +2,28 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+  <key>CFBundleInfoDictionaryVersion</key>
+  <string>6.0</string>
+  <!-- Wired to the build setting rather than hard-coded, so project.yml stays the
+       single source of truth. Without this key the built bundle carries no
+       identifier at all: `UserDefaults.standard` does not resolve to the app's
+       own domain, and Keychain item identity — which depends on the bundle
+       identifier plus the code signature — has nothing stable to bind to. -->
+  <key>CFBundleIdentifier</key>
+  <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+  <key>CFBundleExecutable</key>
+  <string>$(EXECUTABLE_NAME)</string>
+  <key>CFBundleName</key>
+  <string>$(PRODUCT_NAME)</string>
   <key>CFBundleDisplayName</key>
   <string>Glyphline</string>
+  <key>CFBundlePackageType</key>
+  <string>APPL</string>
+  <key>CFBundleShortVersionString</key>
+  <string>$(MARKETING_VERSION)</string>
+  <key>CFBundleVersion</key>
+  <string>$(CURRENT_PROJECT_VERSION)</string>
   <key>LSMinimumSystemVersion</key>
-  <string>14.0</string>
+  <string>$(MACOSX_DEPLOYMENT_TARGET)</string>
 </dict>
 </plist>
