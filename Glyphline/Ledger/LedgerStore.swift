@@ -1183,5 +1183,12 @@ final class LedgerStore {
     }
 }
 
-/// Safe because all access goes through GRDB's `DatabaseQueue`, which serializes reads and writes.
+/// Safe because every access goes through *this instance's* GRDB `DatabaseQueue`,
+/// which serializes the reads and writes made through it.
+///
+/// That is all this extension asserts. It says nothing about access from another
+/// connection: the app opens one queue per scene on the same file, so two
+/// `LedgerStore`s can be writing and reading concurrently. Safety *between*
+/// connections is SQLite's, and rests on the WAL journal mode and busy timeout
+/// `DatabaseQueueFactory.makeConfiguration` sets — not on this line.
 extension LedgerStore: @unchecked Sendable {}
