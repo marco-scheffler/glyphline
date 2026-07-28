@@ -466,6 +466,40 @@ private struct SyncWatermarkRecord: Codable, FetchableRecord, PersistableRecord,
     }
 }
 
+private struct RateWindowSampleRecord: Codable, FetchableRecord, PersistableRecord, TableRecord {
+    static let databaseTableName = LedgerTable.rateWindowSamples
+
+    var id: String
+    var accountID: String
+    var kind: String
+    var observedAt: Date
+    var usedFraction: Double?
+    var resetAt: Date
+
+    init(_ window: RateWindow, accountID: UUID) {
+        // A fresh UUID per observation, unlike the snapshot tables where
+        // SnapshotIdentity derives a stable key so a re-read replaces its row.
+        // Here every row is a distinct observation that must never replace
+        // another; the natural key is (accountID, kind, observedAt).
+        id = UUID().uuidString
+        self.accountID = accountID.uuidString
+        kind = window.kind.rawValue
+        observedAt = window.observedAt
+        usedFraction = window.usedFraction
+        resetAt = window.resetAt
+    }
+
+    var window: RateWindow? {
+        guard let kind = RateWindowKind(rawValue: kind) else { return nil }
+        return RateWindow(
+            kind: kind,
+            usedFraction: usedFraction,
+            resetAt: resetAt,
+            observedAt: observedAt
+        )
+    }
+}
+
 final class LedgerStore {
     private let dbQueue: DatabaseQueue
 
@@ -858,6 +892,56 @@ final class LedgerStore {
                     Date(),
                     day,
                 ]
+            )
+        }
+    }
+
+    /// Appends an observation, but only when it differs from the newest one for
+    /// the same account and kind. A window moves stepwise, so dropping repeats
+    /// is lossless and takes the yearly volume from ~500k rows to ~15k.
+    ///
+    /// Implausible observations are discarded rather than stored.
+    func saveRateWindow(_ window: RateWindow, accountID: UUID) throws {
+        guard window.isPlausible(now: window.observedAt) else { return }
+
+        try dbQueue.write { db in
+            let newest = try RateWindowSampleRecord
+                .filter(Column(LedgerColumn.accountID) == accountID.uuidString)
+                .filter(Column(LedgerColumn.kind) == window.kind.rawValue)
+                .order(Column(LedgerColumn.observedAt).desc)
+                .fetchOne(db)
+
+            if let newest,
+               newest.usedFraction == window.usedFraction,
+               newest.resetAt == window.resetAt {
+                return
+            }
+
+            try RateWindowSampleRecord(window, accountID: accountID).insert(db)
+        }
+    }
+
+    /// The newest observation for each kind this account has ever reported.
+    func fetchLatestRateWindows(accountID: UUID) throws -> [RateWindow] {
+        try dbQueue.read { db in
+            try RateWindowKind.allCases.compactMap { kind in
+                try RateWindowSampleRecord
+                    .filter(Column(LedgerColumn.accountID) == accountID.uuidString)
+                    .filter(Column(LedgerColumn.kind) == kind.rawValue)
+                    .order(Column(LedgerColumn.observedAt).desc)
+                    .fetchOne(db)?
+                    .window
+            }
+        }
+    }
+
+    /// Retention. Runs on every tick, including ticks where every fetch failed —
+    /// otherwise the table grows precisely when nobody is watching.
+    func deleteRateWindowSamples(olderThan cutoff: Date) throws {
+        try dbQueue.write { db in
+            try db.execute(
+                sql: "DELETE FROM \(LedgerTable.rateWindowSamples) WHERE \(LedgerColumn.observedAt) < ?",
+                arguments: [cutoff]
             )
         }
     }
