@@ -408,33 +408,58 @@ final class SyncCoordinatorTests: XCTestCase {
         XCTAssertEqual(total, 2, "the 400-day-old sample should have been deleted by retention")
     }
 
-    func testAFailingRateWindowFetchWritesNothingAndRecordsAReason() async throws {
+    /// Pins the actual guarantee: a failed quota fetch contributes no quota row.
+    ///
+    /// The account deliberately *does* have a billing period the cost sync already
+    /// established, so the billing-cycle derivation fires. That row is real
+    /// information from the cost path, not recorded ignorance, and it is the only
+    /// row allowed to exist here. Asserting a bare `COUNT(*) == 0` would pass only
+    /// by accident of the account having no billing period at all, and would say
+    /// nothing about whether the failing fetch wrote a quota row.
+    func testAFailingRateWindowFetchWritesNoQuotaRowAndRecordsAReason() async throws {
         let dbQueue = try DatabaseQueueFactory.makeInMemory()
         try Migrations.makeMigrator().migrate(dbQueue)
         let ledger = LedgerStore(dbQueue: dbQueue)
 
         let now = Date(timeIntervalSince1970: 1_800_000_000)
         let account = Account(
-            id: UUID(), providerID: .claude, displayName: "Max #1",
-            credentialReference: "local-source://x", createdAt: now, isEnabled: true
+            id: UUID(), providerID: .openAI, displayName: "Max #1",
+            credentialReference: "keychain://glyphline/x", createdAt: now, isEnabled: true
         )
         try ledger.saveAccount(account)
 
+        let credentials = InMemoryCredentialStore()
+        try credentials.save(secret: "sk-test", for: "keychain://glyphline/x")
+
         let coordinator = SyncCoordinator(
             ledger: ledger,
-            credentials: InMemoryCredentialStore(),
+            credentials: credentials,
             registry: ProviderAdapterRegistry(watermarkStore: ledger),
             estimator: CostEstimator(catalog: PricingCatalog(entries: [])),
+            adapterProvider: { _ in FixtureProviderAdapter(providerID: .openAI) },
             now: { now },
             rateWindowSourceProvider: { _ in
                 FixtureRateWindowSource(now: { now }, behaviour: .unavailable)
             }
         )
 
+        // Establishes a billing period on the cost path, so the derivation branch fires.
+        await coordinator.syncAll()
+        let summary = try XCTUnwrap(try ledger.fetchAccountSummaries().first)
+        XCTAssertNotNil(summary.billingPeriod?.resetAt, "precondition: the cost sync stored a reset")
+
         await coordinator.collectRateWindows()
 
         let total = try Self.rateWindowSampleCount(dbQueue)
-        XCTAssertEqual(total, 0, "a failed fetch must write nothing at all")
+        XCTAssertEqual(
+            total, 1,
+            "only the cost-derived billing cycle may exist; the failed fetch adds nothing"
+        )
+
+        let stored = try ledger.fetchLatestRateWindows(accountID: account.id)
+        XCTAssertEqual(stored.map(\.kind), [.billingCycle])
+        XCTAssertFalse(stored.contains { $0.kind == .rollingFiveHours })
+        XCTAssertFalse(stored.contains { $0.kind == .weekly })
         XCTAssertNotNil(coordinator.rateWindowMessages[account.id])
     }
 
@@ -467,6 +492,10 @@ final class SyncCoordinatorTests: XCTestCase {
 
         await coordinator.syncAll()
         await coordinator.collectRateWindows()
+
+        // The quota side must actually have failed, or the independence claim is
+        // unexercised: a source that silently succeeded would leave this green.
+        XCTAssertNotNil(coordinator.rateWindowMessages[account.id])
 
         // The quota side failed; the cost side must be untouched by that.
         XCTAssertNil(coordinator.syncFailureMessage)

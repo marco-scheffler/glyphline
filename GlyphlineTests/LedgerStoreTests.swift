@@ -132,6 +132,53 @@ final class LedgerStoreTests: XCTestCase {
         XCTAssertEqual(try store.fetchAccounts(), [first, second])
     }
 
+    /// The quota reference sits in the seventh position of four separate parts of
+    /// `saveAccount`'s SQL — insert list, `VALUES` placeholders, `DO UPDATE SET` and
+    /// `arguments`. A mismatch in any one of them would silently write the wrong
+    /// column, so the round trip is pinned with a non-nil value rather than NULL.
+    func testAQuotaCredentialReferenceSurvivesTheRoundTrip() throws {
+        let store = try makeStore()
+        let account = Account(
+            id: UUID(),
+            providerID: .claude,
+            displayName: "Max #1",
+            credentialReference: "local-source://claude-code",
+            createdAt: Date(timeIntervalSince1970: 1_800_000_000),
+            isEnabled: true,
+            quotaCredentialReference: "keychain://glyphline/quota-token"
+        )
+
+        try store.saveAccount(account)
+
+        let fetched = try XCTUnwrap(try store.fetchAccounts().first)
+        XCTAssertEqual(fetched.quotaCredentialReference, "keychain://glyphline/quota-token")
+        XCTAssertEqual(fetched.credentialReference, "local-source://claude-code")
+        XCTAssertEqual(fetched, account)
+    }
+
+    /// The upsert path has its own `DO UPDATE SET` line for the column; re-saving
+    /// must carry a changed reference through rather than leaving the first one.
+    func testResavingAnAccountUpdatesTheQuotaCredentialReference() throws {
+        let store = try makeStore()
+        var account = Account(
+            id: UUID(),
+            providerID: .claude,
+            displayName: "Max #1",
+            credentialReference: "local-source://claude-code",
+            createdAt: Date(timeIntervalSince1970: 1_800_000_000),
+            isEnabled: true,
+            quotaCredentialReference: nil
+        )
+        try store.saveAccount(account)
+
+        account.quotaCredentialReference = "keychain://glyphline/quota-token"
+        try store.saveAccount(account)
+
+        let fetched = try XCTUnwrap(try store.fetchAccounts().first)
+        XCTAssertEqual(fetched.quotaCredentialReference, "keychain://glyphline/quota-token")
+        XCTAssertEqual(try store.fetchAccounts().count, 1)
+    }
+
     func testEstimateSnapshotsFetchInBucketOrder() throws {
         let store = try makeStore()
         let account = makeAccount()

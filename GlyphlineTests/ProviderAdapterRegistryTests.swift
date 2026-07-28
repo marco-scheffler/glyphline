@@ -53,4 +53,23 @@ final class ProviderAdapterRegistryTests: XCTestCase {
 
         XCTAssertTrue(registry.adapter(for: account) is OpenAIUsageAdapter)
     }
+
+    /// An account with no quota credential has no quota source at all — it must
+    /// resolve to nil rather than to a source that would fail on every tick.
+    func testAnAccountWithoutAQuotaCredentialHasNoRateWindowSource() throws {
+        let registry = ProviderAdapterRegistry()
+        let account = makeAccount(.claude, reference: "local-source://claude-code")
+
+        XCTAssertNil(account.quotaCredentialReference)
+        XCTAssertNil(registry.rateWindowSource(for: account))
+    }
+
+    func testAnAccountWithAQuotaCredentialResolvesToARateWindowSource() throws {
+        let registry = ProviderAdapterRegistry()
+        var account = makeAccount(.claude, reference: "local-source://claude-code")
+        account.quotaCredentialReference = "keychain://glyphline/quota-token"
+
+        let source = try XCTUnwrap(registry.rateWindowSource(for: account))
+        XCTAssertTrue(source is FixtureRateWindowSource)
+    }
 }
