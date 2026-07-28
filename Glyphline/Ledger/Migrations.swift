@@ -8,6 +8,7 @@ enum LedgerTable {
     static let syncRuns = "syncRuns"
     static let accountSyncStates = "accountSyncStates"
     static let syncWatermarks = "syncWatermarks"
+    static let rateWindowSamples = "rateWindowSamples"
 }
 
 enum LedgerColumn {
@@ -48,6 +49,11 @@ enum LedgerColumn {
     static let fileMTime = "fileMTime"
     static let byteOffset = "byteOffset"
     static let backfillCompletedThrough = "backfillCompletedThrough"
+    static let kind = "kind"
+    static let observedAt = "observedAt"
+    static let usedFraction = "usedFraction"
+    static let resetAt = "resetAt"
+    static let quotaCredentialReference = "quotaCredentialReference"
 }
 
 enum Migrations {
@@ -232,6 +238,36 @@ enum Migrations {
 
             try db.alter(table: LedgerTable.accountSyncStates) { table in
                 table.add(column: LedgerColumn.backfillCompletedThrough, .datetime)
+            }
+        }
+
+        migrator.registerMigration("v6_rate_window_samples") { db in
+            // Append-only observation series. Deliberately no unique constraint on
+            // (accountID, kind, observedAt) beyond the surrogate primary key: every
+            // row is a distinct observation and must never replace another.
+            try db.create(table: LedgerTable.rateWindowSamples) { table in
+                table.column(LedgerColumn.id, .text).primaryKey()
+                table.column(LedgerColumn.accountID, .text).notNull()
+                table.column(LedgerColumn.kind, .text).notNull()
+                table.column(LedgerColumn.observedAt, .datetime).notNull()
+                table.column(LedgerColumn.usedFraction, .double)
+                table.column(LedgerColumn.resetAt, .datetime).notNull()
+            }
+
+            // Every render reads "newest sample per account per kind"; SQLite scans
+            // this index backwards for that, so ascending order is sufficient.
+            try db.create(
+                index: "index_rateWindowSamples_on_account_kind_observedAt",
+                on: LedgerTable.rateWindowSamples,
+                columns: [
+                    LedgerColumn.accountID,
+                    LedgerColumn.kind,
+                    LedgerColumn.observedAt,
+                ]
+            )
+
+            try db.alter(table: LedgerTable.accounts) { table in
+                table.add(column: LedgerColumn.quotaCredentialReference, .text)
             }
         }
 

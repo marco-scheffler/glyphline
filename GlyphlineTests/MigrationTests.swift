@@ -164,4 +164,69 @@ final class MigrationTests: XCTestCase {
 
         XCTAssertEqual(try store.fetchBackfillCompletedThrough(accountID: accountID), day)
     }
+
+    func testV6CreatesRateWindowSamplesAndPreservesExistingAccounts() throws {
+        let dbQueue = try DatabaseQueueFactory.makeInMemory()
+        let migrator = Migrations.makeMigrator()
+
+        try migrator.migrate(dbQueue, upTo: "v5_sync_watermarks")
+
+        let accountID = UUID()
+        try dbQueue.write { db in
+            try db.execute(
+                sql: """
+                    INSERT INTO accounts (id, providerID, displayName, credentialReference, createdAt, isEnabled)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                arguments: [
+                    accountID.uuidString, "claude", "Max #1",
+                    "local-source://\(accountID.uuidString)",
+                    Date(timeIntervalSince1970: 1_800_000_000), true,
+                ]
+            )
+        }
+
+        try migrator.migrate(dbQueue)
+
+        try dbQueue.read { db in
+            XCTAssertTrue(try db.tableExists(LedgerTable.rateWindowSamples))
+
+            let survivingName = try String.fetchOne(
+                db,
+                sql: "SELECT displayName FROM accounts WHERE id = ?",
+                arguments: [accountID.uuidString]
+            )
+            XCTAssertEqual(survivingName, "Max #1")
+        }
+    }
+
+    func testV6AddsQuotaCredentialReferenceAsNullable() throws {
+        let dbQueue = try DatabaseQueueFactory.makeInMemory()
+        try Migrations.makeMigrator().migrate(dbQueue)
+
+        let accountID = UUID()
+        try dbQueue.write { db in
+            // Inserting without the new column must succeed: existing accounts have no quota source.
+            try db.execute(
+                sql: """
+                    INSERT INTO accounts (id, providerID, displayName, credentialReference, createdAt, isEnabled)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                arguments: [
+                    accountID.uuidString, "claude", "Max #2",
+                    "local-source://\(accountID.uuidString)",
+                    Date(timeIntervalSince1970: 1_800_000_000), true,
+                ]
+            )
+        }
+
+        try dbQueue.read { db in
+            let reference = try String.fetchOne(
+                db,
+                sql: "SELECT quotaCredentialReference FROM accounts WHERE id = ?",
+                arguments: [accountID.uuidString]
+            )
+            XCTAssertNil(reference)
+        }
+    }
 }
