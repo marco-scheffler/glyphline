@@ -77,6 +77,16 @@ final class SyncCoordinator: ObservableObject {
         QuotaIndicator.nextFree(for: quotaStates, now: now(), freshness: quotaFreshness)
     }
 
+    /// The menu's account blocks, rows already rendered against the same bound.
+    ///
+    /// Third of three consumers of the same freshness rule, beside `quotaLight`
+    /// and `nextFreeText`, and the one that used to apply no bound at all. Kept
+    /// here for the same reason as the other two: `quotaFreshness` stays private,
+    /// so no call site can invent a bound of its own.
+    var quotaRows: [QuotaRowGroup] {
+        QuotaIndicator.rowGroups(for: quotaStates, now: now(), freshness: quotaFreshness)
+    }
+
     /// Twice the poll interval: an observation older than that is not displayed.
     private var quotaFreshness: TimeInterval {
         (currentIntervalSeconds ?? 1_800) * 2

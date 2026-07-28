@@ -337,6 +337,86 @@ final class QuotaIndicatorTests: XCTestCase {
         )
     }
 
+    /// The fourth site the freshness rule had to reach, and the one it never did.
+    /// The light greys, the header vanishes — and the row kept printing an exact
+    /// percentage the app had formally decided not to believe.
+    func testAStaleRowIsQualifiedRatherThanPrintedAsFact() {
+        let states = [
+            accountWith("Max #1", windows: [
+                window(used: 0.62, observedMinutesAgo: 120, resetMinutesFromNow: 60),
+            ]),
+        ]
+        let groups = QuotaIndicator.rowGroups(
+            for: states, now: now, freshness: freshness, formatting: formatting
+        )
+
+        XCTAssertEqual(
+            visible(groups.first?.rows.first),
+            "5h 62% — resets 10:00 AM (as of 7:00 AM)"
+        )
+    }
+
+    /// The counterpart: a fresh row carries no qualifier, so the "as of" stays a
+    /// signal rather than decoration on every line.
+    func testAFreshRowCarriesNoAsOfQualifier() {
+        let states = [
+            accountWith("Max #1", windows: [
+                window(used: 0.62, observedMinutesAgo: 5, resetMinutesFromNow: 60),
+            ]),
+        ]
+        let groups = QuotaIndicator.rowGroups(
+            for: states, now: now, freshness: freshness, formatting: formatting
+        )
+
+        XCTAssertEqual(visible(groups.first?.rows.first), "5h 62% — resets 10:00 AM")
+    }
+
+    /// The rows must obey the same bound as the light, judged on the same data.
+    /// A window the light believes and a row that qualifies it — or the reverse —
+    /// is the disagreement this feature kept reintroducing.
+    func testTheRowsAndTheLightAgreeAboutTheSameWindow() {
+        let confirmed = [
+            accountWith("Max #1", windows: [
+                window(used: 0.62, observedMinutesAgo: 120, confirmedMinutesAgo: 1, resetMinutesFromNow: 60),
+            ]),
+        ]
+
+        XCTAssertEqual(QuotaIndicator.light(for: confirmed, now: now, freshness: freshness), .green)
+        XCTAssertEqual(
+            visible(
+                QuotaIndicator.rowGroups(
+                    for: confirmed, now: now, freshness: freshness, formatting: formatting
+                ).first?.rows.first
+            ),
+            "5h 62% — resets 10:00 AM",
+            "the light believes this window, so the row must not qualify it"
+        )
+    }
+
+    /// An account with no quota source always carries a message, and the menu
+    /// used to render the message *or* the windows. Its billing cycle — the only
+    /// genuine quota datum this branch can produce for a real user — was
+    /// therefore never drawn.
+    func testAnAccountWithAMessageStillShowsTheWindowsItDoesHave() {
+        let states = [
+            accountWith(
+                "Max #1",
+                windows: [window(kind: .billingCycle, used: nil, resetMinutesFromNow: 60)],
+                message: RateWindowSourceError.notAvailable.message
+            ),
+        ]
+        let group = QuotaIndicator.rowGroups(
+            for: states, now: now, freshness: freshness, formatting: formatting
+        ).first
+
+        XCTAssertEqual(group?.message, RateWindowSourceError.notAvailable.message)
+        XCTAssertEqual(
+            visible(group?.rows.first),
+            "Cycle — usage unknown, ends 10:00 AM",
+            "the reason the short windows are missing is not a reason to hide the cycle"
+        )
+    }
+
     /// The counterpart to the two above: a five-hour window resetting today must
     /// *not* acquire a date, or every row grows a redundant "Jul 28, 2026".
     func testAResetLaterTodayStaysAPlainClockTime() {

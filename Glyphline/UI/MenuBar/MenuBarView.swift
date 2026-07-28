@@ -31,30 +31,36 @@ struct MenuBarView: View {
             }
             .pickerStyle(.segmented)
 
-            if !coordinator.quotaStates.isEmpty {
+            if !coordinator.quotaRows.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {
                     if let nextFree = coordinator.nextFreeText {
                         Text("Next free: \(nextFree)")
                             .font(.caption.weight(.medium))
                     }
 
-                    ForEach(coordinator.quotaStates, id: \.accountID) { state in
+                    // Rows come pre-rendered from the coordinator, against the
+                    // same freshness bound as the light and the header. The view
+                    // has no bound of its own to get wrong.
+                    ForEach(coordinator.quotaRows) { group in
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(state.displayName)
+                            Text(group.displayName)
                                 .font(.caption)
 
-                            if let message = state.message {
-                                // Accounts without data appear with their reason,
-                                // not hidden.
+                            // Message *and* rows. Accounts without a quota source
+                            // appear with their reason, and that reason is not
+                            // grounds to hide a billing cycle the cost path knows
+                            // — which is the only real quota datum a user has
+                            // until a provider route exists.
+                            if let message = group.message {
                                 Text(message)
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
-                            } else {
-                                ForEach(state.windows, id: \.window.kind) { window in
-                                    Text(QuotaIndicator.rowText(for: window.window, now: Date()))
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
+                            }
+
+                            ForEach(Array(group.rows.enumerated()), id: \.offset) { _, row in
+                                Text(row)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
                             }
                         }
                     }

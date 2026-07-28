@@ -58,6 +58,21 @@ struct QuotaAccountState: Equatable, Sendable {
     var message: String?
 }
 
+/// One account's block in the menu, with the freshness bound already applied.
+///
+/// The view receives this rather than the raw windows and a bound to apply
+/// itself. `message` and `rows` are both rendered: the message explains why the
+/// short windows are missing, which is not a reason to hide a reset instant the
+/// app does know. Since no account resolves to a quota source today, that
+/// cost-derived billing cycle is the only genuine quota datum a real user has,
+/// and the either/or the menu used to draw made it invisible.
+struct QuotaRowGroup: Identifiable, Equatable, Sendable {
+    var id: UUID
+    var displayName: String
+    var message: String?
+    var rows: [String]
+}
+
 enum QuotaIndicator {
     /// The one freshness predicate. The light, the next-free string and the
     /// rendered rows all reach it — a rule applied at two of the three sites and
@@ -218,13 +233,56 @@ enum QuotaIndicator {
         }
     }
 
+    /// The menu blocks, one per account, with the freshness bound applied.
+    ///
+    /// This exists so the view cannot choose a bound of its own — the same
+    /// reason `quotaLight` and `nextFreeText` are resolved on the coordinator.
+    /// The rows were the one consumer that applied no bound at all: an
+    /// observation the light had already discarded still printed "5h 62% —
+    /// resets 14:00", flatly, as fact, under a grey icon and a missing header.
+    static func rowGroups(
+        for states: [QuotaAccountState],
+        now: Date,
+        freshness: TimeInterval,
+        formatting: QuotaFormatting = .current
+    ) -> [QuotaRowGroup] {
+        states.map { state in
+            QuotaRowGroup(
+                id: state.accountID,
+                displayName: state.displayName,
+                message: state.message,
+                rows: state.windows.map { windowState in
+                    // A stale window is shown with the instant it was last
+                    // believed rather than dropped: the reset instant stays
+                    // useful, and the qualifier stops the figure reading as
+                    // current.
+                    let asOf = isFresh(windowState, now: now, freshness: freshness)
+                        ? nil
+                        : windowState.believableSince
+
+                    return rowText(
+                        for: windowState.window,
+                        now: now,
+                        asOf: asOf,
+                        formatting: formatting
+                    )
+                }
+            )
+        }
+    }
+
     /// One window as a menu row. A missing fraction says so rather than
     /// rendering as 0%, which would read as "untouched".
     ///
     /// `now` is load-bearing: it decides whether the instant needs its date.
+    ///
+    /// `asOf` is set exactly when the window is past the freshness bound. The row
+    /// then names when the figure was last believed, because a percentage the app
+    /// has formally decided not to trust must not be printed as a plain fact.
     static func rowText(
         for window: RateWindow,
         now: Date,
+        asOf: Date? = nil,
         formatting: QuotaFormatting = .current
     ) -> String {
         let label: String
@@ -247,9 +305,14 @@ enum QuotaIndicator {
 
         let reset = instantText(window.resetAt, now: now, formatting: formatting)
 
-        guard let fraction = window.usedFraction else {
-            return "\(label) — usage unknown, \(verb) \(reset)"
+        let head: String
+        if let fraction = window.usedFraction {
+            head = "\(label) \(Int((fraction * 100).rounded()))% — \(verb) \(reset)"
+        } else {
+            head = "\(label) — usage unknown, \(verb) \(reset)"
         }
-        return "\(label) \(Int((fraction * 100).rounded()))% — \(verb) \(reset)"
+
+        guard let asOf else { return head }
+        return "\(head) (as of \(instantText(asOf, now: now, formatting: formatting)))"
     }
 }

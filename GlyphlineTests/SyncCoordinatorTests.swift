@@ -537,6 +537,50 @@ final class SyncCoordinatorTests: XCTestCase {
         )
     }
 
+    /// The production path, end to end. No account resolves to a quota source, so
+    /// every real account carries a message — and the menu rendered the message
+    /// *or* the windows, never both, which made the cost-derived billing cycle
+    /// invisible. It is the only genuine quota datum a real user gets today.
+    func testTheBillingCycleIsRenderedBesideTheNoSourceMessage() async throws {
+        let dbQueue = try DatabaseQueueFactory.makeInMemory()
+        try Migrations.makeMigrator().migrate(dbQueue)
+        let ledger = LedgerStore(dbQueue: dbQueue)
+
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let account = Account(
+            id: UUID(), providerID: .openAI, displayName: "OpenAI",
+            credentialReference: "keychain://glyphline/x", createdAt: now, isEnabled: true
+        )
+        try ledger.saveAccount(account)
+
+        let credentials = InMemoryCredentialStore()
+        try credentials.save(secret: "sk-test", for: "keychain://glyphline/x")
+
+        // The real registry, not an injected source: this is exactly what ships.
+        let coordinator = SyncCoordinator(
+            ledger: ledger,
+            credentials: credentials,
+            registry: ProviderAdapterRegistry(watermarkStore: ledger),
+            estimator: CostEstimator(catalog: PricingCatalog(entries: [])),
+            adapterProvider: { _ in FixtureProviderAdapter(providerID: .openAI) },
+            now: { now }
+        )
+
+        await coordinator.syncAll()
+        let summary = try XCTUnwrap(try ledger.fetchAccountSummaries().first)
+        XCTAssertNotNil(summary.billingPeriod?.resetAt, "precondition: the cost sync stored a reset")
+
+        await coordinator.collectRateWindows()
+
+        let group = try XCTUnwrap(coordinator.quotaRows.first)
+        XCTAssertEqual(group.message, RateWindowSourceError.notAvailable.message)
+        XCTAssertEqual(group.rows.count, 1, "the derived billing cycle must reach the menu")
+        XCTAssertTrue(
+            try XCTUnwrap(group.rows.first).hasPrefix("Cycle"),
+            "got \(group.rows)"
+        )
+    }
+
     /// The end-to-end shape of the change-detection defect.
     ///
     /// The provider keeps reporting the same figure at the same reset instant.
