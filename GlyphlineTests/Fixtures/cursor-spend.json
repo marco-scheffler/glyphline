@@ -1,0 +1,9 @@
+{
+  "subscriptionCycleStart": 1782950400000,
+  "totalMembers": 2,
+  "totalPages": 1,
+  "teamMemberSpend": [
+    { "userId": 1, "name": "A", "email": "a@example.com", "role": "owner", "spendCents": 1500, "overallSpendCents": 4000 },
+    { "userId": 2, "name": "B", "email": "b@example.com", "role": "member", "spendCents": 500, "overallSpendCents": 900 }
+  ]
+}

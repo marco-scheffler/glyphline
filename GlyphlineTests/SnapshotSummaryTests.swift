@@ -1,0 +1,349 @@
+import XCTest
+@testable import Glyphline
+
+final class SnapshotSummaryTests: XCTestCase {
+    func testDailySummariesAggregateUsageAndEstimateSnapshotsByUTCDay() throws {
+        let store = try makeStore()
+        let account = makeAccount()
+        let day = makeUTCDate(year: 2026, month: 7, day: 24, hour: 8)
+
+        try store.upsertUsageSnapshots([
+            UsageSnapshot(
+                id: UUID(),
+                accountID: account.id,
+                providerID: .openAI,
+                bucketStart: day,
+                bucketEnd: day.addingTimeInterval(3_600),
+                model: "gpt-5.4",
+                inputTokens: 10,
+                outputTokens: 20,
+                requests: 1,
+                quality: .exact
+            ),
+            UsageSnapshot(
+                id: UUID(),
+                accountID: account.id,
+                providerID: .openAI,
+                bucketStart: day.addingTimeInterval(11 * 3_600),
+                bucketEnd: day.addingTimeInterval(12 * 3_600),
+                model: "gpt-5.4-mini",
+                inputTokens: 30,
+                outputTokens: 40,
+                requests: 2,
+                quality: .exact
+            ),
+        ])
+        try store.upsertEstimateSnapshots([
+            EstimateSnapshot(
+                id: UUID(),
+                accountID: account.id,
+                providerID: .openAI,
+                bucketStart: day,
+                bucketEnd: day.addingTimeInterval(3_600),
+                estimatedAmountMicros: 110_000,
+                currency: "USD",
+                quality: .exact
+            ),
+            EstimateSnapshot(
+                id: UUID(),
+                accountID: account.id,
+                providerID: .openAI,
+                bucketStart: day.addingTimeInterval(11 * 3_600),
+                bucketEnd: day.addingTimeInterval(12 * 3_600),
+                estimatedAmountMicros: 220_000,
+                currency: "USD",
+                quality: .estimated
+            ),
+        ])
+
+        let summaries = try store.fetchDailySummaries(accountID: account.id)
+
+        XCTAssertEqual(
+            summaries,
+            [
+                DailyUsageSummary(
+                    accountID: account.id,
+                    dayStart: makeUTCDate(year: 2026, month: 7, day: 24, hour: 0),
+                    inputTokens: 40,
+                    outputTokens: 60,
+                    requests: 3,
+                    estimatedAmountMicros: 330_000,
+                    currency: "USD",
+                    quality: .estimated
+                ),
+            ]
+        )
+    }
+
+    func testDailySummariesIncludeEstimateOnlyDaysAndSortNewestFirst() throws {
+        let store = try makeStore()
+        let account = makeAccount()
+        let earlierDay = makeUTCDate(year: 2026, month: 7, day: 23, hour: 9)
+        let laterDay = makeUTCDate(year: 2026, month: 7, day: 25, hour: 6)
+
+        try store.upsertUsageSnapshots([
+            UsageSnapshot(
+                id: UUID(),
+                accountID: account.id,
+                providerID: .claude,
+                bucketStart: earlierDay,
+                bucketEnd: earlierDay.addingTimeInterval(3_600),
+                model: nil,
+                inputTokens: 8,
+                outputTokens: 13,
+                requests: 1,
+                quality: .exact
+            ),
+        ])
+        try store.upsertEstimateSnapshots([
+            EstimateSnapshot(
+                id: UUID(),
+                accountID: account.id,
+                providerID: .claude,
+                bucketStart: laterDay,
+                bucketEnd: laterDay.addingTimeInterval(3_600),
+                estimatedAmountMicros: 95_000,
+                currency: "USD",
+                quality: .partial
+            ),
+        ])
+
+        let summaries = try store.fetchDailySummaries(accountID: account.id)
+
+        XCTAssertEqual(
+            summaries,
+            [
+                DailyUsageSummary(
+                    accountID: account.id,
+                    dayStart: makeUTCDate(year: 2026, month: 7, day: 25, hour: 0),
+                    inputTokens: 0,
+                    outputTokens: 0,
+                    requests: nil,
+                    estimatedAmountMicros: 95_000,
+                    currency: "USD",
+                    quality: .partial
+                ),
+                DailyUsageSummary(
+                    accountID: account.id,
+                    dayStart: makeUTCDate(year: 2026, month: 7, day: 23, hour: 0),
+                    inputTokens: 8,
+                    outputTokens: 13,
+                    requests: 1,
+                    estimatedAmountMicros: nil,
+                    currency: nil,
+                    quality: .exact
+                ),
+            ]
+        )
+    }
+
+    func testHistorySummaryEntriesUseStableIdentityForDuplicateAccountNamesOnSameDay() throws {
+        let store = try makeStore()
+        let firstAccount = makeAccount(displayName: "Shared Display Name")
+        let secondAccount = makeAccount(displayName: "Shared Display Name")
+        let day = makeUTCDate(year: 2026, month: 7, day: 24, hour: 8)
+
+        try store.upsertUsageSnapshots([
+            UsageSnapshot(
+                id: UUID(),
+                accountID: firstAccount.id,
+                providerID: .openAI,
+                bucketStart: day,
+                bucketEnd: day.addingTimeInterval(3_600),
+                model: "gpt-5.4",
+                inputTokens: 12,
+                outputTokens: 18,
+                requests: 1,
+                quality: .exact
+            ),
+            UsageSnapshot(
+                id: UUID(),
+                accountID: secondAccount.id,
+                providerID: .openAI,
+                bucketStart: day,
+                bucketEnd: day.addingTimeInterval(3_600),
+                model: "gpt-5.4",
+                inputTokens: 7,
+                outputTokens: 11,
+                requests: 1,
+                quality: .exact
+            ),
+        ])
+
+        let firstSummary = try XCTUnwrap(store.fetchDailySummaries(accountID: firstAccount.id).first)
+        let secondSummary = try XCTUnwrap(store.fetchDailySummaries(accountID: secondAccount.id).first)
+
+        let entries = [
+            HistorySummaryEntry(accountName: firstAccount.displayName, summary: firstSummary),
+            HistorySummaryEntry(accountName: secondAccount.displayName, summary: secondSummary),
+        ]
+
+        XCTAssertEqual(entries.count, 2)
+        XCTAssertNotEqual(entries[0].id, entries[1].id)
+    }
+
+    func testDailySummaryTotalTokensIncludesCacheClasses() throws {
+        let store = try makeStore()
+        let account = makeAccount()
+        let day = makeUTCDate(year: 2026, month: 7, day: 24, hour: 8)
+
+        try store.upsertUsageSnapshots([
+            UsageSnapshot(
+                id: UUID(),
+                accountID: account.id,
+                providerID: .claude,
+                bucketStart: day,
+                bucketEnd: day.addingTimeInterval(3_600),
+                model: "claude-opus-4-8",
+                inputTokens: 10,
+                cacheCreationTokens: 200,
+                cacheReadTokens: 3_000,
+                outputTokens: 40,
+                requests: 1,
+                quality: .exact
+            ),
+        ])
+
+        let summaries = try store.fetchDailySummaries(accountID: account.id)
+
+        XCTAssertEqual(summaries.count, 1)
+        XCTAssertEqual(summaries[0].cacheCreationTokens, 200)
+        XCTAssertEqual(summaries[0].cacheReadTokens, 3_000)
+        XCTAssertEqual(summaries[0].totalTokens, 3_250)
+    }
+
+    func testDailySummaryRequestsStayNilWhenNoSnapshotReportsThem() throws {
+        let store = try makeStore()
+        let account = makeAccount()
+        let day = makeUTCDate(year: 2026, month: 7, day: 24, hour: 8)
+
+        try store.upsertUsageSnapshots([
+            UsageSnapshot(
+                id: UUID(),
+                accountID: account.id,
+                providerID: .claude,
+                bucketStart: day,
+                bucketEnd: day.addingTimeInterval(3_600),
+                model: "claude-opus-4-8",
+                inputTokens: 10,
+                outputTokens: 40,
+                requests: nil,
+                quality: .exact
+            ),
+        ])
+
+        let summaries = try store.fetchDailySummaries(accountID: account.id)
+
+        XCTAssertEqual(summaries.count, 1)
+        XCTAssertNil(summaries[0].requests)
+    }
+
+    func testDailySummaryRequestsSumOnlyTheSnapshotsThatReportThem() throws {
+        let store = try makeStore()
+        let account = makeAccount()
+        let day = makeUTCDate(year: 2026, month: 7, day: 24, hour: 8)
+
+        try store.upsertUsageSnapshots([
+            UsageSnapshot(
+                id: UUID(),
+                accountID: account.id,
+                providerID: .claude,
+                bucketStart: day,
+                bucketEnd: day.addingTimeInterval(3_600),
+                model: "claude-opus-4-8",
+                inputTokens: 10,
+                outputTokens: 40,
+                requests: nil,
+                quality: .exact
+            ),
+            UsageSnapshot(
+                id: UUID(),
+                accountID: account.id,
+                providerID: .claude,
+                bucketStart: day.addingTimeInterval(11 * 3_600),
+                bucketEnd: day.addingTimeInterval(12 * 3_600),
+                model: "claude-sonnet-4-8",
+                inputTokens: 10,
+                outputTokens: 40,
+                requests: 5,
+                quality: .exact
+            ),
+        ])
+
+        let summaries = try store.fetchDailySummaries(accountID: account.id)
+
+        XCTAssertEqual(summaries.count, 1)
+        XCTAssertEqual(summaries[0].requests, 5)
+    }
+
+    func testAccountSummaryTotalsCacheTokensAndKeepsUnreportedRequestsNil() throws {
+        let store = try makeStore()
+        let account = makeAccount(providerID: .claude)
+        try store.saveAccount(account)
+        let day = makeUTCDate(year: 2026, month: 7, day: 24, hour: 8)
+
+        try store.upsertUsageSnapshots([
+            UsageSnapshot(
+                id: UUID(),
+                accountID: account.id,
+                providerID: .claude,
+                bucketStart: day,
+                bucketEnd: day.addingTimeInterval(3_600),
+                model: "claude-opus-4-8",
+                inputTokens: 10,
+                cacheCreationTokens: 200,
+                cacheReadTokens: 3_000,
+                outputTokens: 40,
+                requests: nil,
+                quality: .exact
+            ),
+        ])
+
+        let summaries = try store.fetchAccountSummaries()
+
+        XCTAssertEqual(summaries.count, 1)
+        XCTAssertEqual(summaries[0].cacheCreationTokens, 200)
+        XCTAssertEqual(summaries[0].cacheReadTokens, 3_000)
+        XCTAssertEqual(summaries[0].totalTokens, 3_250)
+        XCTAssertNil(summaries[0].requestCount)
+    }
+
+    func testRequestsFormattingRendersUnreportedCountAsEmDash() {
+        XCTAssertEqual(AccountSummaryFormatting.requests(nil), "—")
+        XCTAssertEqual(AccountSummaryFormatting.requests(0), "0 requests")
+    }
+
+    private func makeStore() throws -> LedgerStore {
+        let dbQueue = try DatabaseQueueFactory.makeInMemory()
+        try Migrations.migrate(dbQueue)
+        return LedgerStore(dbQueue: dbQueue)
+    }
+
+    private func makeAccount(providerID: ProviderID = .openAI, displayName: String = "History Test") -> Account {
+        Account(
+            id: UUID(),
+            providerID: providerID,
+            displayName: displayName,
+            credentialReference: "keychain://glyphline/\(UUID().uuidString)",
+            createdAt: makeUTCDate(year: 2026, month: 7, day: 20, hour: 0),
+            isEnabled: true
+        )
+    }
+
+    private func makeUTCDate(year: Int, month: Int, day: Int, hour: Int) -> Date {
+        var components = DateComponents()
+        components.calendar = utcCalendar
+        components.timeZone = TimeZone(secondsFromGMT: 0)
+        components.year = year
+        components.month = month
+        components.day = day
+        components.hour = hour
+        return components.date!
+    }
+
+    private var utcCalendar: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        return calendar
+    }
+}

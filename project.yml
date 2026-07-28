@@ -1,0 +1,41 @@
+name: Glyphline
+options:
+  minimumXcodeGenVersion: 2.42.0
+  deploymentTarget:
+    macOS: "14.0"
+packages:
+  GRDB:
+    url: https://github.com/groue/GRDB.swift.git
+    from: 7.0.0
+targets:
+  Glyphline:
+    type: application
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - Glyphline
+    resources:
+      - Glyphline/Resources
+    dependencies:
+      - package: GRDB
+        product: GRDB
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.marcoscheffler.glyphline
+      MARKETING_VERSION: "1.0"
+      CURRENT_PROJECT_VERSION: "1"
+      INFOPLIST_FILE: Glyphline/Info.plist
+      SWIFT_VERSION: 6.0
+      CODE_SIGN_STYLE: Automatic
+  GlyphlineTests:
+    type: bundle.unit-test
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - GlyphlineTests
+    resources:
+      - GlyphlineTests/Fixtures
+    dependencies:
+      - target: Glyphline
+    settings:
+      GENERATE_INFOPLIST_FILE: YES
+      SWIFT_VERSION: 6.0
