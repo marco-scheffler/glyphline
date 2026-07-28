@@ -47,4 +47,14 @@ struct ProviderAdapterRegistry {
             return CursorUsageAdapter(mode: isLocal ? .localStatusOnly : .teamAPI, session: session)
         }
     }
+
+    /// The quota source for an account, or `nil` when none is configured.
+    ///
+    /// Until the access-route spike lands, only the fixture source exists, and it
+    /// is returned solely for accounts that carry a quota credential reference —
+    /// an account without one has no quota source and renders grey.
+    func rateWindowSource(for account: Account) -> (any RateWindowSource)? {
+        guard account.quotaCredentialReference != nil else { return nil }
+        return FixtureRateWindowSource()
+    }
 }

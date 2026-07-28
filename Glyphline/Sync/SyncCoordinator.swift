@@ -29,6 +29,10 @@ final class SyncCoordinator: ObservableObject {
     private let estimator: CostEstimator
     private let scheduler: SyncScheduler?
     private let adapterProvider: ((Account) -> any ProviderAdapter)?
+    private let rateWindowSourceProvider: @MainActor (Account) -> (any RateWindowSource)?
+
+    /// Per-account reason why quota is not being shown. Cleared on a good fetch.
+    @Published private(set) var rateWindowMessages: [UUID: String] = [:]
 
     /// Injected so scheduling can be exercised without waiting on wall-clock time.
     private let sleepForSeconds: @Sendable (TimeInterval) async throws -> Void
@@ -63,10 +67,14 @@ final class SyncCoordinator: ObservableObject {
         sleepForSeconds: @escaping @Sendable (TimeInterval) async throws -> Void = {
             try await Task.sleep(for: .seconds($0))
         },
-        now: @escaping @Sendable () -> Date = Date.init
+        now: @escaping @Sendable () -> Date = Date.init,
+        rateWindowSourceProvider: (@MainActor (Account) -> (any RateWindowSource)?)? = nil
     ) {
         self.sleepForSeconds = sleepForSeconds
         self.now = now
+        self.rateWindowSourceProvider = rateWindowSourceProvider ?? { account in
+            registry.rateWindowSource(for: account)
+        }
         var utc = Calendar(identifier: .gregorian)
         utc.timeZone = TimeZone(identifier: "UTC") ?? .gmt
         self.utcCalendar = utc
@@ -120,6 +128,7 @@ final class SyncCoordinator: ObservableObject {
                 }
                 guard !Task.isCancelled else { return }
                 await self.syncAll()
+                await self.collectRateWindows()
             }
         }
 
@@ -176,6 +185,69 @@ final class SyncCoordinator: ObservableObject {
         for account in accounts {
             await syncNow(account: account)
         }
+    }
+
+    /// Collects quota windows for every enabled account, then applies retention.
+    ///
+    /// Runs in an error scope entirely separate from the cost sync: a failing
+    /// quota fetch must not fail the cost sync, and the reverse. This is the
+    /// direct lesson from the Cursor adapter, where a failing spend call
+    /// discarded usage data that had already been fetched successfully.
+    func collectRateWindows() async {
+        guard let ledger else { return }
+
+        let accounts: [Account]
+        do {
+            accounts = try ledger.fetchAccounts().filter(\.isEnabled)
+        } catch {
+            return
+        }
+
+        for account in accounts {
+            // A billing cycle the cost sync already established is worth showing
+            // even when no quota source exists for this account.
+            if let summary = (try? ledger.fetchAccountSummaries())?
+                .first(where: { $0.account.id == account.id }),
+               let period = summary.billingPeriod,
+               let resetAt = period.resetAt {
+                try? ledger.saveRateWindow(
+                    RateWindow(
+                        kind: .billingCycle,
+                        usedFraction: nil,
+                        resetAt: resetAt,
+                        observedAt: now()
+                    ),
+                    accountID: account.id
+                )
+            }
+
+            guard let source = rateWindowSourceProvider(account) else {
+                rateWindowMessages[account.id] = RateWindowSourceError.notConfigured.message
+                continue
+            }
+
+            do {
+                let secret = account.quotaCredentialReference.flatMap { try? credentials.readSecret(for: $0) }
+                let result = try await source.fetchWindows(account: account, secret: secret)
+
+                if result.dataQuality == .unavailable {
+                    rateWindowMessages[account.id] = result.message ?? "Quota is unavailable for this subscription."
+                    continue
+                }
+
+                rateWindowMessages[account.id] = nil
+                for window in result.windows {
+                    try ledger.saveRateWindow(window, accountID: account.id)
+                }
+            } catch let error as RateWindowSourceError {
+                rateWindowMessages[account.id] = error.message
+            } catch {
+                rateWindowMessages[account.id] = RateWindowSourceError.transportFailure.message
+            }
+        }
+
+        // Retention runs regardless of how the fetches went.
+        try? ledger.deleteRateWindowSamples(olderThan: now().addingTimeInterval(-365 * 86_400))
     }
 
     func syncNow(account: Account) async {

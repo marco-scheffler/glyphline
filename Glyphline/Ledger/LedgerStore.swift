@@ -199,6 +199,7 @@ private struct AccountRecord: Codable, FetchableRecord, PersistableRecord, Table
     var credentialReference: String
     var createdAt: Date
     var isEnabled: Bool
+    var quotaCredentialReference: String?
 
     init(_ account: Account) {
         id = account.id.uuidString
@@ -207,6 +208,7 @@ private struct AccountRecord: Codable, FetchableRecord, PersistableRecord, Table
         credentialReference = account.credentialReference
         createdAt = account.createdAt
         isEnabled = account.isEnabled
+        quotaCredentialReference = account.quotaCredentialReference
     }
 
     var account: Account {
@@ -216,7 +218,8 @@ private struct AccountRecord: Codable, FetchableRecord, PersistableRecord, Table
             displayName: displayName,
             credentialReference: credentialReference,
             createdAt: createdAt,
-            isEnabled: isEnabled
+            isEnabled: isEnabled,
+            quotaCredentialReference: quotaCredentialReference
         )
     }
 }
@@ -519,15 +522,17 @@ final class LedgerStore {
                         \(LedgerColumn.displayName),
                         \(LedgerColumn.credentialReference),
                         \(LedgerColumn.createdAt),
-                        \(LedgerColumn.isEnabled)
+                        \(LedgerColumn.isEnabled),
+                        \(LedgerColumn.quotaCredentialReference)
                     )
-                    VALUES (?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
                     ON CONFLICT(\(LedgerColumn.id)) DO UPDATE SET
                         \(LedgerColumn.providerID) = excluded.\(LedgerColumn.providerID),
                         \(LedgerColumn.displayName) = excluded.\(LedgerColumn.displayName),
                         \(LedgerColumn.credentialReference) = excluded.\(LedgerColumn.credentialReference),
                         \(LedgerColumn.createdAt) = excluded.\(LedgerColumn.createdAt),
-                        \(LedgerColumn.isEnabled) = excluded.\(LedgerColumn.isEnabled)
+                        \(LedgerColumn.isEnabled) = excluded.\(LedgerColumn.isEnabled),
+                        \(LedgerColumn.quotaCredentialReference) = excluded.\(LedgerColumn.quotaCredentialReference)
                     """,
                 arguments: [
                     record.id,
@@ -536,6 +541,7 @@ final class LedgerStore {
                     record.credentialReference,
                     record.createdAt,
                     record.isEnabled,
+                    record.quotaCredentialReference,
                 ]
             )
         }

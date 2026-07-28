@@ -361,6 +361,117 @@ final class SyncCoordinatorTests: XCTestCase {
         XCTAssertFalse(coordinator.isSchedulerRunning)
         XCTAssertNil(coordinator.currentIntervalSeconds)
     }
+
+    /// Non-async so GRDB's synchronous `read` overload is the one selected;
+    /// the tests below call it from an async context.
+    private nonisolated static func rateWindowSampleCount(_ dbQueue: DatabaseQueue) throws -> Int {
+        try dbQueue.read { db in
+            try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM rateWindowSamples") ?? 0
+        }
+    }
+
+    func testCollectingRateWindowsStoresThemAndAppliesRetention() async throws {
+        let dbQueue = try DatabaseQueueFactory.makeInMemory()
+        try Migrations.makeMigrator().migrate(dbQueue)
+        let ledger = LedgerStore(dbQueue: dbQueue)
+
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let account = Account(
+            id: UUID(), providerID: .claude, displayName: "Max #1",
+            credentialReference: "local-source://x", createdAt: now, isEnabled: true
+        )
+        try ledger.saveAccount(account)
+
+        // A sample far older than the retention window must not survive the tick.
+        try ledger.saveRateWindow(
+            RateWindow(kind: .weekly, usedFraction: 0.5,
+                       resetAt: now.addingTimeInterval(-360 * 86_400),
+                       observedAt: now.addingTimeInterval(-400 * 86_400)),
+            accountID: account.id
+        )
+
+        let coordinator = SyncCoordinator(
+            ledger: ledger,
+            credentials: InMemoryCredentialStore(),
+            registry: ProviderAdapterRegistry(watermarkStore: ledger),
+            estimator: CostEstimator(catalog: PricingCatalog(entries: [])),
+            now: { now },
+            rateWindowSourceProvider: { _ in FixtureRateWindowSource(now: { now }) }
+        )
+
+        await coordinator.collectRateWindows()
+
+        let stored = try ledger.fetchLatestRateWindows(accountID: account.id)
+        XCTAssertEqual(Set(stored.map(\.kind)), [.rollingFiveHours, .weekly])
+
+        let total = try Self.rateWindowSampleCount(dbQueue)
+        XCTAssertEqual(total, 2, "the 400-day-old sample should have been deleted by retention")
+    }
+
+    func testAFailingRateWindowFetchWritesNothingAndRecordsAReason() async throws {
+        let dbQueue = try DatabaseQueueFactory.makeInMemory()
+        try Migrations.makeMigrator().migrate(dbQueue)
+        let ledger = LedgerStore(dbQueue: dbQueue)
+
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let account = Account(
+            id: UUID(), providerID: .claude, displayName: "Max #1",
+            credentialReference: "local-source://x", createdAt: now, isEnabled: true
+        )
+        try ledger.saveAccount(account)
+
+        let coordinator = SyncCoordinator(
+            ledger: ledger,
+            credentials: InMemoryCredentialStore(),
+            registry: ProviderAdapterRegistry(watermarkStore: ledger),
+            estimator: CostEstimator(catalog: PricingCatalog(entries: [])),
+            now: { now },
+            rateWindowSourceProvider: { _ in
+                FixtureRateWindowSource(now: { now }, behaviour: .unavailable)
+            }
+        )
+
+        await coordinator.collectRateWindows()
+
+        let total = try Self.rateWindowSampleCount(dbQueue)
+        XCTAssertEqual(total, 0, "a failed fetch must write nothing at all")
+        XCTAssertNotNil(coordinator.rateWindowMessages[account.id])
+    }
+
+    func testAFailingRateWindowFetchLeavesTheCostSyncGreen() async throws {
+        let dbQueue = try DatabaseQueueFactory.makeInMemory()
+        try Migrations.makeMigrator().migrate(dbQueue)
+        let ledger = LedgerStore(dbQueue: dbQueue)
+
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let account = Account(
+            id: UUID(), providerID: .openAI, displayName: "OpenAI",
+            credentialReference: "keychain://glyphline/x", createdAt: now, isEnabled: true
+        )
+        try ledger.saveAccount(account)
+
+        let credentials = InMemoryCredentialStore()
+        try credentials.save(secret: "sk-test", for: "keychain://glyphline/x")
+
+        let coordinator = SyncCoordinator(
+            ledger: ledger,
+            credentials: credentials,
+            registry: ProviderAdapterRegistry(watermarkStore: ledger),
+            estimator: CostEstimator(catalog: PricingCatalog(entries: [])),
+            adapterProvider: { _ in FixtureProviderAdapter(providerID: .openAI) },
+            now: { now },
+            rateWindowSourceProvider: { _ in
+                FixtureRateWindowSource(now: { now }, behaviour: .unavailable)
+            }
+        )
+
+        await coordinator.syncAll()
+        await coordinator.collectRateWindows()
+
+        // The quota side failed; the cost side must be untouched by that.
+        XCTAssertNil(coordinator.syncFailureMessage)
+        XCTAssertFalse(try ledger.fetchUsageSnapshots(accountID: account.id).isEmpty)
+    }
 }
 
 /// Records the interval each scheduler start slept on, across concurrency domains.
