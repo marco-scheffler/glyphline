@@ -1,3 +1,4 @@
+import AppKit
 import Combine
 import Foundation
 
@@ -9,6 +10,8 @@ final class SyncCoordinator: ObservableObject {
     /// rather than a silent no-op. Per-account failures use `activities`.
     @Published private(set) var syncFailureMessage: String?
 
+    @Published private(set) var isSchedulerRunning = false
+
     /// Nil when the on-disk ledger could not be opened. There is deliberately no
     /// in-memory stand-in: a sync with nowhere durable to write must refuse
     /// rather than appear to succeed.
@@ -19,6 +22,11 @@ final class SyncCoordinator: ObservableObject {
     private let scheduler: SyncScheduler?
     private let adapterProvider: ((Account) -> any ProviderAdapter)?
 
+    /// Injected so scheduling can be exercised without waiting on wall-clock time.
+    private let sleepForSeconds: @Sendable (TimeInterval) async throws -> Void
+    private var schedulerTask: Task<Void, Never>?
+    private var wakeObserver: (any NSObjectProtocol)?
+
     /// Shown whenever a sync is refused for want of a ledger. Truthful in the
     /// degraded case: nothing was fetched and nothing was written.
     static let ledgerUnavailableMessage = "Ledger unavailable. Nothing was synced."
@@ -28,14 +36,68 @@ final class SyncCoordinator: ObservableObject {
         credentials: any CredentialStore,
         registry: ProviderAdapterRegistry,
         estimator: CostEstimator,
-        adapterProvider: ((Account) -> any ProviderAdapter)? = nil
+        adapterProvider: ((Account) -> any ProviderAdapter)? = nil,
+        sleepForSeconds: @escaping @Sendable (TimeInterval) async throws -> Void = {
+            try await Task.sleep(for: .seconds($0))
+        }
     ) {
+        self.sleepForSeconds = sleepForSeconds
         self.ledger = ledger
         self.credentials = credentials
         self.registry = registry
         self.estimator = estimator
         self.adapterProvider = adapterProvider
         self.scheduler = ledger.map { SyncScheduler(ledger: $0, credentials: credentials) }
+    }
+
+    /// Deliberately a long-lived task rather than a `Timer`: a menu bar app is
+    /// subject to App Nap, under which timers fire unreliably.
+    func startScheduler(intervalSeconds: TimeInterval) {
+        guard schedulerTask == nil else {
+            return
+        }
+
+        isSchedulerRunning = true
+        schedulerTask = Task { [weak self] in
+            while !Task.isCancelled {
+                guard let self else { return }
+                do {
+                    try await self.sleepForSeconds(intervalSeconds)
+                } catch {
+                    return
+                }
+                guard !Task.isCancelled else { return }
+                await self.syncAll()
+            }
+        }
+
+        observeWake()
+    }
+
+    func stopScheduler() {
+        schedulerTask?.cancel()
+        schedulerTask = nil
+        isSchedulerRunning = false
+
+        if let wakeObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(wakeObserver)
+            self.wakeObserver = nil
+        }
+    }
+
+    /// A Mac that slept through the interval would otherwise show yesterday's numbers.
+    private func observeWake() {
+        guard wakeObserver == nil else { return }
+
+        wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                await self?.syncAll()
+            }
+        }
     }
 
     private func adapter(for account: Account) -> any ProviderAdapter {

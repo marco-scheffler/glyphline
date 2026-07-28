@@ -29,7 +29,7 @@ struct GlyphlineApp: App {
 
     var body: some Scene {
         WindowGroup(id: AppMode.dashboardWindowID) {
-            ModeAwareWindowRoot(settings: settings) {
+            ModeAwareWindowRoot(settings: settings, coordinator: coordinator) {
                 DashboardView()
                     .environmentObject(settings)
                     .environmentObject(coordinator)
@@ -68,6 +68,7 @@ struct GlyphlineApp: App {
 
 private struct ModeAwareWindowRoot<Content: View>: View {
     @ObservedObject var settings: AppSettingsStore
+    @ObservedObject var coordinator: SyncCoordinator
     let content: () -> Content
 
     var body: some View {
@@ -83,7 +84,10 @@ private struct ModeAwareWindowRoot<Content: View>: View {
             if !settings.appMode.showsDashboardWindow {
                 closeVisibleWindows()
             }
+            applyScheduler()
         }
+        .onChange(of: settings.automaticSyncEnabled) { _, _ in applyScheduler() }
+        .onChange(of: settings.syncIntervalMinutes) { _, _ in applyScheduler() }
         .onChange(of: settings.appMode) { _, newValue in
             AppActivationController.apply(mode: newValue)
             if !newValue.showsDashboardWindow {
@@ -92,6 +96,14 @@ private struct ModeAwareWindowRoot<Content: View>: View {
                 NSApp.activate(ignoringOtherApps: true)
             }
         }
+    }
+
+    /// Restarting on change is the simplest correct way to apply a new interval;
+    /// the loop sleeps before its first sync, so a restart triggers no burst.
+    private func applyScheduler() {
+        coordinator.stopScheduler()
+        guard settings.automaticSyncEnabled else { return }
+        coordinator.startScheduler(intervalSeconds: TimeInterval(settings.syncIntervalMinutes * 60))
     }
 
     private func closeVisibleWindows() {

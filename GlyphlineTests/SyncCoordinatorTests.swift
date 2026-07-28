@@ -243,6 +243,76 @@ final class SyncCoordinatorTests: XCTestCase {
 
         XCTAssertNil(healthy.syncFailureMessage)
     }
+    func testSchedulerRepeatsUntilStopped() async throws {
+        let dbQueue = try DatabaseQueueFactory.makeInMemory()
+        try Migrations.migrate(dbQueue)
+        let ledger = LedgerStore(dbQueue: dbQueue)
+        let credentials = InMemoryCredentialStore()
+
+        let account = Account(
+            id: UUID(), providerID: .openAI, displayName: "Fixture",
+            credentialReference: "keychain://glyphline/fixture",
+            createdAt: Date(timeIntervalSince1970: 1_800_000_000), isEnabled: true
+        )
+        try ledger.saveAccount(account)
+        try credentials.save(secret: "secret", for: account.credentialReference)
+
+        let sleeps = Counter()
+        // Fulfilled from inside the injected sleep, so the test waits on the loop
+        // actually turning over rather than on wall-clock time passing.
+        let looped = expectation(description: "scheduler sleeps more than once")
+        looped.expectedFulfillmentCount = 2
+        looped.assertForOverFulfill = false
+
+        let coordinator = SyncCoordinator(
+            ledger: ledger,
+            credentials: credentials,
+            registry: ProviderAdapterRegistry(),
+            estimator: CostEstimator(catalog: PricingCatalog(entries: [])),
+            adapterProvider: { _ in FixtureProviderAdapter(providerID: .openAI) },
+            sleepForSeconds: { _ in
+                await sleeps.increment()
+                looped.fulfill()
+            }
+        )
+        coordinator.startScheduler(intervalSeconds: 1)
+        XCTAssertTrue(coordinator.isSchedulerRunning)
+
+        await fulfillment(of: [looped], timeout: 10)
+        coordinator.stopScheduler()
+
+        XCTAssertFalse(coordinator.isSchedulerRunning)
+        let count = await sleeps.value
+        XCTAssertGreaterThan(count, 1, "the scheduler should have looped more than once")
+    }
+
+    func testStartingTwiceDoesNotRunTwoLoops() async throws {
+        let dbQueue = try DatabaseQueueFactory.makeInMemory()
+        try Migrations.migrate(dbQueue)
+        let coordinator = SyncCoordinator(
+            ledger: LedgerStore(dbQueue: dbQueue),
+            credentials: InMemoryCredentialStore(),
+            registry: ProviderAdapterRegistry(),
+            estimator: CostEstimator(catalog: PricingCatalog(entries: [])),
+            sleepForSeconds: { _ in try await Task.sleep(for: .milliseconds(10)) }
+        )
+
+        coordinator.startScheduler(intervalSeconds: 60)
+        coordinator.startScheduler(intervalSeconds: 60)
+        XCTAssertTrue(coordinator.isSchedulerRunning)
+
+        coordinator.stopScheduler()
+        XCTAssertFalse(coordinator.isSchedulerRunning)
+    }
+}
+
+/// Small actor so the injected sleep can be counted across concurrency domains.
+actor Counter {
+    private(set) var value = 0
+
+    func increment() {
+        value += 1
+    }
 }
 
 /// Throws an error carrying detail that must never reach the UI.

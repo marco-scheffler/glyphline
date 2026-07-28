@@ -19,6 +19,20 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
+            Section("Sync") {
+                Toggle("Sync automatically", isOn: $settings.automaticSyncEnabled)
+
+                Picker("Interval", selection: $settings.syncIntervalMinutes) {
+                    Text("15 minutes").tag(15)
+                    Text("30 minutes").tag(30)
+                    Text("60 minutes").tag(60)
+                }
+                .disabled(!settings.automaticSyncEnabled)
+
+                Text("Glyphline also syncs after the Mac wakes from sleep.")
+                    .foregroundStyle(.secondary)
+            }
+
             Section("Data Quality Legend") {
                 ForEach(DataQuality.allCases, id: \.rawValue) { quality in
                     HStack {
