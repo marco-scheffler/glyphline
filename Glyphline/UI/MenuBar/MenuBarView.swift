@@ -50,8 +50,8 @@ struct MenuBarView: View {
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             } else {
-                                ForEach(state.windows, id: \.kind) { window in
-                                    Text(QuotaIndicator.rowText(for: window, now: Date()))
+                                ForEach(state.windows, id: \.window.kind) { window in
+                                    Text(QuotaIndicator.rowText(for: window.window, now: Date()))
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                 }

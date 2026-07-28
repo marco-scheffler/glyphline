@@ -43,7 +43,7 @@ final class QuotaIndicatorTests: XCTestCase {
 
     private func accountWith(
         _ name: String,
-        windows: [RateWindow],
+        windows: [QuotaWindowState],
         message: String? = nil
     ) -> QuotaAccountState {
         QuotaAccountState(
@@ -64,17 +64,24 @@ final class QuotaIndicatorTests: XCTestCase {
             .replacingOccurrences(of: "\u{00A0}", with: " ")
     }
 
+    /// A window as the coordinator hands it over: the stored observation, plus
+    /// the instant a fetch last confirmed the value. `confirmedMinutesAgo: nil`
+    /// stands for a row read back before any fetch has run in this process.
     private func window(
         kind: RateWindowKind = .rollingFiveHours,
         used: Double?,
         observedMinutesAgo: Double = 0,
+        confirmedMinutesAgo: Double? = nil,
         resetMinutesFromNow: Double = 30
-    ) -> RateWindow {
-        RateWindow(
-            kind: kind,
-            usedFraction: used,
-            resetAt: now.addingTimeInterval(resetMinutesFromNow * 60),
-            observedAt: now.addingTimeInterval(-observedMinutesAgo * 60)
+    ) -> QuotaWindowState {
+        QuotaWindowState(
+            window: RateWindow(
+                kind: kind,
+                usedFraction: used,
+                resetAt: now.addingTimeInterval(resetMinutesFromNow * 60),
+                observedAt: now.addingTimeInterval(-observedMinutesAgo * 60)
+            ),
+            confirmedAt: confirmedMinutesAgo.map { now.addingTimeInterval(-$0 * 60) }
         )
     }
 
@@ -172,6 +179,48 @@ final class QuotaIndicatorTests: XCTestCase {
             visible(QuotaIndicator.nextFree(for: states, now: now, freshness: freshness, formatting: formatting)),
             "Max #1 — Jul 31, 2026 at 2:00 PM"
         )
+    }
+
+    /// The defect this pair exists for. A provider that keeps reporting the same
+    /// figure produces no new row, so the stored `observedAt` stops moving — and
+    /// freshness measured from it declared an actively confirmed reading unknown.
+    /// A fixed reset with a stable fraction is exactly what an *idle* user has,
+    /// and idle is when someone glances at the menu bar to ask "am I free yet?".
+    func testAValueTheProviderKeepsConfirmingDoesNotAgeIntoUnknown() {
+        let states = [
+            accountWith("Max #1", windows: [
+                window(used: 0.3, observedMinutesAgo: 120, confirmedMinutesAgo: 0.5),
+            ]),
+        ]
+
+        XCTAssertEqual(QuotaIndicator.light(for: states, now: now, freshness: freshness), .green)
+        XCTAssertEqual(
+            visible(QuotaIndicator.nextFree(for: states, now: now, freshness: freshness, formatting: formatting)),
+            "Max #1 — now"
+        )
+    }
+
+    /// The converse, so the fix cannot degenerate into "always fresh": a
+    /// confirmation is itself subject to the bound.
+    func testAConfirmationOlderThanTheBoundDoesNotRescueAWindow() {
+        let states = [
+            accountWith("Max #1", windows: [
+                window(used: 0.3, observedMinutesAgo: 120, confirmedMinutesAgo: 90),
+            ]),
+        ]
+
+        XCTAssertEqual(QuotaIndicator.light(for: states, now: now, freshness: freshness), .grey)
+        XCTAssertNil(QuotaIndicator.nextFree(for: states, now: now, freshness: freshness, formatting: formatting))
+    }
+
+    /// A row read back before any fetch has run still has to be judged, and
+    /// `observedAt` is the best lower bound available for it.
+    func testAnUnconfirmedWindowFallsBackToWhenItWasFirstSeen() {
+        let recent = [accountWith("A", windows: [window(used: 0.3, observedMinutesAgo: 5)])]
+        let ancient = [accountWith("A", windows: [window(used: 0.3, observedMinutesAgo: 5_000)])]
+
+        XCTAssertEqual(QuotaIndicator.light(for: recent, now: now, freshness: freshness), .green)
+        XCTAssertEqual(QuotaIndicator.light(for: ancient, now: now, freshness: freshness), .grey)
     }
 
     func testNoAccountsIsGreyNotRed() {

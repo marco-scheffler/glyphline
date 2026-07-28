@@ -92,6 +92,37 @@ final class RateWindowStoreTests: XCTestCase {
         XCTAssertEqual(try sampleCount(dbQueue), 0)
     }
 
+    /// The store is the single authority on whether an observation is believable,
+    /// and it reports that separately from whether a row was written. A dropped
+    /// repeat is still a confirmation — that distinction is what the freshness
+    /// tracking on the coordinator hangs on, and reproducing the plausibility
+    /// rule at the call site would be the second copy this feature keeps growing.
+    func testSavingReportsWhetherTheObservationWasBelievable() throws {
+        let (store, _, accountID) = try makeStore()
+        let window = RateWindow(
+            kind: .rollingFiveHours,
+            usedFraction: 0.62,
+            resetAt: now.addingTimeInterval(3_600),
+            observedAt: now
+        )
+
+        XCTAssertTrue(try store.saveRateWindow(window, accountID: accountID), "a fresh insert")
+
+        var repeated = window
+        repeated.observedAt = now.addingTimeInterval(1_800)
+        XCTAssertTrue(
+            try store.saveRateWindow(repeated, accountID: accountID),
+            "a dropped repeat is still a confirmation of the value"
+        )
+
+        var implausible = window
+        implausible.usedFraction = 1.5
+        XCTAssertFalse(
+            try store.saveRateWindow(implausible, accountID: accountID),
+            "a rejected reading must not be reported as confirmed"
+        )
+    }
+
     func testLatestWindowsAreReturnedPerKind() throws {
         let (store, _, accountID) = try makeStore()
 

@@ -22,24 +22,64 @@ struct QuotaFormatting: Sendable {
     )
 }
 
+/// One window together with the instant a fetch last confirmed it.
+///
+/// The two dates are different questions and were conflated once already.
+/// `window.observedAt` is when the value was **first** seen: the store drops an
+/// unchanged repeat, so it deliberately does not advance while a provider keeps
+/// reporting the same figure. `confirmedAt` is when a fetch last said "this is
+/// still the value", which is the only date freshness may be measured from — a
+/// 5-hour window sitting at a fixed reset with a stable fraction is exactly what
+/// an idle user has, and judging it by `observedAt` turned that into "unknown"
+/// two poll intervals after the last change.
+struct QuotaWindowState: Equatable, Sendable {
+    var window: RateWindow
+    /// `nil` when no fetch has confirmed this window in this process's lifetime —
+    /// the row was read back from a previous run. `observedAt` then stands in as
+    /// the best available lower bound on when the value was known to be current.
+    var confirmedAt: Date?
+
+    init(window: RateWindow, confirmedAt: Date? = nil) {
+        self.window = window
+        self.confirmedAt = confirmedAt
+    }
+
+    /// The single instant every freshness decision is taken against.
+    var believableSince: Date {
+        guard let confirmedAt else { return window.observedAt }
+        return max(confirmedAt, window.observedAt)
+    }
+}
+
 struct QuotaAccountState: Equatable, Sendable {
     var accountID: UUID
     var displayName: String
-    var windows: [RateWindow]
+    var windows: [QuotaWindowState]
     var message: String?
 }
 
 enum QuotaIndicator {
+    /// The one freshness predicate. The light, the next-free string and the
+    /// rendered rows all reach it — a rule applied at two of the three sites and
+    /// forgotten at the third is the mistake this feature kept making.
+    static func isFresh(
+        _ state: QuotaWindowState,
+        now: Date,
+        freshness: TimeInterval
+    ) -> Bool {
+        now.timeIntervalSince(state.believableSince) <= freshness
+    }
+
     /// A window can only decide headroom when it is fresh *and* carries a
     /// fraction. A reset instant without a fraction is worth displaying but
     /// tells us nothing about capacity.
     private static func decidableFraction(
-        _ window: RateWindow,
+        _ state: QuotaWindowState,
         now: Date,
         freshness: TimeInterval
     ) -> Double? {
-        guard now.timeIntervalSince(window.observedAt) <= freshness else { return nil }
-        return window.usedFraction
+        guard isFresh(state, now: now, freshness: freshness) else { return nil }
+        return state.window.usedFraction
     }
 
     /// `nil` means "we do not know" — no fresh window carried a fraction. That
@@ -88,8 +128,8 @@ enum QuotaIndicator {
         freshness: TimeInterval
     ) -> Date? {
         state.windows
-            .filter { now.timeIntervalSince($0.observedAt) <= freshness && $0.resetAt > now }
-            .map(\.resetAt)
+            .filter { isFresh($0, now: now, freshness: freshness) && $0.window.resetAt > now }
+            .map(\.window.resetAt)
             .min()
     }
 

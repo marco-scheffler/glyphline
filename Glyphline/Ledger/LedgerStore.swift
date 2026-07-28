@@ -904,11 +904,27 @@ final class LedgerStore {
 
     /// Appends an observation, but only when it differs from the newest one for
     /// the same account and kind. A window moves stepwise, so dropping repeats
-    /// is lossless and takes the yearly volume from ~500k rows to ~15k.
+    /// keeps the *value* series exact and takes the yearly volume from ~500k rows
+    /// to ~15k.
+    ///
+    /// It is not lossless in every respect, and the difference matters. A repeat
+    /// is dropped along with its `observedAt`, so the stored `observedAt` keeps
+    /// meaning "when this value was **first** seen" and does not advance when a
+    /// later fetch confirms the same value. Freshness must therefore be judged
+    /// from the caller's record of its last successful fetch, never from this
+    /// column — measuring it here made a stable reading age into "unknown"
+    /// while the provider was still confirming it every few minutes.
     ///
     /// Implausible observations are discarded rather than stored.
-    func saveRateWindow(_ window: RateWindow, accountID: UUID) throws {
-        guard window.isPlausible(now: window.observedAt) else { return }
+    ///
+    /// - Returns: whether the observation was believable. `true` covers both "a
+    ///   row was inserted" and "an identical row already stood": in each case the
+    ///   value is confirmed as of `window.observedAt`, which is what a caller
+    ///   tracking freshness needs. `false` means the reading was rejected and
+    ///   nothing about it may be believed.
+    @discardableResult
+    func saveRateWindow(_ window: RateWindow, accountID: UUID) throws -> Bool {
+        guard window.isPlausible(now: window.observedAt) else { return false }
 
         try dbQueue.write { db in
             let newest = try RateWindowSampleRecord
@@ -925,6 +941,8 @@ final class LedgerStore {
 
             try RateWindowSampleRecord(window, accountID: accountID).insert(db)
         }
+
+        return true
     }
 
     /// The newest observation for each kind this account has ever reported.

@@ -39,6 +39,29 @@ final class SyncCoordinator: ObservableObject {
     /// cost path already uses.
     private var rateWindowFetchesInFlight: Set<UUID> = []
 
+    /// When a successful fetch last confirmed each window, per account and kind.
+    ///
+    /// Freshness lives here rather than on the stored row. `observedAt` records
+    /// when a value was *first* seen and does not advance when an unchanged
+    /// observation is dropped, so measuring freshness from it made a provider
+    /// that keeps confirming the same figure look silent after two poll
+    /// intervals — grey icon and no "Next free" minutes after a good fetch,
+    /// precisely for the idle user the feature exists for.
+    ///
+    /// Per kind, not merely per account: the billing cycle comes from the cost
+    /// path and the short windows from the quota source, and those two succeed
+    /// and fail independently. One timestamp for both would let a derived
+    /// billing cycle vouch for a rate window nobody fetched.
+    ///
+    /// In memory only. After a relaunch nothing is confirmed yet and the stored
+    /// `observedAt` stands in until the first fetch, which the menu triggers on
+    /// open.
+    private var rateWindowConfirmations: [UUID: [RateWindowKind: Date]] = [:]
+
+    private func confirm(_ window: RateWindow, accountID: UUID) {
+        rateWindowConfirmations[accountID, default: [:]][window.kind] = window.observedAt
+    }
+
     /// What the menu renders: every enabled account, including those with no
     /// data, which appear with their reason rather than being filtered out.
     @Published private(set) var quotaStates: [QuotaAccountState] = []
@@ -251,15 +274,19 @@ final class SyncCoordinator: ObservableObject {
             if let summary = summaries.first(where: { $0.account.id == account.id }),
                let period = summary.billingPeriod,
                let resetAt = period.resetAt {
-                try? ledger.saveRateWindow(
-                    RateWindow(
-                        kind: .billingCycle,
-                        usedFraction: nil,
-                        resetAt: resetAt,
-                        observedAt: now()
-                    ),
-                    accountID: account.id
+                let cycle = RateWindow(
+                    kind: .billingCycle,
+                    usedFraction: nil,
+                    resetAt: resetAt,
+                    observedAt: now()
                 )
+                // Confirmed only when the store accepted it. An implausible
+                // reading is one the app has decided not to believe, and
+                // vouching for it here would make an older stored row look
+                // freshly checked.
+                if (try? ledger.saveRateWindow(cycle, accountID: account.id)) == true {
+                    confirm(cycle, accountID: account.id)
+                }
             }
 
             guard let source = rateWindowSourceProvider(account) else {
@@ -281,8 +308,14 @@ final class SyncCoordinator: ObservableObject {
                 }
 
                 rateWindowMessages[account.id] = nil
-                for window in result.windows {
-                    try ledger.saveRateWindow(window, accountID: account.id)
+                for window in result.windows where try ledger.saveRateWindow(
+                    window,
+                    accountID: account.id
+                ) {
+                    // The row may not have been written — an unchanged
+                    // observation is dropped — but the value was confirmed, and
+                    // that is what freshness is measured from.
+                    confirm(window, accountID: account.id)
                 }
             } catch let error as RateWindowSourceError {
                 rateWindowMessages[account.id] = error.message
@@ -309,10 +342,15 @@ final class SyncCoordinator: ObservableObject {
                     : byName == .orderedAscending
             }
             .map { account in
-                QuotaAccountState(
+                let confirmations = rateWindowConfirmations[account.id] ?? [:]
+                let latest = (try? ledger.fetchLatestRateWindows(accountID: account.id)) ?? []
+
+                return QuotaAccountState(
                     accountID: account.id,
                     displayName: account.displayName,
-                    windows: (try? ledger.fetchLatestRateWindows(accountID: account.id)) ?? [],
+                    windows: latest.map {
+                        QuotaWindowState(window: $0, confirmedAt: confirmations[$0.kind])
+                    },
                     message: rateWindowMessages[account.id]
                 )
             }
