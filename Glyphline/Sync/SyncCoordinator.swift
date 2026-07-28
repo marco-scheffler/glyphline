@@ -35,6 +35,21 @@ final class SyncCoordinator: ObservableObject {
     private var schedulerTask: Task<Void, Never>?
     private var wakeObserver: (any NSObjectProtocol)?
 
+    /// Injected so backfill windows are deterministic in tests.
+    private let now: @Sendable () -> Date
+
+    /// UTC, because every adapter buckets by UTC day. Built once: `Calendar` is not
+    /// `Sendable`, so it cannot be a `static let`.
+    private let utcCalendar: Calendar
+
+    private var backfillTasks: [UUID: Task<Void, Never>] = [:]
+
+    /// Phase two reaches back a year, matching the longest range the history charts
+    /// offer. Weekly slices stay inside both API caps: Anthropic's 31 daily buckets
+    /// per request and Cursor's 30-day window.
+    static let backfillHorizonDays = 365
+    static let backfillSliceDays = 7
+
     /// Shown whenever a sync is refused for want of a ledger. Truthful in the
     /// degraded case: nothing was fetched and nothing was written.
     static let ledgerUnavailableMessage = "Ledger unavailable. Nothing was synced."
@@ -47,9 +62,14 @@ final class SyncCoordinator: ObservableObject {
         adapterProvider: ((Account) -> any ProviderAdapter)? = nil,
         sleepForSeconds: @escaping @Sendable (TimeInterval) async throws -> Void = {
             try await Task.sleep(for: .seconds($0))
-        }
+        },
+        now: @escaping @Sendable () -> Date = Date.init
     ) {
         self.sleepForSeconds = sleepForSeconds
+        self.now = now
+        var utc = Calendar(identifier: .gregorian)
+        utc.timeZone = TimeZone(identifier: "UTC") ?? .gmt
+        self.utcCalendar = utc
         self.ledger = ledger
         self.credentials = credentials
         self.registry = registry
@@ -179,6 +199,105 @@ final class SyncCoordinator: ObservableObject {
         } catch {
             activities[account.id] = .failed(Self.describe(error))
         }
+    }
+
+    func cancelBackfill(account: Account) {
+        backfillTasks[account.id]?.cancel()
+        backfillTasks[account.id] = nil
+    }
+
+    /// Phase two: walk backwards in weekly slices, recording progress after each so
+    /// a cancelled or interrupted run resumes rather than restarting.
+    ///
+    /// Every slice boundary is a UTC midnight, and the newest boundary is the start
+    /// of today rather than "now". Adapters label each bucket as a whole UTC day and
+    /// the ledger upsert *replaces* a bucket rather than adding to it, so a slice
+    /// that began or ended mid-day would emit a fragment as if it were a full day
+    /// and shrink a total that a routine sync had already written correctly. Leaving
+    /// today entirely to routine sync also means backfill can never overwrite the
+    /// one bucket that is still open and growing. For completed days both writers
+    /// produce the same absolute total, so either order is safe.
+    func backfill(account: Account) async {
+        guard let ledger, let scheduler else {
+            activities[account.id] = .failed(Self.ledgerUnavailableMessage)
+            syncFailureMessage = Self.ledgerUnavailableMessage
+            return
+        }
+
+        // Same guard `syncNow` uses, so a backfill cannot race a scheduled or
+        // wake-triggered sync of the same account.
+        guard backfillTasks[account.id] == nil, activities[account.id]?.isRunning != true else {
+            return
+        }
+
+        let resolved = adapter(for: account)
+        let today = utcCalendar.startOfDay(for: now())
+        let horizon = utcCalendar.date(
+            byAdding: .day,
+            value: -Self.backfillHorizonDays,
+            to: today
+        ) ?? today
+
+        // A source that cannot address a date range already ingested everything it
+        // has during phase one. Record completion rather than slicing pointlessly.
+        guard !resolved.scopedIsNoOp else {
+            try? ledger.saveBackfillCompletedThrough(horizon, accountID: account.id)
+            return
+        }
+
+        // Snapped down, never up: resuming must not skip a day a previous run left
+        // half-finished, and a stored watermark from an older build may be mid-day.
+        let resumePoint = utcCalendar.startOfDay(
+            for: (try? ledger.fetchBackfillCompletedThrough(accountID: account.id)) ?? today
+        )
+
+        let task = Task { @MainActor [weak self] in
+            guard let self else { return }
+            var cursor = resumePoint
+
+            while cursor > horizon, !Task.isCancelled {
+                let sliceEnd = cursor
+                let sliceStart = max(
+                    horizon,
+                    self.utcCalendar.date(
+                        byAdding: .day,
+                        value: -Self.backfillSliceDays,
+                        to: sliceEnd
+                    ) ?? horizon
+                )
+
+                guard sliceStart < sliceEnd else { break }
+
+                self.activities[account.id] = .running(
+                    phase: Self.backfillPhase(from: sliceStart, today: today)
+                )
+
+                do {
+                    try await scheduler.sync(
+                        account: account,
+                        adapter: resolved.scoped(to: DateInterval(start: sliceStart, end: sliceEnd))
+                    )
+                    try ledger.saveBackfillCompletedThrough(sliceStart, accountID: account.id)
+                } catch {
+                    self.activities[account.id] = .failed(Self.describe(error))
+                    self.backfillTasks[account.id] = nil
+                    return
+                }
+
+                cursor = sliceStart
+            }
+
+            self.activities[account.id] = .idle
+            self.backfillTasks[account.id] = nil
+        }
+
+        backfillTasks[account.id] = task
+        await task.value
+    }
+
+    private static func backfillPhase(from sliceStart: Date, today: Date) -> String {
+        let days = Int(today.timeIntervalSince(sliceStart) / 86_400)
+        return "Backfilling \(days) days of history"
     }
 
     /// Produces estimate snapshots for accounts whose provider reports no actual cost.

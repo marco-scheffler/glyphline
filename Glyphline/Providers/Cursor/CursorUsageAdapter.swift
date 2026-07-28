@@ -18,6 +18,19 @@ struct CursorUsageAdapter: ProviderAdapter {
     var now: @Sendable () -> Date
     var calendar: Calendar
 
+    /// Set by `scoped(to:)` during backfill. Nil means the rolling 30-day window.
+    var window: DateInterval?
+
+    /// Only the team API can address arbitrary history.
+    var scopedIsNoOp: Bool { mode != .teamAPI }
+
+    func scoped(to interval: DateInterval) -> any ProviderAdapter {
+        guard mode == .teamAPI else { return self }
+        var copy = self
+        copy.window = interval
+        return copy
+    }
+
     init(
         mode: Mode,
         session: URLSession = .shared,
@@ -47,11 +60,15 @@ struct CursorUsageAdapter: ProviderAdapter {
     private func syncTeamAPI(account: Account, secret: String) async throws -> ProviderSyncResult {
         let syncedAt = now()
 
-        let windowStart = eventsWindowStart(for: syncedAt)
+        // Backfill supplies UTC-day-aligned slices, so the same "never emit a
+        // fragment as a whole-day bucket" guarantee `eventsWindowStart` gives the
+        // default window holds for a scoped one too.
+        let windowStart = window?.start ?? eventsWindowStart(for: syncedAt)
+        let windowEnd = window?.end ?? syncedAt
 
         let events: [CursorUsageEvent]
         do {
-            events = try await fetchEvents(secret: secret, start: windowStart, end: syncedAt)
+            events = try await fetchEvents(secret: secret, start: windowStart, end: windowEnd)
         } catch CursorUsageAdapterError.invalidResponse {
             return unavailableResult(
                 for: account,

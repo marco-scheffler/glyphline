@@ -14,6 +14,17 @@ struct OpenAIUsageAdapter: ProviderAdapter {
     var calendar: Calendar
     var now: @Sendable () -> Date
 
+    /// Set by `scoped(to:)` during backfill. Nil means "the current billing period".
+    var window: DateInterval?
+
+    var scopedIsNoOp: Bool { false }
+
+    func scoped(to interval: DateInterval) -> any ProviderAdapter {
+        var copy = self
+        copy.window = interval
+        return copy
+    }
+
     init(
         session: URLSession = .shared,
         calendar: Calendar = .current,
@@ -26,11 +37,16 @@ struct OpenAIUsageAdapter: ProviderAdapter {
 
     func sync(account: Account, secret: String) async throws -> ProviderSyncResult {
         let syncedAt = now()
-        let periodStart = calendar.dateInterval(of: .month, for: syncedAt)?.start ?? syncedAt
-        let periodEnd = calendar.date(byAdding: .month, value: 1, to: periodStart)
+        let periodStart = window?.start
+            ?? calendar.dateInterval(of: .month, for: syncedAt)?.start
+            ?? syncedAt
+        let periodEnd = window?.end ?? syncedAt
+        let resetAt = window == nil
+            ? calendar.date(byAdding: .month, value: 1, to: periodStart)
+            : nil
 
-        let usage = try await fetchUsage(secret: secret, start: periodStart, end: syncedAt)
-        let costs = try await fetchCosts(secret: secret, start: periodStart, end: syncedAt)
+        let usage = try await fetchUsage(secret: secret, start: periodStart, end: periodEnd)
+        let costs = try await fetchCosts(secret: secret, start: periodStart, end: periodEnd)
 
         return ProviderSyncResult(
             providerID: .openAI,
@@ -43,11 +59,11 @@ struct OpenAIUsageAdapter: ProviderAdapter {
                 dataQuality: .exact,
                 message: nil
             ),
-            billingPeriod: BillingPeriod(
-                startsAt: periodStart,
-                endsAt: nil,
-                resetAt: periodEnd
-            ),
+            // A backfill slice is a historic window, not a billing period. Reporting
+            // one would overwrite the account's real period with a past week.
+            billingPeriod: window == nil
+                ? BillingPeriod(startsAt: periodStart, endsAt: nil, resetAt: resetAt)
+                : nil,
             usageSnapshots: makeUsageSnapshots(from: usage, accountID: account.id),
             costSnapshots: makeCostSnapshots(from: costs, accountID: account.id),
             estimateSnapshots: [],

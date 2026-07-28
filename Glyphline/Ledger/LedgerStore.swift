@@ -1,6 +1,11 @@
 import Foundation
 import GRDB
 
+enum LedgerStoreError: Error, Equatable {
+    /// A write referenced an account that is not in the ledger.
+    case unknownAccount
+}
+
 private enum LedgerModelIdentity {
     static func makeKey(for model: String?) -> String {
         guard let model else {
@@ -803,15 +808,56 @@ final class LedgerStore {
         }
     }
 
+    /// Records how far back backfill has walked for an account.
+    ///
+    /// An upsert rather than a bare `UPDATE`: an account that has not yet completed
+    /// a sync has no `accountSyncStates` row, and an `UPDATE` would then match
+    /// nothing and silently succeed, losing the watermark so backfill restarts from
+    /// scratch forever with no error anywhere.
+    ///
+    /// The synthesised row claims nothing it does not know: no capabilities and
+    /// `unavailable` quality, which is the truth until a sync reports otherwise.
+    /// `upsertAccountSyncState` overwrites every one of those columns on the next
+    /// sync and deliberately leaves `backfillCompletedThrough` alone, so the two
+    /// writers do not fight.
     func saveBackfillCompletedThrough(_ day: Date, accountID: UUID) throws {
         try dbQueue.write { db in
+            guard let providerID = try String.fetchOne(
+                db,
+                sql: """
+                    SELECT \(LedgerColumn.providerID)
+                    FROM \(LedgerTable.accounts)
+                    WHERE \(LedgerColumn.id) = ?
+                    """,
+                arguments: [accountID.uuidString]
+            ) else {
+                throw LedgerStoreError.unknownAccount
+            }
+
             try db.execute(
                 sql: """
-                    UPDATE \(LedgerTable.accountSyncStates)
-                    SET \(LedgerColumn.backfillCompletedThrough) = ?
-                    WHERE \(LedgerColumn.accountID) = ?
+                    INSERT INTO \(LedgerTable.accountSyncStates) (
+                        \(LedgerColumn.accountID),
+                        \(LedgerColumn.providerID),
+                        \(LedgerColumn.supportsUsage),
+                        \(LedgerColumn.supportsActualCost),
+                        \(LedgerColumn.supportsResetDate),
+                        \(LedgerColumn.supportsModelBreakdown),
+                        \(LedgerColumn.quality),
+                        \(LedgerColumn.updatedAt),
+                        \(LedgerColumn.backfillCompletedThrough)
+                    )
+                    VALUES (?, ?, 0, 0, 0, 0, ?, ?, ?)
+                    ON CONFLICT(\(LedgerColumn.accountID)) DO UPDATE SET
+                        \(LedgerColumn.backfillCompletedThrough) = excluded.\(LedgerColumn.backfillCompletedThrough)
                     """,
-                arguments: [day, accountID.uuidString]
+                arguments: [
+                    accountID.uuidString,
+                    providerID,
+                    DataQuality.unavailable.rawValue,
+                    Date(),
+                    day,
+                ]
             )
         }
     }

@@ -26,9 +26,24 @@ protocol ProviderAdapter: Sendable {
     /// False for adapters that read local files rather than a credentialed API.
     var requiresSecret: Bool { get }
 
+    /// True when `scoped(to:)` cannot narrow this adapter, so backfill has nothing
+    /// to slice. Local sources read whole files and cannot address a date range.
+    var scopedIsNoOp: Bool { get }
+
+    /// Returns a copy that fetches the given window instead of its default one.
+    /// Adapters that cannot address arbitrary history return themselves unchanged.
+    ///
+    /// The interval is always UTC-day-aligned (see `SyncCoordinator.backfill`), so
+    /// an adapter may assume it will never be asked for half a day bucket.
+    func scoped(to interval: DateInterval) -> any ProviderAdapter
+
     func sync(account: Account, secret: String) async throws -> ProviderSyncResult
 }
 
 extension ProviderAdapter {
     var requiresSecret: Bool { true }
+
+    var scopedIsNoOp: Bool { true }
+
+    func scoped(to interval: DateInterval) -> any ProviderAdapter { self }
 }

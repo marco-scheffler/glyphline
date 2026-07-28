@@ -34,9 +34,13 @@ struct AccountsView: View {
 
                                     DataQualityBadge(quality: summary.dataQuality)
 
+                                    // Phase one first, so the dashboard is usable within
+                                    // seconds; phase two then walks back a year.
                                     Button("Sync Now") {
                                         Task {
                                             await coordinator.syncNow(account: summary.account)
+                                            onSyncFinished()
+                                            await coordinator.backfill(account: summary.account)
                                             onSyncFinished()
                                         }
                                     }
@@ -79,6 +83,13 @@ struct AccountsView: View {
                                     case let .failed(message):
                                         Text(message).font(.caption).foregroundStyle(.red)
                                     }
+                                }
+
+                                if coordinator.activities[summary.account.id]?.isRunning == true {
+                                    Button("Cancel") {
+                                        coordinator.cancelBackfill(account: summary.account)
+                                    }
+                                    .buttonStyle(.link)
                                 }
 
                                 Divider()

@@ -20,6 +20,20 @@ struct ClaudeUsageAdapter: ProviderAdapter {
     var calendar: Calendar
     var logReader: ClaudeCodeLogReader?
 
+    /// Set by `scoped(to:)` during backfill. Nil means "the current billing month".
+    var window: DateInterval?
+
+    /// Only the Admin API can address arbitrary history. `localLogs` reads whole
+    /// files incrementally and cannot be narrowed to a date range.
+    var scopedIsNoOp: Bool { mode != .adminAPI }
+
+    func scoped(to interval: DateInterval) -> any ProviderAdapter {
+        guard mode == .adminAPI else { return self }
+        var copy = self
+        copy.window = interval
+        return copy
+    }
+
     init(
         mode: Mode,
         session: URLSession = .shared,
@@ -84,13 +98,16 @@ struct ClaudeUsageAdapter: ProviderAdapter {
 
     private func syncAdminAPI(account: Account, secret: String) async throws -> ProviderSyncResult {
         let syncedAt = now()
-        let periodStart = calendar.dateInterval(of: .month, for: syncedAt)?.start ?? syncedAt
+        let periodStart = window?.start
+            ?? calendar.dateInterval(of: .month, for: syncedAt)?.start
+            ?? syncedAt
+        let periodEnd = window?.end ?? syncedAt
 
         let usage: [ClaudeUsageBucket]
         let costs: [ClaudeCostBucket]
         do {
-            usage = try await fetchUsage(secret: secret, start: periodStart, end: syncedAt)
-            costs = try await fetchCosts(secret: secret, start: periodStart, end: syncedAt)
+            usage = try await fetchUsage(secret: secret, start: periodStart, end: periodEnd)
+            costs = try await fetchCosts(secret: secret, start: periodStart, end: periodEnd)
         } catch ClaudeUsageAdapterError.invalidResponse {
             return unavailableResult(
                 for: account,
@@ -109,11 +126,15 @@ struct ClaudeUsageAdapter: ProviderAdapter {
                 dataQuality: .exact,
                 message: nil
             ),
-            billingPeriod: BillingPeriod(
-                startsAt: periodStart,
-                endsAt: nil,
-                resetAt: calendar.date(byAdding: .month, value: 1, to: periodStart)
-            ),
+            // A backfill slice is a historic window, not a billing period. Reporting
+            // one would overwrite the account's real period with a past week.
+            billingPeriod: window == nil
+                ? BillingPeriod(
+                    startsAt: periodStart,
+                    endsAt: nil,
+                    resetAt: calendar.date(byAdding: .month, value: 1, to: periodStart)
+                )
+                : nil,
             usageSnapshots: makeUsageSnapshots(from: usage, accountID: account.id),
             costSnapshots: makeCostSnapshots(from: costs, accountID: account.id),
             estimateSnapshots: [],
