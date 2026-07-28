@@ -120,3 +120,72 @@ The one real exposure is a development machine: if the app was ever run against
 a live provider key before this change, delete
 `~/Library/Application Support/Glyphline/glyphline.sqlite` once, along with its
 `-wal` and `-shm` siblings.
+
+---
+
+# Subscription Quota — Known Issues
+
+Carried out of the quota implementation. The feature ships with its primary
+state being "unavailable", and that is the truth rather than a defect: the
+access-route spike (`docs/superpowers/specs/2026-07-28-quota-access-routes.md`)
+found no official route to short-term rate windows at any provider.
+
+## What actually ships today
+
+`ProviderAdapterRegistry.rateWindowSource(for:)` returns `nil` unconditionally.
+No provider source exists yet, so the only window the app produces is the
+billing cycle derived from what the cost path already knows. Every account
+renders that plus "Quota reporting is not available for this subscription."
+
+`FixtureRateWindowSource` and `RateWindowSourceError.notConfigured` remain in
+the app target with no production referent. Both are deliberate keeps — the
+fixture for tests, the error case for the Cursor situation the spike left
+undetermined.
+
+## For whoever writes the first real source
+
+**`confirm` trusts the provider's `observedAt`.** Freshness is tracked per
+account and window kind on the coordinator, keyed to the `observedAt` the
+provider supplied, while `fetchLatestRateWindows` picks the newest row by
+`observedAt DESC`. A provider that backdates `observedAt` below an
+already-stored row of the same kind would hand its confirmation to a row it did
+not confirm. `isPlausible` cannot catch this: it evaluates `resetAt > now` with
+`now == window.observedAt`, so it is blind to `observedAt` itself. Unreachable
+while no real source exists; it belongs in the first adapter's brief.
+
+**The `resetAt` millisecond coupling.** GRDB truncates `Date` to milliseconds,
+so a sub-millisecond `resetAt` — which a real parser produces and the
+second-granularity fixtures do not — compares unequal to its stored form and
+appends a spurious "change" row. Bounded: extra rows, never a lost or replaced
+observation, and retention reclaims them. Comparing with a ~0.001 tolerance is
+the fix. It is safe to do now that freshness no longer rides on `observedAt`;
+before that change it would have made staleness strictly worse.
+
+**Codex has a free billing-cycle source.** `~/.codex/auth.json`'s `id_token`
+carries `chatgpt_subscription_active_until` in its `https://api.openai.com/auth`
+claim — a `.billingCycle` window with no network call and no credential of our
+own. Caveats: freshness depends on the Codex CLI's last token refresh, Glyphline
+would read a file another tool owns, and the value is a subscription *term* end,
+not a monthly renewal, so the copy must not call it "resets".
+
+**Cursor is undetermined.** Resolving it needs a Cursor team API key plus one
+focused probe of the documented Team API for a limits endpoint.
+
+**Do not revisit `claude setup-token`.** Its authorisation URL requests
+`scope=user:inference` and nothing else. That is a property of the grant, not a
+setting to be found.
+
+## Smaller items
+
+- `SyncCoordinator.rateWindowConfirmations` is in-memory only. After a relaunch
+  the `(as of …)` qualifier falls back to `observedAt`, which understates
+  freshness rather than overstating it.
+- `MenuBarView` evaluates `coordinator.quotaRows` twice per `body` pass, each
+  building formatters. Correctness-neutral at menu scale.
+- If every window in a result is implausible, `rateWindowMessages` has already
+  been cleared, so the user sees a qualified stale row with no reason given.
+  Worth a message once a real source lands.
+- `QuotaIndicator`'s `light`, `nextFree` and `rowGroups` remain `static` and
+  callable with an arbitrary freshness bound from inside the module. The class is
+  closed at the view boundary — `quotaFreshness` is private and no view names a
+  bound — but not at the type level.
