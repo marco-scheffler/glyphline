@@ -290,11 +290,12 @@ final class SyncCoordinator: ObservableObject {
                     resetAt: resetAt,
                     observedAt: now()
                 )
-                // Confirmed only when the store accepted it. An implausible
-                // reading is one the app has decided not to believe, and
-                // vouching for it here would make an older stored row look
+                // Confirmed only when the store found it believable. An
+                // implausible reading is one the app has decided not to trust,
+                // and vouching for it here would make an older stored row look
                 // freshly checked.
-                if (try? ledger.saveRateWindow(cycle, accountID: account.id)) == true {
+                let believable = (try? ledger.saveRateWindow(cycle, accountID: account.id)) ?? false
+                if believable {
                     confirm(cycle, accountID: account.id)
                 }
             }
@@ -318,14 +319,15 @@ final class SyncCoordinator: ObservableObject {
                 }
 
                 rateWindowMessages[account.id] = nil
-                for window in result.windows where try ledger.saveRateWindow(
-                    window,
-                    accountID: account.id
-                ) {
+                for window in result.windows {
                     // The row may not have been written — an unchanged
                     // observation is dropped — but the value was confirmed, and
-                    // that is what freshness is measured from.
-                    confirm(window, accountID: account.id)
+                    // that is what freshness is measured from. An implausible
+                    // reading confirms nothing.
+                    let believable = try ledger.saveRateWindow(window, accountID: account.id)
+                    if believable {
+                        confirm(window, accountID: account.id)
+                    }
                 }
             } catch let error as RateWindowSourceError {
                 rateWindowMessages[account.id] = error.message
