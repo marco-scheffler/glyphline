@@ -17,7 +17,9 @@ struct ClaudeUsageAdapter: ProviderAdapter {
     var mode: Mode
     var session: URLSession
     var now: @Sendable () -> Date
-    var calendar: Calendar
+    /// Forced to UTC in `init` and not settable afterwards, so the invariant holds
+    /// for every copy `scoped(to:)` makes.
+    private(set) var calendar: Calendar
     var logReader: ClaudeCodeLogReader?
 
     /// Set by `scoped(to:)` during backfill. Nil means "the current billing month".

@@ -61,11 +61,9 @@ final class OpenAIUsageAdapterTests: XCTestCase {
     func testSyncFetchesAllUsagePagesAndActualCosts() async throws {
         let account = Self.makeAccount()
         let now = Date(timeIntervalSince1970: 1_800_100_000)
-        let adapter = OpenAIUsageAdapter(
-            session: Self.makeSession(),
-            calendar: Self.utcCalendar,
-            now: { now }
-        )
+        // No calendar injected: these must exercise the production default. Supplying
+        // the correct one here is exactly what hid the local-calendar defect.
+        let adapter = OpenAIUsageAdapter(session: Self.makeSession(), now: { now })
 
         MockURLProtocol.requestHandler = { request in
             let url = try XCTUnwrap(request.url)
@@ -211,11 +209,9 @@ final class OpenAIUsageAdapterTests: XCTestCase {
     func testSyncTreatsSuccessfulEmptyResponsesAsExactZeroData() async throws {
         let account = Self.makeAccount()
         let now = Date(timeIntervalSince1970: 1_800_100_000)
-        let adapter = OpenAIUsageAdapter(
-            session: Self.makeSession(),
-            calendar: Self.utcCalendar,
-            now: { now }
-        )
+        // No calendar injected: these must exercise the production default. Supplying
+        // the correct one here is exactly what hid the local-calendar defect.
+        let adapter = OpenAIUsageAdapter(session: Self.makeSession(), now: { now })
 
         MockURLProtocol.requestHandler = { request in
             let url = try XCTUnwrap(request.url)
@@ -243,11 +239,130 @@ final class OpenAIUsageAdapterTests: XCTestCase {
         XCTAssertNil(result.capabilities.message)
     }
 
-    private static let utcCalendar: Calendar = {
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
-        return calendar
-    }()
+    /// The period the adapter derives becomes the `start_time` it queries with, and
+    /// backfill supplies UTC-midnight slices for that same parameter. A local
+    /// calendar would make routine sync and backfill key the same real day under two
+    /// different bucket boundaries; both rows would survive the unique key and be
+    /// summed. The bucket instants the API itself reports must survive untouched.
+    func testPeriodAndBucketBoundariesAreUTCRegardlessOfLocalTimeZone() async throws {
+        let account = Self.makeAccount()
+        // 2026-07-02T13:46:40Z. In UTC+14 this is already 2026-07-03 local, and the
+        // local month began at 2026-06-30T10:00:00Z.
+        let now = Date(timeIntervalSince1970: 1_783_000_000)
+
+        // A calendar pinned well away from UTC; the adapter must override it.
+        var local = Calendar(identifier: .gregorian)
+        local.timeZone = try XCTUnwrap(TimeZone(identifier: "Pacific/Kiritimati")) // UTC+14
+
+        let adapter = OpenAIUsageAdapter(
+            session: Self.makeSession(),
+            calendar: local,
+            now: { now }
+        )
+
+        MockURLProtocol.requestHandler = { request in
+            let url = try XCTUnwrap(request.url)
+
+            guard url.path == "/v1/organization/usage/completions" else {
+                return Self.httpResponse(
+                    url: url,
+                    json: """
+                    {"object": "page", "data": [], "has_more": false, "next_page": null}
+                    """
+                )
+            }
+
+            return Self.httpResponse(
+                url: url,
+                json: """
+                {
+                  "object": "page",
+                  "data": [
+                    {
+                      "object": "bucket",
+                      "start_time": 1782950400,
+                      "end_time": 1783036800,
+                      "results": [
+                        {
+                          "object": "organization.usage.completions.result",
+                          "model": "gpt-5.4",
+                          "input_tokens": 100,
+                          "output_tokens": 50,
+                          "num_model_requests": 1
+                        }
+                      ]
+                    }
+                  ],
+                  "has_more": false,
+                  "next_page": null
+                }
+                """
+            )
+        }
+
+        let result = try await adapter.sync(account: account, secret: "test-secret")
+
+        XCTAssertEqual(
+            result.billingPeriod?.startsAt,
+            Date(timeIntervalSince1970: 1_782_864_000), // 2026-07-01T00:00:00Z
+            "the period starts at the UTC month boundary, not the local one"
+        )
+        XCTAssertEqual(
+            result.usageSnapshots.first?.bucketStart,
+            Date(timeIntervalSince1970: 1_782_950_400), // 2026-07-02T00:00:00Z
+            "the bucket keeps the UTC instant the API reported"
+        )
+
+        let usageRequest = try XCTUnwrap(
+            MockURLProtocol.requests.first { $0.url?.path == "/v1/organization/usage/completions" }
+        )
+        let startTime = try XCTUnwrap(
+            URLComponents(url: try XCTUnwrap(usageRequest.url), resolvingAgainstBaseURL: false)?
+                .queryItems?
+                .first { $0.name == "start_time" }?
+                .value
+        )
+
+        XCTAssertEqual(
+            startTime,
+            "1782864000",
+            "backfill slices are UTC midnights; routine sync must ask for the same boundary"
+        )
+    }
+
+    /// The reset date is derived from the period start, so it inherits the same
+    /// boundary. A local calendar put it a fraction of a day off for every user
+    /// outside UTC.
+    func testTheDerivedResetDateIsAUTCMonthBoundary() async throws {
+        let account = Self.makeAccount()
+        let now = Date(timeIntervalSince1970: 1_783_000_000) // 2026-07-02T13:46:40Z
+
+        var local = Calendar(identifier: .gregorian)
+        local.timeZone = try XCTUnwrap(TimeZone(identifier: "Pacific/Kiritimati")) // UTC+14
+
+        let adapter = OpenAIUsageAdapter(
+            session: Self.makeSession(),
+            calendar: local,
+            now: { now }
+        )
+
+        MockURLProtocol.requestHandler = { request in
+            Self.httpResponse(
+                url: try XCTUnwrap(request.url),
+                json: """
+                {"object": "page", "data": [], "has_more": false, "next_page": null}
+                """
+            )
+        }
+
+        let result = try await adapter.sync(account: account, secret: "test-secret")
+
+        XCTAssertEqual(
+            result.billingPeriod?.resetAt,
+            Date(timeIntervalSince1970: 1_785_542_400), // 2026-08-01T00:00:00Z
+            "the reset date is the next UTC month boundary"
+        )
+    }
 
     private static func fixture(named name: String) -> Data? {
         Bundle(for: OpenAIUsageAdapterTests.self)

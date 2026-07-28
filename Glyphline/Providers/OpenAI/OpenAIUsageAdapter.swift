@@ -11,7 +11,9 @@ struct OpenAIUsageAdapter: ProviderAdapter {
     let providerID: ProviderID = .openAI
 
     var session: URLSession
-    var calendar: Calendar
+    /// Forced to UTC in `init` and not settable afterwards, so the invariant holds
+    /// for every copy `scoped(to:)` makes.
+    private(set) var calendar: Calendar
     var now: @Sendable () -> Date
 
     /// Set by `scoped(to:)` during backfill. Nil means "the current billing period".
@@ -27,19 +29,37 @@ struct OpenAIUsageAdapter: ProviderAdapter {
 
     init(
         session: URLSession = .shared,
-        calendar: Calendar = .current,
+        calendar: Calendar = Calendar(identifier: .gregorian),
         now: @escaping @Sendable () -> Date = Date.init
     ) {
         self.session = session
-        self.calendar = calendar
         self.now = now
+        // Every bucket-computing component on this branch works in UTC, and this
+        // one must too. `periodStart` becomes the `start_time` the usage and cost
+        // endpoints are queried with, and backfill supplies UTC-midnight slices for
+        // the same parameter. A local calendar would make routine sync ask for a
+        // window starting at local midnight while backfill asks for UTC midnight,
+        // so the two would key the same real day under different bucket boundaries.
+        // The unique key is (accountID, providerID, bucketStart, bucketEnd,
+        // modelKey), so both rows would survive and `makeAccountSummary` would sum
+        // them: doubled tokens and doubled cost.
+        var utc = calendar
+        utc.timeZone = TimeZone(identifier: "UTC") ?? .gmt
+        self.calendar = utc
     }
 
     func sync(account: Account, secret: String) async throws -> ProviderSyncResult {
         let syncedAt = now()
-        let periodStart = window?.start
-            ?? calendar.dateInterval(of: .month, for: syncedAt)?.start
-            ?? syncedAt
+        // Snapped to a UTC day boundary. A month interval in a UTC calendar already
+        // is one; the snap also covers the `syncedAt` fallback, which is a mid-day
+        // instant and would otherwise be sent as a `start_time` that cuts a bucket
+        // in half — the fragment-for-a-whole-day defect this branch has fixed three
+        // times over.
+        let periodStart = calendar.startOfDay(
+            for: window?.start
+                ?? calendar.dateInterval(of: .month, for: syncedAt)?.start
+                ?? syncedAt
+        )
         let periodEnd = window?.end ?? syncedAt
         let resetAt = window == nil
             ? calendar.date(byAdding: .month, value: 1, to: periodStart)
