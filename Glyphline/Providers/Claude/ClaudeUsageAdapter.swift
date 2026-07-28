@@ -24,13 +24,20 @@ struct ClaudeUsageAdapter: ProviderAdapter {
         mode: Mode,
         session: URLSession = .shared,
         now: @escaping @Sendable () -> Date = Date.init,
-        calendar: Calendar = .current,
+        calendar: Calendar = Calendar(identifier: .gregorian),
         logReader: ClaudeCodeLogReader? = nil
     ) {
         self.mode = mode
         self.session = session
         self.now = now
-        self.calendar = calendar
+        // The Admin API is queried with UTC `starting_at`/`ending_at` and
+        // `bucket_width=1d`, so the buckets it returns are UTC. Deriving period
+        // boundaries with a local calendar would shift them away from the
+        // buckets the API actually returned. `CursorUsageAdapter` and
+        // `ClaudeCodeLogReader` already force UTC; this matches them.
+        var utc = calendar
+        utc.timeZone = TimeZone(identifier: "UTC") ?? .gmt
+        self.calendar = utc
         self.logReader = logReader
     }
 

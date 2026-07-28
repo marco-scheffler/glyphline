@@ -90,6 +90,63 @@ final class CursorTeamAdapterTests: XCTestCase {
         XCTAssertEqual(request.value(forHTTPHeaderField: "Content-Type"), "application/json")
     }
 
+    /// Two syncs on the same day must ask for the same window start, so the
+    /// oldest in-window day is always a whole UTC day. A rolling
+    /// 30-days-from-now window would hand back a fragment of that day, and the
+    /// ledger's replace-upsert would shrink the stored total on the later sync.
+    func testEventWindowSnapsToUTCMidnightAndIsStableWithinTheDay() throws {
+        let dayStart = Date(timeIntervalSince1970: 1_783_123_200) // 2026-07-04T00:00:00Z
+        let noon = Date(timeIntervalSince1970: 1_783_166_400) // 2026-07-04T12:00:00Z
+        let evening = Date(timeIntervalSince1970: 1_783_188_000) // 2026-07-04T18:00:00Z
+        let expected = Date(timeIntervalSince1970: 1_780_617_600) // 2026-06-05T00:00:00Z
+
+        let adapter = CursorUsageAdapter(mode: .teamAPI, session: StubURLProtocol.makeSession())
+
+        XCTAssertEqual(adapter.eventsWindowStart(for: noon), expected)
+        XCTAssertEqual(
+            adapter.eventsWindowStart(for: evening),
+            adapter.eventsWindowStart(for: noon),
+            "a later sync on the same day must not truncate the oldest day's bucket"
+        )
+        XCTAssertEqual(
+            expected.timeIntervalSince1970,
+            dayStart.timeIntervalSince1970 - 29 * 86_400,
+            "29 days back plus today keeps the request inside the API's 30-day cap"
+        )
+    }
+
+    func testWindowStartReachesTheWireAsUTCMidnightMillis() throws {
+        let adapter = CursorUsageAdapter(mode: .teamAPI, session: StubURLProtocol.makeSession())
+        let windowStart = adapter.eventsWindowStart(for: Date(timeIntervalSince1970: 1_783_166_400))
+
+        let request = try CursorUsageAdapter.makeEventsRequest(
+            secret: "key_abc",
+            start: windowStart,
+            end: Date(timeIntervalSince1970: 1_783_166_400),
+            page: 1
+        )
+        let body = try XCTUnwrap(request.httpBody)
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: body) as? [String: Any])
+
+        XCTAssertEqual(json["startDate"] as? Int, 1_780_617_600_000)
+    }
+
+    /// The spend endpoint is secondary. Losing it must cost the reset date only,
+    /// never the usage that was already fetched successfully.
+    func testFailedSpendCallKeepsUsageAndDropsOnlyTheResetDate() async throws {
+        StubURLProtocol.enqueue(path: "/teams/filtered-usage-events", body: try fixture("cursor-usage-events-page2"))
+        StubURLProtocol.enqueue(path: "/teams/spend", statusCode: 500, body: Data())
+
+        let result = try await makeAdapter().sync(account: account, secret: "key_abc")
+
+        XCTAssertEqual(result.capabilities.dataQuality, .exact)
+        XCTAssertFalse(result.usageSnapshots.isEmpty, "usage was fetched successfully and must survive")
+        XCTAssertFalse(result.costSnapshots.isEmpty)
+        XCTAssertNil(result.billingPeriod)
+        XCTAssertFalse(result.capabilities.supportsResetDate)
+        XCTAssertTrue(result.capabilities.supportsUsage)
+    }
+
     func testUnauthorizedBecomesUnavailable() async throws {
         StubURLProtocol.enqueue(path: "/teams/filtered-usage-events", statusCode: 403, body: Data())
 

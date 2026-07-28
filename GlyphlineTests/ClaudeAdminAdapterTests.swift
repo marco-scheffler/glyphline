@@ -105,6 +105,40 @@ final class ClaudeAdminAdapterTests: XCTestCase {
         XCTAssertNotNil(result.capabilities.message)
     }
 
+    /// The Admin API is queried in UTC with `bucket_width=1d`, so the periods and
+    /// buckets derived from its answers must be UTC too. A local calendar would
+    /// label them with the wrong day for any user off UTC.
+    func testPeriodAndBucketBoundariesAreUTCRegardlessOfLocalTimeZone() async throws {
+        StubURLProtocol.enqueue(
+            path: "/v1/organizations/usage_report/messages",
+            body: try fixture("claude-usage-report-page2")
+        )
+        StubURLProtocol.enqueue(path: "/v1/organizations/cost_report", body: try fixture("claude-cost-report"))
+
+        // A calendar pinned well away from UTC; the adapter must override it.
+        var local = Calendar(identifier: .gregorian)
+        local.timeZone = try XCTUnwrap(TimeZone(identifier: "Pacific/Kiritimati")) // UTC+14
+        let adapter = ClaudeUsageAdapter(
+            mode: .adminAPI,
+            session: StubURLProtocol.makeSession(),
+            now: { Date(timeIntervalSince1970: 1_783_000_000) }, // 2026-07-02T13:46:40Z
+            calendar: local
+        )
+
+        let result = try await adapter.sync(account: account, secret: "sk-ant-admin-test")
+
+        XCTAssertEqual(
+            result.billingPeriod?.startsAt,
+            Date(timeIntervalSince1970: 1_782_864_000), // 2026-07-01T00:00:00Z
+            "the period starts at the UTC month boundary, not the local one"
+        )
+        XCTAssertEqual(
+            result.usageSnapshots.first?.bucketStart,
+            Date(timeIntervalSince1970: 1_782_950_400), // 2026-07-02T00:00:00Z
+            "the bucket keeps the UTC instant the API reported"
+        )
+    }
+
     func testDailyBucketLimitIsExplicit() throws {
         let request = try ClaudeUsageAdapter.makeUsageRequest(
             secret: "sk-ant-admin-abc",

@@ -46,20 +46,23 @@ struct CursorUsageAdapter: ProviderAdapter {
 
     private func syncTeamAPI(account: Account, secret: String) async throws -> ProviderSyncResult {
         let syncedAt = now()
-        // The events endpoint caps a request at 30 days.
-        let windowStart = calendar.date(byAdding: .day, value: -30, to: syncedAt) ?? syncedAt
+
+        let windowStart = eventsWindowStart(for: syncedAt)
 
         let events: [CursorUsageEvent]
-        let cycleStart: Date?
         do {
             events = try await fetchEvents(secret: secret, start: windowStart, end: syncedAt)
-            cycleStart = try await fetchCycleStart(secret: secret)
         } catch CursorUsageAdapterError.invalidResponse {
             return unavailableResult(
                 for: account,
                 message: "Cursor rejected the credential. A team admin API key is required."
             )
         }
+
+        // The billing period is secondary. Losing it must not discard usage that
+        // was already fetched successfully, so it degrades to "no reset date"
+        // rather than to "nothing available".
+        let cycleStart = try? await fetchCycleStart(secret: secret)
 
         let (usage, costs) = aggregate(events: events, accountID: account.id)
 
@@ -71,8 +74,12 @@ struct CursorUsageAdapter: ProviderAdapter {
                 supportsActualCost: true,
                 supportsResetDate: cycleStart != nil,
                 supportsModelBreakdown: true,
+                // Usage and cost were fetched successfully, so they are exact.
+                // Only the billing period may be missing, and that is said plainly.
                 dataQuality: .exact,
-                message: nil
+                message: cycleStart == nil
+                    ? "Usage and cost are exact. Cursor did not return a billing cycle start, so there is no reset date."
+                    : nil
             ),
             billingPeriod: cycleStart.map {
                 BillingPeriod(
@@ -86,6 +93,18 @@ struct CursorUsageAdapter: ProviderAdapter {
             estimateSnapshots: [],
             syncedAt: syncedAt
         )
+    }
+
+    /// The start of the events window, snapped to a UTC day boundary.
+    ///
+    /// Not a rolling 30-days-from-now instant: `aggregate` labels every bucket as
+    /// a whole day, and the ledger upsert *replaces* a bucket rather than adding
+    /// to it, so a window starting mid-day would emit the oldest day as a fragment
+    /// and shrink that day's stored total on every successive sync. 29 days back
+    /// plus today stays inside the endpoint's 30-day cap. Today's bucket is still
+    /// partial, but it only ever grows, so replacing it is safe.
+    func eventsWindowStart(for syncedAt: Date) -> Date {
+        calendar.startOfDay(for: calendar.date(byAdding: .day, value: -29, to: syncedAt) ?? syncedAt)
     }
 
     private func unavailableResult(for account: Account, message: String) -> ProviderSyncResult {
