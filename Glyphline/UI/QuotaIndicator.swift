@@ -61,6 +61,22 @@ enum QuotaIndicator {
         return .grey
     }
 
+    /// The soonest reset an account can actually be waited out for: fresh
+    /// enough to still be believed — the same bound `decidableFraction`
+    /// applies, so the two functions cannot disagree about the same data — and
+    /// still in the future, because an elapsed `resetAt` names a moment that
+    /// has already come and gone.
+    private static func soonestUsefulReset(
+        _ state: QuotaAccountState,
+        now: Date,
+        freshness: TimeInterval
+    ) -> Date? {
+        state.windows
+            .filter { now.timeIntervalSince($0.observedAt) <= freshness && $0.resetAt > now }
+            .map(\.resetAt)
+            .min()
+    }
+
     /// The account to reach for next, as a display string.
     static func nextFree(
         for states: [QuotaAccountState],
@@ -75,7 +91,9 @@ enum QuotaIndicator {
         let soonest = states
             .filter { hasHeadroom($0, now: now, freshness: freshness) == false }
             .compactMap { state -> (String, Date)? in
-                guard let earliest = state.windows.map(\.resetAt).min() else { return nil }
+                guard let earliest = soonestUsefulReset(state, now: now, freshness: freshness) else {
+                    return nil
+                }
                 return (state.displayName, earliest)
             }
             .min { $0.1 < $1.1 }
