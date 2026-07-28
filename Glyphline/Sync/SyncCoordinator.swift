@@ -47,6 +47,13 @@ final class SyncCoordinator: ObservableObject {
         QuotaIndicator.light(for: quotaStates, now: now(), freshness: quotaFreshness)
     }
 
+    /// Computed here rather than in the view, so no call site can invent its own
+    /// freshness bound: the symbol and this string must never disagree about
+    /// which observations are still believable.
+    var nextFreeText: String? {
+        QuotaIndicator.nextFree(for: quotaStates, now: now(), freshness: quotaFreshness)
+    }
+
     /// Twice the poll interval: an observation older than that is not displayed.
     private var quotaFreshness: TimeInterval {
         (currentIntervalSeconds ?? 1_800) * 2

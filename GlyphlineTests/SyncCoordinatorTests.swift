@@ -501,6 +501,57 @@ final class SyncCoordinatorTests: XCTestCase {
         XCTAssertNil(coordinator.syncFailureMessage)
         XCTAssertFalse(try ledger.fetchUsageSnapshots(accountID: account.id).isEmpty)
     }
+
+    /// The menu-bar symbol and the "Next free" line must never disagree about
+    /// which observations are still believable.
+    ///
+    /// The poll interval is deliberately *not* the 1800s default, so the derived
+    /// freshness bound (2x the interval = 600s) sits on the other side of this
+    /// 20-minute-old observation from the 3600s a call site might otherwise
+    /// hardcode. With the bound hardcoded in the view this observation was fresh
+    /// enough to print "Max #1 — now" beside a grey icon that had already
+    /// discarded it.
+    func testTheLightAndTheNextFreeStringShareOneFreshnessBound() async throws {
+        let dbQueue = try DatabaseQueueFactory.makeInMemory()
+        try Migrations.makeMigrator().migrate(dbQueue)
+        let ledger = LedgerStore(dbQueue: dbQueue)
+
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let account = Account(
+            id: UUID(), providerID: .claude, displayName: "Max #1",
+            credentialReference: "local-source://x", createdAt: now, isEnabled: true
+        )
+        try ledger.saveAccount(account)
+
+        // Headroom, so a believed observation would yield green and "— now".
+        try ledger.saveRateWindow(
+            RateWindow(kind: .rollingFiveHours, usedFraction: 0.3,
+                       resetAt: now.addingTimeInterval(1_800),
+                       observedAt: now.addingTimeInterval(-1_200)),
+            accountID: account.id
+        )
+
+        let coordinator = SyncCoordinator(
+            ledger: ledger,
+            credentials: InMemoryCredentialStore(),
+            registry: ProviderAdapterRegistry(watermarkStore: ledger),
+            estimator: CostEstimator(catalog: PricingCatalog(entries: [])),
+            sleepForSeconds: { _ in try await Task.sleep(for: .seconds(3_600)) },
+            now: { now },
+            rateWindowSourceProvider: { _ in nil }
+        )
+
+        coordinator.startScheduler(intervalSeconds: 300)
+        defer { coordinator.stopScheduler() }
+
+        await coordinator.collectRateWindows()
+
+        XCTAssertEqual(coordinator.quotaLight, .grey, "600s bound: a 20-minute-old observation is stale")
+        XCTAssertNil(
+            coordinator.nextFreeText,
+            "the next-free string must not believe an observation the light has discarded"
+        )
+    }
 }
 
 /// Records the interval each scheduler start slept on, across concurrency domains.

@@ -33,11 +33,7 @@ struct MenuBarView: View {
 
             if !coordinator.quotaStates.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {
-                    if let nextFree = QuotaIndicator.nextFree(
-                        for: coordinator.quotaStates,
-                        now: Date(),
-                        freshness: 3_600
-                    ) {
+                    if let nextFree = coordinator.nextFreeText {
                         Text("Next free: \(nextFree)")
                             .font(.caption.weight(.medium))
                     }

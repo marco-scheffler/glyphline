@@ -167,8 +167,12 @@ final class QuotaIndicatorTests: XCTestCase {
             resetAt: now.addingTimeInterval(3_600),
             observedAt: now
         )
-        let text = QuotaIndicator.rowText(for: window, now: now)
-        XCTAssertTrue(text.contains("62"), "expected percentage in \(text)")
+        let reset = shortTime(now.addingTimeInterval(3_600))
+        XCTAssertEqual(
+            QuotaIndicator.rowText(for: window, now: now),
+            "5h 62% — resets \(reset)",
+            "the row must carry both the percentage and the reset instant its name promises"
+        )
     }
 
     func testARowWithoutAFractionSaysSoRatherThanShowingZero() {
@@ -180,5 +184,11 @@ final class QuotaIndicatorTests: XCTestCase {
         )
         let text = QuotaIndicator.rowText(for: window, now: now)
         XCTAssertFalse(text.contains("0%"), "a missing fraction must not render as zero")
+        // The negative alone would pass for an empty string. Pin what the branch
+        // actually says, so the row stays useful rather than merely not wrong.
+        XCTAssertEqual(
+            text,
+            "Week — usage unknown, resets \(shortTime(now.addingTimeInterval(3_600)))"
+        )
     }
 }
