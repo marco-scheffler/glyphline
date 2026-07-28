@@ -44,16 +44,19 @@ final class ClaudeCodeLogReader: @unchecked Sendable {
     private let watermarkStore: any WatermarkStoring
     private let fileManager: FileManager
     private let calendar: Calendar
+    private let now: @Sendable () -> Date
 
     init(
         directory: URL,
         watermarkStore: any WatermarkStoring,
         fileManager: FileManager = .default,
-        calendar: Calendar = Calendar(identifier: .gregorian)
+        calendar: Calendar = Calendar(identifier: .gregorian),
+        now: @escaping @Sendable () -> Date = Date.init
     ) {
         self.directory = directory
         self.watermarkStore = watermarkStore
         self.fileManager = fileManager
+        self.now = now
         var utc = calendar
         utc.timeZone = TimeZone(identifier: "UTC") ?? .gmt
         self.calendar = utc
@@ -76,9 +79,21 @@ final class ClaudeCodeLogReader: @unchecked Sendable {
 
     func read(accountID: UUID) throws -> [UsageSnapshot] {
         var totals: [BucketKey: Totals] = [:]
+        // Everything from the current UTC day onwards belongs to a bucket that can
+        // still grow, so those bytes stay unconsumed and are re-read every sync.
+        let openDayStart = calendar.startOfDay(for: now())
+        // Built once per sync, not once per line: `ISO8601DateFormatter` is
+        // expensive to construct and `read` parses millions of lines on a cold start.
+        let dates = TimestampParser()
 
         for file in transcriptURLs() {
-            try consume(file, accountID: accountID, into: &totals)
+            try consume(
+                file,
+                accountID: accountID,
+                openDayStart: openDayStart,
+                dates: dates,
+                into: &totals
+            )
         }
 
         return totals.map { key, value in
@@ -126,6 +141,8 @@ final class ClaudeCodeLogReader: @unchecked Sendable {
     private func consume(
         _ file: URL,
         accountID: UUID,
+        openDayStart: Date,
+        dates: TimestampParser,
         into totals: inout [BucketKey: Totals]
     ) throws {
         let attributes = try? fileManager.attributesOfItem(atPath: file.path)
@@ -165,24 +182,39 @@ final class ClaudeCodeLogReader: @unchecked Sendable {
         let complete = data[data.startIndex ... lastNewline]
 
         let decoder = JSONDecoder()
-        for line in complete.split(separator: UInt8(ascii: "\n")) {
-            guard !line.isEmpty,
-                  let record = try? decoder.decode(ClaudeCodeLogRecord.self, from: Data(line)),
-                  let usage = record.message?.usage,
-                  let timestamp = Self.date(from: record.timestamp) else {
-                continue
+        // Bytes, relative to `offset`, that belong to buckets no longer able to
+        // grow. The watermark never moves past this point, so a bucket is never
+        // split across two reads and every bucket is emitted in full.
+        var consumable = 0
+        var reachedOpenBucket = false
+        var lineStart = complete.startIndex
+
+        while lineStart <= lastNewline,
+              let newline = complete[lineStart...].firstIndex(of: UInt8(ascii: "\n")) {
+            let line = complete[lineStart ..< newline]
+            let lineEnd = complete.distance(from: complete.startIndex, to: newline) + 1
+            lineStart = complete.index(after: newline)
+
+            if let record = try? decoder.decode(ClaudeCodeLogRecord.self, from: Data(line)),
+               let usage = record.message?.usage,
+               let timestamp = dates.date(from: record.timestamp) {
+                let dayStart = calendar.startOfDay(for: timestamp)
+                if dayStart >= openDayStart {
+                    reachedOpenBucket = true
+                }
+
+                let key = BucketKey(dayStart: dayStart, model: record.message?.model)
+                var bucket = totals[key] ?? Totals()
+                bucket.input += usage.inputTokens ?? 0
+                bucket.cacheCreation += usage.cacheCreationInputTokens ?? 0
+                bucket.cacheRead += usage.cacheReadInputTokens ?? 0
+                bucket.output += usage.outputTokens ?? 0
+                totals[key] = bucket
             }
 
-            let key = BucketKey(
-                dayStart: calendar.startOfDay(for: timestamp),
-                model: record.message?.model
-            )
-            var bucket = totals[key] ?? Totals()
-            bucket.input += usage.inputTokens ?? 0
-            bucket.cacheCreation += usage.cacheCreationInputTokens ?? 0
-            bucket.cacheRead += usage.cacheReadInputTokens ?? 0
-            bucket.output += usage.outputTokens ?? 0
-            totals[key] = bucket
+            if !reachedOpenBucket {
+                consumable = lineEnd
+            }
         }
 
         try watermarkStore.saveWatermark(
@@ -191,26 +223,32 @@ final class ClaudeCodeLogReader: @unchecked Sendable {
                 accountID: accountID,
                 fileSize: size,
                 fileMTime: modified,
-                byteOffset: offset + Int64(complete.count),
+                byteOffset: offset + Int64(consumable),
                 updatedAt: Date()
             )
         )
     }
+}
 
-    /// Fresh formatters per call: `ISO8601DateFormatter` is not `Sendable`, so a
-    /// shared static one would need an unsafe opt-out for a negligible saving.
-    /// Transcript timestamps carry fractional seconds, which the formatter
-    /// rejects unless `.withFractionalSeconds` is set — hence the second pass.
-    private static func makeFormatter(fractionalSeconds: Bool) -> ISO8601DateFormatter {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = fractionalSeconds
-            ? [.withInternetDateTime, .withFractionalSeconds]
-            : [.withInternetDateTime]
-        return formatter
+/// Parses transcript timestamps, holding its formatters for the length of one sync.
+///
+/// `ISO8601DateFormatter` is not `Sendable`, so a static instance would need an
+/// unsafe opt-out; constructing one per line would dominate the parse. A short-lived
+/// value owned by a single call needs neither. Transcript timestamps carry fractional
+/// seconds, which the formatter rejects unless `.withFractionalSeconds` is set —
+/// hence the second, plain formatter as a fallback.
+private struct TimestampParser {
+    private let fractional: ISO8601DateFormatter
+    private let plain: ISO8601DateFormatter
+
+    init() {
+        fractional = ISO8601DateFormatter()
+        fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        plain = ISO8601DateFormatter()
+        plain.formatOptions = [.withInternetDateTime]
     }
 
-    static func date(from string: String) -> Date? {
-        makeFormatter(fractionalSeconds: true).date(from: string)
-            ?? makeFormatter(fractionalSeconds: false).date(from: string)
+    func date(from string: String) -> Date? {
+        fractional.date(from: string) ?? plain.date(from: string)
     }
 }
