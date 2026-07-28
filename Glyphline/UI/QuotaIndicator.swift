@@ -6,6 +6,22 @@ enum QuotaLightState: Equatable, Sendable {
     case grey
 }
 
+/// Locale and time zone the quota strings are rendered in.
+///
+/// Injectable for one reason: a test that builds the same `DateFormatter` as the
+/// implementation asserts only that the implementation equals itself. Pinning
+/// these lets a test state the expected string outright — which is how the
+/// time-of-day defect survived a green suite the first time.
+struct QuotaFormatting: Sendable {
+    var locale: Locale
+    var timeZone: TimeZone
+
+    static let current = QuotaFormatting(
+        locale: .autoupdatingCurrent,
+        timeZone: .autoupdatingCurrent
+    )
+}
+
 struct QuotaAccountState: Equatable, Sendable {
     var accountID: UUID
     var displayName: String
@@ -81,7 +97,8 @@ enum QuotaIndicator {
     static func nextFree(
         for states: [QuotaAccountState],
         now: Date,
-        freshness: TimeInterval
+        freshness: TimeInterval,
+        formatting: QuotaFormatting = .current
     ) -> String? {
         let available = states.first { hasHeadroom($0, now: now, freshness: freshness) == true }
         if let available {
@@ -100,10 +117,35 @@ enum QuotaIndicator {
 
         guard let soonest else { return nil }
 
+        // "Name — when", the same shape as the "— now" branch above. Not
+        // "Name at <instant>": once the instant can carry a date, that reads
+        // "Max #1 at Jul 31, 2026 at 2:00 PM".
+        return "\(soonest.0) — \(instantText(soonest.1, now: now, formatting: formatting))"
+    }
+
+    /// An instant as the user reads it: the time alone when it falls on today,
+    /// date-bearing otherwise.
+    ///
+    /// Time alone was right for `.rollingFiveHours` and wrong for everything
+    /// else. A weekly window resets days out, and a billing cycle can end in a
+    /// different year — the access spike found a Codex subscription term ending
+    /// in 2027, which rendered as "resets 09:00" and read as this morning.
+    static func instantText(
+        _ instant: Date,
+        now: Date,
+        formatting: QuotaFormatting = .current
+    ) -> String {
+        var calendar = Calendar.autoupdatingCurrent
+        calendar.locale = formatting.locale
+        calendar.timeZone = formatting.timeZone
+
+        // A local, not a `static let`: `DateFormatter` is not `Sendable`.
         let formatter = DateFormatter()
+        formatter.locale = formatting.locale
+        formatter.timeZone = formatting.timeZone
         formatter.timeStyle = .short
-        formatter.dateStyle = .none
-        return "\(soonest.0) at \(formatter.string(from: soonest.1))"
+        formatter.dateStyle = calendar.isDate(instant, inSameDayAs: now) ? .none : .medium
+        return formatter.string(from: instant)
     }
 
     /// The app's own glyph, and what the menu bar shows when the light carries no
@@ -138,23 +180,36 @@ enum QuotaIndicator {
 
     /// One window as a menu row. A missing fraction says so rather than
     /// rendering as 0%, which would read as "untouched".
-    static func rowText(for window: RateWindow, now: Date) -> String {
+    ///
+    /// `now` is load-bearing: it decides whether the instant needs its date.
+    static func rowText(
+        for window: RateWindow,
+        now: Date,
+        formatting: QuotaFormatting = .current
+    ) -> String {
         let label: String
+        let verb: String
         switch window.kind {
-        case .rollingFiveHours: label = "5h"
-        case .weekly: label = "Week"
-        case .billingCycle: label = "Cycle"
+        case .rollingFiveHours:
+            label = "5h"
+            verb = "resets"
+        case .weekly:
+            label = "Week"
+            verb = "resets"
+        case .billingCycle:
+            // "ends", not "resets". A subscription *term* end returns no
+            // capacity — the spike found a Codex term ending in 2027 — and even
+            // a monthly cycle boundary is the end of a period rather than a
+            // quota refill.
+            label = "Cycle"
+            verb = "ends"
         }
 
-        // A local, not a `static let`: `DateFormatter` is not `Sendable`.
-        let formatter = DateFormatter()
-        formatter.timeStyle = .short
-        formatter.dateStyle = .none
-        let reset = formatter.string(from: window.resetAt)
+        let reset = instantText(window.resetAt, now: now, formatting: formatting)
 
         guard let fraction = window.usedFraction else {
-            return "\(label) — usage unknown, resets \(reset)"
+            return "\(label) — usage unknown, \(verb) \(reset)"
         }
-        return "\(label) \(Int((fraction * 100).rounded()))% — resets \(reset)"
+        return "\(label) \(Int((fraction * 100).rounded()))% — \(verb) \(reset)"
     }
 }

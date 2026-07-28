@@ -2,8 +2,24 @@ import XCTest
 @testable import Glyphline
 
 final class QuotaIndicatorTests: XCTestCase {
-    private let now = Date(timeIntervalSince1970: 1_800_000_000)
+    /// UTC-anchored so every expected string below can be written out in full.
+    private static func utc(_ year: Int, _ month: Int, _ day: Int, _ hour: Int, _ minute: Int) -> Date {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC") ?? .gmt
+        return calendar.date(
+            from: DateComponents(year: year, month: month, day: day, hour: hour, minute: minute)
+        ) ?? Date(timeIntervalSince1970: 0)
+    }
+
+    private let now = QuotaIndicatorTests.utc(2026, 7, 28, 9, 0)
     private let freshness: TimeInterval = 3_600
+
+    /// Pinned rather than taken from the machine, so the expectations below are
+    /// literal strings and not a second copy of the implementation's formatter.
+    private let formatting = QuotaFormatting(
+        locale: Locale(identifier: "en_US_POSIX"),
+        timeZone: TimeZone(identifier: "UTC") ?? .gmt
+    )
 
     /// An account carrying exactly one window.
     private func account(
@@ -38,6 +54,16 @@ final class QuotaIndicatorTests: XCTestCase {
         )
     }
 
+    /// Collapses the narrow and non-breaking spaces `DateFormatter` places around
+    /// AM/PM into ordinary ones, so the expectations below can be written as
+    /// visible literals. This normalises *whitespace only* — it does not rebuild
+    /// the formatter, so a change of date style, order, or wording still fails.
+    private func visible(_ text: String?) -> String? {
+        text?
+            .replacingOccurrences(of: "\u{202F}", with: " ")
+            .replacingOccurrences(of: "\u{00A0}", with: " ")
+    }
+
     private func window(
         kind: RateWindowKind = .rollingFiveHours,
         used: Double?,
@@ -50,15 +76,6 @@ final class QuotaIndicatorTests: XCTestCase {
             resetAt: now.addingTimeInterval(resetMinutesFromNow * 60),
             observedAt: now.addingTimeInterval(-observedMinutesAgo * 60)
         )
-    }
-
-    /// Mirrors the formatter `nextFree` builds, so assertions do not hardcode a
-    /// locale's clock format.
-    private func shortTime(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.timeStyle = .short
-        formatter.dateStyle = .none
-        return formatter.string(from: date)
     }
 
     func testHeadroomAnywhereIsGreen() {
@@ -94,18 +111,24 @@ final class QuotaIndicatorTests: XCTestCase {
 
     func testNextFreeNamesAnAccountWithHeadroomAsAvailableNow() {
         let states = [account("Max #1", used: 1.0), account("Max #2", used: 0.2)]
-        XCTAssertEqual(QuotaIndicator.nextFree(for: states, now: now, freshness: freshness), "Max #2 — now")
+        XCTAssertEqual(
+            visible(QuotaIndicator.nextFree(for: states, now: now, freshness: freshness, formatting: formatting)),
+            "Max #2 — now"
+        )
     }
 
     func testNextFreeNamesTheEarliestResetWhenAllAreExhausted() {
         // Distinct reset instants, so "earliest" is actually discriminated: an
         // implementation returning max(), or the first element, fails here.
+        // `now` is 09:00 UTC, so +60 minutes is 10:00 and +180 is 12:00.
         let states = [
             account("Max #1", used: 1.0, resetMinutesFromNow: 180),
             account("Max #2", used: 1.0, resetMinutesFromNow: 60),
         ]
-        let expected = "Max #2 at \(shortTime(now.addingTimeInterval(60 * 60)))"
-        XCTAssertEqual(QuotaIndicator.nextFree(for: states, now: now, freshness: freshness), expected)
+        XCTAssertEqual(
+            visible(QuotaIndicator.nextFree(for: states, now: now, freshness: freshness, formatting: formatting)),
+            "Max #2 — 10:00 AM"
+        )
     }
 
     func testNextFreeIgnoresResetsFromStaleWindows() {
@@ -117,8 +140,10 @@ final class QuotaIndicatorTests: XCTestCase {
                 window(kind: .weekly, used: 1.0, observedMinutesAgo: 1_440, resetMinutesFromNow: 30),
             ]),
         ]
-        let expected = "Max #1 at \(shortTime(now.addingTimeInterval(120 * 60)))"
-        XCTAssertEqual(QuotaIndicator.nextFree(for: states, now: now, freshness: freshness), expected)
+        XCTAssertEqual(
+            visible(QuotaIndicator.nextFree(for: states, now: now, freshness: freshness, formatting: formatting)),
+            "Max #1 — 11:00 AM"
+        )
     }
 
     func testNextFreeIgnoresResetsThatHaveAlreadyElapsed() {
@@ -129,8 +154,24 @@ final class QuotaIndicatorTests: XCTestCase {
                 window(kind: .weekly, used: 1.0, resetMinutesFromNow: -15),
             ]),
         ]
-        let expected = "Max #1 at \(shortTime(now.addingTimeInterval(120 * 60)))"
-        XCTAssertEqual(QuotaIndicator.nextFree(for: states, now: now, freshness: freshness), expected)
+        XCTAssertEqual(
+            visible(QuotaIndicator.nextFree(for: states, now: now, freshness: freshness, formatting: formatting)),
+            "Max #1 — 11:00 AM"
+        )
+    }
+
+    /// The reset the header names can be days out — a weekly window resets days
+    /// out by definition. "Max #1 — 2:00 PM" for a Friday reset read as today.
+    func testNextFreeCarriesTheDateWhenTheResetIsNotToday() {
+        let states = [
+            accountWith("Max #1", windows: [
+                window(kind: .weekly, used: 1.0, resetMinutesFromNow: 3 * 24 * 60 + 5 * 60),
+            ]),
+        ]
+        XCTAssertEqual(
+            visible(QuotaIndicator.nextFree(for: states, now: now, freshness: freshness, formatting: formatting)),
+            "Max #1 — Jul 31, 2026 at 2:00 PM"
+        )
     }
 
     func testNoAccountsIsGreyNotRed() {
@@ -191,10 +232,9 @@ final class QuotaIndicatorTests: XCTestCase {
             resetAt: now.addingTimeInterval(3_600),
             observedAt: now
         )
-        let reset = shortTime(now.addingTimeInterval(3_600))
         XCTAssertEqual(
-            QuotaIndicator.rowText(for: window, now: now),
-            "5h 62% — resets \(reset)",
+            visible(QuotaIndicator.rowText(for: window, now: now, formatting: formatting)),
+            "5h 62% — resets 10:00 AM",
             "the row must carry both the percentage and the reset instant its name promises"
         )
     }
@@ -206,13 +246,60 @@ final class QuotaIndicatorTests: XCTestCase {
             resetAt: now.addingTimeInterval(3_600),
             observedAt: now
         )
-        let text = QuotaIndicator.rowText(for: window, now: now)
+        let text = visible(QuotaIndicator.rowText(for: window, now: now, formatting: formatting)) ?? ""
         XCTAssertFalse(text.contains("0%"), "a missing fraction must not render as zero")
         // The negative alone would pass for an empty string. Pin what the branch
         // actually says, so the row stays useful rather than merely not wrong.
+        XCTAssertEqual(text, "Week — usage unknown, resets 10:00 AM")
+    }
+
+    /// A weekly window resets days out. Rendered as a bare clock time it reads as
+    /// today, which is a different claim than the one the app holds.
+    func testAResetSeveralDaysOutCarriesItsDateAndNotJustAClockTime() {
+        let window = RateWindow(
+            kind: .weekly,
+            usedFraction: 0.4,
+            // 09:00 on the 28th plus three days and five hours: 14:00 on the 31st.
+            resetAt: Self.utc(2026, 7, 31, 14, 0),
+            observedAt: now
+        )
         XCTAssertEqual(
-            text,
-            "Week — usage unknown, resets \(shortTime(now.addingTimeInterval(3_600)))"
+            visible(QuotaIndicator.rowText(for: window, now: now, formatting: formatting)),
+            "Week 40% — resets Jul 31, 2026 at 2:00 PM"
+        )
+    }
+
+    /// The spike found a Codex subscription term ending in 2027. As a bare clock
+    /// time that rendered "resets 09:00" — this morning, and a refill that never
+    /// happens. A term end is neither today nor a reset.
+    func testABillingCycleEndCarriesItsYearAndIsNotCalledAReset() {
+        let window = RateWindow(
+            kind: .billingCycle,
+            usedFraction: nil,
+            resetAt: Self.utc(2027, 3, 9, 9, 0),
+            observedAt: now
+        )
+        let text = visible(QuotaIndicator.rowText(for: window, now: now, formatting: formatting)) ?? ""
+
+        XCTAssertEqual(text, "Cycle — usage unknown, ends Mar 9, 2027 at 9:00 AM")
+        XCTAssertFalse(
+            text.contains("resets"),
+            "a subscription term end returns no capacity, so it must not be called a reset"
+        )
+    }
+
+    /// The counterpart to the two above: a five-hour window resetting today must
+    /// *not* acquire a date, or every row grows a redundant "Jul 28, 2026".
+    func testAResetLaterTodayStaysAPlainClockTime() {
+        let window = RateWindow(
+            kind: .rollingFiveHours,
+            usedFraction: 0.5,
+            resetAt: Self.utc(2026, 7, 28, 23, 30),
+            observedAt: now
+        )
+        XCTAssertEqual(
+            visible(QuotaIndicator.rowText(for: window, now: now, formatting: formatting)),
+            "5h 50% — resets 11:30 PM"
         )
     }
 }
