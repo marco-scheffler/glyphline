@@ -44,7 +44,7 @@ struct ProviderAdapterRegistry {
             }
             return ClaudeUsageAdapter(mode: .localLogs, session: session, logReader: reader)
         case .cursor:
-            return CursorUsageAdapter(mode: isLocal ? .localStatusOnly : .teamAPI)
+            return CursorUsageAdapter(mode: isLocal ? .localStatusOnly : .teamAPI, session: session)
         }
     }
 }

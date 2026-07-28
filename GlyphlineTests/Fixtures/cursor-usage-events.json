@@ -1,0 +1,38 @@
+{
+  "totalUsageEventsCount": 3,
+  "pagination": {
+    "numPages": 2,
+    "currentPage": 1,
+    "pageSize": 2,
+    "hasNextPage": true,
+    "hasPreviousPage": false
+  },
+  "usageEvents": [
+    {
+      "timestamp": "1783036800000",
+      "model": "claude-opus-4-8",
+      "isTokenBasedCall": true,
+      "chargedCents": 12.5,
+      "tokenUsage": {
+        "inputTokens": 100,
+        "outputTokens": 200,
+        "cacheWriteTokens": 300,
+        "cacheReadTokens": 400,
+        "totalCents": 12.5
+      }
+    },
+    {
+      "timestamp": "1783040400000",
+      "model": "claude-opus-4-8",
+      "isTokenBasedCall": true,
+      "chargedCents": 7.5,
+      "tokenUsage": {
+        "inputTokens": 10,
+        "outputTokens": 20,
+        "cacheWriteTokens": 30,
+        "cacheReadTokens": 40,
+        "totalCents": 7.5
+      }
+    }
+  ]
+}
