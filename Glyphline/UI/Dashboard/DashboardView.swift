@@ -54,7 +54,12 @@ struct DashboardView: View {
                 syncFailureMessage: coordinator.syncFailureMessage
             )
         case .accounts:
-            AccountsView(accounts: accountSummaries, onSyncFinished: loadDashboard)
+            AccountsView(
+                accounts: accountSummaries,
+                ledgerStore: ledgerStore,
+                onSyncFinished: loadDashboard,
+                onDeleted: loadDashboard
+            )
         case .addAccount:
             AddAccountView(ledgerStore: ledgerStore, onSave: loadDashboard)
         case .history:
