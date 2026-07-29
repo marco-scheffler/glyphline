@@ -848,7 +848,6 @@ final class SyncCoordinatorTests: XCTestCase {
 
     // MARK: - Forgetting a deleted account
 
-    @MainActor
     func testForgettingAnAccountClearsItsStateAndLeavesOthersAlone() async throws {
         let now = Date(timeIntervalSince1970: 1_800_000_000)
         let dbQueue = try DatabaseQueueFactory.makeInMemory()
@@ -891,6 +890,7 @@ final class SyncCoordinatorTests: XCTestCase {
         XCTAssertFalse(coordinator.quotaStates.contains { $0.accountID == doomed.id })
 
         XCTAssertNotNil(coordinator.activities[survivor.id])
+        XCTAssertNotNil(coordinator.rateWindowMessages[survivor.id])
         XCTAssertTrue(coordinator.quotaStates.contains { $0.accountID == survivor.id })
     }
 
@@ -919,6 +919,42 @@ final class SyncCoordinatorTests: XCTestCase {
             notifier.sentCount, 2,
             "forgetting the account must clear the notify-once flag"
         )
+    }
+
+    /// `rateWindowConfirmations` is private, but its value surfaces on the
+    /// published `quotaStates` as `QuotaWindowState.confirmedAt`, so the clearing
+    /// can be pinned through public API without widening any access level.
+    ///
+    /// The second tick fails deliberately. The ledger still holds the window from
+    /// the healthy tick, so the account keeps its row and its window — only the
+    /// confirmation is gone. A `forgetAccount` that left the stale confirmation
+    /// behind would still vouch for it, making an old reading look freshly checked.
+    func testForgettingAnAccountDropsItsConfirmationDates() async throws {
+        let source = SwitchableQuotaSource(behaviour: .healthy)
+        let coordinator = try makeExpiringCoordinator(
+            source: source,
+            notifier: RecordingQuotaNotifier()
+        )
+
+        await coordinator.collectRateWindows()
+
+        let confirmed = try XCTUnwrap(coordinator.quotaStates.first)
+        XCTAssertNotNil(
+            confirmed.windows.first?.confirmedAt,
+            "precondition: the healthy tick must have recorded a confirmation"
+        )
+
+        coordinator.forgetAccount(id: confirmed.accountID)
+
+        source.behaviour = .transportFailure
+        await coordinator.collectRateWindows()
+
+        let afterwards = try XCTUnwrap(coordinator.quotaStates.first)
+        XCTAssertEqual(
+            afterwards.windows.count, confirmed.windows.count,
+            "precondition: the stored window survives, so confirmedAt is the only difference"
+        )
+        XCTAssertNil(afterwards.windows.first?.confirmedAt)
     }
 }
 

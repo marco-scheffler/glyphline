@@ -447,6 +447,11 @@ final class SyncCoordinator: ObservableObject {
         activities[accountID] = nil
         rateWindowMessages[accountID] = nil
         rateWindowConfirmations[accountID] = nil
+        // Defence in depth, and provably a no-op today: the in-flight marker is
+        // inserted and removed within one iteration of `collectRateWindows` via
+        // `defer`, so it is always empty between ticks and no test can observe
+        // this line. It stays so that a future fetch which outlives its tick
+        // cannot leave a deleted account permanently marked as busy.
         rateWindowFetchesInFlight.remove(accountID)
         sessionExpiryNotified.remove(accountID)
         quotaStates.removeAll { $0.accountID == accountID }
