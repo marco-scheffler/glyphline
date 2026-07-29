@@ -1024,6 +1024,71 @@ final class SyncCoordinatorTests: XCTestCase {
         XCTAssertEqual(outcome, .deleted)
         XCTAssertEqual(log.events, [.backfillCancelled, .sessionRemoved])
     }
+
+    /// The other half of the guard in `deleteAccount`: `forgetAccount` runs only
+    /// when the flow reports `.deleted`.
+    ///
+    /// A failed delete leaves the account in the ledger and on screen. Forgetting
+    /// it anyway would blank the in-memory state of a row that is still there, so
+    /// the surviving account would show no activity at all.
+    func testAFailedDeletionKeepsTheAccountsState() async throws {
+        let dbQueue = try DatabaseQueueFactory.makeInMemory()
+        try Migrations.migrate(dbQueue)
+        let ledger = LedgerStore(dbQueue: dbQueue)
+        let credentials = InMemoryCredentialStore()
+
+        let accountID = UUID()
+        let account = Account(
+            id: accountID,
+            providerID: .claude,
+            displayName: "Max #1",
+            credentialReference: AccountCredentialReference.make(
+                accountID: accountID,
+                source: .claudeWebSession
+            ),
+            createdAt: Date(timeIntervalSince1970: 1_800_000_000),
+            isEnabled: true
+        )
+        try ledger.saveAccount(account)
+        try credentials.save(secret: "secret", for: account.credentialReference)
+
+        let coordinator = try makeCoordinator(ledger: ledger, credentials: credentials)
+        await coordinator.syncNow(account: account)
+
+        // Guards the assertion below. Without state to lose, a coordinator that
+        // forgot the account unconditionally would still pass.
+        XCTAssertNotNil(
+            coordinator.activities[accountID],
+            "precondition: the tick must have recorded an activity"
+        )
+
+        let flow = DeleteAccountFlow(
+            ledgerStore: ledger,
+            credentialStore: credentials,
+            webSessions: FailingRemover()
+        )
+        let outcome = await coordinator.deleteAccount(account, using: flow)
+
+        XCTAssertEqual(outcome, .failed(DeleteAccountFlow.webSessionCleanupFailedMessage))
+        XCTAssertEqual(
+            try ledger.fetchAccounts().map(\.id), [accountID],
+            "precondition: the failed delete must leave the ledger row in place"
+        )
+        XCTAssertNotNil(
+            coordinator.activities[accountID],
+            "a failed delete must not forget the account"
+        )
+    }
+}
+
+/// A session remover that always fails, so `DeleteAccountFlow` returns `.failed`.
+/// Nothing here may touch a real `WKWebsiteDataStore`.
+private final class FailingRemover: WebSessionRemoving {
+    struct Failure: Error {}
+
+    func removeSession(for accountID: UUID) async throws {
+        throw Failure()
+    }
 }
 
 /// The two events whose order is the whole point of `deleteAccount`.

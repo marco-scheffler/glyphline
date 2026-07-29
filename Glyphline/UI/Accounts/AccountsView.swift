@@ -67,7 +67,7 @@ struct AccountsView: View {
 
                                     // Disabled while a sync or backfill is running:
                                     // deleting mid-run races the very task
-                                    // `forgetAccount` cancels.
+                                    // `deleteAccount` cancels.
                                     Button {
                                         guard let ledgerStore else { return }
                                         let counts = (try? ledgerStore.deletionSummary(
