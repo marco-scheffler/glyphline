@@ -91,6 +91,83 @@ makes this safe, but `LedgerStore`'s `@unchecked Sendable` justification is only
 true per connection. Consolidating to a single injected store would make the
 assertion true again and remove the four `makeDefault()` calls.
 
+`AccountsView` now carries a fifth `makeDefault()` as a property default, but
+`DashboardView` passes its own store, so the default is never evaluated in the
+running app. It is a latent fifth connection, not an actual one — which is
+exactly how the other four started.
+
+### Web session stores orphaned before this branch
+
+Both routes that created orphans are now closed. Deleting an account removes its
+`WKWebsiteDataStore` *before* the ledger rows, so a failure can never strand a
+session with no account naming it; and `AddAccountFlow` removes the store on
+every exit that saves nothing — a cancelled sign-in, a failed verification, a
+sign-in with no Max subscription, and a failing `saveAccount`.
+
+That last one was found only by the whole-branch review, and it was the common
+case: closing the sign-in window left a store on disk forever, because its
+identifier derives from an account id that was never written. A per-task review
+could not see it — the add path and the delete path are each correct alone.
+
+Two things this does not cover:
+
+**Cleanup is best-effort.** All four add-path exits use `try?`, because a cleanup
+failure must not mask the outcome the user is already being told about. A WebKit
+removal that fails there still strands a store. Worth watching specifically: the
+cleanup fires immediately after the sign-in window tears its web view down, and
+if WebKit still considers the store live at that instant, `remove(forIdentifier:)`
+can fail silently.
+
+**Stores orphaned before this branch are unreachable.** Nothing in the ledger can
+name them. Only a sweep of `~/Library/WebKit/<bundle-id>/WebsiteDataStore/`
+against the set of live account ids could find them, and that sweep is its own
+task — it must not delete a store belonging to an account that merely failed to
+load.
+
+### Backfill cancellation is cooperative
+
+`SyncCoordinator.deleteAccount` cancels the backfill *before* the durable delete,
+which closes the window for a new slice. It cannot stop a slice already suspended
+inside `scheduler.sync(...)` — that one completes and writes its snapshots under
+an account id the ledger is about to forget. With no foreign keys those rows
+survive invisibly, unreachable by every query that starts from an account.
+
+Bounded and rare: it needs a delete issued during the seconds a slice is in
+flight. Checking the account still exists before each snapshot write would close
+it properly.
+
+### Quota reporting is Max-only, by choice
+
+`ClaudeOrganizationsDTOs` selects the organisation whose capabilities contain
+`claude_max`. A Claude **Pro** subscriber signs in successfully and is then told
+quota reporting is not available. That is honest and never reports a wrong
+number, which is the property that matters — but it will read as a bug to a Pro
+subscriber, so it belongs here rather than in a bug report.
+
+### The WebKit layer has no automated coverage, by construction
+
+`ClaudeWebPageLoader`, `ClaudeSignInWindow` and `ClaudeWebSessionStore.removeSession`
+are verified only by the compiler and by using the app: every test drives a fake,
+because a test that drove the real thing would open a browser window on the
+developer's screen and reach claude.ai. One manual pass — add, sign in, let a tick
+run, delete, confirm the store directory is gone — is the only thing that
+exercises the branch's central mechanism end to end.
+
+Three smaller items in the same layer, all noticed by review rather than by a
+failure:
+
+- `decidePolicyFor navigationResponse` does not check `isForMainFrame`, so
+  `statusCode` is whatever the last response was, including a subframe's. Harmless
+  on today's JSON endpoints, but that field decides `sessionExpired` versus
+  `transportFailure`.
+- `noteQuotaFailure` decides whether to notify by comparing a *rendered sentence*
+  against `RateWindowSourceError.sessionExpired.message`. Reword two errors to the
+  same sentence and the notification misfires. Threading the error case through
+  instead of its message would make it structural.
+- `ClaudeSignInWindow` sets no `WKUIDelegate`, so `window.open` returns nil. If
+  claude.ai ever routes an identity provider through a popup, it would do nothing
+  with no visible reason.
+
 ## Cosmetic
 
 - `Glyphline/UI/AccountSummaryFormatting.swift` — the `endsAt` and `startsAt`
@@ -153,13 +230,14 @@ not confirm. `isPlausible` cannot catch this: it evaluates `resetAt > now` with
 `now == window.observedAt`, so it is blind to `observedAt` itself. Unreachable
 while no real source exists; it belongs in the first adapter's brief.
 
-**The `resetAt` millisecond coupling.** GRDB truncates `Date` to milliseconds,
-so a sub-millisecond `resetAt` — which a real parser produces and the
-second-granularity fixtures do not — compares unequal to its stored form and
-appends a spurious "change" row. Bounded: extra rows, never a lost or replaced
-observation, and retention reclaims them. Comparing with a ~0.001 tolerance is
-the fix. It is safe to do now that freshness no longer rides on `observedAt`;
-before that change it would have made staleness strictly worse.
+**The `resetAt` millisecond coupling — fixed, kept here as a warning.** GRDB
+truncates `Date` to milliseconds, so a sub-millisecond `resetAt` — which the
+real claude.ai parser produces and the second-granularity fixtures did not —
+compared unequal to its own stored form and appended a spurious "change" row on
+every poll. `LedgerStore.resetAtStorageTolerance` (0.002s) now absorbs it. The
+lesson generalises to any future column: a fixture whose precision is coarser
+than production's cannot detect a storage-precision mismatch, so the bug was
+invisible to the whole suite until a live response hit it.
 
 **Codex has a free billing-cycle source.** `~/.codex/auth.json`'s `id_token`
 carries `chatgpt_subscription_active_until` in its `https://api.openai.com/auth`

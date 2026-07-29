@@ -17,6 +17,9 @@ struct ClaudeUsageAdapter: ProviderAdapter {
         case requiresAdminKey
         case adminAPI
         case localLogs
+        /// A subscription read through the user's own claude.ai session. It has a
+        /// quota source and no cost source at all — see `sync`.
+        case webSessionQuotaOnly
     }
 
     let providerID: ProviderID = .claude
@@ -63,7 +66,16 @@ struct ClaudeUsageAdapter: ProviderAdapter {
         self.logReader = logReader
     }
 
-    var requiresSecret: Bool { mode != .localLogs }
+    /// Written as an exhaustive switch rather than an inequality so a mode added
+    /// later has to state whether it needs a secret instead of inheriting an answer.
+    var requiresSecret: Bool {
+        switch mode {
+        case .adminAPI, .requiresAdminKey:
+            true
+        case .localLogs, .webSessionQuotaOnly:
+            false
+        }
+    }
 
     func sync(account: Account, secret: String) async throws -> ProviderSyncResult {
         switch mode {
@@ -95,6 +107,18 @@ struct ClaudeUsageAdapter: ProviderAdapter {
                 costSnapshots: [],
                 estimateSnapshots: [],
                 syncedAt: now()
+            )
+        case .webSessionQuotaOnly:
+            // Says "no cost here" rather than guessing at one. The two guesses
+            // available were both wrong in a way the user could not see: reading
+            // the local Claude Code logs would make every web-session subscription
+            // report the same logs as its own, multiplying one Mac's costs by the
+            // number of subscriptions; calling the Admin API would fail with a key
+            // that does not exist. Quota for these accounts comes from
+            // `ClaudeWebQuotaSource`, which is a separate scope by design.
+            return unavailableResult(
+                for: account,
+                message: "This subscription tracks quota only; cost comes from your local Claude Code logs account."
             )
         case .requiresAdminKey:
             return unavailableResult(

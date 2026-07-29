@@ -755,6 +755,506 @@ final class SyncCoordinatorTests: XCTestCase {
             "the next-free string must not believe an observation the light has discarded"
         )
     }
+
+    // MARK: - Notify once, on the transition
+
+    private func makeExpiringCoordinator(
+        source: any RateWindowSource,
+        notifier: RecordingQuotaNotifier
+    ) throws -> SyncCoordinator {
+        let dbQueue = try DatabaseQueueFactory.makeInMemory()
+        try Migrations.makeMigrator().migrate(dbQueue)
+        let ledger = LedgerStore(dbQueue: dbQueue)
+
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let account = Account(
+            id: UUID(), providerID: .claude, displayName: "Max #1",
+            credentialReference: "local-source://x", createdAt: now, isEnabled: true,
+            claudeOrganizationID: "org-1"
+        )
+        try ledger.saveAccount(account)
+
+        return SyncCoordinator(
+            ledger: ledger,
+            credentials: InMemoryCredentialStore(),
+            registry: ProviderAdapterRegistry(watermarkStore: ledger),
+            estimator: CostEstimator(catalog: PricingCatalog(entries: [])),
+            now: { now },
+            rateWindowSourceProvider: { _ in source },
+            quotaNotifier: notifier
+        )
+    }
+
+    func testTheFirstFailureNotifiesAndTheNextOnesDoNot() async throws {
+        let notifier = RecordingQuotaNotifier()
+        let coordinator = try makeExpiringCoordinator(
+            source: SwitchableQuotaSource(behaviour: .expired),
+            notifier: notifier
+        )
+
+        await coordinator.collectRateWindows()
+        await coordinator.collectRateWindows()
+        await coordinator.collectRateWindows()
+
+        // Three subscriptions on a half-hourly schedule would otherwise produce
+        // 144 notifications a day.
+        XCTAssertEqual(notifier.sentCount, 1)
+        XCTAssertEqual(notifier.sentNames, ["Max #1"])
+    }
+
+    func testASuccessfulFetchRearmsTheNotification() async throws {
+        let notifier = RecordingQuotaNotifier()
+        let source = SwitchableQuotaSource(behaviour: .expired)
+        let coordinator = try makeExpiringCoordinator(source: source, notifier: notifier)
+
+        await coordinator.collectRateWindows()
+        XCTAssertEqual(notifier.sentCount, 1)
+
+        source.behaviour = .healthy
+        await coordinator.collectRateWindows()
+        XCTAssertEqual(notifier.sentCount, 1, "recovery does not notify")
+
+        source.behaviour = .expired
+        await coordinator.collectRateWindows()
+        XCTAssertEqual(notifier.sentCount, 2, "a fresh failure after a recovery is news again")
+    }
+
+    /// A transport blip is not an expired session. Notifying on it would train the
+    /// user to ignore the one notification that asks them to do something.
+    func testAnOrdinaryFetchFailureDoesNotNotify() async throws {
+        let notifier = RecordingQuotaNotifier()
+        let coordinator = try makeExpiringCoordinator(
+            source: SwitchableQuotaSource(behaviour: .transportFailure),
+            notifier: notifier
+        )
+
+        await coordinator.collectRateWindows()
+
+        XCTAssertEqual(notifier.sentCount, 0)
+    }
+
+    /// Nothing from a session, a cookie or a URL may reach a notification.
+    func testTheNotificationCarriesOnlyTheAccountNameAndTheAppsOwnMessage() async throws {
+        let notifier = RecordingQuotaNotifier()
+        let coordinator = try makeExpiringCoordinator(
+            source: SwitchableQuotaSource(behaviour: .expired),
+            notifier: notifier
+        )
+
+        await coordinator.collectRateWindows()
+
+        XCTAssertEqual(notifier.sentNames, ["Max #1"])
+    }
+
+    // MARK: - Forgetting a deleted account
+
+    func testForgettingAnAccountClearsItsStateAndLeavesOthersAlone() async throws {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let dbQueue = try DatabaseQueueFactory.makeInMemory()
+        try Migrations.makeMigrator().migrate(dbQueue)
+        let ledger = LedgerStore(dbQueue: dbQueue)
+        let credentials = InMemoryCredentialStore()
+
+        func makeAccount(_ name: String) throws -> Account {
+            let account = Account(
+                id: UUID(),
+                providerID: .openAI,
+                displayName: name,
+                credentialReference: "keychain://glyphline/\(name)",
+                createdAt: now,
+                isEnabled: true
+            )
+            try ledger.saveAccount(account)
+            try credentials.save(secret: "secret", for: account.credentialReference)
+            return account
+        }
+
+        let doomed = try makeAccount("Doomed")
+        let survivor = try makeAccount("Survivor")
+
+        let coordinator = try makeCoordinator(ledger: ledger, credentials: credentials)
+        await coordinator.syncAll()
+        await coordinator.collectRateWindows()
+
+        // Guards the assertions below. Without these, a coordinator that never
+        // recorded any state would pass the whole test vacuously.
+        XCTAssertNotNil(coordinator.activities[doomed.id])
+        XCTAssertNotNil(coordinator.rateWindowMessages[doomed.id])
+        XCTAssertTrue(coordinator.quotaStates.contains { $0.accountID == doomed.id })
+        XCTAssertNotNil(coordinator.activities[survivor.id])
+
+        coordinator.forgetAccount(id: doomed.id)
+
+        XCTAssertNil(coordinator.activities[doomed.id])
+        XCTAssertNil(coordinator.rateWindowMessages[doomed.id])
+        XCTAssertFalse(coordinator.quotaStates.contains { $0.accountID == doomed.id })
+
+        XCTAssertNotNil(coordinator.activities[survivor.id])
+        XCTAssertNotNil(coordinator.rateWindowMessages[survivor.id])
+        XCTAssertTrue(coordinator.quotaStates.contains { $0.accountID == survivor.id })
+    }
+
+    /// The notify-once flag is private, so it is covered through behaviour: an
+    /// account whose expiry has already been announced is forgotten, and the
+    /// very next expired tick must announce again. If `forgetAccount` failed to
+    /// clear the flag, the second announcement would never arrive.
+    func testForgettingAnAccountRearmsItsExpiryNotification() async throws {
+        let notifier = RecordingQuotaNotifier()
+        let coordinator = try makeExpiringCoordinator(
+            source: SwitchableQuotaSource(behaviour: .expired),
+            notifier: notifier
+        )
+
+        await coordinator.collectRateWindows()
+        XCTAssertEqual(notifier.sentCount, 1)
+
+        await coordinator.collectRateWindows()
+        XCTAssertEqual(notifier.sentCount, 1, "precondition: the flag suppresses the repeat")
+
+        let accountID = try XCTUnwrap(coordinator.quotaStates.first?.accountID)
+        coordinator.forgetAccount(id: accountID)
+
+        await coordinator.collectRateWindows()
+        XCTAssertEqual(
+            notifier.sentCount, 2,
+            "forgetting the account must clear the notify-once flag"
+        )
+    }
+
+    /// `rateWindowConfirmations` is private, but its value surfaces on the
+    /// published `quotaStates` as `QuotaWindowState.confirmedAt`, so the clearing
+    /// can be pinned through public API without widening any access level.
+    ///
+    /// The second tick fails deliberately. The ledger still holds the window from
+    /// the healthy tick, so the account keeps its row and its window — only the
+    /// confirmation is gone. A `forgetAccount` that left the stale confirmation
+    /// behind would still vouch for it, making an old reading look freshly checked.
+    func testForgettingAnAccountDropsItsConfirmationDates() async throws {
+        let source = SwitchableQuotaSource(behaviour: .healthy)
+        let coordinator = try makeExpiringCoordinator(
+            source: source,
+            notifier: RecordingQuotaNotifier()
+        )
+
+        await coordinator.collectRateWindows()
+
+        let confirmed = try XCTUnwrap(coordinator.quotaStates.first)
+        XCTAssertNotNil(
+            confirmed.windows.first?.confirmedAt,
+            "precondition: the healthy tick must have recorded a confirmation"
+        )
+
+        coordinator.forgetAccount(id: confirmed.accountID)
+
+        source.behaviour = .transportFailure
+        await coordinator.collectRateWindows()
+
+        let afterwards = try XCTUnwrap(coordinator.quotaStates.first)
+        XCTAssertEqual(
+            afterwards.windows.count, confirmed.windows.count,
+            "precondition: the stored window survives, so confirmedAt is the only difference"
+        )
+        XCTAssertNil(afterwards.windows.first?.confirmedAt)
+    }
+
+    // MARK: - Deletion ordering
+
+    /// The ordering the deletion depends on: the backfill is cancelled BEFORE the
+    /// durable delete, never after.
+    ///
+    /// A slice that starts while the delete is in flight writes snapshots under an
+    /// id the ledger is about to forget, and the schema has no foreign keys, so
+    /// those rows survive invisibly. This lived in `AccountsView` and was the wrong
+    /// way round there — delete first, cancel second — where no test could see it.
+    ///
+    /// Both events are recorded at the instant they happen: a cancellation handler
+    /// runs synchronously inside `Task.cancel()`, and `removeSession` is the first
+    /// thing `DeleteAccountFlow` does, ahead of every durable step.
+    func testDeletingAnAccountCancelsItsBackfillBeforeTheDurableDelete() async throws {
+        let dbQueue = try DatabaseQueueFactory.makeInMemory()
+        try Migrations.migrate(dbQueue)
+        let ledger = LedgerStore(dbQueue: dbQueue)
+
+        let accountID = UUID()
+        let account = Account(
+            id: accountID,
+            providerID: .claude,
+            displayName: "Max #1",
+            credentialReference: AccountCredentialReference.make(
+                accountID: accountID,
+                source: .claudeWebSession
+            ),
+            createdAt: Date(timeIntervalSince1970: 1_800_000_000),
+            isEnabled: true
+        )
+        try ledger.saveAccount(account)
+
+        let log = DeletionOrderLog()
+        let gate = ParkingAdapter.Gate()
+        let coordinator = try makeCoordinator(
+            ledger: ledger,
+            credentials: InMemoryCredentialStore(),
+            adapter: ParkingAdapter(gate: gate, log: log)
+        )
+
+        let running = Task { await coordinator.backfill(account: account) }
+
+        // A slice has to be in flight before the delete starts. Cancelling a task
+        // that has not begun would prove nothing about the order of the two steps.
+        var spins = 0
+        while !gate.isParked, spins < 10_000 {
+            spins += 1
+            await Task.yield()
+        }
+        guard gate.isParked else {
+            running.cancel()
+            gate.release()
+            _ = await running.value
+            return XCTFail("precondition: a backfill slice must be in flight")
+        }
+
+        let flow = DeleteAccountFlow(
+            ledgerStore: ledger,
+            credentialStore: InMemoryCredentialStore(),
+            webSessions: OrderRecordingRemover(log: log)
+        )
+        let outcome = await coordinator.deleteAccount(account, using: flow)
+        _ = await running.value
+
+        XCTAssertEqual(outcome, .deleted)
+        XCTAssertEqual(log.events, [.backfillCancelled, .sessionRemoved])
+    }
+
+    /// The other half of the guard in `deleteAccount`: `forgetAccount` runs only
+    /// when the flow reports `.deleted`.
+    ///
+    /// A failed delete leaves the account in the ledger and on screen. Forgetting
+    /// it anyway would blank the in-memory state of a row that is still there, so
+    /// the surviving account would show no activity at all.
+    func testAFailedDeletionKeepsTheAccountsState() async throws {
+        let dbQueue = try DatabaseQueueFactory.makeInMemory()
+        try Migrations.migrate(dbQueue)
+        let ledger = LedgerStore(dbQueue: dbQueue)
+        let credentials = InMemoryCredentialStore()
+
+        let accountID = UUID()
+        let account = Account(
+            id: accountID,
+            providerID: .claude,
+            displayName: "Max #1",
+            credentialReference: AccountCredentialReference.make(
+                accountID: accountID,
+                source: .claudeWebSession
+            ),
+            createdAt: Date(timeIntervalSince1970: 1_800_000_000),
+            isEnabled: true
+        )
+        try ledger.saveAccount(account)
+        try credentials.save(secret: "secret", for: account.credentialReference)
+
+        let coordinator = try makeCoordinator(ledger: ledger, credentials: credentials)
+        await coordinator.syncNow(account: account)
+
+        // Guards the assertion below. Without state to lose, a coordinator that
+        // forgot the account unconditionally would still pass.
+        XCTAssertNotNil(
+            coordinator.activities[accountID],
+            "precondition: the tick must have recorded an activity"
+        )
+
+        let flow = DeleteAccountFlow(
+            ledgerStore: ledger,
+            credentialStore: credentials,
+            webSessions: FailingRemover()
+        )
+        let outcome = await coordinator.deleteAccount(account, using: flow)
+
+        XCTAssertEqual(outcome, .failed(DeleteAccountFlow.webSessionCleanupFailedMessage))
+        XCTAssertEqual(
+            try ledger.fetchAccounts().map(\.id), [accountID],
+            "precondition: the failed delete must leave the ledger row in place"
+        )
+        XCTAssertNotNil(
+            coordinator.activities[accountID],
+            "a failed delete must not forget the account"
+        )
+    }
+}
+
+/// A session remover that always fails, so `DeleteAccountFlow` returns `.failed`.
+/// Nothing here may touch a real `WKWebsiteDataStore`.
+private final class FailingRemover: WebSessionRemoving {
+    struct Failure: Error {}
+
+    func removeSession(for accountID: UUID) async throws {
+        throw Failure()
+    }
+}
+
+/// The two events whose order is the whole point of `deleteAccount`.
+private final class DeletionOrderLog: @unchecked Sendable {
+    enum Event {
+        case backfillCancelled
+        case sessionRemoved
+    }
+
+    private let lock = NSLock()
+    private var storage: [Event] = []
+
+    func record(_ event: Event) {
+        lock.lock()
+        defer { lock.unlock() }
+        storage.append(event)
+    }
+
+    var events: [Event] {
+        lock.lock()
+        defer { lock.unlock() }
+        return storage
+    }
+}
+
+extension DeletionOrderLog.Event: Equatable {}
+
+/// A stand-in for WebKit, recording the first step of the delete. Nothing here
+/// may touch a real `WKWebsiteDataStore`.
+@MainActor
+private final class OrderRecordingRemover: WebSessionRemoving {
+    private let log: DeletionOrderLog
+
+    init(log: DeletionOrderLog) {
+        self.log = log
+    }
+
+    func removeSession(for accountID: UUID) async throws {
+        log.record(.sessionRemoved)
+    }
+}
+
+/// A backfill slice that parks until the run is cancelled, and records the
+/// cancellation the moment it is delivered.
+///
+/// `withTaskCancellationHandler` runs its handler synchronously inside
+/// `Task.cancel()`, so the recorded moment is the moment the coordinator
+/// cancelled — not whenever the parked slice next got scheduled, which would make
+/// the recorded order a race rather than an observation.
+private struct ParkingAdapter: ProviderAdapter {
+    final class Gate: @unchecked Sendable {
+        private let lock = NSLock()
+        private var continuation: CheckedContinuation<Void, Never>?
+        private var isReleased = false
+        private var isParkedStorage = false
+
+        var isParked: Bool {
+            lock.lock()
+            defer { lock.unlock() }
+            return isParkedStorage
+        }
+
+        func park() async {
+            await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+                lock.lock()
+                isParkedStorage = true
+                if isReleased {
+                    lock.unlock()
+                    continuation.resume()
+                } else {
+                    self.continuation = continuation
+                    lock.unlock()
+                }
+            }
+        }
+
+        func release() {
+            lock.lock()
+            let waiting = continuation
+            continuation = nil
+            isReleased = true
+            lock.unlock()
+            waiting?.resume()
+        }
+    }
+
+    let providerID: ProviderID = .claude
+    let gate: Gate
+    let log: DeletionOrderLog
+
+    var requiresSecret: Bool { false }
+    var scopedIsNoOp: Bool { false }
+
+    func scoped(to interval: DateInterval) -> any ProviderAdapter { self }
+
+    func sync(account: Account, secret: String) async throws -> ProviderSyncResult {
+        await withTaskCancellationHandler {
+            await gate.park()
+        } onCancel: {
+            log.record(.backfillCancelled)
+            gate.release()
+        }
+
+        // A slice cancelled mid-flight produces nothing. Returning a result here
+        // would have the test writing snapshots for an account being deleted —
+        // the very thing the cancel exists to prevent.
+        throw CancellationError()
+    }
+}
+
+/// Records what was sent, not merely how often, so a test can prove *which*
+/// account was named as well as the transition rule.
+@MainActor
+final class RecordingQuotaNotifier: QuotaNotifier {
+    private(set) var sentNames: [String] = []
+
+    var sentCount: Int { sentNames.count }
+
+    nonisolated func notifySessionExpired(accountDisplayName: String) async {
+        await MainActor.run { sentNames.append(accountDisplayName) }
+    }
+}
+
+/// A source whose behaviour a test can flip between ticks, so recovery and a
+/// fresh failure can be exercised without any wall-clock time or real web view.
+@MainActor
+final class SwitchableQuotaSource: RateWindowSource {
+    enum Behaviour {
+        case expired
+        case transportFailure
+        case healthy
+    }
+
+    var behaviour: Behaviour
+
+    init(behaviour: Behaviour) {
+        self.behaviour = behaviour
+    }
+
+    nonisolated func fetchWindows(account: Account, secret: String?) async throws -> RateWindowResult {
+        await MainActor.run {
+            switch behaviour {
+            case .expired:
+                return RateWindowResult(
+                    windows: [], dataQuality: .unavailable,
+                    message: RateWindowSourceError.sessionExpired.message
+                )
+            case .transportFailure:
+                return RateWindowResult(
+                    windows: [], dataQuality: .unavailable,
+                    message: RateWindowSourceError.transportFailure.message
+                )
+            case .healthy:
+                return RateWindowResult(
+                    windows: [
+                        RateWindow(
+                            kind: .rollingFiveHours, usedFraction: 0.4,
+                            resetAt: Date(timeIntervalSince1970: 1_800_003_600),
+                            observedAt: Date(timeIntervalSince1970: 1_800_000_000)
+                        ),
+                    ],
+                    dataQuality: .exact, message: nil
+                )
+            }
+        }
+    }
 }
 
 /// Records the interval each scheduler start slept on, across concurrency domains.

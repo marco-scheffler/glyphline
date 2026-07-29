@@ -30,6 +30,15 @@ final class SyncCoordinator: ObservableObject {
     private let scheduler: SyncScheduler?
     private let adapterProvider: ((Account) -> any ProviderAdapter)?
     private let rateWindowSourceProvider: @MainActor (Account) -> (any RateWindowSource)?
+    private let quotaNotifier: any QuotaNotifier
+
+    /// Accounts already told about, so an expired session is announced on the
+    /// transition and not on every tick. Cleared by the next successful fetch, so
+    /// a session that expires again after a recovery is news again.
+    ///
+    /// Without this, three subscriptions on a half-hourly schedule would produce
+    /// 144 notifications a day for one expired sign-in.
+    private var sessionExpiryNotified: Set<UUID> = []
 
     /// Per-account reason why quota is not being shown. Cleared on a good fetch.
     @Published private(set) var rateWindowMessages: [UUID: String] = [:]
@@ -133,8 +142,10 @@ final class SyncCoordinator: ObservableObject {
             try await Task.sleep(for: .seconds($0))
         },
         now: @escaping @Sendable () -> Date = Date.init,
-        rateWindowSourceProvider: (@MainActor (Account) -> (any RateWindowSource)?)? = nil
+        rateWindowSourceProvider: (@MainActor (Account) -> (any RateWindowSource)?)? = nil,
+        quotaNotifier: any QuotaNotifier = UserNotificationQuotaNotifier()
     ) {
+        self.quotaNotifier = quotaNotifier
         self.sleepForSeconds = sleepForSeconds
         self.now = now
         self.rateWindowSourceProvider = rateWindowSourceProvider ?? { account in
@@ -313,12 +324,15 @@ final class SyncCoordinator: ObservableObject {
                 let result = try await source.fetchWindows(account: account, secret: secret)
 
                 if result.dataQuality == .unavailable {
-                    rateWindowMessages[account.id] = result.message
-                        ?? RateWindowSourceError.notAvailable.message
+                    let message = result.message ?? RateWindowSourceError.notAvailable.message
+                    rateWindowMessages[account.id] = message
+                    await noteQuotaFailure(message: message, account: account)
                     continue
                 }
 
                 rateWindowMessages[account.id] = nil
+                // The fetch worked, so the next expiry is a fresh transition.
+                sessionExpiryNotified.remove(account.id)
                 for window in result.windows {
                     // The row may not have been written — an unchanged
                     // observation is dropped — but the value was confirmed, and
@@ -331,6 +345,7 @@ final class SyncCoordinator: ObservableObject {
                 }
             } catch let error as RateWindowSourceError {
                 rateWindowMessages[account.id] = error.message
+                await noteQuotaFailure(message: error.message, account: account)
             } catch {
                 rateWindowMessages[account.id] = RateWindowSourceError.transportFailure.message
             }
@@ -371,6 +386,27 @@ final class SyncCoordinator: ObservableObject {
         try? ledger.deleteRateWindowSamples(olderThan: now().addingTimeInterval(-365 * 86_400))
     }
 
+    /// Announces an expired sign-in once, on the transition into it.
+    ///
+    /// Only an expired session is announced. A transport blip is transient and
+    /// asks nothing of the user, and notifying on it would train them to ignore
+    /// the one notification that does ask for something. It also leaves the flag
+    /// alone, so a blip in the middle of an expiry does not re-arm and re-announce
+    /// a session the user has already been told about.
+    ///
+    /// The message is compared against the app's own constant. Nothing from a
+    /// response body ever reaches this comparison, or the notification.
+    private func noteQuotaFailure(message: String, account: Account) async {
+        guard message == RateWindowSourceError.sessionExpired.message,
+              !sessionExpiryNotified.contains(account.id)
+        else {
+            return
+        }
+
+        sessionExpiryNotified.insert(account.id)
+        await quotaNotifier.notifySessionExpired(accountDisplayName: account.displayName)
+    }
+
     func syncNow(account: Account) async {
         guard let ledger, let scheduler else {
             activities[account.id] = .failed(Self.ledgerUnavailableMessage)
@@ -397,6 +433,54 @@ final class SyncCoordinator: ObservableObject {
     func cancelBackfill(account: Account) {
         backfillTasks[account.id]?.cancel()
         backfillTasks[account.id] = nil
+    }
+
+    /// Deletes an account and drops everything this coordinator holds for it.
+    ///
+    /// The backfill is cancelled BEFORE the durable delete, not after. A slice that
+    /// starts while the delete is in flight writes snapshots under an id the ledger
+    /// is about to forget, and with no foreign keys those rows survive invisibly.
+    ///
+    /// The ordering lives here rather than at the call site because a view cannot
+    /// be tested, and the whole point of the cancel is an ordering guarantee. The
+    /// trash button's own guard does not close the window: `backfill` registers its
+    /// task before the task body marks the account running, so there is a real
+    /// main-actor hop in which the button is live and a backfill is already
+    /// registered.
+    ///
+    /// Cancellation stays cooperative: a slice already inside `scheduler.sync(…)`
+    /// finishes its writes. Narrowing that is a separate problem, recorded as a
+    /// known issue.
+    func deleteAccount(_ account: Account, using flow: DeleteAccountFlow) async -> DeleteAccountFlow.Outcome {
+        cancelBackfill(account: account)
+        let outcome = await flow.delete(account)
+        if case .deleted = outcome {
+            forgetAccount(id: account.id)
+        }
+        return outcome
+    }
+
+    /// Drops everything this coordinator remembers about an account.
+    ///
+    /// Called after the account is deleted. The cancel here is a backstop, not the
+    /// guarantee: `deleteAccount` already cancelled before the durable delete, which
+    /// is the only ordering that keeps a run from refilling the tables the deletion
+    /// just emptied. This one catches a task registered in between, and costs
+    /// nothing when there is none.
+    func forgetAccount(id accountID: UUID) {
+        backfillTasks[accountID]?.cancel()
+        backfillTasks[accountID] = nil
+        activities[accountID] = nil
+        rateWindowMessages[accountID] = nil
+        rateWindowConfirmations[accountID] = nil
+        // Defence in depth, and provably a no-op today: the in-flight marker is
+        // inserted and removed within one iteration of `collectRateWindows` via
+        // `defer`, so it is always empty between ticks and no test can observe
+        // this line. It stays so that a future fetch which outlives its tick
+        // cannot leave a deleted account permanently marked as busy.
+        rateWindowFetchesInFlight.remove(accountID)
+        sessionExpiryNotified.remove(accountID)
+        quotaStates.removeAll { $0.accountID == accountID }
     }
 
     /// Phase two: walk backwards in weekly slices, recording progress after each so

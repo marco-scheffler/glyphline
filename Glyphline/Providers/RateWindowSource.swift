@@ -42,6 +42,9 @@ enum RateWindowSourceError: Error, Equatable, Sendable {
     /// The response did not decode. The endpoint changed, and this is the case
     /// that would otherwise cause silent misreporting, so it says so loudly.
     case unreadableResponse
+    /// The web session is no longer valid. Unlike `credentialRejected` there is
+    /// no stored token to replace — the user signs in again in a browser.
+    case sessionExpired
 
     var message: String {
         switch self {
@@ -55,6 +58,8 @@ enum RateWindowSourceError: Error, Equatable, Sendable {
             "Could not reach the provider. This is usually temporary."
         case .unreadableResponse:
             "The provider's response could not be read. Quota reporting may be out of date."
+        case .sessionExpired:
+            "Your Claude sign-in has expired. Sign in again."
         }
     }
 }

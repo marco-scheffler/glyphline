@@ -229,4 +229,72 @@ final class MigrationTests: XCTestCase {
             XCTAssertNil(reference)
         }
     }
+
+    func testV7AddsClaudeOrganizationIDAsNullable() throws {
+        let dbQueue = try DatabaseQueueFactory.makeInMemory()
+        try Migrations.makeMigrator().migrate(dbQueue)
+
+        let accountID = UUID()
+        try dbQueue.write { db in
+            try db.execute(
+                sql: """
+                    INSERT INTO accounts (id, providerID, displayName, credentialReference, createdAt, isEnabled)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                arguments: [
+                    accountID.uuidString, "claude", "Max #1",
+                    "local-source://\(accountID.uuidString)",
+                    Date(timeIntervalSince1970: 1_800_000_000), true,
+                ]
+            )
+        }
+
+        try dbQueue.read { db in
+            XCTAssertNil(try String.fetchOne(
+                db,
+                sql: "SELECT claudeOrganizationID FROM accounts WHERE id = ?",
+                arguments: [accountID.uuidString]
+            ))
+        }
+    }
+
+    /// A database that stopped at v6 must reach v7 with its accounts intact —
+    /// an upgrade that dropped signed-in accounts would cost the user every login.
+    func testV7PreservesAccountsFromAV6Database() throws {
+        let dbQueue = try DatabaseQueueFactory.makeInMemory()
+        let migrator = Migrations.makeMigrator()
+
+        try migrator.migrate(dbQueue, upTo: "v6_rate_window_samples")
+
+        let accountID = UUID()
+        try dbQueue.write { db in
+            try db.execute(
+                sql: """
+                    INSERT INTO accounts (id, providerID, displayName, credentialReference, createdAt, isEnabled)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                arguments: [
+                    accountID.uuidString, "claude", "Max #3",
+                    "local-source://\(accountID.uuidString)",
+                    Date(timeIntervalSince1970: 1_800_000_000), true,
+                ]
+            )
+        }
+
+        try migrator.migrate(dbQueue)
+
+        try dbQueue.read { db in
+            let survivingName = try String.fetchOne(
+                db,
+                sql: "SELECT displayName FROM accounts WHERE id = ?",
+                arguments: [accountID.uuidString]
+            )
+            XCTAssertEqual(survivingName, "Max #3")
+            XCTAssertNil(try String.fetchOne(
+                db,
+                sql: "SELECT claudeOrganizationID FROM accounts WHERE id = ?",
+                arguments: [accountID.uuidString]
+            ))
+        }
+    }
 }

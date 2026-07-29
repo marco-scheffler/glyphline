@@ -20,6 +20,44 @@ final class ClaudeUsageAdapterTests: XCTestCase {
         XCTAssertEqual(result.capabilities.message, "Claude usage requires an organization admin credential.")
     }
 
+    /// A web-session subscription tracks quota and nothing else. The cost path has
+    /// to say so rather than guess: the two guesses available were reading the
+    /// local Claude Code logs — which every web-session account would report as its
+    /// own, multiplying one Mac's costs by the number of subscriptions — and
+    /// calling the Admin API with a key that does not exist.
+    func testWebSessionModeReportsNoCostRatherThanGuessingAtOne() async throws {
+        let account = Account(
+            id: UUID(),
+            providerID: .claude,
+            displayName: "Max #1",
+            credentialReference: "web-session://\(UUID().uuidString)",
+            createdAt: Date(),
+            isEnabled: true
+        )
+
+        let adapter = ClaudeUsageAdapter(mode: .webSessionQuotaOnly)
+        // No secret exists for this source; the adapter must not need one, and must
+        // not fail when handed the empty string the scheduler passes instead.
+        XCTAssertFalse(adapter.requiresSecret)
+
+        let result = try await adapter.sync(account: account, secret: "")
+
+        XCTAssertEqual(result.providerID, .claude)
+        XCTAssertEqual(result.accountID, account.id)
+        XCTAssertEqual(result.capabilities.dataQuality, .unavailable)
+        XCTAssertFalse(result.capabilities.supportsUsage)
+        XCTAssertFalse(result.capabilities.supportsActualCost)
+        XCTAssertEqual(
+            result.capabilities.message,
+            "This subscription tracks quota only; cost comes from your local Claude Code logs account."
+        )
+        // Nothing invented and nothing borrowed from another account's logs.
+        XCTAssertTrue(result.usageSnapshots.isEmpty)
+        XCTAssertTrue(result.costSnapshots.isEmpty)
+        XCTAssertTrue(result.estimateSnapshots.isEmpty)
+        XCTAssertNil(result.billingPeriod)
+    }
+
     func testClaudeReportsExactCapabilityForAdminAPI() async throws {
         let account = Account(
             id: UUID(),

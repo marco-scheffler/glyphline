@@ -190,6 +190,25 @@ private struct SnapshotMoneyTotal {
     }
 }
 
+/// What a deletion would destroy, counted from the ledger so the confirmation
+/// dialog can name real numbers instead of a generic warning.
+struct AccountDeletionSummary: Equatable, Sendable {
+    var rateWindowSampleCount: Int
+    var earliestRateWindowObservedAt: Date?
+    var costSnapshotCount: Int
+    var usageSnapshotCount: Int
+
+    /// What the confirmation shows when the counts cannot be read. Understating
+    /// the loss is the wrong failure here, but the alternative — refusing to
+    /// open the dialog — leaves the user unable to delete anything at all.
+    static let empty = AccountDeletionSummary(
+        rateWindowSampleCount: 0,
+        earliestRateWindowObservedAt: nil,
+        costSnapshotCount: 0,
+        usageSnapshotCount: 0
+    )
+}
+
 private struct AccountRecord: Codable, FetchableRecord, PersistableRecord, TableRecord {
     static let databaseTableName = LedgerTable.accounts
 
@@ -200,6 +219,7 @@ private struct AccountRecord: Codable, FetchableRecord, PersistableRecord, Table
     var createdAt: Date
     var isEnabled: Bool
     var quotaCredentialReference: String?
+    var claudeOrganizationID: String?
 
     init(_ account: Account) {
         id = account.id.uuidString
@@ -209,6 +229,7 @@ private struct AccountRecord: Codable, FetchableRecord, PersistableRecord, Table
         createdAt = account.createdAt
         isEnabled = account.isEnabled
         quotaCredentialReference = account.quotaCredentialReference
+        claudeOrganizationID = account.claudeOrganizationID
     }
 
     var account: Account {
@@ -219,7 +240,8 @@ private struct AccountRecord: Codable, FetchableRecord, PersistableRecord, Table
             credentialReference: credentialReference,
             createdAt: createdAt,
             isEnabled: isEnabled,
-            quotaCredentialReference: quotaCredentialReference
+            quotaCredentialReference: quotaCredentialReference,
+            claudeOrganizationID: claudeOrganizationID
         )
     }
 }
@@ -504,6 +526,9 @@ private struct RateWindowSampleRecord: Codable, FetchableRecord, PersistableReco
 }
 
 final class LedgerStore {
+    /// Just above GRDB's millisecond storage resolution.
+    private static let resetAtStorageTolerance: TimeInterval = 0.002
+
     private let dbQueue: DatabaseQueue
 
     init(dbQueue: DatabaseQueue) {
@@ -523,16 +548,18 @@ final class LedgerStore {
                         \(LedgerColumn.credentialReference),
                         \(LedgerColumn.createdAt),
                         \(LedgerColumn.isEnabled),
-                        \(LedgerColumn.quotaCredentialReference)
+                        \(LedgerColumn.quotaCredentialReference),
+                        \(LedgerColumn.claudeOrganizationID)
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     ON CONFLICT(\(LedgerColumn.id)) DO UPDATE SET
                         \(LedgerColumn.providerID) = excluded.\(LedgerColumn.providerID),
                         \(LedgerColumn.displayName) = excluded.\(LedgerColumn.displayName),
                         \(LedgerColumn.credentialReference) = excluded.\(LedgerColumn.credentialReference),
                         \(LedgerColumn.createdAt) = excluded.\(LedgerColumn.createdAt),
                         \(LedgerColumn.isEnabled) = excluded.\(LedgerColumn.isEnabled),
-                        \(LedgerColumn.quotaCredentialReference) = excluded.\(LedgerColumn.quotaCredentialReference)
+                        \(LedgerColumn.quotaCredentialReference) = excluded.\(LedgerColumn.quotaCredentialReference),
+                        \(LedgerColumn.claudeOrganizationID) = excluded.\(LedgerColumn.claudeOrganizationID)
                     """,
                 arguments: [
                     record.id,
@@ -542,6 +569,7 @@ final class LedgerStore {
                     record.createdAt,
                     record.isEnabled,
                     record.quotaCredentialReference,
+                    record.claudeOrganizationID,
                 ]
             )
         }
@@ -933,9 +961,14 @@ final class LedgerStore {
                 .order(Column(LedgerColumn.observedAt).desc)
                 .fetchOne(db)
 
+            // GRDB stores Date at millisecond resolution, so a resetAt carrying
+            // finer precision never compares equal to its own round trip. An
+            // exact comparison would therefore append a row on every tick.
+            // The bound is just above the storage error, not a semantic
+            // tolerance: a reset genuinely moving is always far larger.
             if let newest,
                newest.usedFraction == window.usedFraction,
-               newest.resetAt == window.resetAt {
+               abs(newest.resetAt.timeIntervalSince(window.resetAt)) < Self.resetAtStorageTolerance {
                 return
             }
 
@@ -966,6 +999,56 @@ final class LedgerStore {
             try db.execute(
                 sql: "DELETE FROM \(LedgerTable.rateWindowSamples) WHERE \(LedgerColumn.observedAt) < ?",
                 arguments: [cutoff]
+            )
+        }
+    }
+
+    func deletionSummary(accountID: UUID) throws -> AccountDeletionSummary {
+        try dbQueue.read { db in
+            let key = accountID.uuidString
+            let samples = RateWindowSampleRecord
+                .filter(Column(LedgerColumn.accountID) == key)
+            return AccountDeletionSummary(
+                rateWindowSampleCount: try samples.fetchCount(db),
+                earliestRateWindowObservedAt: try samples
+                    .order(Column(LedgerColumn.observedAt).asc)
+                    .fetchOne(db)?.observedAt,
+                costSnapshotCount: try CostSnapshotRecord
+                    .filter(Column(LedgerColumn.accountID) == key)
+                    .fetchCount(db),
+                usageSnapshotCount: try UsageSnapshotRecord
+                    .filter(Column(LedgerColumn.accountID) == key)
+                    .fetchCount(db)
+            )
+        }
+    }
+
+    /// Removes every row the account owns, in one transaction.
+    ///
+    /// The schema declares no foreign keys, so nothing cascades — each table has
+    /// to be named explicitly. A table left out here keeps rows that no query
+    /// will ever surface again. The single transaction is what keeps a failure
+    /// part-way through from leaving a half-deleted account behind.
+    func deleteAccount(id accountID: UUID) throws {
+        try dbQueue.write { db in
+            let key = accountID.uuidString
+            for table in [
+                LedgerTable.usageSnapshots,
+                LedgerTable.costSnapshots,
+                LedgerTable.estimateSnapshots,
+                LedgerTable.syncRuns,
+                LedgerTable.accountSyncStates,
+                LedgerTable.syncWatermarks,
+                LedgerTable.rateWindowSamples
+            ] {
+                try db.execute(
+                    sql: "DELETE FROM \(table) WHERE \(LedgerColumn.accountID) = ?",
+                    arguments: [key]
+                )
+            }
+            try db.execute(
+                sql: "DELETE FROM \(LedgerTable.accounts) WHERE \(LedgerColumn.id) = ?",
+                arguments: [key]
             )
         }
     }
