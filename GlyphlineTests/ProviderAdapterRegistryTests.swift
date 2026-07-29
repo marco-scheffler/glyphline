@@ -32,6 +32,44 @@ final class ProviderAdapterRegistryTests: XCTestCase {
         XCTAssertFalse(adapter.requiresSecret)
     }
 
+    /// The cost path for a web-session subscription. It must NOT be `.localLogs`:
+    /// that mode reads `~/.claude/projects`, so three web-session accounts would
+    /// each report the same local logs and treble the cost figures — wrong numbers
+    /// rather than a visible failure.
+    func testWebSessionClaudeAccountNeverReadsTheLocalLogs() throws {
+        let registry = ProviderAdapterRegistry()
+        let account = makeAccount(.claude, reference: "web-session://\(UUID().uuidString)")
+
+        let adapter = try XCTUnwrap(registry.adapter(for: account) as? ClaudeUsageAdapter)
+        XCTAssertEqual(adapter.mode, .webSessionQuotaOnly)
+        XCTAssertNotEqual(adapter.mode, .localLogs)
+        XCTAssertNotEqual(adapter.mode, .adminAPI)
+        // There is no secret behind a web session, so the scheduler must not look
+        // for one and fail the whole sync when it finds nothing.
+        XCTAssertFalse(adapter.requiresSecret)
+    }
+
+    /// The scheme the registry reads is the one the Add Account screen writes.
+    func testTheWebSessionSchemeIsTheOneTheReferenceBuilderProduces() throws {
+        let registry = ProviderAdapterRegistry()
+        let id = UUID()
+        let reference = AccountCredentialReference.make(accountID: id, source: .claudeWebSession)
+        let account = makeAccount(.claude, reference: reference)
+
+        let adapter = try XCTUnwrap(registry.adapter(for: account) as? ClaudeUsageAdapter)
+        XCTAssertEqual(adapter.mode, .webSessionQuotaOnly)
+    }
+
+    /// The pairing the entry point produces end to end: quota comes from the web
+    /// session, cost reports honestly that it has none.
+    func testAWebSessionAccountWithAnOrganisationDrawsQuotaFromTheWebSource() throws {
+        let registry = ProviderAdapterRegistry()
+        var account = makeAccount(.claude, reference: "web-session://\(UUID().uuidString)")
+        account.claudeOrganizationID = "22bb9ef8-0000-4c2f-8f0e-000000000001"
+
+        XCTAssertTrue(registry.rateWindowSource(for: account) is ClaudeWebQuotaSource)
+    }
+
     func testKeychainBackedCursorAccountUsesTeamAPI() throws {
         let registry = ProviderAdapterRegistry()
         let account = makeAccount(.cursor, reference: "keychain://glyphline/abc")

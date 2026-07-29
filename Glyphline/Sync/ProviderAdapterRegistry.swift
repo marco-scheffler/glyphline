@@ -3,10 +3,18 @@ import Foundation
 /// Decides which adapter, in which mode, serves a given account.
 ///
 /// The decision comes from the account's credential reference. A reference
-/// beginning with `local-source://` marks a credential-free local source; any
-/// other reference means a secret stored in the Keychain.
+/// beginning with `local-source://` marks a credential-free local source, one
+/// beginning with `web-session://` marks a subscription read through the user's
+/// own claude.ai session, and any other reference means a secret stored in the
+/// Keychain.
 struct ProviderAdapterRegistry {
     static let localSourceScheme = "local-source://"
+    /// Its own scheme rather than a reuse of `local-source://`, because the two
+    /// resolve to different cost adapters. Sharing the local scheme would give
+    /// every web-session subscription a `.localLogs` adapter reading the same
+    /// `~/.claude/projects`, and three subscriptions would then report one Mac's
+    /// costs three times — a wrong number rather than a visible failure.
+    static let webSessionScheme = "web-session://"
 
     var session: URLSession
     var claudeLogDirectory: URL
@@ -31,11 +39,19 @@ struct ProviderAdapterRegistry {
 
     func adapter(for account: Account) -> any ProviderAdapter {
         let isLocal = account.credentialReference.hasPrefix(Self.localSourceScheme)
+        let isWebSession = account.credentialReference.hasPrefix(Self.webSessionScheme)
 
         switch account.providerID {
         case .openAI:
             return OpenAIUsageAdapter(session: session)
         case .claude:
+            // Quota only. This account has no admin key and its costs are not its
+            // own to report, so the adapter says exactly that instead of reading a
+            // log directory that belongs to a different account.
+            if isWebSession {
+                return ClaudeUsageAdapter(mode: .webSessionQuotaOnly, session: session)
+            }
+
             guard isLocal else {
                 return ClaudeUsageAdapter(mode: .adminAPI, session: session)
             }

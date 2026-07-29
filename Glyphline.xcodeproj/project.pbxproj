@@ -53,8 +53,10 @@
 		6D737C47EC2A7E6325625A55 /* GlyphlineApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF10D82C0BBAB350C0D404AB /* GlyphlineApp.swift */; };
 		6DCD55D33D666FD9D4402F89 /* openai-costs.json in Resources */ = {isa = PBXBuildFile; fileRef = 22E542C9EA7C75092240822A /* openai-costs.json */; };
 		6F6854805AD8B45E9AB095BA /* KeychainStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89EEFE279720CAF7CA13AEB0 /* KeychainStoreTests.swift */; };
+		72517151B7BCCE3BC2748539 /* AddAccountFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40D313DABDF65EC1DBCADDBD /* AddAccountFlowTests.swift */; };
 		7689725CCEE34D9A6EC7ACE1 /* ProviderAdapterRegistryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65F46725420D301A64582EF6 /* ProviderAdapterRegistryTests.swift */; };
 		771EDD480CF8D227507CB099 /* SyncCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C65F3F058519D3D6E8B2C8CE /* SyncCoordinator.swift */; };
+		7EE1E0DD0196D6F33CE6E4CE /* AddAccountFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A81C1F539EBD6824C59FADB0 /* AddAccountFlow.swift */; };
 		81A31CCE7A84A8263856A8DC /* Migrations.swift in Sources */ = {isa = PBXBuildFile; fileRef = 979B2CFA8C52D4A2693A102A /* Migrations.swift */; };
 		8316A63CFE39646FC877156D /* claude-cost-report.json in Resources */ = {isa = PBXBuildFile; fileRef = 5893DAA5F7BF8CB90DDFEB4E /* claude-cost-report.json */; };
 		846B6297F1082269DD709A5C /* claude-usage-report.json in Resources */ = {isa = PBXBuildFile; fileRef = 5FE15C8F6E3DE5DF53B643AA /* claude-usage-report.json */; };
@@ -141,6 +143,7 @@
 		392B5FF66B8772E918631363 /* RateWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RateWindow.swift; sourceTree = "<group>"; };
 		3B1D47E3EFDB4A47186A23AF /* .gitkeep */ = {isa = PBXFileReference; path = .gitkeep; sourceTree = "<group>"; };
 		3E4A6EC8C6579850C8C770C5 /* FixtureProviderAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FixtureProviderAdapter.swift; sourceTree = "<group>"; };
+		40D313DABDF65EC1DBCADDBD /* AddAccountFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddAccountFlowTests.swift; sourceTree = "<group>"; };
 		412F5489EA0C8B4EE160128C /* GlyphlineSmokeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlyphlineSmokeTests.swift; sourceTree = "<group>"; };
 		461DE0E81EA86DEF3F3E1A47 /* LedgerStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LedgerStore.swift; sourceTree = "<group>"; };
 		54DF3B50A77102C6E68EAC4C /* AccountCredentialReference.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountCredentialReference.swift; sourceTree = "<group>"; };
@@ -174,6 +177,7 @@
 		979B2CFA8C52D4A2693A102A /* Migrations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Migrations.swift; sourceTree = "<group>"; };
 		97C425B4A5612D534BA5FECC /* AccountCredentialReferenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountCredentialReferenceTests.swift; sourceTree = "<group>"; };
 		A63DE4BE6B1E5DD6EBDEC233 /* AddAccountView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddAccountView.swift; sourceTree = "<group>"; };
+		A81C1F539EBD6824C59FADB0 /* AddAccountFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddAccountFlow.swift; sourceTree = "<group>"; };
 		A9430FC958CF84944A796120 /* DatabaseQueueFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseQueueFactory.swift; sourceTree = "<group>"; };
 		AF10D82C0BBAB350C0D404AB /* GlyphlineApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlyphlineApp.swift; sourceTree = "<group>"; };
 		B16B2551C7AF4DA8A614935E /* QuotaNotifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuotaNotifier.swift; sourceTree = "<group>"; };
@@ -296,6 +300,7 @@
 			isa = PBXGroup;
 			children = (
 				F06FF5203E4C15863CAB3EE3 /* AccountsView.swift */,
+				A81C1F539EBD6824C59FADB0 /* AddAccountFlow.swift */,
 				A63DE4BE6B1E5DD6EBDEC233 /* AddAccountView.swift */,
 				102E19DF99EBAC8A3C8BDC32 /* ClaudeSignInWindow.swift */,
 			);
@@ -342,6 +347,7 @@
 				97C425B4A5612D534BA5FECC /* AccountCredentialReferenceTests.swift */,
 				849077EF726D5E3F756B4805 /* AccountSummaryFormattingTests.swift */,
 				E04A9E41666FF246015BB1AE /* AccountSyncStateTests.swift */,
+				40D313DABDF65EC1DBCADDBD /* AddAccountFlowTests.swift */,
 				347CEC22ED71F6DCC815DB03 /* AppModeTests.swift */,
 				BD5F66FB95D8BBD93EFCBE00 /* AppSettingsStoreTests.swift */,
 				D4DECC83D915448F36D2B101 /* BackfillTests.swift */,
@@ -630,6 +636,7 @@
 				63F14DB500EC723BCB61AB44 /* AccountCredentialReferenceTests.swift in Sources */,
 				314BE108752F760302660DC4 /* AccountSummaryFormattingTests.swift in Sources */,
 				2466E6A178B38615D36C1133 /* AccountSyncStateTests.swift in Sources */,
+				72517151B7BCCE3BC2748539 /* AddAccountFlowTests.swift in Sources */,
 				1F057127236C7C74BCADB639 /* AppModeTests.swift in Sources */,
 				29DAC97DF9CC2CB3A0D01784 /* AppSettingsStoreTests.swift in Sources */,
 				1A164B862730430017956F7B /* BackfillTests.swift in Sources */,
@@ -671,6 +678,7 @@
 				56B7FB0376CEC3F26127F083 /* AccountCredentialReference.swift in Sources */,
 				50DE389F4361F81A9F3BBAE6 /* AccountSummaryFormatting.swift in Sources */,
 				4A2D3A3FE1C0266B2765FD0F /* AccountsView.swift in Sources */,
+				7EE1E0DD0196D6F33CE6E4CE /* AddAccountFlow.swift in Sources */,
 				B838F331BD89C2B524410914 /* AddAccountView.swift in Sources */,
 				37CFE0A06075136004EBA62F /* AppActivationController.swift in Sources */,
 				BE2B9EEEA941F5F4FDD5FDEA /* AppMode.swift in Sources */,

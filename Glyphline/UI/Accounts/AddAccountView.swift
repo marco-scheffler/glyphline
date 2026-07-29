@@ -3,23 +3,29 @@ import SwiftUI
 struct AddAccountView: View {
     private let ledgerStore: LedgerStore?
     private let credentialStore: any CredentialStore
+    /// Nil means the real window. Held rather than defaulted so the default is not
+    /// evaluated outside the main actor, and so a caller can substitute one.
+    private let signInPresenter: (any ClaudeSignInPresenting)?
     private let onSave: () -> Void
 
     @State private var selectedProviderID: ProviderID = .openAI
     @State private var displayName = ""
     @State private var credentialValue = ""
     @State private var isEnabled = true
-    @State private var usesLocalSource = false
+    @State private var selectedSource: AccountSource = .credential
+    @State private var isSaving = false
     @State private var saveMessage: String?
     @State private var saveError: String?
 
     init(
         ledgerStore: LedgerStore? = LedgerStore.makeDefault(),
         credentialStore: any CredentialStore = KeychainStore(),
+        signInPresenter: (any ClaudeSignInPresenting)? = nil,
         onSave: @escaping () -> Void = {}
     ) {
         self.ledgerStore = ledgerStore
         self.credentialStore = credentialStore
+        self.signInPresenter = signInPresenter
         self.onSave = onSave
     }
 
@@ -34,20 +40,21 @@ struct AddAccountView: View {
                 }
                 .onChange(of: selectedProviderID) { _, newValue in
                     if newValue != .claude {
-                        usesLocalSource = false
+                        selectedSource = .credential
                     }
                 }
 
                 if selectedProviderID == .claude {
-                    Picker("Source", selection: $usesLocalSource) {
-                        Text("Admin API key").tag(false)
-                        Text("Local Claude Code logs").tag(true)
+                    Picker("Source", selection: $selectedSource) {
+                        Text("Admin API key").tag(AccountSource.credential)
+                        Text("Local Claude Code logs").tag(AccountSource.localLogs)
+                        Text("Claude subscription (sign in)").tag(AccountSource.claudeWebSession)
                     }
                     .pickerStyle(.radioGroup)
                 }
 
                 TextField("Display Name", text: $displayName)
-                if !usesLocalSource {
+                if effectiveSource == .credential {
                     SecureField(credentialLabel, text: $credentialValue)
                 }
                 Toggle("Enable account after save", isOn: $isEnabled)
@@ -66,8 +73,12 @@ struct AddAccountView: View {
             Section {
                 HStack {
                     Spacer()
-                    Button("Save Account", action: saveAccount)
-                        .disabled(!canSave)
+                    Button("Save Account") {
+                        Task { await saveAccount() }
+                    }
+                    // Also while saving: a second tap during a web-session save
+                    // would put a second sign-in window on screen.
+                    .disabled(!canSave || isSaving)
                 }
 
                 if let saveMessage {
@@ -86,9 +97,17 @@ struct AddAccountView: View {
         .navigationTitle("Add Account")
     }
 
+    /// The source picker only exists for Claude, so a selection left over from a
+    /// provider switch decides nothing for anyone else. `AddAccountFlow` applies
+    /// the same rule; the form asks the same question so what it shows and what it
+    /// saves cannot disagree.
+    private var effectiveSource: AccountSource {
+        selectedProviderID == .claude ? selectedSource : .credential
+    }
+
     private var canSave: Bool {
         let hasName = !displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        return hasName && (usesLocalSource || !credentialValue.isEmpty)
+        return hasName && (effectiveSource != .credential || !credentialValue.isEmpty)
     }
 
     private var credentialLabel: String {
@@ -109,6 +128,11 @@ struct AddAccountView: View {
         case .cursor:
             return "Exact team API usage or partial local status until API access is configured."
         case .claude:
+            // Only the web session gets its own sentence. The other two keep the
+            // copy they had; widening that is a separate job.
+            if selectedSource == .claudeWebSession {
+                return "Quota windows read from your own Claude subscription. No cost figures."
+            }
             return "Exact admin API data where available, otherwise capability-only state."
         }
     }
@@ -120,11 +144,18 @@ struct AddAccountView: View {
         case .cursor:
             return "You can add multiple Cursor accounts or teams; each credential receives its own Keychain reference."
         case .claude:
+            if selectedSource == .claudeWebSession {
+                return """
+                    Saving opens a window where you sign in to Claude. The session stays in this \
+                    subscription's own browser storage — no key or cookie is stored — and the account \
+                    is only added once the sign-in works. Cost stays with your Claude Code logs account.
+                    """
+            }
             return "Claude admin credentials unlock usage and billing-period metadata when the provider exposes it."
         }
     }
 
-    private func saveAccount() {
+    private func saveAccount() async {
         saveMessage = nil
         saveError = nil
 
@@ -133,39 +164,38 @@ struct AddAccountView: View {
             return
         }
 
-        let accountID = UUID()
-        let usesLocal = usesLocalSource && selectedProviderID == .claude
-        let reference = AccountCredentialReference.make(accountID: accountID, usesLocalSource: usesLocal)
-        let account = Account(
-            id: accountID,
-            providerID: selectedProviderID,
-            displayName: displayName.trimmingCharacters(in: .whitespacesAndNewlines),
-            credentialReference: reference,
-            createdAt: Date(),
-            isEnabled: isEnabled
+        isSaving = true
+        defer { isSaving = false }
+
+        if effectiveSource == .claudeWebSession {
+            // The save can now take as long as a sign-in does, and the form would
+            // otherwise sit there looking stuck behind its own window.
+            saveMessage = "Sign in to Claude in the window that just opened."
+        }
+
+        let flow = AddAccountFlow(
+            ledgerStore: ledgerStore,
+            credentialStore: credentialStore,
+            signIn: signInPresenter ?? ClaudeSignInWindowPresenter()
         )
 
-        do {
-            if !usesLocal {
-                try credentialStore.save(secret: credentialValue, for: reference)
-            }
-            do {
-                try ledgerStore.saveAccount(account)
-            } catch {
-                if !usesLocal {
-                    try? credentialStore.deleteSecret(for: reference)
-                }
-                throw error
-            }
-
+        switch await flow.save(
+            providerID: selectedProviderID,
+            displayName: displayName,
+            source: selectedSource,
+            credentialValue: credentialValue,
+            isEnabled: isEnabled
+        ) {
+        case .saved:
             displayName = ""
             credentialValue = ""
             isEnabled = true
-            usesLocalSource = false
+            selectedSource = .credential
             saveMessage = "Account saved."
             onSave()
-        } catch {
-            saveError = "Could not save account."
+        case .failed(let message):
+            saveMessage = nil
+            saveError = message
         }
     }
 }
