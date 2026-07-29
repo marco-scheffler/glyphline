@@ -156,6 +156,31 @@ final class LedgerStoreTests: XCTestCase {
         XCTAssertEqual(fetched, account)
     }
 
+    /// The four SQL positions for the column — insert list, `VALUES` placeholder,
+    /// `DO UPDATE SET` and `arguments` — must line up; a misalignment writes the
+    /// value into the wrong column and only a non-nil round trip catches it.
+    func testAClaudeOrganizationIDSurvivesTheRoundTrip() throws {
+        let store = try makeStore()
+        let account = Account(
+            id: UUID(),
+            providerID: .claude,
+            displayName: "Max #1",
+            credentialReference: "local-source://claude-code",
+            createdAt: Date(timeIntervalSince1970: 1_800_000_000),
+            isEnabled: true,
+            quotaCredentialReference: nil,
+            claudeOrganizationID: "0d9e1a2b-3c4d-5e6f-7a8b-9c0d1e2f3a4b"
+        )
+
+        try store.saveAccount(account)
+
+        let fetched = try XCTUnwrap(try store.fetchAccounts().first)
+        XCTAssertEqual(fetched.claudeOrganizationID, "0d9e1a2b-3c4d-5e6f-7a8b-9c0d1e2f3a4b")
+        XCTAssertEqual(fetched.displayName, "Max #1")
+        XCTAssertEqual(fetched.credentialReference, "local-source://claude-code")
+        XCTAssertEqual(fetched, account)
+    }
+
     /// The upsert path has its own `DO UPDATE SET` line for the column; re-saving
     /// must carry a changed reference through rather than leaving the first one.
     func testResavingAnAccountUpdatesTheQuotaCredentialReference() throws {

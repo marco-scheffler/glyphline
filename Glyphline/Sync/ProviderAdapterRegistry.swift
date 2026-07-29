@@ -11,6 +11,7 @@ struct ProviderAdapterRegistry {
     var session: URLSession
     var claudeLogDirectory: URL
     var watermarkStore: (any WatermarkStoring)?
+    var sessionStore: ClaudeWebSessionStore = ClaudeWebSessionStore()
 
     init(
         session: URLSession = .shared,

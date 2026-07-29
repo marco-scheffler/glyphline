@@ -54,6 +54,7 @@ enum LedgerColumn {
     static let usedFraction = "usedFraction"
     static let resetAt = "resetAt"
     static let quotaCredentialReference = "quotaCredentialReference"
+    static let claudeOrganizationID = "claudeOrganizationID"
 }
 
 enum Migrations {
@@ -268,6 +269,12 @@ enum Migrations {
 
             try db.alter(table: LedgerTable.accounts) { table in
                 table.add(column: LedgerColumn.quotaCredentialReference, .text)
+            }
+        }
+
+        migrator.registerMigration("v7_claude_organization_id") { db in
+            try db.alter(table: LedgerTable.accounts) { table in
+                table.add(column: LedgerColumn.claudeOrganizationID, .text)
             }
         }
 
