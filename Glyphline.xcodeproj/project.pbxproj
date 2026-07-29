@@ -34,6 +34,7 @@
 		42DA56777FC9BBAD2671DB97 /* ProviderID.swift in Sources */ = {isa = PBXBuildFile; fileRef = C69732493AABC7109EB74F3F /* ProviderID.swift */; };
 		47DFD6941E6389FBFA591FDA /* QuotaIndicatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B966305CF54AAA51888A2FC0 /* QuotaIndicatorTests.swift */; };
 		4A2D3A3FE1C0266B2765FD0F /* AccountsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F06FF5203E4C15863CAB3EE3 /* AccountsView.swift */; };
+		4B7EBD39F79A2025162639DB /* ClaudeUsageQuotaDTOs.swift in Sources */ = {isa = PBXBuildFile; fileRef = D968A135D66AE439311BECFE /* ClaudeUsageQuotaDTOs.swift */; };
 		4B96E1ED4A37D89F3DB7A844 /* ProviderAdapterRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A12C10E9B329DC6D4E86D94 /* ProviderAdapterRegistry.swift */; };
 		4EFD26931B1A1F653945E8CA /* SyncScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 041B91F7984C6D847ABF7C01 /* SyncScheduler.swift */; };
 		50DE389F4361F81A9F3BBAE6 /* AccountSummaryFormatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65C301199FDCC9595DC906A9 /* AccountSummaryFormatting.swift */; };
@@ -67,6 +68,7 @@
 		AC776B32695D0B125B30B305 /* SnapshotSummaryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5287B8477F8EF75ABA938B2 /* SnapshotSummaryTests.swift */; };
 		AEE77B35497B4D068C0E2FA5 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69F038C1101F3228D2C607FB /* DashboardView.swift */; };
 		B077494A20202025E2ABBE46 /* SnapshotIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = F94F481767914DA33C8B0E8D /* SnapshotIdentity.swift */; };
+		B3F171351A59C208FD3AF3F4 /* claude-usage-minimal.json in Resources */ = {isa = PBXBuildFile; fileRef = 115EF78DDBF22BE7B267CE5B /* claude-usage-minimal.json */; };
 		B838F331BD89C2B524410914 /* AddAccountView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A63DE4BE6B1E5DD6EBDEC233 /* AddAccountView.swift */; };
 		B85CA610DA5E8BBC7879D1CD /* LedgerStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 461DE0E81EA86DEF3F3E1A47 /* LedgerStore.swift */; };
 		B8B5DF46E5F52175C3B0C9F8 /* UsageModelsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6038A4E395A2847039481F0D /* UsageModelsTests.swift */; };
@@ -87,6 +89,8 @@
 		EE496A4425EF2D3826391753 /* CostEstimator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B258111FCCAE74A8FC95B9FF /* CostEstimator.swift */; };
 		F1C14BF4C9F663FD03819DAA /* pricing-v1.json in Resources */ = {isa = PBXBuildFile; fileRef = C1291754346ED094133AE0E6 /* pricing-v1.json */; };
 		F5C131BA61A0099B6347D420 /* ClaudeUsageDTOs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 375C12B3C87720CA38C6FEF5 /* ClaudeUsageDTOs.swift */; };
+		F731A9E0E7F227918984E8BA /* claude-usage.json in Resources */ = {isa = PBXBuildFile; fileRef = 71F686E68C6AD2A919ECD797 /* claude-usage.json */; };
+		FB25B96A420EF574188F6447 /* ClaudeUsageQuotaDTOsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E78959ED32C99389D71E836A /* ClaudeUsageQuotaDTOsTests.swift */; };
 		FE115011C319F621E5E47A5E /* MigrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38CEA8D84FAB5879F7C9B70E /* MigrationTests.swift */; };
 /* End PBXBuildFile section */
 
@@ -105,6 +109,7 @@
 		04C815A4377CFB6BA4DAF4D5 /* CursorUsageDTOs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CursorUsageDTOs.swift; sourceTree = "<group>"; };
 		0D3611646607A35E26BFEE51 /* ClaudeUsageAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeUsageAdapter.swift; sourceTree = "<group>"; };
 		0D8AAD8E1773BDD67C9C462A /* CursorUsageAdapterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CursorUsageAdapterTests.swift; sourceTree = "<group>"; };
+		115EF78DDBF22BE7B267CE5B /* claude-usage-minimal.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "claude-usage-minimal.json"; sourceTree = "<group>"; };
 		11D41DE98E9E03A2433764CC /* RateWindowSourceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RateWindowSourceTests.swift; sourceTree = "<group>"; };
 		12E48ACC872A23A3B329B354 /* AppMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppMode.swift; sourceTree = "<group>"; };
 		16E33CDE8ED6B06736C4DD65 /* OpenAIUsageAdapterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIUsageAdapterTests.swift; sourceTree = "<group>"; };
@@ -140,6 +145,7 @@
 		68867B1F76ECF4DE1E6FA098 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		69F038C1101F3228D2C607FB /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
 		6E8DE8808B732D4745FB73B9 /* OpenAIUsageAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIUsageAdapter.swift; sourceTree = "<group>"; };
+		71F686E68C6AD2A919ECD797 /* claude-usage.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "claude-usage.json"; sourceTree = "<group>"; };
 		7AE00A3814E6334E70168A6B /* DataQualityBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataQualityBadge.swift; sourceTree = "<group>"; };
 		7B39FBF9301271154CF363EE /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		7B784EDCB98F4CFE937F3132 /* ClaudeCodeLogReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeCodeLogReader.swift; sourceTree = "<group>"; };
@@ -174,9 +180,11 @@
 		D461F567F4AC93CAD78D6410 /* Account.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Account.swift; sourceTree = "<group>"; };
 		D4DECC83D915448F36D2B101 /* BackfillTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackfillTests.swift; sourceTree = "<group>"; };
 		D4FD0B8F6937F8D5E989AF9C /* HistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryView.swift; sourceTree = "<group>"; };
+		D968A135D66AE439311BECFE /* ClaudeUsageQuotaDTOs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeUsageQuotaDTOs.swift; sourceTree = "<group>"; };
 		E04A9E41666FF246015BB1AE /* AccountSyncStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountSyncStateTests.swift; sourceTree = "<group>"; };
 		E2ACCDCE077861E9661ECBFF /* LedgerStoreFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LedgerStoreFactory.swift; sourceTree = "<group>"; };
 		E42FEF51480E9EE7A6F5CB44 /* cursor-spend.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "cursor-spend.json"; sourceTree = "<group>"; };
+		E78959ED32C99389D71E836A /* ClaudeUsageQuotaDTOsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeUsageQuotaDTOsTests.swift; sourceTree = "<group>"; };
 		F06FF5203E4C15863CAB3EE3 /* AccountsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountsView.swift; sourceTree = "<group>"; };
 		F0CDFE7985B9A951A9272425 /* claude-usage-report-page2.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "claude-usage-report-page2.json"; sourceTree = "<group>"; };
 		F23BD4A6011089522A8246FA /* StubURLProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StubURLProtocol.swift; sourceTree = "<group>"; };
@@ -317,6 +325,7 @@
 				60A678EC1790952F7905A614 /* ClaudeAdminAdapterTests.swift */,
 				919CF627AF46F1C143EA18B9 /* ClaudeCodeLogReaderTests.swift */,
 				BB4A7EC82D5A0FF89DFAD496 /* ClaudeUsageAdapterTests.swift */,
+				E78959ED32C99389D71E836A /* ClaudeUsageQuotaDTOsTests.swift */,
 				D10078AD9B1875C460A90C37 /* CostEstimatorTests.swift */,
 				D425CF4A2F4B9E8FFB8776C7 /* CursorTeamAdapterTests.swift */,
 				0D8AAD8E1773BDD67C9C462A /* CursorUsageAdapterTests.swift */,
@@ -364,8 +373,10 @@
 			isa = PBXGroup;
 			children = (
 				5893DAA5F7BF8CB90DDFEB4E /* claude-cost-report.json */,
+				115EF78DDBF22BE7B267CE5B /* claude-usage-minimal.json */,
 				F0CDFE7985B9A951A9272425 /* claude-usage-report-page2.json */,
 				5FE15C8F6E3DE5DF53B643AA /* claude-usage-report.json */,
+				71F686E68C6AD2A919ECD797 /* claude-usage.json */,
 				E42FEF51480E9EE7A6F5CB44 /* cursor-spend.json */,
 				67B0A4E12703B081ADF5F49A /* cursor-usage-events-page2.json */,
 				5E57F6B2EA86558037E4D70F /* cursor-usage-events.json */,
@@ -442,6 +453,7 @@
 				7B784EDCB98F4CFE937F3132 /* ClaudeCodeLogReader.swift */,
 				0D3611646607A35E26BFEE51 /* ClaudeUsageAdapter.swift */,
 				375C12B3C87720CA38C6FEF5 /* ClaudeUsageDTOs.swift */,
+				D968A135D66AE439311BECFE /* ClaudeUsageQuotaDTOs.swift */,
 			);
 			path = Claude;
 			sourceTree = "<group>";
@@ -550,8 +562,10 @@
 			buildActionMask = 2147483647;
 			files = (
 				8316A63CFE39646FC877156D /* claude-cost-report.json in Resources */,
+				B3F171351A59C208FD3AF3F4 /* claude-usage-minimal.json in Resources */,
 				C1BFC704266E19283D0B70B0 /* claude-usage-report-page2.json in Resources */,
 				846B6297F1082269DD709A5C /* claude-usage-report.json in Resources */,
+				F731A9E0E7F227918984E8BA /* claude-usage.json in Resources */,
 				847B3A0F939A62C16DC07DF2 /* cursor-spend.json in Resources */,
 				0EA259904E9F90950A325E9F /* cursor-usage-events-page2.json in Resources */,
 				D9A5D612D6C4A3437775ADC3 /* cursor-usage-events.json in Resources */,
@@ -584,6 +598,7 @@
 				C799DE8A731B58900730F15E /* ClaudeAdminAdapterTests.swift in Sources */,
 				A385281B699E65EE57FD572E /* ClaudeCodeLogReaderTests.swift in Sources */,
 				1E46A6F4CEAD273122B13271 /* ClaudeUsageAdapterTests.swift in Sources */,
+				FB25B96A420EF574188F6447 /* ClaudeUsageQuotaDTOsTests.swift in Sources */,
 				59022EBC301F5B43468F886F /* CostEstimatorTests.swift in Sources */,
 				22CB952ABB615DBD15F9EF76 /* CursorTeamAdapterTests.swift in Sources */,
 				D6E6B247A10DCFB995E7450F /* CursorUsageAdapterTests.swift in Sources */,
@@ -622,6 +637,7 @@
 				0909C91D5EE4CE808530935F /* ClaudeCodeLogReader.swift in Sources */,
 				BDB7FA3AC93ED473C9C2E92D /* ClaudeUsageAdapter.swift in Sources */,
 				F5C131BA61A0099B6347D420 /* ClaudeUsageDTOs.swift in Sources */,
+				4B7EBD39F79A2025162639DB /* ClaudeUsageQuotaDTOs.swift in Sources */,
 				EE496A4425EF2D3826391753 /* CostEstimator.swift in Sources */,
 				373696DD1AD3D4D19DAF6605 /* CursorUsageAdapter.swift in Sources */,
 				21A5FBD03E9CF0CCBF8ABB15 /* CursorUsageDTOs.swift in Sources */,

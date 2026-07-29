@@ -1,0 +1,17 @@
+{
+  "five_hour": {
+    "utilization": 4.0,
+    "resets_at": "2026-07-29T10:30:00.695306+00:00",
+    "limit_dollars": null, "used_dollars": null, "remaining_dollars": null
+  },
+  "seven_day": {
+    "utilization": 3.0,
+    "resets_at": "2026-08-03T22:59:59.695335+00:00",
+    "limit_dollars": null, "used_dollars": null, "remaining_dollars": null
+  },
+  "seven_day_opus": null,
+  "tangelo": null,
+  "iguana_necktie": null,
+  "nimbus_quill": null,
+  "member_dashboard_available": false
+}
