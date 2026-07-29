@@ -36,18 +36,26 @@ enum AccountDeletionFormatting {
         // counts that actually have rows are named.
         var counts: [String] = []
         if summary.costSnapshotCount > 0 {
-            counts.append("\(summary.costSnapshotCount.formatted(.number)) cost snapshots")
+            let noun = summary.costSnapshotCount == 1 ? "cost snapshot" : "cost snapshots"
+            counts.append("\(summary.costSnapshotCount.formatted(.number)) \(noun)")
         }
         if summary.usageSnapshotCount > 0 {
-            counts.append("\(summary.usageSnapshotCount.formatted(.number)) usage snapshots")
+            let noun = summary.usageSnapshotCount == 1 ? "usage snapshot" : "usage snapshots"
+            counts.append("\(summary.usageSnapshotCount.formatted(.number)) \(noun)")
         }
 
         if !counts.isEmpty {
-            // "These" reads correctly in all three shapes, because every shape
-            // ends in a plural noun phrase — "12 cost snapshots", not "12 cost".
+            // The pronoun follows the phrase it refers back to. One shape is
+            // singular — a single count of exactly one — and "1 cost snapshot.
+            // These can be rebuilt" is the same broken agreement the nouns above
+            // used to produce, in the app's only irreversible dialog.
+            let isPlural = counts.count > 1
+                || summary.costSnapshotCount > 1
+                || summary.usageSnapshotCount > 1
             paragraphs.append(
-                "\(counts.joined(separator: " and ")). These can be rebuilt by adding the "
-                + "account again and syncing, as far back as the source still reaches."
+                "\(counts.joined(separator: " and ")). \(isPlural ? "These" : "This") can be "
+                + "rebuilt by adding the account again and syncing, as far back as the source "
+                + "still reaches."
             )
         }
 
