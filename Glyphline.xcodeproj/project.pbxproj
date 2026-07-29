@@ -58,6 +58,8 @@
 		771EDD480CF8D227507CB099 /* SyncCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C65F3F058519D3D6E8B2C8CE /* SyncCoordinator.swift */; };
 		7EE1E0DD0196D6F33CE6E4CE /* AddAccountFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A81C1F539EBD6824C59FADB0 /* AddAccountFlow.swift */; };
 		A1D0E1F300000000000000B2 /* DeleteAccountFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1D0E1F300000000000000A2 /* DeleteAccountFlow.swift */; };
+		A1D0E1F500000000000000B4 /* AccountDeletionFormatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1D0E1F500000000000000A4 /* AccountDeletionFormatting.swift */; };
+		A1D0E1F600000000000000B5 /* AccountDeletionFormattingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1D0E1F600000000000000A5 /* AccountDeletionFormattingTests.swift */; };
 		A1D0E1F400000000000000B3 /* DeleteAccountFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1D0E1F400000000000000A3 /* DeleteAccountFlowTests.swift */; };
 		81A31CCE7A84A8263856A8DC /* Migrations.swift in Sources */ = {isa = PBXBuildFile; fileRef = 979B2CFA8C52D4A2693A102A /* Migrations.swift */; };
 		8316A63CFE39646FC877156D /* claude-cost-report.json in Resources */ = {isa = PBXBuildFile; fileRef = 5893DAA5F7BF8CB90DDFEB4E /* claude-cost-report.json */; };
@@ -183,6 +185,8 @@
 		A63DE4BE6B1E5DD6EBDEC233 /* AddAccountView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddAccountView.swift; sourceTree = "<group>"; };
 		A81C1F539EBD6824C59FADB0 /* AddAccountFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddAccountFlow.swift; sourceTree = "<group>"; };
 		A1D0E1F300000000000000A2 /* DeleteAccountFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeleteAccountFlow.swift; sourceTree = "<group>"; };
+		A1D0E1F500000000000000A4 /* AccountDeletionFormatting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountDeletionFormatting.swift; sourceTree = "<group>"; };
+		A1D0E1F600000000000000A5 /* AccountDeletionFormattingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountDeletionFormattingTests.swift; sourceTree = "<group>"; };
 		A1D0E1F400000000000000A3 /* DeleteAccountFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeleteAccountFlowTests.swift; sourceTree = "<group>"; };
 		A9430FC958CF84944A796120 /* DatabaseQueueFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseQueueFactory.swift; sourceTree = "<group>"; };
 		AF10D82C0BBAB350C0D404AB /* GlyphlineApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlyphlineApp.swift; sourceTree = "<group>"; };
@@ -307,6 +311,7 @@
 			children = (
 				F06FF5203E4C15863CAB3EE3 /* AccountsView.swift */,
 				A81C1F539EBD6824C59FADB0 /* AddAccountFlow.swift */,
+				A1D0E1F500000000000000A4 /* AccountDeletionFormatting.swift */,
 				A1D0E1F300000000000000A2 /* DeleteAccountFlow.swift */,
 				A63DE4BE6B1E5DD6EBDEC233 /* AddAccountView.swift */,
 				102E19DF99EBAC8A3C8BDC32 /* ClaudeSignInWindow.swift */,
@@ -380,6 +385,7 @@
 				B966305CF54AAA51888A2FC0 /* QuotaIndicatorTests.swift */,
 				11D41DE98E9E03A2433764CC /* RateWindowSourceTests.swift */,
 				A1D0E1F200000000000000A1 /* AccountDeletionStoreTests.swift */,
+				A1D0E1F600000000000000A5 /* AccountDeletionFormattingTests.swift */,
 				A1D0E1F400000000000000A3 /* DeleteAccountFlowTests.swift */,
 				1923CB6870F90CE15FC576F9 /* RateWindowStoreTests.swift */,
 				B5287B8477F8EF75ABA938B2 /* SnapshotSummaryTests.swift */,
@@ -672,6 +678,7 @@
 				05ADA18D2E958FB3A3558030 /* RateWindowSourceTests.swift in Sources */,
 				9442C7847482BDAC9B50C660 /* RateWindowStoreTests.swift in Sources */,
 				A1D0E1F200000000000000B1 /* AccountDeletionStoreTests.swift in Sources */,
+				A1D0E1F600000000000000B5 /* AccountDeletionFormattingTests.swift in Sources */,
 				A1D0E1F400000000000000B3 /* DeleteAccountFlowTests.swift in Sources */,
 				AC776B32695D0B125B30B305 /* SnapshotSummaryTests.swift in Sources */,
 				D3E95C4A8677984AD229DE0B /* StubURLProtocol.swift in Sources */,
@@ -690,6 +697,7 @@
 				50DE389F4361F81A9F3BBAE6 /* AccountSummaryFormatting.swift in Sources */,
 				4A2D3A3FE1C0266B2765FD0F /* AccountsView.swift in Sources */,
 				7EE1E0DD0196D6F33CE6E4CE /* AddAccountFlow.swift in Sources */,
+				A1D0E1F500000000000000B4 /* AccountDeletionFormatting.swift in Sources */,
 				A1D0E1F300000000000000B2 /* DeleteAccountFlow.swift in Sources */,
 				B838F331BD89C2B524410914 /* AddAccountView.swift in Sources */,
 				37CFE0A06075136004EBA62F /* AppActivationController.swift in Sources */,
