@@ -65,6 +65,24 @@ final class AccountDeletionFormattingTests: XCTestCase {
         XCTAssertTrue(body.lowercased().contains("rebuilt"))
     }
 
+    func testAZeroUsageCountIsNotNamed() {
+        let body = AccountDeletionFormatting.body(
+            summary: summary(costs: 12, usage: 0),
+            source: .localLogs
+        )
+        XCTAssertTrue(body.contains("\(12.formatted(.number)) cost snapshots"))
+        XCTAssertFalse(body.contains("usage snapshots"))
+    }
+
+    func testAZeroCostCountIsNotNamed() {
+        let body = AccountDeletionFormatting.body(
+            summary: summary(costs: 0, usage: 9),
+            source: .localLogs
+        )
+        XCTAssertTrue(body.contains("\(9.formatted(.number)) usage snapshots"))
+        XCTAssertFalse(body.contains("cost snapshots"))
+    }
+
     func testAWebSessionAccountIsToldItsSignInGoes() {
         let body = AccountDeletionFormatting.body(summary: summary(), source: .claudeWebSession)
         XCTAssertTrue(body.contains("claude.ai sign-in"))

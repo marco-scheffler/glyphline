@@ -31,12 +31,23 @@ enum AccountDeletionFormatting {
             paragraphs.append(sentence)
         }
 
-        if summary.costSnapshotCount > 0 || summary.usageSnapshotCount > 0 {
-            let costs = "\(summary.costSnapshotCount.formatted(.number)) cost snapshots"
-            let usage = "\(summary.usageSnapshotCount.formatted(.number)) usage snapshots"
+        // A count of zero is not history, and naming it as if it were is the
+        // same noise the zero-samples rule above exists to avoid. Only the
+        // counts that actually have rows are named.
+        var counts: [String] = []
+        if summary.costSnapshotCount > 0 {
+            counts.append("\(summary.costSnapshotCount.formatted(.number)) cost snapshots")
+        }
+        if summary.usageSnapshotCount > 0 {
+            counts.append("\(summary.usageSnapshotCount.formatted(.number)) usage snapshots")
+        }
+
+        if !counts.isEmpty {
+            // "These" reads correctly in all three shapes, because every shape
+            // ends in a plural noun phrase — "12 cost snapshots", not "12 cost".
             paragraphs.append(
-                "\(costs) and \(usage). This can be rebuilt by adding the account again and "
-                + "syncing, as far back as the source still reaches."
+                "\(counts.joined(separator: " and ")). These can be rebuilt by adding the "
+                + "account again and syncing, as far back as the source still reaches."
             )
         }
 
