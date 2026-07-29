@@ -70,6 +70,47 @@ final class RateWindowStoreTests: XCTestCase {
         XCTAssertEqual(latest.first?.usedFraction, 0.71)
     }
 
+    func testASubMillisecondResetDifferenceIsNotTreatedAsAChange() throws {
+        let (store, dbQueue, accountID) = try makeStore()
+
+        // Microsecond precision, as claude.ai's resets_at carries.
+        let reset = Date(timeIntervalSince1970: 1_800_003_600.695306)
+        let window = RateWindow(
+            kind: .rollingFiveHours,
+            usedFraction: 0.04,
+            resetAt: reset,
+            observedAt: now
+        )
+
+        XCTAssertTrue(try store.saveRateWindow(window, accountID: accountID))
+
+        // The same reading, re-observed. GRDB stored the reset truncated to
+        // milliseconds, so an exact comparison sees a difference that is not one.
+        var again = window
+        again.observedAt = now.addingTimeInterval(1_800)
+        _ = try store.saveRateWindow(again, accountID: accountID)
+
+        XCTAssertEqual(try sampleCount(dbQueue), 1, "a sub-millisecond difference is storage noise, not a change")
+    }
+
+    func testAResetMovingByMoreThanTheToleranceIsStillAChange() throws {
+        let (store, dbQueue, accountID) = try makeStore()
+        let window = RateWindow(
+            kind: .rollingFiveHours,
+            usedFraction: 0.04,
+            resetAt: Date(timeIntervalSince1970: 1_800_003_600),
+            observedAt: now
+        )
+        XCTAssertTrue(try store.saveRateWindow(window, accountID: accountID))
+
+        var moved = window
+        moved.resetAt = window.resetAt.addingTimeInterval(60)
+        moved.observedAt = now.addingTimeInterval(1_800)
+        XCTAssertTrue(try store.saveRateWindow(moved, accountID: accountID))
+
+        XCTAssertEqual(try sampleCount(dbQueue), 2)
+    }
+
     func testImplausibleObservationsAreDiscarded() throws {
         let (store, dbQueue, accountID) = try makeStore()
 

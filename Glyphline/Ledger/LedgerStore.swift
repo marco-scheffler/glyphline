@@ -504,6 +504,9 @@ private struct RateWindowSampleRecord: Codable, FetchableRecord, PersistableReco
 }
 
 final class LedgerStore {
+    /// Just above GRDB's millisecond storage resolution.
+    private static let resetAtStorageTolerance: TimeInterval = 0.002
+
     private let dbQueue: DatabaseQueue
 
     init(dbQueue: DatabaseQueue) {
@@ -933,9 +936,14 @@ final class LedgerStore {
                 .order(Column(LedgerColumn.observedAt).desc)
                 .fetchOne(db)
 
+            // GRDB stores Date at millisecond resolution, so a resetAt carrying
+            // finer precision never compares equal to its own round trip. An
+            // exact comparison would therefore append a row on every tick.
+            // The bound is just above the storage error, not a semantic
+            // tolerance: a reset genuinely moving is always far larger.
             if let newest,
                newest.usedFraction == window.usedFraction,
-               newest.resetAt == window.resetAt {
+               abs(newest.resetAt.timeIntervalSince(window.resetAt)) < Self.resetAtStorageTolerance {
                 return
             }
 
