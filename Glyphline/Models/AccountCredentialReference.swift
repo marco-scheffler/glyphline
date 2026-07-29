@@ -37,4 +37,20 @@ enum AccountCredentialReference {
             "\(ProviderAdapterRegistry.webSessionScheme)\(accountID.uuidString)"
         }
     }
+
+    /// Reads back the source a reference was built for.
+    ///
+    /// The exact inverse of `make`, and it has to stay that way: deletion decides
+    /// from this whether there is a Keychain entry to remove and a web session to
+    /// tear down. A reference that reads back as the wrong source either leaves a
+    /// live session on disk or fails a deletion that should have succeeded.
+    static func source(of reference: String) -> AccountSource {
+        if reference.hasPrefix(ProviderAdapterRegistry.webSessionScheme) {
+            return .claudeWebSession
+        }
+        if reference.hasPrefix(ProviderAdapterRegistry.localSourceScheme) {
+            return .localLogs
+        }
+        return .credential
+    }
 }
