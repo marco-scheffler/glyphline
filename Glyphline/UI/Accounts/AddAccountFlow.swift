@@ -39,6 +39,8 @@ struct AddAccountFlow {
     let ledgerStore: LedgerStore
     let credentialStore: any CredentialStore
     let signIn: any ClaudeSignInPresenting
+    /// Cleans up after a sign-in that produced no account. See `discardSession`.
+    let webSessions: any WebSessionRemoving
 
     func save(
         providerID: ProviderID,
@@ -73,12 +75,15 @@ struct AddAccountFlow {
             case .signedIn:
                 // The window does not produce this, and if it ever did the account
                 // would be as useless as one that never signed in.
+                await discardSession(for: account)
                 return .failed(RateWindowSourceError.notAvailable.message)
             case .failed(let error):
                 // The error already carries the sentence for this failure. Writing
                 // a second one here is a second place for the wording to drift.
+                await discardSession(for: account)
                 return .failed(error.message)
             case .cancelled:
+                await discardSession(for: account)
                 return .failed(Self.signInCancelledMessage)
             }
         }
@@ -101,8 +106,30 @@ struct AddAccountFlow {
 
             return .saved
         } catch {
+            if source == .claudeWebSession {
+                await discardSession(for: account)
+            }
             return .failed(Self.saveFailedMessage)
         }
+    }
+
+    /// Removes the data store the sign-in window created, on every exit that does
+    /// not persist the account.
+    ///
+    /// The window navigates to claude.ai as soon as it opens, so WebKit has
+    /// already written a persistent store keyed on this account id by the time any
+    /// of these exits is reached. The identifier is *derived* from that id, so once
+    /// the id is thrown away — and it is, on every one of these paths, because no
+    /// row is written — nothing can enumerate or name the store again. That is
+    /// exactly the orphan `DeleteAccountFlow` orders its steps to prevent, and the
+    /// worst shape of it is a successful sign-in on a subscription with no quota:
+    /// a live session left on disk, unreachable forever.
+    ///
+    /// `try?`, deliberately. The caller is already being told why nothing was
+    /// saved, and replacing that sentence with one about a data store would report
+    /// the cleanup instead of the outcome the user asked about.
+    private func discardSession(for account: Account) async {
+        try? await webSessions.removeSession(for: account.id)
     }
 
     /// The local source and the web session are Claude's alone. A selection left

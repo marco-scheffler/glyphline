@@ -6,6 +6,7 @@ struct AddAccountView: View {
     /// Nil means the real window. Held rather than defaulted so the default is not
     /// evaluated outside the main actor, and so a caller can substitute one.
     private let signInPresenter: (any ClaudeSignInPresenting)?
+    private let webSessions: any WebSessionRemoving
     private let onSave: () -> Void
 
     @State private var selectedProviderID: ProviderID = .openAI
@@ -21,11 +22,13 @@ struct AddAccountView: View {
         ledgerStore: LedgerStore? = LedgerStore.makeDefault(),
         credentialStore: any CredentialStore = KeychainStore(),
         signInPresenter: (any ClaudeSignInPresenting)? = nil,
+        webSessions: any WebSessionRemoving = ClaudeWebSessionStore(),
         onSave: @escaping () -> Void = {}
     ) {
         self.ledgerStore = ledgerStore
         self.credentialStore = credentialStore
         self.signInPresenter = signInPresenter
+        self.webSessions = webSessions
         self.onSave = onSave
     }
 
@@ -176,7 +179,8 @@ struct AddAccountView: View {
         let flow = AddAccountFlow(
             ledgerStore: ledgerStore,
             credentialStore: credentialStore,
-            signIn: signInPresenter ?? ClaudeSignInWindowPresenter()
+            signIn: signInPresenter ?? ClaudeSignInWindowPresenter(),
+            webSessions: webSessions
         )
 
         switch await flow.save(

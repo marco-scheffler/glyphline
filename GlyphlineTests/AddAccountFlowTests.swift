@@ -25,6 +25,18 @@ final class AddAccountFlowTests: XCTestCase {
         }
     }
 
+    /// A stand-in for WebKit. Nothing here may touch a real `WKWebsiteDataStore`:
+    /// removing one is a process-wide call against a directory in the developer's
+    /// own Library.
+    @MainActor
+    private final class RecordingRemover: WebSessionRemoving {
+        private(set) var removed: [UUID] = []
+
+        func removeSession(for accountID: UUID) async throws {
+            removed.append(accountID)
+        }
+    }
+
     private final class RecordingCredentialStore: CredentialStore, @unchecked Sendable {
         private(set) var saved: [String: String] = [:]
         private(set) var deleted: [String] = []
@@ -51,15 +63,28 @@ final class AddAccountFlowTests: XCTestCase {
         return LedgerStore(dbQueue: dbQueue)
     }
 
+    /// A ledger whose tables were never created, so `saveAccount` throws. The one
+    /// way to reach the save-failure exit without a stand-in for `LedgerStore`,
+    /// which is a concrete type the flow holds directly.
+    private func makeUnwritableLedger() throws -> LedgerStore {
+        LedgerStore(dbQueue: try DatabaseQueueFactory.makeInMemory())
+    }
+
     private func makeFlow(
         ledger: LedgerStore,
         credentials: RecordingCredentialStore,
-        signIn: FakeSignIn
+        signIn: FakeSignIn,
+        webSessions: RecordingRemover = RecordingRemover()
     ) -> AddAccountFlow {
-        AddAccountFlow(ledgerStore: ledger, credentialStore: credentials, signIn: signIn)
+        AddAccountFlow(
+            ledgerStore: ledger,
+            credentialStore: credentials,
+            signIn: signIn,
+            webSessions: webSessions
+        )
     }
 
-    private let organizationID = "22bb9ef8-0000-4c2f-8f0e-000000000001"
+    private let organizationID = "11111111-1111-1111-1111-111111111111"
 
     // MARK: - Web session
 
@@ -207,6 +232,156 @@ final class AddAccountFlowTests: XCTestCase {
 
         XCTAssertEqual(outcome, .failed(RateWindowSourceError.notAvailable.message))
         XCTAssertTrue(try ledger.fetchAccounts().isEmpty)
+    }
+
+    // MARK: - The session the window leaves behind
+
+    // The sign-in window navigates to claude.ai the moment it opens, so WebKit has
+    // written a persistent data store — keyed on this account id — before any of
+    // these exits is reached. No row is written on any of them, and the store
+    // identifier is derived from the id, so a store left behind here can never be
+    // enumerated or named again. Each exit therefore has to remove it.
+
+    func testCancellingSignInRemovesTheSessionItsWindowCreated() async throws {
+        let webSessions = RecordingRemover()
+        let signIn = FakeSignIn(outcome: .cancelled)
+        let flow = makeFlow(
+            ledger: try makeLedger(),
+            credentials: RecordingCredentialStore(),
+            signIn: signIn,
+            webSessions: webSessions
+        )
+
+        _ = await flow.save(
+            providerID: .claude,
+            displayName: "Max #1",
+            source: .claudeWebSession,
+            credentialValue: "",
+            isEnabled: true
+        )
+
+        let presented = try XCTUnwrap(signIn.presentedAccounts.first)
+        XCTAssertEqual(webSessions.removed, [presented.id])
+    }
+
+    /// The worst shape of the orphan: the sign-in *worked*, so the store on disk
+    /// holds a live claude.ai session. Verification then reported no quota, no
+    /// account is written, and without this the session would sit there forever.
+    func testAFailedSignInRemovesTheSessionItsWindowCreated() async throws {
+        for error in [RateWindowSourceError.sessionExpired, .notAvailable, .transportFailure] {
+            let webSessions = RecordingRemover()
+            let signIn = FakeSignIn(outcome: .failed(error))
+            let flow = makeFlow(
+                ledger: try makeLedger(),
+                credentials: RecordingCredentialStore(),
+                signIn: signIn,
+                webSessions: webSessions
+            )
+
+            _ = await flow.save(
+                providerID: .claude,
+                displayName: "Max #1",
+                source: .claudeWebSession,
+                credentialValue: "",
+                isEnabled: true
+            )
+
+            let presented = try XCTUnwrap(signIn.presentedAccounts.first, "\(error)")
+            XCTAssertEqual(webSessions.removed, [presented.id], "\(error)")
+        }
+    }
+
+    func testASignedInOutcomeWithoutAnOrganisationRemovesTheSession() async throws {
+        let webSessions = RecordingRemover()
+        let signIn = FakeSignIn(outcome: .signedIn(organizationID: ""))
+        let flow = makeFlow(
+            ledger: try makeLedger(),
+            credentials: RecordingCredentialStore(),
+            signIn: signIn,
+            webSessions: webSessions
+        )
+
+        _ = await flow.save(
+            providerID: .claude,
+            displayName: "Max #1",
+            source: .claudeWebSession,
+            credentialValue: "",
+            isEnabled: true
+        )
+
+        let presented = try XCTUnwrap(signIn.presentedAccounts.first)
+        XCTAssertEqual(webSessions.removed, [presented.id])
+    }
+
+    /// The exit that is easiest to forget: the sign-in succeeded and the write did
+    /// not. There is still no row, so the id that names the store is still lost.
+    func testAFailedSaveRemovesTheSessionTheSignInEstablished() async throws {
+        let webSessions = RecordingRemover()
+        let signIn = FakeSignIn(outcome: .signedIn(organizationID: organizationID))
+        let flow = makeFlow(
+            ledger: try makeUnwritableLedger(),
+            credentials: RecordingCredentialStore(),
+            signIn: signIn,
+            webSessions: webSessions
+        )
+
+        let outcome = await flow.save(
+            providerID: .claude,
+            displayName: "Max #1",
+            source: .claudeWebSession,
+            credentialValue: "",
+            isEnabled: true
+        )
+
+        XCTAssertEqual(outcome, .failed(AddAccountFlow.saveFailedMessage))
+        let presented = try XCTUnwrap(signIn.presentedAccounts.first)
+        XCTAssertEqual(webSessions.removed, [presented.id])
+    }
+
+    /// The other half of the rule. A saved account owns its session, and removing
+    /// it here would sign the user straight back out of the account they just added.
+    func testASavedAccountKeepsTheSessionItJustSignedInTo() async throws {
+        let webSessions = RecordingRemover()
+        let flow = makeFlow(
+            ledger: try makeLedger(),
+            credentials: RecordingCredentialStore(),
+            signIn: FakeSignIn(outcome: .signedIn(organizationID: organizationID)),
+            webSessions: webSessions
+        )
+
+        let outcome = await flow.save(
+            providerID: .claude,
+            displayName: "Max #1",
+            source: .claudeWebSession,
+            credentialValue: "",
+            isEnabled: true
+        )
+
+        XCTAssertEqual(outcome, .saved)
+        XCTAssertTrue(webSessions.removed.isEmpty)
+    }
+
+    /// Only a web session has a store to remove. A credential account whose write
+    /// fails must not send WebKit after a data store that was never created.
+    func testAFailedSaveOnACredentialAccountRemovesNoSession() async throws {
+        let webSessions = RecordingRemover()
+        let flow = makeFlow(
+            ledger: try makeUnwritableLedger(),
+            credentials: RecordingCredentialStore(),
+            signIn: FakeSignIn(outcome: .signedIn(organizationID: organizationID)),
+            webSessions: webSessions
+        )
+
+        let outcome = await flow.save(
+            providerID: .claude,
+            displayName: "Admin",
+            source: .credential,
+            credentialValue: "sk-ant-admin-secret",
+            isEnabled: true
+        )
+
+        XCTAssertEqual(outcome, .failed(AddAccountFlow.saveFailedMessage))
+        XCTAssertTrue(webSessions.removed.isEmpty)
     }
 
     // MARK: - The two sources that already existed
