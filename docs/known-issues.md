@@ -91,6 +91,25 @@ makes this safe, but `LedgerStore`'s `@unchecked Sendable` justification is only
 true per connection. Consolidating to a single injected store would make the
 assertion true again and remove the four `makeDefault()` calls.
 
+`AccountsView` now carries a fifth `makeDefault()` as a property default, but
+`DashboardView` passes its own store, so the default is never evaluated in the
+running app. It is a latent fifth connection, not an actual one — which is
+exactly how the other four started.
+
+### Web session stores orphaned before deletion existed
+
+Deleting an account now removes its `WKWebsiteDataStore` along with its rows, and
+the removal runs *before* the ledger delete so a failure can never strand a live
+session with no account naming it. That closes the leak going forward.
+
+It does not reach backwards. Stores created by a cancelled sign-in, or by a
+sign-in that succeeded while the account write failed, are unreachable by
+construction: the identifier is derived from an account id that was never
+persisted, so nothing in the ledger can name them. Only a sweep of
+`~/Library/WebKit/<bundle-id>/WebsiteDataStore/` against the set of live account
+ids could find them, and that sweep is its own task — it must not delete an
+identifier belonging to an account that merely failed to load.
+
 ## Cosmetic
 
 - `Glyphline/UI/AccountSummaryFormatting.swift` — the `endsAt` and `startsAt`
@@ -153,13 +172,14 @@ not confirm. `isPlausible` cannot catch this: it evaluates `resetAt > now` with
 `now == window.observedAt`, so it is blind to `observedAt` itself. Unreachable
 while no real source exists; it belongs in the first adapter's brief.
 
-**The `resetAt` millisecond coupling.** GRDB truncates `Date` to milliseconds,
-so a sub-millisecond `resetAt` — which a real parser produces and the
-second-granularity fixtures do not — compares unequal to its stored form and
-appends a spurious "change" row. Bounded: extra rows, never a lost or replaced
-observation, and retention reclaims them. Comparing with a ~0.001 tolerance is
-the fix. It is safe to do now that freshness no longer rides on `observedAt`;
-before that change it would have made staleness strictly worse.
+**The `resetAt` millisecond coupling — fixed, kept here as a warning.** GRDB
+truncates `Date` to milliseconds, so a sub-millisecond `resetAt` — which the
+real claude.ai parser produces and the second-granularity fixtures did not —
+compared unequal to its own stored form and appended a spurious "change" row on
+every poll. `LedgerStore.resetAtStorageTolerance` (0.002s) now absorbs it. The
+lesson generalises to any future column: a fixture whose precision is coarser
+than production's cannot detect a storage-precision mismatch, so the bug was
+invisible to the whole suite until a live response hit it.
 
 **Codex has a free billing-cycle source.** `~/.codex/auth.json`'s `id_token`
 carries `chatgpt_subscription_active_until` in its `https://api.openai.com/auth`
