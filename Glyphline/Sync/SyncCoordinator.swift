@@ -435,6 +435,23 @@ final class SyncCoordinator: ObservableObject {
         backfillTasks[account.id] = nil
     }
 
+    /// Drops everything this coordinator remembers about an account.
+    ///
+    /// Called after the account is deleted. The backfill task is cancelled first
+    /// and for a reason beyond tidiness: a run that outlives its account keeps
+    /// writing snapshots under an id nothing references, quietly refilling the
+    /// tables the deletion just emptied.
+    func forgetAccount(id accountID: UUID) {
+        backfillTasks[accountID]?.cancel()
+        backfillTasks[accountID] = nil
+        activities[accountID] = nil
+        rateWindowMessages[accountID] = nil
+        rateWindowConfirmations[accountID] = nil
+        rateWindowFetchesInFlight.remove(accountID)
+        sessionExpiryNotified.remove(accountID)
+        quotaStates.removeAll { $0.accountID == accountID }
+    }
+
     /// Phase two: walk backwards in weekly slices, recording progress after each so
     /// a cancelled or interrupted run resumes rather than restarting.
     ///

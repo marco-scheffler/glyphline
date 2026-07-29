@@ -845,6 +845,81 @@ final class SyncCoordinatorTests: XCTestCase {
 
         XCTAssertEqual(notifier.sentNames, ["Max #1"])
     }
+
+    // MARK: - Forgetting a deleted account
+
+    @MainActor
+    func testForgettingAnAccountClearsItsStateAndLeavesOthersAlone() async throws {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let dbQueue = try DatabaseQueueFactory.makeInMemory()
+        try Migrations.makeMigrator().migrate(dbQueue)
+        let ledger = LedgerStore(dbQueue: dbQueue)
+        let credentials = InMemoryCredentialStore()
+
+        func makeAccount(_ name: String) throws -> Account {
+            let account = Account(
+                id: UUID(),
+                providerID: .openAI,
+                displayName: name,
+                credentialReference: "keychain://glyphline/\(name)",
+                createdAt: now,
+                isEnabled: true
+            )
+            try ledger.saveAccount(account)
+            try credentials.save(secret: "secret", for: account.credentialReference)
+            return account
+        }
+
+        let doomed = try makeAccount("Doomed")
+        let survivor = try makeAccount("Survivor")
+
+        let coordinator = try makeCoordinator(ledger: ledger, credentials: credentials)
+        await coordinator.syncAll()
+        await coordinator.collectRateWindows()
+
+        // Guards the assertions below. Without these, a coordinator that never
+        // recorded any state would pass the whole test vacuously.
+        XCTAssertNotNil(coordinator.activities[doomed.id])
+        XCTAssertNotNil(coordinator.rateWindowMessages[doomed.id])
+        XCTAssertTrue(coordinator.quotaStates.contains { $0.accountID == doomed.id })
+        XCTAssertNotNil(coordinator.activities[survivor.id])
+
+        coordinator.forgetAccount(id: doomed.id)
+
+        XCTAssertNil(coordinator.activities[doomed.id])
+        XCTAssertNil(coordinator.rateWindowMessages[doomed.id])
+        XCTAssertFalse(coordinator.quotaStates.contains { $0.accountID == doomed.id })
+
+        XCTAssertNotNil(coordinator.activities[survivor.id])
+        XCTAssertTrue(coordinator.quotaStates.contains { $0.accountID == survivor.id })
+    }
+
+    /// The notify-once flag is private, so it is covered through behaviour: an
+    /// account whose expiry has already been announced is forgotten, and the
+    /// very next expired tick must announce again. If `forgetAccount` failed to
+    /// clear the flag, the second announcement would never arrive.
+    func testForgettingAnAccountRearmsItsExpiryNotification() async throws {
+        let notifier = RecordingQuotaNotifier()
+        let coordinator = try makeExpiringCoordinator(
+            source: SwitchableQuotaSource(behaviour: .expired),
+            notifier: notifier
+        )
+
+        await coordinator.collectRateWindows()
+        XCTAssertEqual(notifier.sentCount, 1)
+
+        await coordinator.collectRateWindows()
+        XCTAssertEqual(notifier.sentCount, 1, "precondition: the flag suppresses the repeat")
+
+        let accountID = try XCTUnwrap(coordinator.quotaStates.first?.accountID)
+        coordinator.forgetAccount(id: accountID)
+
+        await coordinator.collectRateWindows()
+        XCTAssertEqual(
+            notifier.sentCount, 2,
+            "forgetting the account must clear the notify-once flag"
+        )
+    }
 }
 
 /// Records what was sent, not merely how often, so a test can prove *which*
