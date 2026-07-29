@@ -3,6 +3,8 @@ import XCTest
 
 @MainActor
 final class ProviderAdapterRegistryTests: XCTestCase {
+    private let organizationID = "11111111-1111-1111-1111-111111111111"
+
     private func makeAccount(_ providerID: ProviderID, reference: String) -> Account {
         Account(
             id: UUID(),
@@ -65,7 +67,7 @@ final class ProviderAdapterRegistryTests: XCTestCase {
     func testAWebSessionAccountWithAnOrganisationDrawsQuotaFromTheWebSource() throws {
         let registry = ProviderAdapterRegistry()
         var account = makeAccount(.claude, reference: "web-session://\(UUID().uuidString)")
-        account.claudeOrganizationID = "22bb9ef8-0000-4c2f-8f0e-000000000001"
+        account.claudeOrganizationID = organizationID
 
         XCTAssertTrue(registry.rateWindowSource(for: account) is ClaudeWebQuotaSource)
     }
@@ -127,21 +129,32 @@ final class ProviderAdapterRegistryTests: XCTestCase {
         }
     }
 
-    /// The wiring that makes the feature exist: a Claude account whose sign-in
-    /// resolved an organisation reads quota through its own web session.
-    func testAClaudeAccountWithAnOrganisationResolvesToTheWebSource() throws {
+    /// An organisation id alone does not make a web session. `fetchWindows` asks
+    /// for this account's WebKit data store and that call *creates* one, while
+    /// `DeleteAccountFlow` decides whether to remove a store from the credential
+    /// reference alone. So a local-source account carrying a stray organisation id
+    /// would have a store created on every tick and would never be asked to remove
+    /// one — a store keyed on an account id that nothing will ever look up again.
+    func testALocalSourceAccountWithAnOrganisationHasNoRateWindowSource() throws {
         let registry = ProviderAdapterRegistry()
         var account = makeAccount(.claude, reference: "local-source://claude-code")
-        account.claudeOrganizationID = "22bb9ef8-0000-4c2f-8f0e-000000000001"
+        account.claudeOrganizationID = organizationID
 
-        XCTAssertTrue(registry.rateWindowSource(for: account) is ClaudeWebQuotaSource)
+        XCTAssertEqual(
+            AccountCredentialReference.source(of: account.credentialReference),
+            .localLogs
+        )
+        XCTAssertNil(registry.rateWindowSource(for: account))
     }
 
     /// Before the sign-in there is no organisation, so there is no route — and a
     /// source resolved anyway would navigate on every tick and fail every time.
+    ///
+    /// Asserted on a web-session account, so the reference is not what makes this
+    /// nil: the missing organisation is.
     func testAClaudeAccountWithoutAnOrganisationHasNoRateWindowSource() throws {
         let registry = ProviderAdapterRegistry()
-        let account = makeAccount(.claude, reference: "local-source://claude-code")
+        let account = makeAccount(.claude, reference: "web-session://\(UUID().uuidString)")
 
         XCTAssertNil(account.claudeOrganizationID)
         XCTAssertNil(registry.rateWindowSource(for: account))
@@ -149,12 +162,15 @@ final class ProviderAdapterRegistryTests: XCTestCase {
 
     /// The organisation id is Claude's alone. A stray value on another provider
     /// must not open a claude.ai navigation for an account that is not Claude.
+    ///
+    /// Given the web-session reference too, so the provider check is the only
+    /// thing left standing between this account and a source.
     func testANonClaudeAccountNeverResolvesToTheWebSource() throws {
         let registry = ProviderAdapterRegistry()
 
         for providerID in ProviderID.allCases where providerID != .claude {
-            var account = makeAccount(providerID, reference: "keychain://glyphline/abc")
-            account.claudeOrganizationID = "22bb9ef8-0000-4c2f-8f0e-000000000001"
+            var account = makeAccount(providerID, reference: "web-session://\(UUID().uuidString)")
+            account.claudeOrganizationID = organizationID
 
             XCTAssertNil(registry.rateWindowSource(for: account), "\(providerID)")
         }
@@ -165,7 +181,7 @@ final class ProviderAdapterRegistryTests: XCTestCase {
     /// user cannot act on.
     func testAnEmptyOrganisationIdIsNotAnOrganisation() throws {
         let registry = ProviderAdapterRegistry()
-        var account = makeAccount(.claude, reference: "local-source://claude-code")
+        var account = makeAccount(.claude, reference: "web-session://\(UUID().uuidString)")
         account.claudeOrganizationID = ""
 
         XCTAssertNil(registry.rateWindowSource(for: account))

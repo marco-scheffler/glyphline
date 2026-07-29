@@ -67,10 +67,19 @@ struct ProviderAdapterRegistry {
 
     /// The quota source for an account.
     ///
-    /// Exactly one account shape resolves to anything: a Claude account whose
-    /// sign-in resolved an organisation id. That id is what the usage endpoint's
-    /// path is built from, so without it there is no route — and a source handed
-    /// back anyway would navigate on every tick and fail every time.
+    /// Exactly one account shape resolves to anything: a Claude account that
+    /// carries the web-session scheme *and* whose sign-in resolved an organisation
+    /// id. The id is what the usage endpoint's path is built from, so without it
+    /// there is no route — and a source handed back anyway would navigate on every
+    /// tick and fail every time.
+    ///
+    /// The reference is read as well as the id, and it has to be: `fetchWindows`
+    /// asks `ClaudeWebSessionStore` for this account's data store, and that call
+    /// *creates* one. `DeleteAccountFlow` decides whether to remove a store from
+    /// the reference alone, so an account with some other reference and a stray
+    /// organisation id would have a store created on every tick and would never be
+    /// asked to remove one — the same unnameable orphan, arrived at from the other
+    /// end. One predicate, read the same way in both places.
     ///
     /// Everything else stays `nil`. This used to hand back
     /// `FixtureRateWindowSource` for any account carrying a quota credential
@@ -84,6 +93,7 @@ struct ProviderAdapterRegistry {
     @MainActor
     func rateWindowSource(for account: Account) -> (any RateWindowSource)? {
         guard account.providerID == .claude,
+              AccountCredentialReference.source(of: account.credentialReference) == .claudeWebSession,
               let organizationID = account.claudeOrganizationID,
               !organizationID.isEmpty
         else {
