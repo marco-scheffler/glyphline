@@ -12,6 +12,15 @@ import Foundation
 /// failure is harmless by comparison: the user sees an account that has to sign
 /// in again. So a failed cleanup aborts the deletion and says so, rather than
 /// pressing on and leaving a phantom.
+///
+/// **The web session goes first, ahead of the credential deletes.** It is the
+/// resource whose orphaning this whole flow exists to prevent, and it is also the
+/// only step that can fail while nothing else has been touched yet. Putting it
+/// first makes "Nothing was deleted." true at the one point it is claimed — a
+/// web-session account can also hold a quota secret, and deleting that first would
+/// have let a session failure report a deletion that had in fact already taken the
+/// token. The external-first / ledger-last invariant is unchanged: an account
+/// exists ⇒ its resources may exist, never the reverse.
 @MainActor
 struct DeleteAccountFlow {
     enum Outcome: Equatable {
@@ -20,7 +29,7 @@ struct DeleteAccountFlow {
     }
 
     static let credentialCleanupFailedMessage =
-        "Could not remove this account's stored credential. Nothing was deleted."
+        "Could not remove this account's stored credential. The account was not deleted."
     static let webSessionCleanupFailedMessage =
         "Could not remove this account's claude.ai sign-in. Nothing was deleted."
     static let deleteFailedMessage = "Could not delete account."
@@ -31,6 +40,16 @@ struct DeleteAccountFlow {
 
     func delete(_ account: Account) async -> Outcome {
         let source = AccountCredentialReference.source(of: account.credentialReference)
+
+        if source == .claudeWebSession {
+            do {
+                try await webSessions.removeSession(for: account.id)
+            } catch {
+                // The caught error is deliberately not read. It may name a path
+                // inside the user's Library; the sentence the user needs does not.
+                return .failed(Self.webSessionCleanupFailedMessage)
+            }
+        }
 
         do {
             if source == .credential {
@@ -43,16 +62,6 @@ struct DeleteAccountFlow {
             }
         } catch {
             return .failed(Self.credentialCleanupFailedMessage)
-        }
-
-        if source == .claudeWebSession {
-            do {
-                try await webSessions.removeSession(for: account.id)
-            } catch {
-                // The caught error is deliberately not read. It may name a path
-                // inside the user's Library; the sentence the user needs does not.
-                return .failed(Self.webSessionCleanupFailedMessage)
-            }
         }
 
         do {

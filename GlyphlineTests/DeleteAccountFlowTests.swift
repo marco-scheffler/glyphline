@@ -77,8 +77,9 @@ final class DeleteAccountFlowTests: XCTestCase {
             credentialStore: InMemoryCredentialStore(),
             webSessions: remover
         )
-        _ = await flow.delete(account)
+        let outcome = await flow.delete(account)
 
+        XCTAssertEqual(outcome, .deleted)
         XCTAssertEqual(remover.removed, [account.id])
     }
 
@@ -153,6 +154,32 @@ final class DeleteAccountFlowTests: XCTestCase {
         let outcome = await flow.delete(account)
 
         XCTAssertEqual(outcome, .failed(DeleteAccountFlow.webSessionCleanupFailedMessage))
+        XCTAssertEqual(try accountCount(dbQueue), 1)
+    }
+
+    /// The combination that used to lose a token: a web-session account that also
+    /// holds a quota secret. If the session removal fails, nothing may have been
+    /// taken from the account yet — the message promises exactly that.
+    func testAFailedSessionRemovalLeavesAQuotaSecretIntact() async throws {
+        let (store, dbQueue) = try makeStore()
+        var account = makeAccount(source: .claudeWebSession)
+        account.quotaCredentialReference = "keychain://glyphline/quota-\(account.id.uuidString)"
+        try store.saveAccount(account)
+
+        let credentials = InMemoryCredentialStore()
+        try credentials.save(secret: "quota", for: account.quotaCredentialReference!)
+
+        let remover = StubRemover()
+        remover.errorToThrow = StubError()
+        let flow = DeleteAccountFlow(
+            ledgerStore: store,
+            credentialStore: credentials,
+            webSessions: remover
+        )
+        let outcome = await flow.delete(account)
+
+        XCTAssertEqual(outcome, .failed(DeleteAccountFlow.webSessionCleanupFailedMessage))
+        XCTAssertNotNil(try credentials.readSecret(for: account.quotaCredentialReference!))
         XCTAssertEqual(try accountCount(dbQueue), 1)
     }
 
