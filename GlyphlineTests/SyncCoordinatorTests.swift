@@ -956,6 +956,182 @@ final class SyncCoordinatorTests: XCTestCase {
         )
         XCTAssertNil(afterwards.windows.first?.confirmedAt)
     }
+
+    // MARK: - Deletion ordering
+
+    /// The ordering the deletion depends on: the backfill is cancelled BEFORE the
+    /// durable delete, never after.
+    ///
+    /// A slice that starts while the delete is in flight writes snapshots under an
+    /// id the ledger is about to forget, and the schema has no foreign keys, so
+    /// those rows survive invisibly. This lived in `AccountsView` and was the wrong
+    /// way round there — delete first, cancel second — where no test could see it.
+    ///
+    /// Both events are recorded at the instant they happen: a cancellation handler
+    /// runs synchronously inside `Task.cancel()`, and `removeSession` is the first
+    /// thing `DeleteAccountFlow` does, ahead of every durable step.
+    func testDeletingAnAccountCancelsItsBackfillBeforeTheDurableDelete() async throws {
+        let dbQueue = try DatabaseQueueFactory.makeInMemory()
+        try Migrations.migrate(dbQueue)
+        let ledger = LedgerStore(dbQueue: dbQueue)
+
+        let accountID = UUID()
+        let account = Account(
+            id: accountID,
+            providerID: .claude,
+            displayName: "Max #1",
+            credentialReference: AccountCredentialReference.make(
+                accountID: accountID,
+                source: .claudeWebSession
+            ),
+            createdAt: Date(timeIntervalSince1970: 1_800_000_000),
+            isEnabled: true
+        )
+        try ledger.saveAccount(account)
+
+        let log = DeletionOrderLog()
+        let gate = ParkingAdapter.Gate()
+        let coordinator = try makeCoordinator(
+            ledger: ledger,
+            credentials: InMemoryCredentialStore(),
+            adapter: ParkingAdapter(gate: gate, log: log)
+        )
+
+        let running = Task { await coordinator.backfill(account: account) }
+
+        // A slice has to be in flight before the delete starts. Cancelling a task
+        // that has not begun would prove nothing about the order of the two steps.
+        var spins = 0
+        while !gate.isParked, spins < 10_000 {
+            spins += 1
+            await Task.yield()
+        }
+        guard gate.isParked else {
+            running.cancel()
+            gate.release()
+            _ = await running.value
+            return XCTFail("precondition: a backfill slice must be in flight")
+        }
+
+        let flow = DeleteAccountFlow(
+            ledgerStore: ledger,
+            credentialStore: InMemoryCredentialStore(),
+            webSessions: OrderRecordingRemover(log: log)
+        )
+        let outcome = await coordinator.deleteAccount(account, using: flow)
+        _ = await running.value
+
+        XCTAssertEqual(outcome, .deleted)
+        XCTAssertEqual(log.events, [.backfillCancelled, .sessionRemoved])
+    }
+}
+
+/// The two events whose order is the whole point of `deleteAccount`.
+private final class DeletionOrderLog: @unchecked Sendable {
+    enum Event {
+        case backfillCancelled
+        case sessionRemoved
+    }
+
+    private let lock = NSLock()
+    private var storage: [Event] = []
+
+    func record(_ event: Event) {
+        lock.lock()
+        defer { lock.unlock() }
+        storage.append(event)
+    }
+
+    var events: [Event] {
+        lock.lock()
+        defer { lock.unlock() }
+        return storage
+    }
+}
+
+extension DeletionOrderLog.Event: Equatable {}
+
+/// A stand-in for WebKit, recording the first step of the delete. Nothing here
+/// may touch a real `WKWebsiteDataStore`.
+@MainActor
+private final class OrderRecordingRemover: WebSessionRemoving {
+    private let log: DeletionOrderLog
+
+    init(log: DeletionOrderLog) {
+        self.log = log
+    }
+
+    func removeSession(for accountID: UUID) async throws {
+        log.record(.sessionRemoved)
+    }
+}
+
+/// A backfill slice that parks until the run is cancelled, and records the
+/// cancellation the moment it is delivered.
+///
+/// `withTaskCancellationHandler` runs its handler synchronously inside
+/// `Task.cancel()`, so the recorded moment is the moment the coordinator
+/// cancelled — not whenever the parked slice next got scheduled, which would make
+/// the recorded order a race rather than an observation.
+private struct ParkingAdapter: ProviderAdapter {
+    final class Gate: @unchecked Sendable {
+        private let lock = NSLock()
+        private var continuation: CheckedContinuation<Void, Never>?
+        private var isReleased = false
+        private var isParkedStorage = false
+
+        var isParked: Bool {
+            lock.lock()
+            defer { lock.unlock() }
+            return isParkedStorage
+        }
+
+        func park() async {
+            await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+                lock.lock()
+                isParkedStorage = true
+                if isReleased {
+                    lock.unlock()
+                    continuation.resume()
+                } else {
+                    self.continuation = continuation
+                    lock.unlock()
+                }
+            }
+        }
+
+        func release() {
+            lock.lock()
+            let waiting = continuation
+            continuation = nil
+            isReleased = true
+            lock.unlock()
+            waiting?.resume()
+        }
+    }
+
+    let providerID: ProviderID = .claude
+    let gate: Gate
+    let log: DeletionOrderLog
+
+    var requiresSecret: Bool { false }
+    var scopedIsNoOp: Bool { false }
+
+    func scoped(to interval: DateInterval) -> any ProviderAdapter { self }
+
+    func sync(account: Account, secret: String) async throws -> ProviderSyncResult {
+        await withTaskCancellationHandler {
+            await gate.park()
+        } onCancel: {
+            log.record(.backfillCancelled)
+            gate.release()
+        }
+
+        // A slice cancelled mid-flight produces nothing. Returning a result here
+        // would have the test writing snapshots for an account being deleted —
+        // the very thing the cancel exists to prevent.
+        throw CancellationError()
+    }
 }
 
 /// Records what was sent, not merely how often, so a test can prove *which*

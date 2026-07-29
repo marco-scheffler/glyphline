@@ -81,6 +81,11 @@ struct AccountsView: View {
                                         Image(systemName: "trash")
                                     }
                                     .buttonStyle(.borderless)
+                                    // An image-only control has no accessible name
+                                    // of its own, and `.help` is a tooltip rather
+                                    // than a label. This is the only irreversible
+                                    // action in the app; it may not be nameless.
+                                    .accessibilityLabel("Delete account")
                                     .help("Delete account")
                                     .disabled(
                                         coordinator.activities[summary.account.id]?.isRunning == true
@@ -207,13 +212,14 @@ struct AccountsView: View {
             webSessions: webSessions
         )
         Task {
-            let outcome = await flow.delete(account)
+            // The coordinator owns the ordering — cancel, then delete, then forget.
+            // Doing it here would put an ordering guarantee somewhere no test can
+            // reach it, and this view got it wrong: it deleted first and cancelled
+            // after, which is no guarantee at all.
+            let outcome = await coordinator.deleteAccount(account, using: flow)
             deletingAccountID = nil
             switch outcome {
             case .deleted:
-                // Only after the durable delete succeeded. Clearing first would
-                // drop the state of an account that is still there.
-                coordinator.forgetAccount(id: account.id)
                 onDeleted()
             case let .failed(message):
                 deletionError = message

@@ -435,12 +435,38 @@ final class SyncCoordinator: ObservableObject {
         backfillTasks[account.id] = nil
     }
 
+    /// Deletes an account and drops everything this coordinator holds for it.
+    ///
+    /// The backfill is cancelled BEFORE the durable delete, not after. A slice that
+    /// starts while the delete is in flight writes snapshots under an id the ledger
+    /// is about to forget, and with no foreign keys those rows survive invisibly.
+    ///
+    /// The ordering lives here rather than at the call site because a view cannot
+    /// be tested, and the whole point of the cancel is an ordering guarantee. The
+    /// trash button's own guard does not close the window: `backfill` registers its
+    /// task before the task body marks the account running, so there is a real
+    /// main-actor hop in which the button is live and a backfill is already
+    /// registered.
+    ///
+    /// Cancellation stays cooperative: a slice already inside `scheduler.sync(…)`
+    /// finishes its writes. Narrowing that is a separate problem, recorded as a
+    /// known issue.
+    func deleteAccount(_ account: Account, using flow: DeleteAccountFlow) async -> DeleteAccountFlow.Outcome {
+        cancelBackfill(account: account)
+        let outcome = await flow.delete(account)
+        if case .deleted = outcome {
+            forgetAccount(id: account.id)
+        }
+        return outcome
+    }
+
     /// Drops everything this coordinator remembers about an account.
     ///
-    /// Called after the account is deleted. The backfill task is cancelled first
-    /// and for a reason beyond tidiness: a run that outlives its account keeps
-    /// writing snapshots under an id nothing references, quietly refilling the
-    /// tables the deletion just emptied.
+    /// Called after the account is deleted. The cancel here is a backstop, not the
+    /// guarantee: `deleteAccount` already cancelled before the durable delete, which
+    /// is the only ordering that keeps a run from refilling the tables the deletion
+    /// just emptied. This one catches a task registered in between, and costs
+    /// nothing when there is none.
     func forgetAccount(id accountID: UUID) {
         backfillTasks[accountID]?.cancel()
         backfillTasks[accountID] = nil
