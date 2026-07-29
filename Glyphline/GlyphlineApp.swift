@@ -37,16 +37,24 @@ struct GlyphlineApp: App {
         }
         .windowStyle(.titleBar)
 
-        MenuBarExtra(
-            "Glyphline",
-            systemImage: "chart.line.uptrend.xyaxis",
-            isInserted: menuBarExtraInsertion
-        ) {
+        MenuBarExtra(isInserted: menuBarExtraInsertion) {
             ModeAwareMenuBarRoot(settings: settings) {
                 MenuBarView()
                     .environmentObject(settings)
                     .environmentObject(coordinator)
             }
+        } label: {
+            // The icon *is* the light: it follows `quotaLight` rather than
+            // staying fixed.
+            //
+            // `Image`, not `Label`: a `Label` generally resolves to title *and*
+            // icon, which would put the word "Glyphline" in the menu bar beside
+            // the symbol. The name still reaches VoiceOver, through the
+            // accessibility label rather than through rendered text.
+            Image(systemName: QuotaIndicator.symbolName(for: coordinator.quotaLight))
+                .accessibilityLabel(
+                    Text(QuotaIndicator.accessibilityLabel(for: coordinator.quotaLight))
+                )
         }
     }
 

@@ -361,6 +361,400 @@ final class SyncCoordinatorTests: XCTestCase {
         XCTAssertFalse(coordinator.isSchedulerRunning)
         XCTAssertNil(coordinator.currentIntervalSeconds)
     }
+
+    /// Non-async so GRDB's synchronous `read` overload is the one selected;
+    /// the tests below call it from an async context.
+    private nonisolated static func rateWindowSampleCount(_ dbQueue: DatabaseQueue) throws -> Int {
+        try dbQueue.read { db in
+            try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM rateWindowSamples") ?? 0
+        }
+    }
+
+    func testCollectingRateWindowsStoresThemAndAppliesRetention() async throws {
+        let dbQueue = try DatabaseQueueFactory.makeInMemory()
+        try Migrations.makeMigrator().migrate(dbQueue)
+        let ledger = LedgerStore(dbQueue: dbQueue)
+
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let account = Account(
+            id: UUID(), providerID: .claude, displayName: "Max #1",
+            credentialReference: "local-source://x", createdAt: now, isEnabled: true
+        )
+        try ledger.saveAccount(account)
+
+        // A sample far older than the retention window must not survive the tick.
+        try ledger.saveRateWindow(
+            RateWindow(kind: .weekly, usedFraction: 0.5,
+                       resetAt: now.addingTimeInterval(-360 * 86_400),
+                       observedAt: now.addingTimeInterval(-400 * 86_400)),
+            accountID: account.id
+        )
+
+        let coordinator = SyncCoordinator(
+            ledger: ledger,
+            credentials: InMemoryCredentialStore(),
+            registry: ProviderAdapterRegistry(watermarkStore: ledger),
+            estimator: CostEstimator(catalog: PricingCatalog(entries: [])),
+            now: { now },
+            rateWindowSourceProvider: { _ in FixtureRateWindowSource(now: { now }) }
+        )
+
+        await coordinator.collectRateWindows()
+
+        let stored = try ledger.fetchLatestRateWindows(accountID: account.id)
+        XCTAssertEqual(Set(stored.map(\.kind)), [.rollingFiveHours, .weekly])
+
+        let total = try Self.rateWindowSampleCount(dbQueue)
+        XCTAssertEqual(total, 2, "the 400-day-old sample should have been deleted by retention")
+    }
+
+    /// Pins the actual guarantee: a failed quota fetch contributes no quota row.
+    ///
+    /// The account deliberately *does* have a billing period the cost sync already
+    /// established, so the billing-cycle derivation fires. That row is real
+    /// information from the cost path, not recorded ignorance, and it is the only
+    /// row allowed to exist here. Asserting a bare `COUNT(*) == 0` would pass only
+    /// by accident of the account having no billing period at all, and would say
+    /// nothing about whether the failing fetch wrote a quota row.
+    func testAFailingRateWindowFetchWritesNoQuotaRowAndRecordsAReason() async throws {
+        let dbQueue = try DatabaseQueueFactory.makeInMemory()
+        try Migrations.makeMigrator().migrate(dbQueue)
+        let ledger = LedgerStore(dbQueue: dbQueue)
+
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let account = Account(
+            id: UUID(), providerID: .openAI, displayName: "Max #1",
+            credentialReference: "keychain://glyphline/x", createdAt: now, isEnabled: true
+        )
+        try ledger.saveAccount(account)
+
+        let credentials = InMemoryCredentialStore()
+        try credentials.save(secret: "sk-test", for: "keychain://glyphline/x")
+
+        let coordinator = SyncCoordinator(
+            ledger: ledger,
+            credentials: credentials,
+            registry: ProviderAdapterRegistry(watermarkStore: ledger),
+            estimator: CostEstimator(catalog: PricingCatalog(entries: [])),
+            adapterProvider: { _ in FixtureProviderAdapter(providerID: .openAI) },
+            now: { now },
+            rateWindowSourceProvider: { _ in
+                FixtureRateWindowSource(now: { now }, behaviour: .unavailable)
+            }
+        )
+
+        // Establishes a billing period on the cost path, so the derivation branch fires.
+        await coordinator.syncAll()
+        let summary = try XCTUnwrap(try ledger.fetchAccountSummaries().first)
+        XCTAssertNotNil(summary.billingPeriod?.resetAt, "precondition: the cost sync stored a reset")
+
+        await coordinator.collectRateWindows()
+
+        let total = try Self.rateWindowSampleCount(dbQueue)
+        XCTAssertEqual(
+            total, 1,
+            "only the cost-derived billing cycle may exist; the failed fetch adds nothing"
+        )
+
+        let stored = try ledger.fetchLatestRateWindows(accountID: account.id)
+        XCTAssertEqual(stored.map(\.kind), [.billingCycle])
+        XCTAssertFalse(stored.contains { $0.kind == .rollingFiveHours })
+        XCTAssertFalse(stored.contains { $0.kind == .weekly })
+        XCTAssertNotNil(coordinator.rateWindowMessages[account.id])
+    }
+
+    func testAFailingRateWindowFetchLeavesTheCostSyncGreen() async throws {
+        let dbQueue = try DatabaseQueueFactory.makeInMemory()
+        try Migrations.makeMigrator().migrate(dbQueue)
+        let ledger = LedgerStore(dbQueue: dbQueue)
+
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let account = Account(
+            id: UUID(), providerID: .openAI, displayName: "OpenAI",
+            credentialReference: "keychain://glyphline/x", createdAt: now, isEnabled: true
+        )
+        try ledger.saveAccount(account)
+
+        let credentials = InMemoryCredentialStore()
+        try credentials.save(secret: "sk-test", for: "keychain://glyphline/x")
+
+        let coordinator = SyncCoordinator(
+            ledger: ledger,
+            credentials: credentials,
+            registry: ProviderAdapterRegistry(watermarkStore: ledger),
+            estimator: CostEstimator(catalog: PricingCatalog(entries: [])),
+            adapterProvider: { _ in FixtureProviderAdapter(providerID: .openAI) },
+            now: { now },
+            rateWindowSourceProvider: { _ in
+                FixtureRateWindowSource(now: { now }, behaviour: .unavailable)
+            }
+        )
+
+        await coordinator.syncAll()
+        await coordinator.collectRateWindows()
+
+        // The quota side must actually have failed, or the independence claim is
+        // unexercised: a source that silently succeeded would leave this green.
+        XCTAssertNotNil(coordinator.rateWindowMessages[account.id])
+
+        // The quota side failed; the cost side must be untouched by that.
+        XCTAssertNil(coordinator.syncFailureMessage)
+        XCTAssertFalse(try ledger.fetchUsageSnapshots(accountID: account.id).isEmpty)
+    }
+
+    /// Every real account takes this path — the registry resolves no source for
+    /// any of them — so this string is what every user reads. It must not imply
+    /// there is a setup step available: the spike found none.
+    func testAnAccountWithNoSourceIsToldQuotaIsUnavailableNotUnconfigured() async throws {
+        let dbQueue = try DatabaseQueueFactory.makeInMemory()
+        try Migrations.makeMigrator().migrate(dbQueue)
+        let ledger = LedgerStore(dbQueue: dbQueue)
+
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let account = Account(
+            id: UUID(), providerID: .claude, displayName: "Max #1",
+            credentialReference: "local-source://x", createdAt: now, isEnabled: true
+        )
+        try ledger.saveAccount(account)
+
+        let coordinator = SyncCoordinator(
+            ledger: ledger,
+            credentials: InMemoryCredentialStore(),
+            registry: ProviderAdapterRegistry(watermarkStore: ledger),
+            estimator: CostEstimator(catalog: PricingCatalog(entries: [])),
+            now: { now }
+        )
+
+        await coordinator.collectRateWindows()
+
+        XCTAssertEqual(
+            coordinator.rateWindowMessages[account.id],
+            RateWindowSourceError.notAvailable.message
+        )
+        XCTAssertNotEqual(
+            coordinator.rateWindowMessages[account.id],
+            RateWindowSourceError.notConfigured.message
+        )
+    }
+
+    /// The production path, end to end. No account resolves to a quota source, so
+    /// every real account carries a message — and the menu rendered the message
+    /// *or* the windows, never both, which made the cost-derived billing cycle
+    /// invisible. It is the only genuine quota datum a real user gets today.
+    func testTheBillingCycleIsRenderedBesideTheNoSourceMessage() async throws {
+        let dbQueue = try DatabaseQueueFactory.makeInMemory()
+        try Migrations.makeMigrator().migrate(dbQueue)
+        let ledger = LedgerStore(dbQueue: dbQueue)
+
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let account = Account(
+            id: UUID(), providerID: .openAI, displayName: "OpenAI",
+            credentialReference: "keychain://glyphline/x", createdAt: now, isEnabled: true
+        )
+        try ledger.saveAccount(account)
+
+        let credentials = InMemoryCredentialStore()
+        try credentials.save(secret: "sk-test", for: "keychain://glyphline/x")
+
+        // The real registry, not an injected source: this is exactly what ships.
+        let coordinator = SyncCoordinator(
+            ledger: ledger,
+            credentials: credentials,
+            registry: ProviderAdapterRegistry(watermarkStore: ledger),
+            estimator: CostEstimator(catalog: PricingCatalog(entries: [])),
+            adapterProvider: { _ in FixtureProviderAdapter(providerID: .openAI) },
+            now: { now }
+        )
+
+        await coordinator.syncAll()
+        let summary = try XCTUnwrap(try ledger.fetchAccountSummaries().first)
+        XCTAssertNotNil(summary.billingPeriod?.resetAt, "precondition: the cost sync stored a reset")
+
+        await coordinator.collectRateWindows()
+
+        let group = try XCTUnwrap(coordinator.quotaRows.first)
+        XCTAssertEqual(group.message, RateWindowSourceError.notAvailable.message)
+        XCTAssertEqual(group.rows.count, 1, "the derived billing cycle must reach the menu")
+        XCTAssertTrue(
+            try XCTUnwrap(group.rows.first).hasPrefix("Cycle"),
+            "got \(group.rows)"
+        )
+    }
+
+    /// The end-to-end shape of the change-detection defect.
+    ///
+    /// The provider keeps reporting the same figure at the same reset instant.
+    /// The store drops the repeat — correctly, the value has not changed — so
+    /// the stored `observedAt` stays put. With freshness measured from that
+    /// column, a successful fetch seconds ago produced a grey icon and no "Next
+    /// free" line, which inverts what the feature is for.
+    func testAStableReadingStaysFreshWhileTheProviderKeepsConfirmingIt() async throws {
+        let dbQueue = try DatabaseQueueFactory.makeInMemory()
+        try Migrations.makeMigrator().migrate(dbQueue)
+        let ledger = LedgerStore(dbQueue: dbQueue)
+
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let account = Account(
+            id: UUID(), providerID: .claude, displayName: "Max #1",
+            credentialReference: "local-source://x", createdAt: now, isEnabled: true
+        )
+        try ledger.saveAccount(account)
+
+        let resetAt = now.addingTimeInterval(1_800)
+        let firstSeen = now.addingTimeInterval(-1_200)
+
+        // Twenty minutes ago the value was first seen. The 300s poll interval
+        // puts the freshness bound at 600s, so `observedAt` alone is stale.
+        try ledger.saveRateWindow(
+            RateWindow(kind: .rollingFiveHours, usedFraction: 0.3,
+                       resetAt: resetAt, observedAt: firstSeen),
+            accountID: account.id
+        )
+
+        let coordinator = SyncCoordinator(
+            ledger: ledger,
+            credentials: InMemoryCredentialStore(),
+            registry: ProviderAdapterRegistry(watermarkStore: ledger),
+            estimator: CostEstimator(catalog: PricingCatalog(entries: [])),
+            sleepForSeconds: { _ in try await Task.sleep(for: .seconds(3_600)) },
+            now: { now },
+            rateWindowSourceProvider: { _ in
+                // The same value, observed now: a confirmation, not a change.
+                StableRateWindowSource(
+                    window: RateWindow(kind: .rollingFiveHours, usedFraction: 0.3,
+                                       resetAt: resetAt, observedAt: now)
+                )
+            }
+        )
+
+        coordinator.startScheduler(intervalSeconds: 300)
+        defer { coordinator.stopScheduler() }
+
+        await coordinator.collectRateWindows()
+
+        // The append-only table must not have grown: this is the write rule
+        // working, not a bug being papered over.
+        XCTAssertEqual(
+            try Self.rateWindowSampleCount(dbQueue), 1,
+            "an unchanged observation must still be dropped"
+        )
+        let stored = try XCTUnwrap(try ledger.fetchLatestRateWindows(accountID: account.id).first)
+        XCTAssertEqual(
+            stored.observedAt.timeIntervalSince1970, firstSeen.timeIntervalSince1970, accuracy: 0.001,
+            "observedAt keeps meaning 'when this value was first seen'"
+        )
+
+        // And the display believes the fetch that just happened.
+        XCTAssertEqual(coordinator.quotaLight, .green)
+        XCTAssertEqual(coordinator.nextFreeText, "Max #1 — now")
+    }
+
+    /// The billing cycle comes from the cost path and the short windows from the
+    /// quota source; they succeed and fail independently. A single per-account
+    /// timestamp would let a derived billing cycle vouch for a rate window that
+    /// nobody managed to fetch.
+    func testAFreshBillingCycleDoesNotVouchForAStaleRateWindow() async throws {
+        let dbQueue = try DatabaseQueueFactory.makeInMemory()
+        try Migrations.makeMigrator().migrate(dbQueue)
+        let ledger = LedgerStore(dbQueue: dbQueue)
+
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let account = Account(
+            id: UUID(), providerID: .openAI, displayName: "OpenAI",
+            credentialReference: "keychain://glyphline/x", createdAt: now, isEnabled: true
+        )
+        try ledger.saveAccount(account)
+
+        let credentials = InMemoryCredentialStore()
+        try credentials.save(secret: "sk-test", for: "keychain://glyphline/x")
+
+        // Headroom, but observed well beyond the 600s bound and never confirmed.
+        try ledger.saveRateWindow(
+            RateWindow(kind: .rollingFiveHours, usedFraction: 0.3,
+                       resetAt: now.addingTimeInterval(1_800),
+                       observedAt: now.addingTimeInterval(-1_200)),
+            accountID: account.id
+        )
+
+        let coordinator = SyncCoordinator(
+            ledger: ledger,
+            credentials: credentials,
+            registry: ProviderAdapterRegistry(watermarkStore: ledger),
+            estimator: CostEstimator(catalog: PricingCatalog(entries: [])),
+            adapterProvider: { _ in FixtureProviderAdapter(providerID: .openAI) },
+            sleepForSeconds: { _ in try await Task.sleep(for: .seconds(3_600)) },
+            now: { now },
+            rateWindowSourceProvider: { _ in nil }
+        )
+
+        coordinator.startScheduler(intervalSeconds: 300)
+        defer { coordinator.stopScheduler() }
+
+        // Establishes a billing period, so the cost-derived cycle is written and
+        // confirmed on this very tick.
+        await coordinator.syncAll()
+        await coordinator.collectRateWindows()
+
+        let kinds = try ledger.fetchLatestRateWindows(accountID: account.id).map(\.kind)
+        XCTAssertTrue(kinds.contains(.billingCycle), "precondition: the cycle was derived now")
+        XCTAssertTrue(kinds.contains(.rollingFiveHours), "precondition: the stale window is still stored")
+
+        XCTAssertEqual(
+            coordinator.quotaLight, .grey,
+            "a freshly derived billing cycle says nothing about a rate window nobody fetched"
+        )
+    }
+
+    /// The menu-bar symbol and the "Next free" line must never disagree about
+    /// which observations are still believable.
+    ///
+    /// The poll interval is deliberately *not* the 1800s default, so the derived
+    /// freshness bound (2x the interval = 600s) sits on the other side of this
+    /// 20-minute-old observation from the 3600s a call site might otherwise
+    /// hardcode. With the bound hardcoded in the view this observation was fresh
+    /// enough to print "Max #1 — now" beside a grey icon that had already
+    /// discarded it.
+    func testTheLightAndTheNextFreeStringShareOneFreshnessBound() async throws {
+        let dbQueue = try DatabaseQueueFactory.makeInMemory()
+        try Migrations.makeMigrator().migrate(dbQueue)
+        let ledger = LedgerStore(dbQueue: dbQueue)
+
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let account = Account(
+            id: UUID(), providerID: .claude, displayName: "Max #1",
+            credentialReference: "local-source://x", createdAt: now, isEnabled: true
+        )
+        try ledger.saveAccount(account)
+
+        // Headroom, so a believed observation would yield green and "— now".
+        try ledger.saveRateWindow(
+            RateWindow(kind: .rollingFiveHours, usedFraction: 0.3,
+                       resetAt: now.addingTimeInterval(1_800),
+                       observedAt: now.addingTimeInterval(-1_200)),
+            accountID: account.id
+        )
+
+        let coordinator = SyncCoordinator(
+            ledger: ledger,
+            credentials: InMemoryCredentialStore(),
+            registry: ProviderAdapterRegistry(watermarkStore: ledger),
+            estimator: CostEstimator(catalog: PricingCatalog(entries: [])),
+            sleepForSeconds: { _ in try await Task.sleep(for: .seconds(3_600)) },
+            now: { now },
+            rateWindowSourceProvider: { _ in nil }
+        )
+
+        coordinator.startScheduler(intervalSeconds: 300)
+        defer { coordinator.stopScheduler() }
+
+        await coordinator.collectRateWindows()
+
+        XCTAssertEqual(coordinator.quotaLight, .grey, "600s bound: a 20-minute-old observation is stale")
+        XCTAssertNil(
+            coordinator.nextFreeText,
+            "the next-free string must not believe an observation the light has discarded"
+        )
+    }
 }
 
 /// Records the interval each scheduler start slept on, across concurrency domains.
@@ -378,6 +772,16 @@ actor Counter {
 
     func increment() {
         value += 1
+    }
+}
+
+/// Returns one fixed window every time, so a tick can re-confirm a value the
+/// ledger already holds without changing it.
+private struct StableRateWindowSource: RateWindowSource {
+    let window: RateWindow
+
+    func fetchWindows(account: Account, secret: String?) async throws -> RateWindowResult {
+        RateWindowResult(windows: [window], dataQuality: .partial, message: nil)
     }
 }
 

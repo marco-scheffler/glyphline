@@ -53,4 +53,36 @@ final class ProviderAdapterRegistryTests: XCTestCase {
 
         XCTAssertTrue(registry.adapter(for: account) is OpenAIUsageAdapter)
     }
+
+    /// An account with no quota credential has no quota source at all — it must
+    /// resolve to nil rather than to a source that would fail on every tick.
+    func testAnAccountWithoutAQuotaCredentialHasNoRateWindowSource() throws {
+        let registry = ProviderAdapterRegistry()
+        let account = makeAccount(.claude, reference: "local-source://claude-code")
+
+        XCTAssertNil(account.quotaCredentialReference)
+        XCTAssertNil(registry.rateWindowSource(for: account))
+    }
+
+    /// The registry used to hand back `FixtureRateWindowSource` here, whose
+    /// invented 62% and 31% would have been written to the ledger and rendered as
+    /// fact, indistinguishable from a measured figure. The spike found no provider
+    /// route to short-term rate windows, so there is nothing this may resolve to.
+    ///
+    /// Asserted for every provider and with a quota credential present, because
+    /// the reason the fabricated path never shipped was an accident of no screen
+    /// setting `quotaCredentialReference` — not a decision this test can rely on.
+    func testNoAccountResolvesToAFabricatedRateWindowSource() throws {
+        let registry = ProviderAdapterRegistry()
+
+        for providerID in ProviderID.allCases {
+            var account = makeAccount(providerID, reference: "keychain://glyphline/abc")
+            account.quotaCredentialReference = "keychain://glyphline/quota-token"
+
+            XCTAssertNil(
+                registry.rateWindowSource(for: account),
+                "\(providerID) must not resolve to a source that invents figures"
+            )
+        }
+    }
 }

@@ -47,4 +47,23 @@ struct ProviderAdapterRegistry {
             return CursorUsageAdapter(mode: isLocal ? .localStatusOnly : .teamAPI, session: session)
         }
     }
+
+    /// The quota source for an account. Always `nil`: no real source exists yet.
+    ///
+    /// This used to hand back `FixtureRateWindowSource` for any account carrying a
+    /// quota credential reference. The fixture invents figures — 62% and 31% — and
+    /// nothing downstream distinguishes an invented figure from a measured one, so
+    /// that path wrote fabricated numbers into the ledger and rendered them as
+    /// fact. The only thing keeping a user away from it was that no screen sets
+    /// `quotaCredentialReference`.
+    ///
+    /// The access-route spike has since landed (`docs/superpowers/specs/
+    /// 2026-07-28-quota-access-routes.md`) and found no route to short-term rate
+    /// windows for any provider, so there is nothing this could resolve to. It
+    /// returns `nil` until a source that measures something real exists. The
+    /// fixture stays in the target for tests, which inject it directly through
+    /// `SyncCoordinator(rateWindowSourceProvider:)`.
+    func rateWindowSource(for account: Account) -> (any RateWindowSource)? {
+        nil
+    }
 }

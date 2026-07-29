@@ -31,6 +31,44 @@ struct MenuBarView: View {
             }
             .pickerStyle(.segmented)
 
+            if !coordinator.quotaRows.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    if let nextFree = coordinator.nextFreeText {
+                        Text("Next free: \(nextFree)")
+                            .font(.caption.weight(.medium))
+                    }
+
+                    // Rows come pre-rendered from the coordinator, against the
+                    // same freshness bound as the light and the header. The view
+                    // has no bound of its own to get wrong.
+                    ForEach(coordinator.quotaRows) { group in
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(group.displayName)
+                                .font(.caption)
+
+                            // Message *and* rows. Accounts without a quota source
+                            // appear with their reason, and that reason is not
+                            // grounds to hide a billing cycle the cost path knows
+                            // — which is the only real quota datum a user has
+                            // until a provider route exists.
+                            if let message = group.message {
+                                Text(message)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            ForEach(Array(group.rows.enumerated()), id: \.offset) { _, row in
+                                Text(row)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+
+                Divider()
+            }
+
             VStack(alignment: .leading, spacing: 8) {
                 if let syncFailureMessage = coordinator.syncFailureMessage {
                     Text(syncFailureMessage)
@@ -87,6 +125,9 @@ struct MenuBarView: View {
         .padding(14)
         .frame(width: 320)
         .onAppear(perform: loadSummaries)
+        .task {
+            await coordinator.refreshRateWindowsOnDemand()
+        }
     }
 
     private var totalCostSummary: String {
