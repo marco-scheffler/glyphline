@@ -755,6 +755,154 @@ final class SyncCoordinatorTests: XCTestCase {
             "the next-free string must not believe an observation the light has discarded"
         )
     }
+
+    // MARK: - Notify once, on the transition
+
+    private func makeExpiringCoordinator(
+        source: any RateWindowSource,
+        notifier: RecordingQuotaNotifier
+    ) throws -> SyncCoordinator {
+        let dbQueue = try DatabaseQueueFactory.makeInMemory()
+        try Migrations.makeMigrator().migrate(dbQueue)
+        let ledger = LedgerStore(dbQueue: dbQueue)
+
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let account = Account(
+            id: UUID(), providerID: .claude, displayName: "Max #1",
+            credentialReference: "local-source://x", createdAt: now, isEnabled: true,
+            claudeOrganizationID: "org-1"
+        )
+        try ledger.saveAccount(account)
+
+        return SyncCoordinator(
+            ledger: ledger,
+            credentials: InMemoryCredentialStore(),
+            registry: ProviderAdapterRegistry(watermarkStore: ledger),
+            estimator: CostEstimator(catalog: PricingCatalog(entries: [])),
+            now: { now },
+            rateWindowSourceProvider: { _ in source },
+            quotaNotifier: notifier
+        )
+    }
+
+    func testTheFirstFailureNotifiesAndTheNextOnesDoNot() async throws {
+        let notifier = RecordingQuotaNotifier()
+        let coordinator = try makeExpiringCoordinator(
+            source: SwitchableQuotaSource(behaviour: .expired),
+            notifier: notifier
+        )
+
+        await coordinator.collectRateWindows()
+        await coordinator.collectRateWindows()
+        await coordinator.collectRateWindows()
+
+        // Three subscriptions on a half-hourly schedule would otherwise produce
+        // 144 notifications a day.
+        XCTAssertEqual(notifier.sentCount, 1)
+        XCTAssertEqual(notifier.sentNames, ["Max #1"])
+    }
+
+    func testASuccessfulFetchRearmsTheNotification() async throws {
+        let notifier = RecordingQuotaNotifier()
+        let source = SwitchableQuotaSource(behaviour: .expired)
+        let coordinator = try makeExpiringCoordinator(source: source, notifier: notifier)
+
+        await coordinator.collectRateWindows()
+        XCTAssertEqual(notifier.sentCount, 1)
+
+        source.behaviour = .healthy
+        await coordinator.collectRateWindows()
+        XCTAssertEqual(notifier.sentCount, 1, "recovery does not notify")
+
+        source.behaviour = .expired
+        await coordinator.collectRateWindows()
+        XCTAssertEqual(notifier.sentCount, 2, "a fresh failure after a recovery is news again")
+    }
+
+    /// A transport blip is not an expired session. Notifying on it would train the
+    /// user to ignore the one notification that asks them to do something.
+    func testAnOrdinaryFetchFailureDoesNotNotify() async throws {
+        let notifier = RecordingQuotaNotifier()
+        let coordinator = try makeExpiringCoordinator(
+            source: SwitchableQuotaSource(behaviour: .transportFailure),
+            notifier: notifier
+        )
+
+        await coordinator.collectRateWindows()
+
+        XCTAssertEqual(notifier.sentCount, 0)
+    }
+
+    /// Nothing from a session, a cookie or a URL may reach a notification.
+    func testTheNotificationCarriesOnlyTheAccountNameAndTheAppsOwnMessage() async throws {
+        let notifier = RecordingQuotaNotifier()
+        let coordinator = try makeExpiringCoordinator(
+            source: SwitchableQuotaSource(behaviour: .expired),
+            notifier: notifier
+        )
+
+        await coordinator.collectRateWindows()
+
+        XCTAssertEqual(notifier.sentNames, ["Max #1"])
+    }
+}
+
+/// Records what was sent, not merely how often, so a test can prove *which*
+/// account was named as well as the transition rule.
+@MainActor
+final class RecordingQuotaNotifier: QuotaNotifier {
+    private(set) var sentNames: [String] = []
+
+    var sentCount: Int { sentNames.count }
+
+    nonisolated func notifySessionExpired(accountDisplayName: String) async {
+        await MainActor.run { sentNames.append(accountDisplayName) }
+    }
+}
+
+/// A source whose behaviour a test can flip between ticks, so recovery and a
+/// fresh failure can be exercised without any wall-clock time or real web view.
+@MainActor
+final class SwitchableQuotaSource: RateWindowSource {
+    enum Behaviour {
+        case expired
+        case transportFailure
+        case healthy
+    }
+
+    var behaviour: Behaviour
+
+    init(behaviour: Behaviour) {
+        self.behaviour = behaviour
+    }
+
+    nonisolated func fetchWindows(account: Account, secret: String?) async throws -> RateWindowResult {
+        await MainActor.run {
+            switch behaviour {
+            case .expired:
+                return RateWindowResult(
+                    windows: [], dataQuality: .unavailable,
+                    message: RateWindowSourceError.sessionExpired.message
+                )
+            case .transportFailure:
+                return RateWindowResult(
+                    windows: [], dataQuality: .unavailable,
+                    message: RateWindowSourceError.transportFailure.message
+                )
+            case .healthy:
+                return RateWindowResult(
+                    windows: [
+                        RateWindow(
+                            kind: .rollingFiveHours, usedFraction: 0.4,
+                            resetAt: Date(timeIntervalSince1970: 1_800_003_600),
+                            observedAt: Date(timeIntervalSince1970: 1_800_000_000)
+                        ),
+                    ],
+                    dataQuality: .exact, message: nil
+                )
+            }
+        }
+    }
 }
 
 /// Records the interval each scheduler start slept on, across concurrency domains.

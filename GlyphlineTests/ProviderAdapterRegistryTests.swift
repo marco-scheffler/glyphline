@@ -1,6 +1,7 @@
 import XCTest
 @testable import Glyphline
 
+@MainActor
 final class ProviderAdapterRegistryTests: XCTestCase {
     private func makeAccount(_ providerID: ProviderID, reference: String) -> Account {
         Account(
@@ -66,12 +67,14 @@ final class ProviderAdapterRegistryTests: XCTestCase {
 
     /// The registry used to hand back `FixtureRateWindowSource` here, whose
     /// invented 62% and 31% would have been written to the ledger and rendered as
-    /// fact, indistinguishable from a measured figure. The spike found no provider
-    /// route to short-term rate windows, so there is nothing this may resolve to.
+    /// fact, indistinguishable from a measured figure.
     ///
-    /// Asserted for every provider and with a quota credential present, because
-    /// the reason the fabricated path never shipped was an accident of no screen
-    /// setting `quotaCredentialReference` — not a decision this test can rely on.
+    /// A quota credential still resolves to nothing: the only real source is the
+    /// Claude web session, which is keyed off a resolved organisation id and not
+    /// off a stored token. Asserted for every provider and with a quota credential
+    /// present, because the reason the fabricated path never shipped was an
+    /// accident of no screen setting `quotaCredentialReference` — not a decision
+    /// this test can rely on.
     func testNoAccountResolvesToAFabricatedRateWindowSource() throws {
         let registry = ProviderAdapterRegistry()
 
@@ -84,5 +87,49 @@ final class ProviderAdapterRegistryTests: XCTestCase {
                 "\(providerID) must not resolve to a source that invents figures"
             )
         }
+    }
+
+    /// The wiring that makes the feature exist: a Claude account whose sign-in
+    /// resolved an organisation reads quota through its own web session.
+    func testAClaudeAccountWithAnOrganisationResolvesToTheWebSource() throws {
+        let registry = ProviderAdapterRegistry()
+        var account = makeAccount(.claude, reference: "local-source://claude-code")
+        account.claudeOrganizationID = "22bb9ef8-0000-4c2f-8f0e-000000000001"
+
+        XCTAssertTrue(registry.rateWindowSource(for: account) is ClaudeWebQuotaSource)
+    }
+
+    /// Before the sign-in there is no organisation, so there is no route — and a
+    /// source resolved anyway would navigate on every tick and fail every time.
+    func testAClaudeAccountWithoutAnOrganisationHasNoRateWindowSource() throws {
+        let registry = ProviderAdapterRegistry()
+        let account = makeAccount(.claude, reference: "local-source://claude-code")
+
+        XCTAssertNil(account.claudeOrganizationID)
+        XCTAssertNil(registry.rateWindowSource(for: account))
+    }
+
+    /// The organisation id is Claude's alone. A stray value on another provider
+    /// must not open a claude.ai navigation for an account that is not Claude.
+    func testANonClaudeAccountNeverResolvesToTheWebSource() throws {
+        let registry = ProviderAdapterRegistry()
+
+        for providerID in ProviderID.allCases where providerID != .claude {
+            var account = makeAccount(providerID, reference: "keychain://glyphline/abc")
+            account.claudeOrganizationID = "22bb9ef8-0000-4c2f-8f0e-000000000001"
+
+            XCTAssertNil(registry.rateWindowSource(for: account), "\(providerID)")
+        }
+    }
+
+    /// An empty string is not an organisation. `ClaudeWebEndpoints.usage` rejects
+    /// it, so resolving a source would guarantee a failing tick and a message the
+    /// user cannot act on.
+    func testAnEmptyOrganisationIdIsNotAnOrganisation() throws {
+        let registry = ProviderAdapterRegistry()
+        var account = makeAccount(.claude, reference: "local-source://claude-code")
+        account.claudeOrganizationID = ""
+
+        XCTAssertNil(registry.rateWindowSource(for: account))
     }
 }

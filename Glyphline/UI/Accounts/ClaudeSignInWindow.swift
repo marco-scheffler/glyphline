@@ -178,8 +178,15 @@ final class ClaudeSignInWindow: NSObject {
         statusLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         self.statusLabel = statusLabel
 
+        // Deliberately no `keyEquivalent = "\r"`. A Return key equivalent makes
+        // this the window's default button, and AppKit gives the default button
+        // first refusal on Return anywhere in the window — including while the
+        // user is typing a password into the web view. It has been seen firing
+        // without anyone pressing it. A spurious Continue starts a verification
+        // against a session that does not exist yet, which at best wastes a
+        // navigation and at worst tells the user their sign-in has expired while
+        // they are in the middle of signing in. Continue is a click.
         let continueButton = NSButton(title: Self.continueTitle, target: self, action: #selector(continueTapped))
-        continueButton.keyEquivalent = "\r"
         self.continueButton = continueButton
 
         let bar = NSStackView(views: [statusLabel, NSView(), continueButton])
