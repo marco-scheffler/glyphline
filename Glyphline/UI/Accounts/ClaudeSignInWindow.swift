@@ -56,15 +56,33 @@ final class ClaudeSignInWindow: NSObject {
     }
 
     /// Shows the window and returns once the user has completed or closed it.
+    ///
+    /// Cancelling the awaiting task tears the window down and reports
+    /// `.cancelled`, exactly as `ClaudeWebPageLoader.load` does. Without this, a
+    /// caller presenting from a SwiftUI `.task` or a sheet-scoped task would
+    /// leave the continuation unresumed when the view goes away — the awaiting
+    /// task suspended forever, and the window, its `WKWebView` and its web
+    /// content process alive until the user notices the orphan and closes it by
+    /// hand. Visible rather than silent, but still the "cancellation leaves a
+    /// browser process" case this whole task exists to eliminate.
     func present() async -> Outcome {
-        await withCheckedContinuation { (continuation: CheckedContinuation<Outcome, Never>) in
-            guard !isSettled else {
-                continuation.resume(returning: .cancelled)
-                return
-            }
+        await withTaskCancellationHandler {
+            await withCheckedContinuation { (continuation: CheckedContinuation<Outcome, Never>) in
+                // `self.continuation == nil` enforces single-shot rather than
+                // merely documenting it: a second `present` would otherwise
+                // overwrite the first continuation and orphan it.
+                guard !isSettled, self.continuation == nil else {
+                    continuation.resume(returning: .cancelled)
+                    return
+                }
 
-            self.continuation = continuation
-            buildWindow()
+                self.continuation = continuation
+                buildWindow()
+            }
+        } onCancel: {
+            Task { @MainActor [weak self] in
+                self?.settle(.cancelled)
+            }
         }
     }
 

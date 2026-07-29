@@ -15,11 +15,15 @@ import WebKit
 ///   even a path nobody anticipated is bounded. This matters because
 ///   `collectRateWindows` runs accounts sequentially — one view waiting on a
 ///   Cloudflare challenge would otherwise block every other account forever.
-/// - **It cannot leak.** `tearDown()` stops the load, drops the delegate and
-///   releases the view. Callers run it from a `defer`, so it covers success,
-///   failure, timeout and cancellation alike. A view that outlives its fetch is a
-///   web content process that outlives it too, and three of those per sync tick
-///   is hundreds of processes after a day.
+/// - **It cannot outlive its fetch.** `tearDown()` stops the load, drops the
+///   delegate and drops this type's reference to the view. Callers run it from a
+///   `defer`, so it covers success, failure, timeout and cancellation alike. A
+///   view that outlives its fetch is a web content process that outlives it too,
+///   and three of those per sync tick is hundreds of processes after a day.
+///   One caveat, since the guarantee is about *this* reference: a body read that
+///   is still suspended holds its own strong reference for as long as
+///   `evaluateJavaScript` takes to come back, so the view is released on that
+///   call's completion rather than on the `tearDown()` call itself.
 ///
 /// Holds no cookie and no session key: the `WKWebsiteDataStore` it is handed owns
 /// those, and nothing here reads them. The body it returns is passed straight to
@@ -57,7 +61,11 @@ final class ClaudeWebPageLoader: NSObject {
     func load(_ url: URL, timeout: Duration) async throws -> Outcome {
         try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Outcome, any Error>) in
-                guard !isTornDown, !isSettled, let webView else {
+                // `self.continuation == nil` enforces single-shot rather than
+                // merely documenting it. A second `load` would otherwise
+                // overwrite the first continuation and orphan it: a permanent
+                // hang for that caller plus a leaked checked continuation.
+                guard !isTornDown, !isSettled, self.continuation == nil, let webView else {
                     continuation.resume(throwing: CancellationError())
                     return
                 }
