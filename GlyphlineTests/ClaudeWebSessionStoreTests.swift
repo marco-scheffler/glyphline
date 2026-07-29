@@ -32,21 +32,3 @@ final class ClaudeWebSessionStoreTests: XCTestCase {
         XCTAssertEqual(store.dataStoreIdentifier(for: accountID), accountID)
     }
 }
-
-/// A stand-in for WebKit. The real removal is exercised by using the app, not
-/// by a test: creating a real data store leaves a directory under
-/// ~/Library/WebKit on the developer's machine.
-///
-/// Kept for the deletion ordering in Task 3, which drives this seam through a
-/// coordinator: `removed` records that removal was ordered, and `errorToThrow`
-/// injects the WebKit failure whose handling is the point of that ordering.
-@MainActor
-private final class RecordingWebSessionRemover: WebSessionRemoving {
-    var removed: [UUID] = []
-    var errorToThrow: (any Error)?
-
-    func removeSession(for accountID: UUID) async throws {
-        if let errorToThrow { throw errorToThrow }
-        removed.append(accountID)
-    }
-}
