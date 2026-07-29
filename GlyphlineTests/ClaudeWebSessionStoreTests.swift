@@ -22,24 +22,24 @@ final class ClaudeWebSessionStoreTests: XCTestCase {
     }
 
     @MainActor
-    func testTheRemoverIsAskedForTheIdentifierDerivedFromTheAccount() async throws {
-        let remover = RecordingWebSessionRemover()
+    func testTheRemovalSeamResolvesToTheIdentifierDerivedFromTheAccount() {
+        // Conformance is pinned by the annotation; the assertion is on the
+        // derivation, which is the property that makes a store findable for
+        // removal at all. Calling removeSession would touch the real WebKit store.
+        let store = ClaudeWebSessionStore()
+        let _: any WebSessionRemoving = store
         let accountID = UUID()
-        try await remover.removeSession(for: accountID)
-        XCTAssertEqual(remover.removed, [accountID])
-    }
-
-    @MainActor
-    func testTheStoreConformsToTheRemovalSeam() {
-        // Conformance only. Calling through would touch the real WebKit store.
-        let store: any WebSessionRemoving = ClaudeWebSessionStore()
-        XCTAssertNotNil(store)
+        XCTAssertEqual(store.dataStoreIdentifier(for: accountID), accountID)
     }
 }
 
 /// A stand-in for WebKit. The real removal is exercised by using the app, not
 /// by a test: creating a real data store leaves a directory under
 /// ~/Library/WebKit on the developer's machine.
+///
+/// Kept for the deletion ordering in Task 3, which drives this seam through a
+/// coordinator: `removed` records that removal was ordered, and `errorToThrow`
+/// injects the WebKit failure whose handling is the point of that ordering.
 @MainActor
 private final class RecordingWebSessionRemover: WebSessionRemoving {
     var removed: [UUID] = []
