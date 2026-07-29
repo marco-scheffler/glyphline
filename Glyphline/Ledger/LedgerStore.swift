@@ -190,6 +190,25 @@ private struct SnapshotMoneyTotal {
     }
 }
 
+/// What a deletion would destroy, counted from the ledger so the confirmation
+/// dialog can name real numbers instead of a generic warning.
+struct AccountDeletionSummary: Equatable, Sendable {
+    var rateWindowSampleCount: Int
+    var earliestRateWindowObservedAt: Date?
+    var costSnapshotCount: Int
+    var usageSnapshotCount: Int
+
+    /// What the confirmation shows when the counts cannot be read. Understating
+    /// the loss is the wrong failure here, but the alternative — refusing to
+    /// open the dialog — leaves the user unable to delete anything at all.
+    static let empty = AccountDeletionSummary(
+        rateWindowSampleCount: 0,
+        earliestRateWindowObservedAt: nil,
+        costSnapshotCount: 0,
+        usageSnapshotCount: 0
+    )
+}
+
 private struct AccountRecord: Codable, FetchableRecord, PersistableRecord, TableRecord {
     static let databaseTableName = LedgerTable.accounts
 
@@ -980,6 +999,56 @@ final class LedgerStore {
             try db.execute(
                 sql: "DELETE FROM \(LedgerTable.rateWindowSamples) WHERE \(LedgerColumn.observedAt) < ?",
                 arguments: [cutoff]
+            )
+        }
+    }
+
+    func deletionSummary(accountID: UUID) throws -> AccountDeletionSummary {
+        try dbQueue.read { db in
+            let key = accountID.uuidString
+            let samples = RateWindowSampleRecord
+                .filter(Column(LedgerColumn.accountID) == key)
+            return AccountDeletionSummary(
+                rateWindowSampleCount: try samples.fetchCount(db),
+                earliestRateWindowObservedAt: try samples
+                    .order(Column(LedgerColumn.observedAt).asc)
+                    .fetchOne(db)?.observedAt,
+                costSnapshotCount: try CostSnapshotRecord
+                    .filter(Column(LedgerColumn.accountID) == key)
+                    .fetchCount(db),
+                usageSnapshotCount: try UsageSnapshotRecord
+                    .filter(Column(LedgerColumn.accountID) == key)
+                    .fetchCount(db)
+            )
+        }
+    }
+
+    /// Removes every row the account owns, in one transaction.
+    ///
+    /// The schema declares no foreign keys, so nothing cascades — each table has
+    /// to be named explicitly. A table left out here keeps rows that no query
+    /// will ever surface again. The single transaction is what keeps a failure
+    /// part-way through from leaving a half-deleted account behind.
+    func deleteAccount(id accountID: UUID) throws {
+        try dbQueue.write { db in
+            let key = accountID.uuidString
+            for table in [
+                LedgerTable.usageSnapshots,
+                LedgerTable.costSnapshots,
+                LedgerTable.estimateSnapshots,
+                LedgerTable.syncRuns,
+                LedgerTable.accountSyncStates,
+                LedgerTable.syncWatermarks,
+                LedgerTable.rateWindowSamples
+            ] {
+                try db.execute(
+                    sql: "DELETE FROM \(table) WHERE \(LedgerColumn.accountID) = ?",
+                    arguments: [key]
+                )
+            }
+            try db.execute(
+                sql: "DELETE FROM \(LedgerTable.accounts) WHERE \(LedgerColumn.id) = ?",
+                arguments: [key]
             )
         }
     }

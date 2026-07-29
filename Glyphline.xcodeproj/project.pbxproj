@@ -67,6 +67,7 @@
 		8B403A4B3B94ED8DAA65426D /* FixtureProviderAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E4A6EC8C6579850C8C770C5 /* FixtureProviderAdapter.swift */; };
 		8B5E7D6A51CECD50DB78F10B /* ClaudeWebResponseClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 383FF44EC0D7B7C405AE465B /* ClaudeWebResponseClassifier.swift */; };
 		9442C7847482BDAC9B50C660 /* RateWindowStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1923CB6870F90CE15FC576F9 /* RateWindowStoreTests.swift */; };
+		A1D0E1F200000000000000B1 /* AccountDeletionStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1D0E1F200000000000000A1 /* AccountDeletionStoreTests.swift */; };
 		94436C6F24A2177D2143A0AA /* openai-usage.json in Resources */ = {isa = PBXBuildFile; fileRef = 5F8C45A35D6CA259D7E4F57E /* openai-usage.json */; };
 		94709AE6F65A1DC6E85EADAE /* LedgerStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA3C1D8E770A657CE4E29EF0 /* LedgerStoreTests.swift */; };
 		9682FBE1BC37960675E230A5 /* OpenAIUsageAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E8DE8808B732D4745FB73B9 /* OpenAIUsageAdapter.swift */; };
@@ -129,6 +130,7 @@
 		15AE8CE25E9DFB53944DBD13 /* ClaudeWebQuotaSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeWebQuotaSource.swift; sourceTree = "<group>"; };
 		16E33CDE8ED6B06736C4DD65 /* OpenAIUsageAdapterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIUsageAdapterTests.swift; sourceTree = "<group>"; };
 		1923CB6870F90CE15FC576F9 /* RateWindowStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RateWindowStoreTests.swift; sourceTree = "<group>"; };
+		A1D0E1F200000000000000A1 /* AccountDeletionStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountDeletionStoreTests.swift; sourceTree = "<group>"; };
 		1A12C10E9B329DC6D4E86D94 /* ProviderAdapterRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderAdapterRegistry.swift; sourceTree = "<group>"; };
 		22E542C9EA7C75092240822A /* openai-costs.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "openai-costs.json"; sourceTree = "<group>"; };
 		24490E8A33CB8C3CE1EFFAA3 /* ClaudeOrganizationsDTOs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeOrganizationsDTOs.swift; sourceTree = "<group>"; };
@@ -372,6 +374,7 @@
 				38E16DBA6601CED2ABB83448 /* ProviderAdapterTests.swift */,
 				B966305CF54AAA51888A2FC0 /* QuotaIndicatorTests.swift */,
 				11D41DE98E9E03A2433764CC /* RateWindowSourceTests.swift */,
+				A1D0E1F200000000000000A1 /* AccountDeletionStoreTests.swift */,
 				1923CB6870F90CE15FC576F9 /* RateWindowStoreTests.swift */,
 				B5287B8477F8EF75ABA938B2 /* SnapshotSummaryTests.swift */,
 				F23BD4A6011089522A8246FA /* StubURLProtocol.swift */,
@@ -662,6 +665,7 @@
 				47DFD6941E6389FBFA591FDA /* QuotaIndicatorTests.swift in Sources */,
 				05ADA18D2E958FB3A3558030 /* RateWindowSourceTests.swift in Sources */,
 				9442C7847482BDAC9B50C660 /* RateWindowStoreTests.swift in Sources */,
+				A1D0E1F200000000000000B1 /* AccountDeletionStoreTests.swift in Sources */,
 				AC776B32695D0B125B30B305 /* SnapshotSummaryTests.swift in Sources */,
 				D3E95C4A8677984AD229DE0B /* StubURLProtocol.swift in Sources */,
 				AA9559C25108258EBA10DC8A /* SyncCoordinatorTests.swift in Sources */,
