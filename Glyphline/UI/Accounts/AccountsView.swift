@@ -11,6 +11,9 @@ struct AccountsView: View {
     @EnvironmentObject private var coordinator: SyncCoordinator
     @State private var pendingDeletion: PendingDeletion?
     @State private var deletionError: String?
+    /// The account whose delete is in flight. `activities` stays idle across the
+    /// await, so without this a second press starts a second deletion.
+    @State private var deletingAccountID: UUID?
 
     /// Carries the counts alongside the account so the alert renders from the
     /// figures read when the button was pressed, not from a second query while
@@ -79,7 +82,10 @@ struct AccountsView: View {
                                     }
                                     .buttonStyle(.borderless)
                                     .help("Delete account")
-                                    .disabled(coordinator.activities[summary.account.id]?.isRunning == true)
+                                    .disabled(
+                                        coordinator.activities[summary.account.id]?.isRunning == true
+                                            || deletingAccountID == summary.account.id
+                                    )
                                 }
 
                                 HStack(spacing: 16) {
@@ -160,10 +166,19 @@ struct AccountsView: View {
                 )
             )
         }
-        .alert("Could not delete account", isPresented: isShowingDeletionError) {
-            Button("OK") { deletionError = nil }
-        } message: {
-            Text(deletionError ?? "")
+        // On a distinct view, deliberately. The error alert is triggered by the
+        // dismissal of the confirm alert — the user taps Delete, the confirm
+        // alert tears down, the async flow then fails. Two alerts on the same
+        // view means the second presentation is swallowed while the first is
+        // still dismissing, and a failed deletion would be silent: the account
+        // is still in the list with nothing said about why.
+        .background {
+            Color.clear
+                .alert("Could not delete account", isPresented: isShowingDeletionError) {
+                    Button("OK") { deletionError = nil }
+                } message: {
+                    Text(deletionError ?? "")
+                }
         }
     }
 
@@ -184,14 +199,17 @@ struct AccountsView: View {
     }
 
     private func delete(_ account: Account) {
-        guard let ledgerStore else { return }
+        guard let ledgerStore, deletingAccountID != account.id else { return }
+        deletingAccountID = account.id
         let flow = DeleteAccountFlow(
             ledgerStore: ledgerStore,
             credentialStore: credentialStore,
             webSessions: webSessions
         )
         Task {
-            switch await flow.delete(account) {
+            let outcome = await flow.delete(account)
+            deletingAccountID = nil
+            switch outcome {
             case .deleted:
                 // Only after the durable delete succeeded. Clearing first would
                 // drop the state of an account that is still there.
