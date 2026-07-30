@@ -89,9 +89,16 @@ struct LocalUsageStatistics: Equatable, Sendable {
             }
         }
 
-        var priced = order.compactMap { totals[$0] }.map { statistic in
-            Self.priced(statistic, estimator: estimator, providerID: providerID)
-        }
+        // A model with no tokens in the period contributes nothing to either
+        // figure and only adds a row. This also retires rows stored before the
+        // reader learned to skip Claude Code's `<synthetic>` placeholder: those
+        // are all zeros and will never grow, so they would otherwise sit in the
+        // table forever, permanently unpriceable.
+        var priced = order.compactMap { totals[$0] }
+            .filter { $0.totalTokens > 0 }
+            .map { statistic in
+                Self.priced(statistic, estimator: estimator, providerID: providerID)
+            }
 
         priced.sort { left, right in
             switch (left.estimatedAmountMicros, right.estimatedAmountMicros) {

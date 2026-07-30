@@ -289,6 +289,24 @@ final class ClaudeCodeLogReaderTests: XCTestCase {
         XCTAssertEqual(rows.first?.inputTokens, 4)
     }
 
+    /// Claude Code writes `<synthetic>` for assistant turns it produced itself —
+    /// an error notice, an interrupt. That is not a model, so it must not become
+    /// a row that can never be priced.
+    func testSyntheticPlaceholderModelIsNotRecorded() throws {
+        try write(
+            [
+                line(model: "<synthetic>", input: 0, cacheWrite: 0, cacheRead: 0, output: 0, timestamp: "2026-07-01T09:00:00.000Z"),
+                line(model: "claude-opus-4-8", input: 4, cacheWrite: 0, cacheRead: 0, output: 6, timestamp: "2026-07-01T09:30:00.000Z"),
+            ].joined(separator: "\n") + "\n",
+            to: "session.jsonl"
+        )
+
+        let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger)
+        let rows = try apply(reader.read())
+
+        XCTAssertEqual(rows.map(\.model), ["claude-opus-4-8"])
+    }
+
     func testMissingDirectoryYieldsNothingRatherThanThrowing() throws {
         let reader = ClaudeCodeLogReader(
             directory: directory.appendingPathComponent("does-not-exist", isDirectory: true),

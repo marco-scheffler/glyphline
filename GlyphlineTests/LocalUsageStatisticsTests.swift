@@ -205,6 +205,26 @@ final class LocalUsageStatisticsTests: XCTestCase {
         XCTAssertFalse(statistics.hasUnpricedModels)
     }
 
+    /// Rows stored before the reader learned to skip Claude Code's `<synthetic>`
+    /// placeholder are all zeros and will never grow. They would otherwise sit in
+    /// the table permanently, named after something that is not a model and can
+    /// never be priced.
+    func testModelsWithNoTokensAreDropped() {
+        let estimator = makeEstimator([entry(model: "known", input: 1_000_000, output: 1_000_000)])
+
+        let statistics = LocalUsageStatistics(
+            rows: [
+                LocalTokenUsage(bucketStart: day, model: "<synthetic>"),
+                LocalTokenUsage(bucketStart: nextDay, model: "<synthetic>"),
+                LocalTokenUsage(bucketStart: day, model: "known", inputTokens: 100),
+            ],
+            estimator: estimator
+        )
+
+        XCTAssertEqual(statistics.models.map(\.model), ["known"])
+        XCTAssertFalse(statistics.hasUnpricedModels)
+    }
+
     /// The money is an estimate of API billing, never a paid amount.
     func testDisclaimerSaysTheAmountWasNeverBilled() {
         XCTAssertTrue(LocalUsageStatistics.estimateDisclaimer.contains("Estimated"))

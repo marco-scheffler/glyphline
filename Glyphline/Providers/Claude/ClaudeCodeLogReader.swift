@@ -93,6 +93,18 @@ final class ClaudeCodeLogReader: @unchecked Sendable {
     /// place within the tolerance would be resumed from a stale offset.
     private static let mTimeTolerance: TimeInterval = 0.002
 
+    /// Names Claude Code writes in the `model` field for assistant turns it
+    /// produced itself instead of receiving from the API — an error notice, an
+    /// interrupt. They carry a usage block of zeros, so recording them adds
+    /// nothing but a row named after something that is not a model and can never
+    /// be priced.
+    private static let placeholderModelNames: Set<String> = ["<synthetic>"]
+
+    private static func isPlaceholderModel(_ model: String?) -> Bool {
+        guard let model else { return false }
+        return placeholderModelNames.contains(model)
+    }
+
     private struct BucketKey: Hashable {
         var dayStart: Date
         var model: String?
@@ -212,7 +224,8 @@ final class ClaudeCodeLogReader: @unchecked Sendable {
 
             if let record = try? decoder.decode(ClaudeCodeLogRecord.self, from: Data(line)),
                let usage = record.message?.usage,
-               let timestamp = dates.date(from: record.timestamp) {
+               let timestamp = dates.date(from: record.timestamp),
+               !Self.isPlaceholderModel(record.message?.model) {
                 let dayStart = calendar.startOfDay(for: timestamp)
                 let key = BucketKey(dayStart: dayStart, model: record.message?.model)
                 var bucket = totals[key] ?? Totals()

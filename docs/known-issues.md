@@ -61,6 +61,23 @@ explicit entry those tokens are priced through the
 OpenAI reports actual costs — and the fallback is closer to reality than
 charging cached input at the full input rate. Still worth an explicit entry.
 
+### The pricing catalog has no time dimension
+
+One price per model, applied to every period the statistics screen offers. Two
+consequences, both understating nothing and overstating a little:
+
+- Claude Sonnet 5 carries introductory pricing ($2/$10 per million rather than
+  $3/$15) through 2026-08-31. The catalog holds the standard rate, so tokens
+  spent inside that window are valued above what the API would have charged.
+- A price change of any kind is applied retroactively to the whole history the
+  moment the catalog is edited.
+
+Fixing it means an effective-date range per entry and picking the entry by the
+bucket's own date — the `effectiveDate` field is already there and already
+unused for exactly this. Not worth it while the figure is labelled an estimate
+of what API billing would have cost, but it is the reason two runs of the same
+period can disagree after a catalog update.
+
 ## Storage and lifecycle
 
 ### Watermark rows are never evicted

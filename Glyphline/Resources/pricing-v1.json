@@ -10,6 +10,28 @@
   },
   {
     "providerID": "claude",
+    "model": "claude-fable-5",
+    "inputMicrosPerMillionTokens": 10000000,
+    "outputMicrosPerMillionTokens": 50000000,
+    "cacheCreationMicrosPerMillionTokens": 12500000,
+    "cacheReadMicrosPerMillionTokens": 1000000,
+    "currency": "USD",
+    "effectiveDate": "2026-07-30",
+    "source": "anthropic-api-pricing"
+  },
+  {
+    "providerID": "claude",
+    "model": "claude-opus-5",
+    "inputMicrosPerMillionTokens": 5000000,
+    "outputMicrosPerMillionTokens": 25000000,
+    "cacheCreationMicrosPerMillionTokens": 6250000,
+    "cacheReadMicrosPerMillionTokens": 500000,
+    "currency": "USD",
+    "effectiveDate": "2026-07-30",
+    "source": "anthropic-api-pricing"
+  },
+  {
+    "providerID": "claude",
     "model": "claude-opus-4-8",
     "inputMicrosPerMillionTokens": 5000000,
     "outputMicrosPerMillionTokens": 25000000,
@@ -18,6 +40,17 @@
     "currency": "USD",
     "effectiveDate": "2026-07-27",
     "source": "local-seed"
+  },
+  {
+    "providerID": "claude",
+    "model": "claude-sonnet-5",
+    "inputMicrosPerMillionTokens": 3000000,
+    "outputMicrosPerMillionTokens": 15000000,
+    "cacheCreationMicrosPerMillionTokens": 3750000,
+    "cacheReadMicrosPerMillionTokens": 300000,
+    "currency": "USD",
+    "effectiveDate": "2026-07-30",
+    "source": "anthropic-api-pricing"
   },
   {
     "providerID": "claude",
