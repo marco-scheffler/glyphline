@@ -6,6 +6,18 @@ enum QuotaLightState: Equatable, Sendable {
     case grey
 }
 
+/// How a single window reads: fine, close to the limit, spent, or unknown.
+///
+/// Decided in `QuotaIndicator` and carried on the row, never derived in a view —
+/// two surfaces draw these rows, and a threshold applied in one of them is how
+/// the card and the panel start disagreeing about the same number.
+enum QuotaSeverity: Equatable, Sendable {
+    case normal
+    case warning
+    case exhausted
+    case unknown
+}
+
 /// Locale and time zone the quota strings are rendered in.
 ///
 /// Injectable for one reason: a test that builds the same `DateFormatter` as the
@@ -89,6 +101,9 @@ struct QuotaBarRow: Identifiable, Equatable, Sendable {
     /// Non-nil exactly when the window is past the freshness bound; the instant
     /// the figure was last believed.
     var asOf: Date?
+    /// Decided from `fraction` by `QuotaIndicator.severity(for:)`, so the colour
+    /// a bar takes and the state the light reports come from one rule.
+    var severity: QuotaSeverity = .unknown
 }
 
 /// One account's block on a dashboard card. The structural twin of
@@ -101,6 +116,26 @@ struct QuotaBarGroup: Identifiable, Equatable, Sendable {
 }
 
 enum QuotaIndicator {
+    /// The one exhaustion threshold in the app. `hasHeadroom` — and therefore
+    /// the menu bar light — and a row's `.exhausted` verdict both compare
+    /// against *this* constant rather than against two literals that happen to
+    /// agree today.
+    static let exhaustedFraction = 1.0
+
+    /// Advisory only, and deliberately below `exhaustedFraction`. The light has
+    /// no opinion about this band and never claims "no warning" — it says
+    /// "usable" or "known exhausted" — so an amber bar can never contradict a
+    /// green icon.
+    static let warningFraction = 0.8
+
+    /// A window's verdict. `nil` is `.unknown`: a missing fraction is not 0%.
+    static func severity(for fraction: Double?) -> QuotaSeverity {
+        guard let fraction else { return .unknown }
+        if fraction >= exhaustedFraction { return .exhausted }
+        if fraction >= warningFraction { return .warning }
+        return .normal
+    }
+
     /// The one freshness predicate. The light, the next-free string and the
     /// rendered rows all reach it — a rule applied at two of the three sites and
     /// forgotten at the third is the mistake this feature kept making.
@@ -136,7 +171,7 @@ enum QuotaIndicator {
             decidableFraction($0, now: now, freshness: freshness)
         }
         guard !fractions.isEmpty else { return nil }
-        return fractions.allSatisfy { $0 < 1.0 }
+        return fractions.allSatisfy { $0 < exhaustedFraction }
     }
 
     /// Green when at least one account with fresh data has headroom. Red only
@@ -247,6 +282,47 @@ enum QuotaIndicator {
         return instant.formatted(style)
     }
 
+    /// How long until an instant, as words rather than a clock time.
+    ///
+    /// A clock time makes the reader do the arithmetic, and for the weekly
+    /// window a bare weekday says almost nothing. This answers the question the
+    /// reader actually has: how long do I wait.
+    ///
+    /// Composed by hand from the interval rather than through
+    /// `.formatted(.relative(...))`. Two reasons: these are *words*, and the
+    /// app's words are English wherever the Mac is set to — the relative style
+    /// would follow the system language and print "in 3 Stunden" into an English
+    /// panel — and the system style rounds to a single unit, which turns 3h 20m
+    /// into "in 3 hours" and loses exactly the precision the row exists for.
+    ///
+    /// `verb` keeps the distinction the labels carry: a billing cycle *ends*, it
+    /// does not reset, because a subscription term end returns no capacity.
+    static func remainingText(until instant: Date, now: Date, verb: String) -> String {
+        let remaining = instant.timeIntervalSince(now)
+
+        // Past due carries no verb: "resets in -5m" is nonsense, and "ended"
+        // would claim a refill happened that this app did not observe.
+        guard remaining > 0 else { return "due now" }
+        guard remaining >= 60 else { return "\(verb) any moment" }
+
+        return "\(verb) in \(compactDuration(remaining))"
+    }
+
+    /// "3h 20m", "45m", "4d". Every component floors, so the figure is always a
+    /// lower bound on the wait rather than an optimistic round-up.
+    private static func compactDuration(_ interval: TimeInterval) -> String {
+        let totalMinutes = Int(interval / 60)
+        let days = totalMinutes / (60 * 24)
+        if days >= 1 { return "\(days)d" }
+
+        let hours = totalMinutes / 60
+        let minutes = totalMinutes % 60
+        if hours >= 1 {
+            return minutes == 0 ? "\(hours)h" : "\(hours)h \(minutes)m"
+        }
+        return "\(minutes)m"
+    }
+
     /// The app's own glyph, and what the menu bar shows when the light carries no
     /// information.
     static let appSymbolName = "chart.line.uptrend.xyaxis"
@@ -348,13 +424,21 @@ enum QuotaIndicator {
                     let asOf = isFresh(windowState, now: now, freshness: freshness)
                         ? nil
                         : windowState.believableSince
-                    let reset = instantText(windowState.window.resetAt, now: now, formatting: formatting)
+                    // Remaining time, not a clock time: the bars are read to
+                    // decide whether to wait, and "13:10" makes the reader
+                    // subtract. Built against the injected `now` so it stays
+                    // testable.
+                    let remaining = remainingText(
+                        until: windowState.window.resetAt,
+                        now: now,
+                        verb: verb
+                    )
 
                     let detail: String
                     if let fraction = windowState.window.usedFraction {
-                        detail = "\(Int((fraction * 100).rounded()))% — \(verb) \(reset)"
+                        detail = "\(Int((fraction * 100).rounded()))% · \(remaining)"
                     } else {
-                        detail = "usage unknown, \(verb) \(reset)"
+                        detail = "usage unknown · \(remaining)"
                     }
 
                     return QuotaBarRow(
@@ -362,7 +446,8 @@ enum QuotaIndicator {
                         label: label,
                         fraction: windowState.window.usedFraction,
                         detail: detail,
-                        asOf: asOf
+                        asOf: asOf,
+                        severity: severity(for: windowState.window.usedFraction)
                     )
                 }
             )

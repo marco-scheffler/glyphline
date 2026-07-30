@@ -612,4 +612,137 @@ final class QuotaIndicatorTests: XCTestCase {
         XCTAssertEqual(group?.message, RateWindowSourceError.sessionExpired.message)
         XCTAssertTrue(group?.rows.isEmpty ?? false)
     }
+
+    // MARK: - Severity
+
+    /// The severity a row would be drawn with, straight from a fraction.
+    private func severity(ofRowWith used: Double?) -> QuotaSeverity? {
+        QuotaIndicator
+            .barGroups(for: [account("A", used: used)], now: now, freshness: freshness)
+            .first?.rows.first?.severity
+    }
+
+    func testSeverityBandsAtTheirBoundaries() {
+        XCTAssertEqual(severity(ofRowWith: 0.79), .normal)
+        XCTAssertEqual(
+            severity(ofRowWith: QuotaIndicator.warningFraction), .warning,
+            "the warning band is inclusive at its lower edge"
+        )
+        XCTAssertEqual(severity(ofRowWith: 0.99), .warning)
+        XCTAssertEqual(
+            severity(ofRowWith: QuotaIndicator.exhaustedFraction), .exhausted,
+            "exactly at the exhaustion threshold is exhausted, not warning"
+        )
+        XCTAssertEqual(
+            severity(ofRowWith: nil), .unknown,
+            "a missing fraction gets no colour — it is not 0%"
+        )
+    }
+
+    /// The load-bearing one. The light and the rows read the same number through
+    /// the same constant, and this is what stops the two drifting apart: an
+    /// account the icon calls exhausted must not show a green bar, and an account
+    /// the icon calls usable must not show a red one.
+    func testTheLightAndTheRowSeveritiesAgreeAboutExhaustion() {
+        let usable = [
+            accountWith("Max #1", windows: [
+                window(kind: .rollingFiveHours, used: QuotaIndicator.exhaustedFraction - 0.01),
+                window(kind: .weekly, used: 0.3),
+            ]),
+        ]
+
+        XCTAssertEqual(QuotaIndicator.light(for: usable, now: now, freshness: freshness), .green)
+        let usableRows = QuotaIndicator.barGroups(for: usable, now: now, freshness: freshness)
+            .flatMap(\.rows)
+        XCTAssertEqual(usableRows.count, 2)
+        XCTAssertFalse(
+            usableRows.contains { $0.severity == .exhausted },
+            "the light says there is headroom, so no row may claim exhaustion"
+        )
+
+        let spent = [
+            accountWith("Max #1", windows: [
+                window(kind: .rollingFiveHours, used: QuotaIndicator.exhaustedFraction),
+                window(kind: .weekly, used: QuotaIndicator.exhaustedFraction),
+            ]),
+        ]
+
+        XCTAssertEqual(QuotaIndicator.light(for: spent, now: now, freshness: freshness), .red)
+        let spentRows = QuotaIndicator.barGroups(for: spent, now: now, freshness: freshness)
+            .flatMap(\.rows)
+        XCTAssertEqual(spentRows.count, 2)
+        XCTAssertTrue(
+            spentRows.allSatisfy { $0.severity == .exhausted },
+            "the light says exhausted, so every row must say the same"
+        )
+    }
+
+    // MARK: - Remaining time
+
+    /// English literals by design: these are words, and the app's words are
+    /// English however the Mac is set. A system-locale relative style would print
+    /// "in 3 Stunden" here, and round the 20 minutes away besides.
+    func testRemainingTimeIsRenderedCompactlyInEnglish() {
+        XCTAssertEqual(
+            QuotaIndicator.remainingText(until: now.addingTimeInterval(200 * 60), now: now, verb: "resets"),
+            "resets in 3h 20m"
+        )
+        XCTAssertEqual(
+            QuotaIndicator.remainingText(until: now.addingTimeInterval(180 * 60), now: now, verb: "resets"),
+            "resets in 3h",
+            "a whole number of hours drops the empty minute component"
+        )
+        XCTAssertEqual(
+            QuotaIndicator.remainingText(until: now.addingTimeInterval(45 * 60), now: now, verb: "resets"),
+            "resets in 45m"
+        )
+        XCTAssertEqual(
+            QuotaIndicator.remainingText(until: now.addingTimeInterval(4 * 86_400), now: now, verb: "resets"),
+            "resets in 4d"
+        )
+        XCTAssertEqual(
+            QuotaIndicator.remainingText(until: now.addingTimeInterval(3 * 86_400), now: now, verb: "ends"),
+            "ends in 3d",
+            "the billing cycle keeps its own verb"
+        )
+    }
+
+    func testRemainingTimeHandlesTheEdgesPlainly() {
+        XCTAssertEqual(
+            QuotaIndicator.remainingText(until: now.addingTimeInterval(30), now: now, verb: "resets"),
+            "resets any moment",
+            "under a minute must not render as 'in 0m'"
+        )
+        XCTAssertEqual(
+            QuotaIndicator.remainingText(until: now.addingTimeInterval(-300), now: now, verb: "resets"),
+            "due now",
+            "an elapsed instant says so rather than rendering a negative interval"
+        )
+    }
+
+    func testTheBarDetailReadsAsRemainingTime() {
+        let states = [
+            accountWith("Max #1", windows: [
+                window(used: 0.45, resetMinutesFromNow: 200),
+            ]),
+        ]
+
+        XCTAssertEqual(
+            QuotaIndicator.barGroups(for: states, now: now, freshness: freshness).first?.rows.first?.detail,
+            "45% · resets in 3h 20m"
+        )
+    }
+
+    func testTheBarDetailSaysSoWhenTheFractionIsMissing() {
+        let states = [
+            accountWith("Max #1", windows: [
+                window(kind: .billingCycle, used: nil, resetMinutesFromNow: 3 * 24 * 60),
+            ]),
+        ]
+
+        XCTAssertEqual(
+            QuotaIndicator.barGroups(for: states, now: now, freshness: freshness).first?.rows.first?.detail,
+            "usage unknown · ends in 3d"
+        )
+    }
 }
