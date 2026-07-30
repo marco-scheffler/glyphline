@@ -16,6 +16,16 @@ import Foundation
 // polling path, and for that case it descends one level into `five_hour` and
 // `seven_day` — still key names and value types only.
 //
+// A third question, the one the probe now also measures: per-account cost. The
+// usage body carries dollar-shaped fields the app does not decode — `spend`,
+// `limits`, `extra_usage`, and the `*_dollars` keys inside the windows. Whether
+// they carry numbers on an *active* subscription decides whether real
+// provider-reported cost is available at all, so the summary descends into
+// `spend` (two levels, since a figure most likely lives one level down),
+// reports `limits`' element count and its first element's shape, and reports
+// `extra_usage`'s keys. It rides along on every successful poll, not only the
+// empty-window case, because only an active account produces windows.
+//
 // Remove this file, its tests and its two call sites — in `ClaudeSignInWindow`
 // and in `ClaudeWebQuotaSource.result(from:body:observedAt:)` — once the
 // difference is understood.
@@ -63,6 +73,8 @@ enum ResponseShapeProbe {
             for key in nestedKeys {
                 summary += "; \(nestedDescription(of: object, key: key))"
             }
+            summary += "; \(spendDescription(of: object))"
+            summary += "; \(limitsDescription(of: object))"
             return summary
         }
 
@@ -72,7 +84,55 @@ enum ResponseShapeProbe {
     /// The only keys the probe descends into. The question this diagnostic exists
     /// to answer is what is *inside* the two usage windows; every other key stays
     /// at one level, so nothing else can be described by accident.
-    private static let nestedKeys = ["five_hour", "seven_day"]
+    private static let nestedKeys = ["five_hour", "seven_day", "extra_usage"]
+
+    /// The key most likely to carry a provider-reported cost. It is the one place
+    /// the probe descends a *second* level — still key names and value types only.
+    private static let spendKey = "spend"
+
+    /// The array of limit descriptors: element count, plus the first element's
+    /// key names and value types when the elements are objects.
+    private static let limitsKey = "limits"
+
+    /// `spend`'s own keys and types, plus one further level for each of its
+    /// object-valued keys.
+    private static func spendDescription(of object: [String: Any]) -> String {
+        guard let value = object[spendKey] else {
+            return "\(spendKey) absent"
+        }
+        guard let spend = value as? [String: Any] else {
+            if value is NSNull { return "\(spendKey) is null" }
+            return "\(spendKey) is not an object"
+        }
+
+        var description = "\(spendKey){\(keyList(of: spend))}"
+        for key in spend.keys.sorted() {
+            guard let nested = spend[key] as? [String: Any] else { continue }
+            description += "; \(spendKey).\(key){\(keyList(of: nested))}"
+        }
+        return description
+    }
+
+    /// `limits`' element count, and the first element's shape when it is an object.
+    private static func limitsDescription(of object: [String: Any]) -> String {
+        guard let value = object[limitsKey] else {
+            return "\(limitsKey) absent"
+        }
+        guard let limits = value as? [Any] else {
+            if value is NSNull { return "\(limitsKey) is null" }
+            return "\(limitsKey) is not an array"
+        }
+
+        var description = "\(limitsKey): \(limits.count) elements"
+        if let first = limits.first {
+            if let element = first as? [String: Any] {
+                description += ", first element keys: \(keyList(of: element))"
+            } else {
+                description += ", first element is not an object"
+            }
+        }
+        return description
+    }
 
     /// One nested key's own key names and value types — or, plainly, that there
     /// is nothing there to describe.

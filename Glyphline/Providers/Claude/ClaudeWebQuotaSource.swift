@@ -105,28 +105,43 @@ struct ClaudeWebQuotaSource: RateWindowSource {
     ///
     /// A decode that succeeds and still yields no window is indistinguishable
     /// from a genuinely idle subscription: the panel says "No quota reported
-    /// yet." either way. For that one case the result carries the probe's
-    /// *structural* summary of the body — key names and value types, never a
-    /// value — so the two can be told apart.
+    /// yet." either way. For that one case the result says so.
     ///
-    /// `dataQuality` stays `.exact`: a subscription with no active window is not
-    /// a failure, and `.unavailable` would make the account read as broken.
+    /// Every successful fetch — window or not — additionally carries the probe's
+    /// *structural* summary of the body, key names and value types and never a
+    /// value. The cost question it is measuring can only be answered on an
+    /// account that is actually being used, and such an account always produces
+    /// windows.
+    ///
+    /// `dataQuality` stays `.exact`: neither a subscription with no active window
+    /// nor a measurement is a failure, and `.unavailable` would make the account
+    /// read as broken.
     static func result(
         from response: ClaudeUsageResponse,
         body: String,
         observedAt: Date
     ) -> RateWindowResult {
         let windows = response.rateWindows(observedAt: observedAt)
+        let measurement = measurementMessage(body: body)
         return RateWindowResult(
             windows: windows,
             dataQuality: .exact,
-            message: windows.isEmpty ? emptyWindowMessage(body: body) : nil
+            message: windows.isEmpty ? emptyWindowMessage(body: body) : measurement
         )
     }
 
     /// TEMPORARY DIAGNOSTIC — added 2026-07-30, remove with `ResponseShapeProbe`.
     static func emptyWindowMessage(body: String) -> String {
-        "claude.ai reported no active limits for this subscription. (\(ResponseShapeProbe.describe(body)))"
+        "claude.ai reported no active limits for this subscription. \(measurementMessage(body: body))"
+    }
+
+    /// TEMPORARY DIAGNOSTIC — added 2026-07-30, remove with `ResponseShapeProbe`.
+    ///
+    /// The leading sentence exists so a user whose working account suddenly shows
+    /// a wall of structural text knows why it is there and that it goes away.
+    static func measurementMessage(body: String) -> String {
+        "Measuring which cost fields claude.ai reports — this line is temporary. "
+            + "(\(ResponseShapeProbe.describe(body)))"
     }
 
     /// Messages come from `RateWindowSourceError` and nowhere else, so no part of

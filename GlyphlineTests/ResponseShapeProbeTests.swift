@@ -140,6 +140,102 @@ final class ResponseShapeProbeTests: XCTestCase {
         )
     }
 
+    // MARK: - Cost-shaped keys
+
+    func testSpendReportsBothLevelsOfKeysAndTypes() {
+        let summary = ResponseShapeProbe.describe(
+            #"{"spend":{"current":{"amount_dollars":9.5,"currency":"USD"},"limit_dollars":null,"enabled":true}}"#
+        )
+
+        XCTAssertTrue(
+            summary.contains("spend{current: object, enabled: bool, limit_dollars: null}"),
+            summary
+        )
+        XCTAssertTrue(summary.contains("spend.current{amount_dollars: number, currency: string}"), summary)
+    }
+
+    func testSpendDescendsIntoEveryObjectValuedKey() {
+        let summary = ResponseShapeProbe.describe(
+            #"{"spend":{"a":{"x":1},"b":{"y":"z"}}}"#
+        )
+
+        XCTAssertTrue(summary.contains("spend.a{x: number}"), summary)
+        XCTAssertTrue(summary.contains("spend.b{y: string}"), summary)
+    }
+
+    func testLimitsReportsCountAndFirstElementShape() {
+        let summary = ResponseShapeProbe.describe(
+            #"{"limits":[{"type":"five_hour","limit_dollars":null},{"type":"seven_day"}]}"#
+        )
+
+        XCTAssertTrue(summary.contains("limits: 2 elements, first element keys: limit_dollars: null, type: string"), summary)
+    }
+
+    func testEmptyLimitsArrayIsSaidPlainly() {
+        let summary = ResponseShapeProbe.describe(#"{"limits":[]}"#)
+
+        XCTAssertTrue(summary.contains("limits: 0 elements"), summary)
+    }
+
+    func testLimitsOfNonObjectsIsSaidPlainly() {
+        let summary = ResponseShapeProbe.describe(#"{"limits":["five_hour"]}"#)
+
+        XCTAssertTrue(summary.contains("limits: 1 elements, first element is not an object"), summary)
+    }
+
+    func testExtraUsageReportsItsKeysAndTypes() {
+        let summary = ResponseShapeProbe.describe(#"{"extra_usage":{"enabled":false,"used_dollars":null}}"#)
+
+        XCTAssertTrue(summary.contains("extra_usage{enabled: bool, used_dollars: null}"), summary)
+    }
+
+    func testAbsentCostKeysAreSaidPlainly() {
+        let summary = ResponseShapeProbe.describe(#"{"five_hour":null}"#)
+
+        XCTAssertTrue(summary.contains("spend absent"), summary)
+        XCTAssertTrue(summary.contains("limits absent"), summary)
+        XCTAssertTrue(summary.contains("extra_usage absent"), summary)
+    }
+
+    func testNullOrMistypedCostKeysAreSaidPlainly() {
+        let summary = ResponseShapeProbe.describe(#"{"spend":null,"limits":{},"extra_usage":7}"#)
+
+        XCTAssertTrue(summary.contains("spend is null"), summary)
+        XCTAssertTrue(summary.contains("limits is not an array"), summary)
+        XCTAssertTrue(summary.contains("extra_usage is not an object"), summary)
+    }
+
+    /// The load-bearing one, extended to the cost keys — including values two
+    /// levels down inside `spend` and inside a `limits` element.
+    func testCostKeyValuesNeverAppearInTheSummary() {
+        let summary = ResponseShapeProbe.describe(
+            """
+            {"spend":{"total_dollars":98765.4321,"note":"SECRET-VALUE-1234",\
+            "current":{"amount_dollars":13579.11,"invoice":"SECRET-VALUE-5678","who":"someone@example.com"}},\
+            "limits":[{"limit_dollars":24680.13,"org":"34cf885c-nope","label":"SECRET-VALUE-9012"}],\
+            "extra_usage":{"used_dollars":11223.344,"receipt":"SECRET-VALUE-3456"}}
+            """
+        )
+
+        for secret in [
+            "SECRET-VALUE-1234", "SECRET-VALUE-5678", "SECRET-VALUE-9012", "SECRET-VALUE-3456",
+            "someone@example.com", "34cf885c", "98765", "13579", "24680", "11223",
+        ] {
+            XCTAssertFalse(summary.contains(secret), "\(secret) leaked: \(summary)")
+        }
+
+        XCTAssertTrue(summary.contains("spend{current: object, note: string, total_dollars: number}"), summary)
+        XCTAssertTrue(
+            summary.contains("spend.current{amount_dollars: number, invoice: string, who: string}"),
+            summary
+        )
+        XCTAssertTrue(
+            summary.contains("limits: 1 elements, first element keys: label: string, limit_dollars: number, org: string"),
+            summary
+        )
+        XCTAssertTrue(summary.contains("extra_usage{receipt: string, used_dollars: number}"), summary)
+    }
+
     func testEmptyBody() {
         XCTAssertEqual(ResponseShapeProbe.describe(""), "0 bytes, empty")
     }
@@ -175,7 +271,10 @@ final class ClaudeWebQuotaSourceEmptyWindowProbeTests: XCTestCase {
         XCTAssertEqual(result.dataQuality, .exact)
         let message = try XCTUnwrap(result.message)
         XCTAssertTrue(
-            message.hasPrefix("claude.ai reported no active limits for this subscription. ("),
+            message.hasPrefix(
+                "claude.ai reported no active limits for this subscription. "
+                    + "Measuring which cost fields claude.ai reports — this line is temporary. ("
+            ),
             message
         )
         XCTAssertTrue(message.contains("five_hour is null"), message)
@@ -194,17 +293,37 @@ final class ClaudeWebQuotaSourceEmptyWindowProbeTests: XCTestCase {
 
         XCTAssertEqual(result.windows.count, 2)
         XCTAssertTrue(result.windows.allSatisfy { $0.resetAt == nil })
-        XCTAssertNil(result.message, "two reported windows are not 'no active limits'")
+        let message = try XCTUnwrap(result.message)
+        XCTAssertFalse(message.contains("no active limits"), message)
+        XCTAssertTrue(
+            message.hasPrefix("Measuring which cost fields claude.ai reports — this line is temporary. ("),
+            message
+        )
     }
 
-    func testAtLeastOneWindowCarriesNoDiagnostic() throws {
-        let body = #"{"five_hour":{"utilization":42,"resets_at":"2026-07-30T10:00:00Z"},"seven_day":null}"#
+    /// The point of the extension: an account that produces windows carries the
+    /// measurement too, and still does not read as broken.
+    func testAWindowCarriesTheMeasurementAndStaysExact() throws {
+        let body = """
+        {"five_hour":{"utilization":42,"resets_at":"2026-07-30T10:00:00Z","used_dollars":1.25},"seven_day":null,\
+        "spend":{"current":{"amount_dollars":9.5}},"limits":[{"kind":"five_hour"}],"extra_usage":{"enabled":true}}
+        """
 
         let result = try result(body: body)
 
         XCTAssertEqual(result.windows.count, 1)
         XCTAssertEqual(result.dataQuality, .exact)
-        XCTAssertNil(result.message)
+        let message = try XCTUnwrap(result.message)
+        XCTAssertTrue(
+            message.hasPrefix("Measuring which cost fields claude.ai reports — this line is temporary. ("),
+            message
+        )
+        XCTAssertTrue(message.contains("spend{current: object}"), message)
+        XCTAssertTrue(message.contains("spend.current{amount_dollars: number}"), message)
+        XCTAssertTrue(message.contains("limits: 1 elements, first element keys: kind: string"), message)
+        XCTAssertTrue(message.contains("extra_usage{enabled: bool}"), message)
+        XCTAssertFalse(message.contains("9.5"), message)
+        XCTAssertFalse(message.contains("1.25"), message)
     }
 
     func testTheDiagnosticNeverCarriesAValue() throws {
