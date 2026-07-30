@@ -46,3 +46,8 @@ targets:
     settings:
       GENERATE_INFOPLIST_FILE: YES
       SWIFT_VERSION: 6.0
+      # Die App läuft mit Hardened Runtime, deren Library Validation nur Code
+      # lädt, der vom selben Team signiert ist. Ein anders signiertes
+      # Test-Bundle lässt sich deshalb gar nicht erst einschleusen.
+      DEVELOPMENT_TEAM: 7YN7YUH475
+      CODE_SIGN_STYLE: Automatic
