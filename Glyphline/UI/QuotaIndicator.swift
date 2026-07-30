@@ -73,6 +73,33 @@ struct QuotaRowGroup: Identifiable, Equatable, Sendable {
     var rows: [String]
 }
 
+/// One window as a drawable row: the number left unrendered so a bar can be
+/// drawn from it, with the freshness bound already applied.
+///
+/// `asOf` is the same verdict `rowGroups` renders as its " (as of …)" qualifier,
+/// decided by the same predicate. A view receiving raw states could pick its own
+/// bound, which is precisely the disagreement this feature kept reintroducing.
+struct QuotaBarRow: Identifiable, Equatable, Sendable {
+    var id: String
+    var label: String
+    /// `nil` means the provider reported no consumed fraction. A bar must then
+    /// be absent rather than empty — 0% is a wrong number, not a missing one.
+    var fraction: Double?
+    var detail: String
+    /// Non-nil exactly when the window is past the freshness bound; the instant
+    /// the figure was last believed.
+    var asOf: Date?
+}
+
+/// One account's block on a dashboard card. The structural twin of
+/// `QuotaRowGroup`, carrying the same message and the same rows.
+struct QuotaBarGroup: Identifiable, Equatable, Sendable {
+    var id: UUID
+    var displayName: String
+    var message: String?
+    var rows: [QuotaBarRow]
+}
+
 enum QuotaIndicator {
     /// The one freshness predicate. The light, the next-free string and the
     /// rendered rows all reach it — a rule applied at two of the three sites and
@@ -271,6 +298,60 @@ enum QuotaIndicator {
         }
     }
 
+    /// The one place window kinds get their words. `rowText` and `barGroups` both
+    /// read it, so a surface cannot start saying "Cycle resets" on its own.
+    ///
+    /// "ends", not "resets", for the cycle. A subscription *term* end returns no
+    /// capacity — the spike found a Codex term ending in 2027 — and even a
+    /// monthly cycle boundary is the end of a period rather than a quota refill.
+    static func labelAndVerb(for kind: RateWindowKind) -> (label: String, verb: String) {
+        switch kind {
+        case .rollingFiveHours: ("5h", "resets")
+        case .weekly: ("Week", "resets")
+        case .billingCycle: ("Cycle", "ends")
+        }
+    }
+
+    /// The same groups `rowGroups` produces, with the numbers left unrendered so a
+    /// bar can be drawn. Freshness is decided here, by the same predicate, for the
+    /// same reason: a view that received raw states could pick its own bound.
+    static func barGroups(
+        for states: [QuotaAccountState],
+        now: Date,
+        freshness: TimeInterval,
+        formatting: QuotaFormatting = .current
+    ) -> [QuotaBarGroup] {
+        states.map { state in
+            QuotaBarGroup(
+                id: state.accountID,
+                displayName: state.displayName,
+                message: state.message,
+                rows: state.windows.map { windowState in
+                    let (label, verb) = labelAndVerb(for: windowState.window.kind)
+                    let asOf = isFresh(windowState, now: now, freshness: freshness)
+                        ? nil
+                        : windowState.believableSince
+                    let reset = instantText(windowState.window.resetAt, now: now, formatting: formatting)
+
+                    let detail: String
+                    if let fraction = windowState.window.usedFraction {
+                        detail = "\(Int((fraction * 100).rounded()))% — \(verb) \(reset)"
+                    } else {
+                        detail = "usage unknown, \(verb) \(reset)"
+                    }
+
+                    return QuotaBarRow(
+                        id: windowState.window.kind.rawValue,
+                        label: label,
+                        fraction: windowState.window.usedFraction,
+                        detail: detail,
+                        asOf: asOf
+                    )
+                }
+            )
+        }
+    }
+
     /// One window as a menu row. A missing fraction says so rather than
     /// rendering as 0%, which would read as "untouched".
     ///
@@ -285,23 +366,7 @@ enum QuotaIndicator {
         asOf: Date? = nil,
         formatting: QuotaFormatting = .current
     ) -> String {
-        let label: String
-        let verb: String
-        switch window.kind {
-        case .rollingFiveHours:
-            label = "5h"
-            verb = "resets"
-        case .weekly:
-            label = "Week"
-            verb = "resets"
-        case .billingCycle:
-            // "ends", not "resets". A subscription *term* end returns no
-            // capacity — the spike found a Codex term ending in 2027 — and even
-            // a monthly cycle boundary is the end of a period rather than a
-            // quota refill.
-            label = "Cycle"
-            verb = "ends"
-        }
+        let (label, verb) = labelAndVerb(for: window.kind)
 
         let reset = instantText(window.resetAt, now: now, formatting: formatting)
 

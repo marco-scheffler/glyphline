@@ -96,6 +96,13 @@ final class SyncCoordinator: ObservableObject {
         QuotaIndicator.rowGroups(for: quotaStates, now: now(), freshness: quotaFreshness)
     }
 
+    /// The card's blocks, with fractions intact so a bar can be drawn. Same bound
+    /// as `quotaRows`, `quotaLight` and `nextFreeText` — computed here so no view
+    /// can invent one.
+    var quotaBars: [QuotaBarGroup] {
+        QuotaIndicator.barGroups(for: quotaStates, now: now(), freshness: quotaFreshness)
+    }
+
     /// Twice the poll interval: an observation older than that is not displayed.
     private var quotaFreshness: TimeInterval {
         (currentIntervalSeconds ?? 1_800) * 2

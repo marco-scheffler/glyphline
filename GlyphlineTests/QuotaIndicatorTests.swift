@@ -431,4 +431,177 @@ final class QuotaIndicatorTests: XCTestCase {
             "5h 50% — resets 11:30 PM"
         )
     }
+
+    // MARK: - Structured rows
+
+    /// A window built relative to a caller-supplied `now`, so the helpers below
+    /// can be anchored to the instant the test under them uses rather than to
+    /// this class's fixed `now`.
+    private func windowState(
+        kind: RateWindowKind,
+        used: Double?,
+        now: Date,
+        ageSeconds: TimeInterval
+    ) -> QuotaWindowState {
+        QuotaWindowState(
+            window: RateWindow(
+                kind: kind,
+                usedFraction: used,
+                resetAt: now.addingTimeInterval(3_600),
+                observedAt: now.addingTimeInterval(-ageSeconds)
+            ),
+            confirmedAt: now.addingTimeInterval(-ageSeconds)
+        )
+    }
+
+    /// Every window comfortably inside the bound.
+    private func freshStates(now: Date, bound: TimeInterval = 3_600) -> [QuotaAccountState] {
+        [
+            accountWith("Max #1", windows: [
+                windowState(kind: .rollingFiveHours, used: 0.62, now: now, ageSeconds: bound / 4),
+                windowState(kind: .weekly, used: 0.2, now: now, ageSeconds: bound / 4),
+            ]),
+            accountWith("Max #2", windows: [
+                windowState(kind: .billingCycle, used: nil, now: now, ageSeconds: bound / 4),
+            ]),
+        ]
+    }
+
+    /// Every window past the bound: `believableSince` is `bound * 2` old, and
+    /// `isFresh` compares against `bound`.
+    private func staleStates(now: Date, bound: TimeInterval = 3_600) -> [QuotaAccountState] {
+        [
+            accountWith("Max #1", windows: [
+                windowState(kind: .rollingFiveHours, used: 0.62, now: now, ageSeconds: bound * 2),
+                windowState(kind: .weekly, used: nil, now: now, ageSeconds: bound * 2),
+            ]),
+            accountWith("Max #2", windows: [
+                windowState(kind: .billingCycle, used: 0.9, now: now, ageSeconds: bound * 2),
+            ]),
+        ]
+    }
+
+    /// One of each on the same account, so a bug that treats a whole account
+    /// uniformly cannot pass.
+    private func mixedStates(now: Date, bound: TimeInterval = 3_600) -> [QuotaAccountState] {
+        [
+            accountWith("Max #1", windows: [
+                windowState(kind: .rollingFiveHours, used: 0.62, now: now, ageSeconds: bound / 4),
+                windowState(kind: .weekly, used: 0.4, now: now, ageSeconds: bound * 2),
+            ]),
+        ]
+    }
+
+    /// The helpers above are the premise of the binding test: a "stale" helper
+    /// that is really fresh would make it vacuous. Pin the verdicts directly.
+    func testTheFreshnessHelpersProduceTheVerdictsTheirNamesClaim() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let bound: TimeInterval = 3_600
+
+        func verdicts(_ states: [QuotaAccountState]) -> [Bool] {
+            states.flatMap(\.windows).map {
+                QuotaIndicator.isFresh($0, now: now, freshness: bound)
+            }
+        }
+
+        XCTAssertEqual(verdicts(freshStates(now: now)), [true, true, true])
+        XCTAssertEqual(verdicts(staleStates(now: now)), [false, false, false])
+        XCTAssertEqual(verdicts(mixedStates(now: now)), [true, false])
+    }
+
+    /// The binding test. `barGroups` and `rowGroups` must reach the SAME freshness
+    /// verdict for every row: `asOf` is non-nil exactly where `rowGroups` appends
+    /// its "(as of …)" qualifier. Asserting equal row COUNTS would pass trivially —
+    /// neither accessor drops a stale row — so the verdict is the thing to pin.
+    func testTheTwoAccessorsAgreeOnFreshness() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let freshness: TimeInterval = 3_600
+
+        // Fresh, stale, and one of each in the same account.
+        for states in [freshStates(now: now), staleStates(now: now), mixedStates(now: now)] {
+            let bars = QuotaIndicator.barGroups(for: states, now: now, freshness: freshness)
+            let rows = QuotaIndicator.rowGroups(for: states, now: now, freshness: freshness)
+
+            XCTAssertEqual(bars.count, rows.count)
+            for (barGroup, rowGroup) in zip(bars, rows) {
+                XCTAssertEqual(barGroup.rows.count, rowGroup.rows.count)
+                for (bar, row) in zip(barGroup.rows, rowGroup.rows) {
+                    XCTAssertEqual(
+                        bar.asOf != nil,
+                        row.contains("(as of "),
+                        "freshness verdicts disagree for \(bar.label): bar asOf=\(String(describing: bar.asOf)), row=\(row)"
+                    )
+                }
+            }
+        }
+    }
+
+    /// A provider that reports a reset instant but no consumed fraction must not
+    /// render as 0% — that is a wrong number, not a missing one.
+    func testAMissingFractionIsNotZero() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let state = QuotaAccountState(
+            accountID: UUID(),
+            displayName: "Max #1",
+            windows: [
+                QuotaWindowState(
+                    window: RateWindow(
+                        kind: .rollingFiveHours,
+                        usedFraction: nil,
+                        resetAt: now.addingTimeInterval(3_600),
+                        observedAt: now
+                    ),
+                    confirmedAt: now
+                )
+            ],
+            message: nil
+        )
+
+        let row = QuotaIndicator.barGroups(for: [state], now: now, freshness: 3_600).first?.rows.first
+        XCTAssertNil(row?.fraction)
+        XCTAssertFalse(row?.detail.contains("0%") ?? true)
+    }
+
+    /// The cycle says "ends", not "resets" — a term end returns no capacity. Both
+    /// surfaces must say the same thing, which is why the switch is shared.
+    func testTheCycleEndsRatherThanResets() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let state = QuotaAccountState(
+            accountID: UUID(),
+            displayName: "Max #1",
+            windows: [
+                QuotaWindowState(
+                    window: RateWindow(
+                        kind: .billingCycle,
+                        usedFraction: nil,
+                        resetAt: now.addingTimeInterval(86_400),
+                        observedAt: now
+                    ),
+                    confirmedAt: now
+                )
+            ],
+            message: nil
+        )
+
+        let row = QuotaIndicator.barGroups(for: [state], now: now, freshness: 3_600).first?.rows.first
+        XCTAssertEqual(row?.label, "Cycle")
+        XCTAssertTrue(row?.detail.contains("ends") ?? false)
+        XCTAssertFalse(row?.detail.contains("resets") ?? true)
+    }
+
+    /// The group carries the account's message through unchanged — the card shows
+    /// it instead of bars, so a dropped message means an account fails silently.
+    func testTheGroupCarriesTheAccountMessage() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let state = QuotaAccountState(
+            accountID: UUID(),
+            displayName: "Max #1",
+            windows: [],
+            message: RateWindowSourceError.sessionExpired.message
+        )
+
+        let group = QuotaIndicator.barGroups(for: [state], now: now, freshness: 3_600).first
+        XCTAssertEqual(group?.message, RateWindowSourceError.sessionExpired.message)
+        XCTAssertTrue(group?.rows.isEmpty ?? false)
+    }
 }
