@@ -35,7 +35,7 @@ final class ClaudeWebResponseClassifierTests: XCTestCase {
     }
 
     func testBrokenJSONSaysTheEndpointChanged() {
-        XCTAssertEqual(error(#"{"five_hour": "#, 200), .unreadableResponse)
+        XCTAssertEqual(error(#"{"five_hour": "#, 200), .unexpectedResponseShape)
     }
 
     func testNoStatusAtAllIsTransient() {
@@ -58,7 +58,7 @@ final class ClaudeWebResponseClassifierTests: XCTestCase {
         guard case .failure(let error) = ClaudeWebResponseClassifier.classify(body: body, statusCode: 200) else {
             return XCTFail("the usage entry point must not accept an array")
         }
-        XCTAssertEqual(error, .unreadableResponse)
+        XCTAssertEqual(error, .unexpectedResponseShape)
     }
 
     func testTheOrganisationsRouteMakesTheSameSessionJudgements() {
@@ -69,7 +69,7 @@ final class ClaudeWebResponseClassifierTests: XCTestCase {
         XCTAssertEqual(organizationsError(signInPage, 200), .sessionExpired)
         XCTAssertEqual(organizationsError(challenge, 403), .transportFailure)
         XCTAssertEqual(organizationsError("", nil), .transportFailure)
-        XCTAssertEqual(organizationsError(#"{"five_hour":{}}"#, 200), .unreadableResponse)
+        XCTAssertEqual(organizationsError(#"{"five_hour":{}}"#, 200), .unexpectedResponseShape)
     }
 
     func testTheOrganisationsRouteDoesNotLeakTheBodyEither() throws {

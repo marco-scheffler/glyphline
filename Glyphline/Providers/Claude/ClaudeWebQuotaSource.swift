@@ -93,7 +93,7 @@ struct ClaudeWebQuotaSource: RateWindowSource {
             // because a decode that started failing silently is exactly the case
             // this feature is built to make visible.
             guard let response = try? ClaudeUsageResponse.decode(data) else {
-                return Self.unavailable(.unreadableResponse)
+                return Self.unavailable(.unexpectedResponseShape)
             }
 
             return RateWindowResult(

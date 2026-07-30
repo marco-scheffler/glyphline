@@ -108,7 +108,7 @@ final class ClaudeSignInWindow: NSObject {
             return report(error)
         case .success(let data):
             guard let decoded = try? ClaudeOrganizationsResponse.decode(data) else {
-                return report(.unreadableResponse)
+                return report(.unexpectedResponseShape)
             }
             organizations = decoded
         }

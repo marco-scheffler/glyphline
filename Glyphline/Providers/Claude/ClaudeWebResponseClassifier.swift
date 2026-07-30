@@ -22,7 +22,7 @@ enum ClaudeWebResponseClassifier {
     /// final "is this the payload I asked for" differs, and that difference stays
     /// here rather than at the call site: the organisations body is a JSON
     /// *array*, which the usage decoder rejects, so classifying it with
-    /// `classify(body:statusCode:)` would report `unreadableResponse` for a
+    /// `classify(body:statusCode:)` would report `unexpectedResponseShape` for a
     /// perfectly good response.
     static func classifyOrganizations(body: String, statusCode: Int?) -> Result<Data, RateWindowSourceError> {
         classify(body: body, statusCode: statusCode) {
@@ -61,7 +61,7 @@ enum ClaudeWebResponseClassifier {
 
         let data = Data(body.utf8)
         guard isExpectedShape(data) else {
-            return .failure(.unreadableResponse)
+            return .failure(.unexpectedResponseShape)
         }
         return .success(data)
     }

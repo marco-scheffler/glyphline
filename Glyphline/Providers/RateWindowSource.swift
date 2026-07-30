@@ -39,9 +39,15 @@ enum RateWindowSourceError: Error, Equatable, Sendable {
     case credentialRejected(statusCode: Int)
     /// Network or provider unreachable. Transient.
     case transportFailure
-    /// The response did not decode. The endpoint changed, and this is the case
-    /// that would otherwise cause silent misreporting, so it says so loudly.
-    case unreadableResponse
+    /// The page could not be read at all — the document body never came back as
+    /// text, the script evaluation threw, or the response could not be displayed.
+    /// Nothing was seen, so nothing can be said about its shape.
+    case unreadablePage
+    /// The page was read, but it was not what we expected. During sign-in this
+    /// almost always means the sign-in had not completed yet; in steady state it
+    /// means the endpoint changed, which is the case that would otherwise cause
+    /// silent misreporting.
+    case unexpectedResponseShape
     /// The web session is no longer valid. Unlike `credentialRejected` there is
     /// no stored token to replace — the user signs in again in a browser.
     case sessionExpired
@@ -56,8 +62,10 @@ enum RateWindowSourceError: Error, Equatable, Sendable {
             "The stored quota token was rejected. Re-authorise this subscription."
         case .transportFailure:
             "Could not reach the provider. This is usually temporary."
-        case .unreadableResponse:
-            "The provider's response could not be read. Quota reporting may be out of date."
+        case .unreadablePage:
+            "Could not read the page claude.ai returned. This is usually temporary."
+        case .unexpectedResponseShape:
+            "claude.ai did not return the expected data. If you are signing in, make sure you are fully signed in before continuing."
         case .sessionExpired:
             "Your Claude sign-in has expired. Sign in again."
         }

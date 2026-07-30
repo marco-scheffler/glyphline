@@ -134,11 +134,11 @@ final class ClaudeWebPageLoader: NSObject {
             do {
                 let value = try await webView.evaluateJavaScript("document.body.innerText")
                 guard let text = value as? String else {
-                    return self.settle(.failure(RateWindowSourceError.unreadableResponse))
+                    return self.settle(.failure(RateWindowSourceError.unreadablePage))
                 }
                 self.settle(.success(Outcome(body: text, statusCode: self.statusCode)))
             } catch {
-                self.settle(.failure(RateWindowSourceError.unreadableResponse))
+                self.settle(.failure(RateWindowSourceError.unreadablePage))
             }
         }
     }
@@ -166,7 +166,7 @@ extension ClaudeWebPageLoader: WKNavigationDelegate {
         // which writes the body to disk and never finishes the navigation.
         guard navigationResponse.canShowMIMEType else {
             decisionHandler(.cancel)
-            settle(.failure(RateWindowSourceError.unreadableResponse))
+            settle(.failure(RateWindowSourceError.unreadablePage))
             return
         }
 

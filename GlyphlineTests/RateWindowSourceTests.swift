@@ -42,11 +42,30 @@ final class RateWindowSourceTests: XCTestCase {
             RateWindowSourceError.notAvailable.message,
             RateWindowSourceError.credentialRejected(statusCode: 401).message,
             RateWindowSourceError.transportFailure.message,
-            RateWindowSourceError.unreadableResponse.message,
+            RateWindowSourceError.unreadablePage.message,
+            RateWindowSourceError.unexpectedResponseShape.message,
         ]
 
-        XCTAssertEqual(Set(messages).count, 5, "\"error\" does not tell the user what to do")
+        XCTAssertEqual(Set(messages).count, 6, "\"error\" does not tell the user what to do")
         XCTAssertTrue(messages.allSatisfy { !$0.isEmpty })
+    }
+
+    /// The whole point of splitting the old `unreadableResponse` is that the two
+    /// failures can be told apart on screen — "the page could not be read" needs
+    /// a different action from the user than "the page was not what we expected".
+    func testTheTwoUnreadableCasesAreToldApartFromEachOtherAndFromAnExpiredSession() {
+        let unreadablePage = RateWindowSourceError.unreadablePage.message
+        let unexpectedShape = RateWindowSourceError.unexpectedResponseShape.message
+        let expired = RateWindowSourceError.sessionExpired.message
+
+        XCTAssertNotEqual(unreadablePage, unexpectedShape)
+        XCTAssertNotEqual(unreadablePage, expired)
+        XCTAssertNotEqual(unexpectedShape, expired)
+
+        // Nothing has ever been reported when these fire during sign-in, so
+        // neither may claim a stale figure is on screen.
+        XCTAssertFalse(unreadablePage.localizedCaseInsensitiveContains("out of date"))
+        XCTAssertFalse(unexpectedShape.localizedCaseInsensitiveContains("out of date"))
     }
 
     /// The two are not interchangeable. `notConfigured` invites the user to act;
