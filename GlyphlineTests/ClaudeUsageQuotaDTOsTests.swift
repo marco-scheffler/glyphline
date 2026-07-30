@@ -53,6 +53,104 @@ final class ClaudeUsageQuotaDTOsTests: XCTestCase {
         XCTAssertEqual(windows.map(\.kind), [.rollingFiveHours])
     }
 
+    /// The full production key list, so the fixture matches what the endpoint
+    /// really sends. Every value here is invented.
+    private func productionShaped(fiveHour: String, sevenDay: String) -> Data {
+        Data("""
+            {
+              "five_hour": \(fiveHour),
+              "seven_day": \(sevenDay),
+              "seven_day_opus": null,
+              "seven_day_sonnet": null,
+              "seven_day_cowork": null,
+              "seven_day_oauth_apps": null,
+              "seven_day_omelette": null,
+              "omelette_promotional": null,
+              "amber_ladder": null,
+              "cinder_cove": null,
+              "iguana_necktie": null,
+              "nimbus_quill": null,
+              "tangelo": null,
+              "spend": 0,
+              "extra_usage": null,
+              "limits": {},
+              "member_dashboard_available": false
+            }
+            """.utf8)
+    }
+
+    private static let completeWindow = #"{"utilization": 7.0, "resets_at": "2026-08-03T22:59:59.695335+00:00"}"#
+
+    func testAWindowWithoutAResetInstantIsDroppedAndTheSiblingSurvives() throws {
+        let json = productionShaped(
+            fiveHour: #"{"utilization": 12.0, "resets_at": null}"#,
+            sevenDay: Self.completeWindow
+        )
+
+        let windows = try ClaudeUsageResponse.decode(json).rateWindows(observedAt: observedAt)
+
+        XCTAssertEqual(windows.map(\.kind), [.weekly])
+        XCTAssertEqual(try XCTUnwrap(windows[0].usedFraction), 0.07, accuracy: 0.0001)
+    }
+
+    func testAWindowWithoutUtilizationKeepsItsResetInstantAndReportsUsageAsUnknown() throws {
+        let json = productionShaped(
+            fiveHour: #"{"utilization": null, "resets_at": "2026-07-29T10:30:00Z"}"#,
+            sevenDay: "null"
+        )
+
+        let windows = try ClaudeUsageResponse.decode(json).rateWindows(observedAt: observedAt)
+
+        XCTAssertEqual(windows.map(\.kind), [.rollingFiveHours])
+        // Nil, not 0 — "unknown" must not be rendered as "nothing used".
+        XCTAssertNil(windows[0].usedFraction)
+    }
+
+    func testBothWindowsCompleteStillYieldBoth() throws {
+        let json = productionShaped(
+            fiveHour: #"{"utilization": 12.0, "resets_at": "2026-07-29T10:30:00Z"}"#,
+            sevenDay: Self.completeWindow
+        )
+
+        let windows = try ClaudeUsageResponse.decode(json).rateWindows(observedAt: observedAt)
+
+        XCTAssertEqual(Set(windows.map(\.kind)), [.rollingFiveHours, .weekly])
+        let fiveHour = try XCTUnwrap(windows.first { $0.kind == .rollingFiveHours })
+        XCTAssertEqual(try XCTUnwrap(fiveHour.usedFraction), 0.12, accuracy: 0.0001)
+    }
+
+    func testAMalformedResetInstantDropsOnlyItsOwnWindow() throws {
+        let json = productionShaped(
+            fiveHour: #"{"utilization": 12.0, "resets_at": "not-a-timestamp"}"#,
+            sevenDay: Self.completeWindow
+        )
+
+        let windows = try ClaudeUsageResponse.decode(json).rateWindows(observedAt: observedAt)
+
+        XCTAssertEqual(windows.map(\.kind), [.weekly])
+    }
+
+    func testAWholeWindowValueBeingNullStaysTolerated() throws {
+        let json = productionShaped(fiveHour: "null", sevenDay: Self.completeWindow)
+
+        let windows = try ClaudeUsageResponse.decode(json).rateWindows(observedAt: observedAt)
+
+        XCTAssertEqual(windows.map(\.kind), [.weekly])
+    }
+
+    func testTheCodenameAndBillingFieldsAreIgnoredButDoNotBreakDecoding() throws {
+        let json = productionShaped(
+            fiveHour: #"{"utilization": 12.0, "resets_at": "2026-07-29T10:30:00Z"}"#,
+            sevenDay: Self.completeWindow
+        )
+
+        let response = try ClaudeUsageResponse.decode(json)
+
+        XCTAssertNotNil(response.fiveHour)
+        XCTAssertNotNil(response.sevenDay)
+        XCTAssertEqual(response.rateWindows(observedAt: observedAt).count, 2)
+    }
+
     func testAnUnparseableBodyThrows() {
         XCTAssertThrowsError(try ClaudeUsageResponse.decode(Data("<html>sign in</html>".utf8)))
     }

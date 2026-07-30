@@ -12,14 +12,14 @@ final class ResponseShapeProbeTests: XCTestCase {
 
         XCTAssertTrue(summary.contains("JSON array"), summary)
         XCTAssertTrue(summary.contains("2 elements"), summary)
-        XCTAssertTrue(summary.contains("first element keys: capabilities, uuid"), summary)
+        XCTAssertTrue(summary.contains("first element keys: capabilities: array, uuid: string"), summary)
     }
 
     func testTopLevelObjectReportsItsKeyNames() {
         let summary = ResponseShapeProbe.describe(#"{"type":"error","detail":"nope"}"#)
 
         XCTAssertTrue(summary.contains("JSON object"), summary)
-        XCTAssertTrue(summary.contains("keys: detail, type"), summary)
+        XCTAssertTrue(summary.contains("keys: detail: string, type: string"), summary)
     }
 
     func testNonJSONBodyIsReportedAsNotParsing() {
@@ -40,7 +40,10 @@ final class ResponseShapeProbeTests: XCTestCase {
         XCTAssertFalse(summary.contains("SECRET-VALUE-1234"), summary)
         XCTAssertFalse(summary.contains("someone@example.com"), summary)
         XCTAssertFalse(summary.contains("claude_max"), summary)
-        XCTAssertTrue(summary.contains("first element keys: capabilities, name, uuid"), summary)
+        XCTAssertTrue(
+            summary.contains("first element keys: capabilities: array, name: string, uuid: string"),
+            summary
+        )
     }
 
     func testErrorEnvelopeValuesNeverAppearInTheSummary() {
@@ -50,6 +53,34 @@ final class ResponseShapeProbeTests: XCTestCase {
 
         XCTAssertFalse(summary.contains("SECRET-VALUE-1234"), summary)
         XCTAssertFalse(summary.contains("someone@example.com"), summary)
+    }
+
+    /// Value types are reported; the values behind them are not.
+    func testValueTypesAreReportedForEveryKey() {
+        let summary = ResponseShapeProbe.describe(
+            #"{"five_hour":{},"spend":17,"tangelo":null,"ok":true,"name":"x","list":[]}"#
+        )
+
+        XCTAssertTrue(summary.contains("five_hour: object"), summary)
+        XCTAssertTrue(summary.contains("list: array"), summary)
+        XCTAssertTrue(summary.contains("name: string"), summary)
+        XCTAssertTrue(summary.contains("ok: bool"), summary)
+        XCTAssertTrue(summary.contains("spend: number"), summary)
+        XCTAssertTrue(summary.contains("tangelo: null"), summary)
+    }
+
+    /// The type report must not leak the values it describes.
+    func testTypeReportingNeverLeaksValues() {
+        let summary = ResponseShapeProbe.describe(
+            #"{"a":"SECRET-VALUE-1234","b":98765.4321,"c":{"d":"someone@example.com"},"e":[false]}"#
+        )
+
+        XCTAssertFalse(summary.contains("SECRET-VALUE-1234"), summary)
+        XCTAssertFalse(summary.contains("someone@example.com"), summary)
+        XCTAssertFalse(summary.contains("98765"), summary)
+        // Nested keys are not descended into either, so `d` stays unmentioned.
+        XCTAssertFalse(summary.contains("d:"), summary)
+        XCTAssertTrue(summary.contains("a: string, b: number, c: object, e: array"), summary)
     }
 
     func testEmptyBody() {

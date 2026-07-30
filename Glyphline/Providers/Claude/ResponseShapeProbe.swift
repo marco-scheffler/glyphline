@@ -14,8 +14,9 @@ import Foundation
 //
 // **Shape only, never content.** The probe may emit the byte length, the first
 // non-whitespace character, whether the body parses as JSON, the top-level JSON
-// type, an array's element count and JSON *key names* — key names are API field
-// names and are already documented in
+// type, an array's element count, JSON *key names* and the JSON *type* of each
+// value (`null`, `bool`, `number`, `string`, `object`, `array`) — key names are
+// API field names and are already documented in
 // `docs/superpowers/specs/2026-07-29-claude-org-id-discovery.md`. It must never
 // emit a JSON value, a substring of the body, a URL, an organisation id or an
 // account name. A fact that cannot be stated without risking a value is omitted.
@@ -56,8 +57,23 @@ enum ResponseShapeProbe {
         return "\(prefix), JSON but neither array nor object"
     }
 
-    /// Key names only — never the values they address.
+    /// Key names and the *type* of each value — never the values themselves.
     private static func keyList(of object: [String: Any]) -> String {
-        object.keys.isEmpty ? "none" : object.keys.sorted().joined(separator: ", ")
+        guard !object.isEmpty else { return "none" }
+        return object.keys.sorted()
+            .map { "\($0): \(typeName(of: object[$0]))" }
+            .joined(separator: ", ")
+    }
+
+    /// The JSON type of a value, which never reveals the value.
+    private static func typeName(of value: Any?) -> String {
+        guard let value, !(value is NSNull) else { return "null" }
+        if let number = value as? NSNumber {
+            return CFGetTypeID(number) == CFBooleanGetTypeID() ? "bool" : "number"
+        }
+        if value is String { return "string" }
+        if value is [Any] { return "array" }
+        if value is [String: Any] { return "object" }
+        return "unknown"
     }
 }
