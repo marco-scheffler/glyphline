@@ -8,6 +8,13 @@ protocol TranscriptTailReading: Sendable {
 
 extension ClaudeTranscriptReader: TranscriptTailReading {}
 
+/// So the coordinator can be tested without a transcript directory on disk.
+protocol AgentSessionScanning: Sendable {
+    func scan(now: Date) throws -> [AgentSession]
+}
+
+extension AgentSessionScanner: AgentSessionScanning {}
+
 /// Sweeps `~/.claude/projects` and returns the sessions that have written
 /// recently, with their subagents folded in.
 ///
@@ -22,7 +29,9 @@ struct AgentSessionScanner {
 
     private let directory: URL
     private let reader: any TranscriptTailReading
-    private let fileManager: FileManager
+    /// `FileManager` is thread-safe for the metadata calls used here, but is not
+    /// marked `Sendable`; the scanner has to be, to run off the main actor.
+    nonisolated(unsafe) private let fileManager: FileManager
 
     init(
         directory: URL = FileManager.default.homeDirectoryForCurrentUser
