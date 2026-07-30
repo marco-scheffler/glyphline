@@ -38,6 +38,10 @@ struct AccountsView: View {
                         Text("Accounts")
                             .font(.title2.weight(.semibold))
 
+                        // Computed once per render pass. Evaluated inside the
+                        // ForEach it rebuilt the whole array once per card.
+                        let quotaBars = coordinator.quotaBars
+
                         ForEach(accounts) { summary in
                             VStack(alignment: .leading, spacing: 10) {
                                 HStack(alignment: .top, spacing: 12) {
@@ -116,7 +120,7 @@ struct AccountsView: View {
                                 }
                                 .frame(maxWidth: .infinity, alignment: .leading)
 
-                                if let quota = coordinator.quotaBars.first(where: { $0.id == summary.account.id }) {
+                                if let quota = quotaBars.first(where: { $0.id == summary.account.id }) {
                                     if let message = quota.message {
                                         // The reason, in place of the bars. More useful than an empty frame.
                                         Text(message)

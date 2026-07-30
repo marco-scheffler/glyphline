@@ -65,15 +65,19 @@ enum AccountSummaryFormatting {
             return "Reset date unavailable"
         }
 
+        // `.abbreviated` renders a month NAME — a word — so on a German system it
+        // puts "Okt." inside an English sentence. Forcing an English locale would
+        // trade that for "10/4/2026" on a machine that reads day-first, so use the
+        // numeral form instead: no month word at all, numerals still system-local.
         if let resetAt = billingPeriod.resetAt {
-            return "Resets \(resetAt.formatted(date: .abbreviated, time: .omitted))"
+            return "Resets \(resetAt.formatted(date: .numeric, time: .omitted))"
         }
 
         if let endsAt = billingPeriod.endsAt {
-            return "Billing period ends \(endsAt.formatted(date: .abbreviated, time: .omitted))"
+            return "Billing period ends \(endsAt.formatted(date: .numeric, time: .omitted))"
         }
 
-        return "Billing period started \(billingPeriod.startsAt.formatted(date: .abbreviated, time: .omitted))"
+        return "Billing period started \(billingPeriod.startsAt.formatted(date: .numeric, time: .omitted))"
     }
 
     static func costSource(_ summary: AccountUsageSummary) -> String {

@@ -83,6 +83,27 @@ final class AccountSummaryFormattingTests: XCTestCase {
         XCTAssertFalse(status.contains("vor "), "German relative time leaked in: \(status)")
     }
 
+    /// Same rule as the relative time, one step further: `.abbreviated` renders a
+    /// month NAME, so on a German system "Resets 4. Okt. 2026" puts a German word
+    /// in an English sentence. `.numeric` has no month word to get wrong, and the
+    /// numerals still follow the system locale — so the expectation is built with
+    /// the same formatter rather than hardcoded.
+    func testTheResetDateCarriesNoMonthName() throws {
+        let resetAt = try XCTUnwrap(period.resetAt)
+        let expected = resetAt.formatted(date: .numeric, time: .omitted)
+        let rendered = AccountSummaryFormatting.billing(
+            summary(capabilities: capabilities(supportsResetDate: true), billingPeriod: period)
+        )
+
+        XCTAssertEqual(rendered, "Resets \(expected)", "got \(rendered)")
+        for monthName in Calendar.current.shortMonthSymbols + Calendar.current.monthSymbols {
+            XCTAssertFalse(
+                rendered.contains(monthName),
+                "a month word leaked into an English sentence: \(rendered)"
+            )
+        }
+    }
+
     func testAReportedResetDateIsShown() {
         let rendered = AccountSummaryFormatting.billing(
             summary(capabilities: capabilities(supportsResetDate: true), billingPeriod: period)

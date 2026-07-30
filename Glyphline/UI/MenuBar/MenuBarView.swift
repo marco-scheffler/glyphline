@@ -64,6 +64,12 @@ struct MenuBarView: View {
                 Text(syncFailureMessage)
                     .font(.caption)
                     .foregroundStyle(.red)
+            } else if coordinator.quotaRows.isEmpty {
+                // Without this a fresh install shows a title, a picker and three
+                // buttons, with nothing saying why the popover is empty.
+                Text("No accounts yet. Open the dashboard to add one.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
             HStack(spacing: 10) {
