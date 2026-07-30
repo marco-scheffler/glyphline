@@ -66,18 +66,6 @@ final class AgentverseParkedStoreTests: XCTestCase {
         XCTAssertEqual(try store.fetchParkedAgents().map(\.sessionID), ["S2"])
     }
 
-    func testExpiryRemovesOnlyRowsParkedBeforeTheCutoff() throws {
-        let store = try makeStore()
-        let now = Date(timeIntervalSince1970: 1_800_000_000)
-        try store.saveParkedAgent(parked("OLD", parkedAt: now.addingTimeInterval(-97 * 3600)))
-        try store.saveParkedAgent(parked("FRESH", parkedAt: now.addingTimeInterval(-95 * 3600)))
-
-        let removed = try store.expireParkedAgents(parkedBefore: now.addingTimeInterval(-96 * 3600))
-
-        XCTAssertEqual(removed, 1)
-        XCTAssertEqual(try store.fetchParkedAgents().map(\.sessionID), ["FRESH"])
-    }
-
     func testNewestParkFirst() throws {
         let store = try makeStore()
         let now = Date(timeIntervalSince1970: 1_800_000_000)

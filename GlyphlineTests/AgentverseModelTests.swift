@@ -87,10 +87,6 @@ final class AgentverseModelTests: XCTestCase {
         XCTAssertEqual(out.expired, ["OLD"])
     }
 
-    func testTheExpiryIs96Hours() throws {
-        XCTAssertEqual(AgentverseRules.parkExpiry, 96 * 3600)
-    }
-
     func testOnTrackIsOrderedByWhatHappenedLast() throws {
         let out = AgentverseRules.reconcile(
             scanned: [session("B", ago: 600), session("A", ago: 5), session("C", ago: 1800)],

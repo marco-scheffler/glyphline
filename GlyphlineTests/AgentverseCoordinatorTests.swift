@@ -53,6 +53,33 @@ final class AgentverseCoordinatorTests: XCTestCase {
         XCTAssertTrue(try ledger.fetchParkedAgents().isEmpty)
     }
 
+    /// The expiry that actually runs. The rules name the ids past the deadline
+    /// and the coordinator deletes them; nothing sweeps the table by date, so
+    /// this is the only place the 96 hours can be shown to bite.
+    func testAParkedRowPastTheExpiryLeavesTheLedger() async throws {
+        let ledger = try makeLedger()
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        try ledger.saveParkedAgent(park("OLD", parkedAgo: 97 * 3600, now: now))
+        try ledger.saveParkedAgent(park("FRESH", parkedAgo: 95 * 3600, now: now))
+        let coordinator = AgentverseCoordinator(scanner: StubScanner(sessions: []), ledger: ledger)
+
+        await coordinator.refresh(now: now)
+
+        XCTAssertEqual(coordinator.parked.map(\.sessionID), ["FRESH"])
+        XCTAssertEqual(try ledger.fetchParkedAgents().map(\.sessionID), ["FRESH"])
+    }
+
+    private func park(_ id: String, parkedAgo: TimeInterval, now: Date) -> ParkedAgentSession {
+        ParkedAgentSession(
+            sessionID: id,
+            cwd: "/repo/\(id)",
+            gitBranch: nil,
+            subagentCount: 0,
+            lastActivityAt: now.addingTimeInterval(-parkedAgo - 3600),
+            parkedAt: now.addingTimeInterval(-parkedAgo)
+        )
+    }
+
     /// The scan walks a directory that may not exist at all. That is a normal
     /// state — no Claude Code on this machine — and must not be a crash.
     func testAFailingScanIsReportedRatherThanThrown() async throws {

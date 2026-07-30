@@ -396,7 +396,10 @@ enum Migrations {
                 table.column(LedgerColumn.parkedAt, .datetime).notNull()
             }
 
-            // The expiry sweep and the render both order by this.
+            // The pit lane is read newest-first and never any other way. Expiry
+            // needs no ordered query of its own: `AgentverseRules` decides it in
+            // memory from this same fetch, so one index covers the only read
+            // there is.
             try db.create(
                 index: "index_agentverseParked_on_parkedAt",
                 on: LedgerTable.agentverseParked,

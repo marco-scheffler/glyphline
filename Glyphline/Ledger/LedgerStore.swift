@@ -1121,15 +1121,6 @@ final class LedgerStore {
         }
     }
 
-    @discardableResult
-    func expireParkedAgents(parkedBefore cutoff: Date) throws -> Int {
-        try dbQueue.write { db in
-            try ParkedAgentRecord
-                .filter(Column(LedgerColumn.parkedAt) < cutoff)
-                .deleteAll(db)
-        }
-    }
-
     func fetchWatermark(sourceKey: String) throws -> SyncWatermark? {
         try dbQueue.read { db in
             try SyncWatermarkRecord

@@ -63,6 +63,10 @@ final class AgentverseCoordinator: ObservableObject {
             for row in snapshot.newlyParked {
                 try ledger.saveParkedAgent(row)
             }
+            // Expiry deletes row by row, exactly like a return from the pit lane
+            // does. The rules already named the ids past the deadline while
+            // working out what stays parked, so a second, date-ranged delete
+            // would be a second place holding the same rule.
             for id in snapshot.unparked + snapshot.expired {
                 try ledger.deleteParkedAgent(sessionID: id)
             }
