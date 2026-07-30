@@ -42,6 +42,12 @@ struct DashboardView: View {
             }
         }
         .onAppear(perform: loadDashboard)
+        // Attached to the window's root, not to a detail view, so it fires when
+        // the window opens rather than on every sidebar navigation. The quota
+        // figures were otherwise only refreshed by opening the menu bar panel.
+        // `refreshRateWindowsOnDemand` guards per account against a concurrent
+        // fetch, so overlapping with a scheduled tick is safe.
+        .task { await coordinator.refreshRateWindowsOnDemand() }
     }
 
     @ViewBuilder private var detailView: some View {

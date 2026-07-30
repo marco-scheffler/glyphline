@@ -286,6 +286,50 @@ final class SyncCoordinatorTests: XCTestCase {
         XCTAssertGreaterThan(count, 1, "the scheduler should have looped more than once")
     }
 
+    /// The default interval is half an hour. Sleeping first meant the app showed
+    /// nothing but stale quota for thirty minutes after every launch.
+    func testSchedulerCollectsRateWindowsBeforeTheFirstSleepCompletes() async throws {
+        let dbQueue = try DatabaseQueueFactory.makeInMemory()
+        try Migrations.makeMigrator().migrate(dbQueue)
+        let ledger = LedgerStore(dbQueue: dbQueue)
+
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let account = Account(
+            id: UUID(), providerID: .claude, displayName: "Max #1",
+            credentialReference: "local-source://x", createdAt: now, isEnabled: true
+        )
+        try ledger.saveAccount(account)
+
+        let collected = expectation(description: "rate windows collected")
+        collected.assertForOverFulfill = false
+
+        let coordinator = SyncCoordinator(
+            ledger: ledger,
+            credentials: InMemoryCredentialStore(),
+            registry: ProviderAdapterRegistry(watermarkStore: ledger),
+            estimator: CostEstimator(catalog: PricingCatalog(entries: [])),
+            // A sleep that never returns: anything the test observes must
+            // therefore have happened before the first interval elapsed.
+            sleepForSeconds: { _ in try await Task.sleep(for: .seconds(3_600)) },
+            now: { now },
+            rateWindowSourceProvider: { _ in
+                SignallingRateWindowSource(
+                    window: RateWindow(kind: .rollingFiveHours, usedFraction: 0.25,
+                                       resetAt: now.addingTimeInterval(1_800), observedAt: now),
+                    onFetch: { collected.fulfill() }
+                )
+            }
+        )
+
+        coordinator.startScheduler(intervalSeconds: 1_800)
+        defer { coordinator.stopScheduler() }
+
+        // The fetch is signalled from inside the source, so reaching this line at
+        // all means the collection ran while the first sleep was still pending.
+        // What the tick then writes is covered by the collection tests below.
+        await fulfillment(of: [collected], timeout: 10)
+    }
+
     func testStartingTwiceDoesNotRunTwoLoops() async throws {
         let dbQueue = try DatabaseQueueFactory.makeInMemory()
         try Migrations.migrate(dbQueue)
@@ -1282,6 +1326,18 @@ private struct StableRateWindowSource: RateWindowSource {
 
     func fetchWindows(account: Account, secret: String?) async throws -> RateWindowResult {
         RateWindowResult(windows: [window], dataQuality: .partial, message: nil)
+    }
+}
+
+/// Reports one fixed window and signals each fetch, so a test can observe that a
+/// collection happened without waiting on wall-clock time.
+private struct SignallingRateWindowSource: RateWindowSource {
+    let window: RateWindow
+    let onFetch: @Sendable () -> Void
+
+    func fetchWindows(account: Account, secret: String?) async throws -> RateWindowResult {
+        onFetch()
+        return RateWindowResult(windows: [window], dataQuality: .exact, message: nil)
     }
 }
 

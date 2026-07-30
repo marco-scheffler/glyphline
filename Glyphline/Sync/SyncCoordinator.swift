@@ -202,6 +202,21 @@ final class SyncCoordinator: ObservableObject {
         schedulerStartCount += 1
         isSchedulerRunning = true
         schedulerTask = Task { [weak self] in
+            // Collect once before the first sleep, otherwise nothing is fetched
+            // for a whole interval (30 minutes by default) after launch, and an
+            // app that exists to show remaining capacity opens showing stale
+            // figures.
+            //
+            // Deliberately `collectRateWindows()` only, never `syncAll()`: the
+            // quota fetch is one network call per account, whereas `syncAll`
+            // re-reads the local Claude Code transcripts, which can run to
+            // gigabytes. `applySchedule` restarts the loop whenever the interval
+            // changes, so an initial `syncAll()` here would be a heavy, repeated
+            // cost for a fix that is only about freshness.
+            if let self, !Task.isCancelled {
+                await self.collectRateWindows()
+            }
+
             while !Task.isCancelled {
                 guard let self else { return }
                 do {
