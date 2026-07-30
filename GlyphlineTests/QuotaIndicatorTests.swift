@@ -788,4 +788,75 @@ final class QuotaIndicatorTests: XCTestCase {
         )
     }
 
+    /// An account whose quota source answered with no active window produces a
+    /// group with no rows and no message. Rendering that as-is puts a display
+    /// name over an empty frame, which reads as a broken row.
+    func testAGroupWithNoRowsAndNoMessageIsSilent() {
+        let state = QuotaAccountState(
+            accountID: UUID(),
+            displayName: "Second Subscription",
+            windows: [],
+            message: nil
+        )
+
+        let group = QuotaIndicator.barGroups(
+            for: [state],
+            now: now,
+            freshness: freshness,
+            formatting: formatting
+        ).first
+
+        XCTAssertEqual(group?.rows.count, 0)
+        XCTAssertNil(group?.message)
+        XCTAssertEqual(group?.isSilent, true)
+    }
+
+    /// An account with no quota source at all always carries the coordinator's
+    /// message, so it must not be treated as silent — its reason is its body,
+    /// and the placeholder would replace a more specific line with a vaguer one.
+    func testAGroupCarryingAMessageIsNotSilent() {
+        let state = QuotaAccountState(
+            accountID: UUID(),
+            displayName: "No Source",
+            windows: [],
+            message: RateWindowSourceError.notAvailable.message
+        )
+
+        let group = QuotaIndicator.barGroups(
+            for: [state],
+            now: now,
+            freshness: freshness,
+            formatting: formatting
+        ).first
+
+        XCTAssertEqual(group?.isSilent, false)
+    }
+
+    /// A group with bars to draw is never silent, whatever the freshness verdict.
+    func testAGroupWithRowsIsNotSilent() {
+        let group = QuotaIndicator.barGroups(
+            for: [account("Active", used: 0.4)],
+            now: now,
+            freshness: freshness,
+            formatting: formatting
+        ).first
+
+        XCTAssertFalse(group?.rows.isEmpty ?? true)
+        XCTAssertEqual(group?.isSilent, false)
+    }
+
+    /// The placeholder may not read as an error and may not claim the
+    /// subscription is unavailable — it is working, it just has nothing to
+    /// report yet. English, as every user-visible string in this app is.
+    func testTheSilentPlaceholderClaimsNeitherFailureNorUnavailability() {
+        let message = QuotaIndicator.noQuotaReportedMessage.lowercased()
+
+        XCTAssertFalse(message.isEmpty)
+        for forbidden in ["unavailable", "error", "failed", "failure", "not available"] {
+            XCTAssertFalse(
+                message.contains(forbidden),
+                "the silent placeholder must not contain '\(forbidden)': \(QuotaIndicator.noQuotaReportedMessage)"
+            )
+        }
+    }
 }

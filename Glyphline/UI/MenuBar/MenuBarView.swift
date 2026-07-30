@@ -38,6 +38,14 @@ struct MenuBarView: View {
                                 Text(message)
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
+                            } else if group.isSilent {
+                                // No rows and no reason: the heading would
+                                // otherwise stand over an empty frame and read as
+                                // a broken row. Accounts with no quota source
+                                // never reach here — they always carry a message.
+                                Text(QuotaIndicator.noQuotaReportedMessage)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
                             }
 
                             // Per group, never flattened: a row's id is its window

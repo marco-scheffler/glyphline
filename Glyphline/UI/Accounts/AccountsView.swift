@@ -126,7 +126,15 @@ struct AccountsView: View {
                                         Text(message)
                                             .font(.callout)
                                             .foregroundStyle(.secondary)
-                                    } else if !quota.rows.isEmpty {
+                                    } else if quota.isSilent {
+                                        // Never a heading over an empty frame. The
+                                        // source answered and had no active window;
+                                        // accounts with no source carry a message
+                                        // and take the branch above.
+                                        Text(QuotaIndicator.noQuotaReportedMessage)
+                                            .font(.callout)
+                                            .foregroundStyle(.secondary)
+                                    } else {
                                         VStack(alignment: .leading, spacing: 6) {
                                             ForEach(quota.rows) { row in
                                                 QuotaBarRowView(row: row)

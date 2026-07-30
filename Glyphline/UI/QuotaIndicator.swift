@@ -118,9 +118,26 @@ struct QuotaBarGroup: Identifiable, Equatable, Sendable {
     var displayName: String
     var message: String?
     var rows: [QuotaBarRow]
+
+    /// True when the group would render its account heading over nothing at all.
+    ///
+    /// An account with no quota *source* always carries a `message` — the
+    /// coordinator sets one before it ever gives up — so this is exactly the
+    /// other case: a source exists, it answered, and it had no active window to
+    /// report. Those two are distinguishable here only because of that
+    /// invariant, and this property is where the app relies on it.
+    var isSilent: Bool {
+        message == nil && rows.isEmpty
+    }
 }
 
 enum QuotaIndicator {
+    /// Shown in place of the bars when a group is silent. Deliberately not an
+    /// error and not "unavailable": the subscription is fine and its source
+    /// answered, there is simply no active window yet. An account heading with
+    /// nothing under it reads as a broken row, so no group renders headless.
+    static let noQuotaReportedMessage = "No quota reported yet."
+
     /// The one exhaustion threshold in the app. `hasHeadroom` — and therefore
     /// the menu bar light — and a row's `.exhausted` verdict both compare
     /// against *this* constant rather than against two literals that happen to
