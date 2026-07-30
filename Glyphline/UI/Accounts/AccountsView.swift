@@ -54,8 +54,6 @@ struct AccountsView: View {
 
                                     Spacer(minLength: 12)
 
-                                    DataQualityBadge(quality: summary.dataQuality)
-
                                     // Phase one first, so the dashboard is usable within
                                     // seconds; phase two then walks back a year.
                                     Button("Sync Now") {
@@ -101,21 +99,6 @@ struct AccountsView: View {
                                     AccountMetric(
                                         title: "Status",
                                         value: AccountSummaryFormatting.status(summary)
-                                    )
-                                    AccountMetric(
-                                        title: "Cost",
-                                        value: AccountSummaryFormatting.money(
-                                            summary.displayAmountMicros,
-                                            currency: summary.displayCurrency
-                                        )
-                                    )
-                                    AccountMetric(
-                                        title: "Requests",
-                                        value: AccountSummaryFormatting.requests(summary.requestCount)
-                                    )
-                                    AccountMetric(
-                                        title: "Tokens",
-                                        value: AccountSummaryFormatting.tokens(summary.totalTokens)
                                     )
                                 }
                                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -163,15 +146,6 @@ struct AccountsView: View {
                                     }
                                     .buttonStyle(.link)
                                 }
-
-                                Divider()
-
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(AccountSummaryFormatting.billing(summary))
-                                    Text(AccountSummaryFormatting.costSource(summary))
-                                        .foregroundStyle(.secondary)
-                                }
-                                .font(.callout)
                             }
                             .padding(16)
                             .frame(maxWidth: .infinity, alignment: .leading)

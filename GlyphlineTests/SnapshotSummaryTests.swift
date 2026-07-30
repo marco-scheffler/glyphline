@@ -137,51 +137,6 @@ final class SnapshotSummaryTests: XCTestCase {
         )
     }
 
-    func testHistorySummaryEntriesUseStableIdentityForDuplicateAccountNamesOnSameDay() throws {
-        let store = try makeStore()
-        let firstAccount = makeAccount(displayName: "Shared Display Name")
-        let secondAccount = makeAccount(displayName: "Shared Display Name")
-        let day = makeUTCDate(year: 2026, month: 7, day: 24, hour: 8)
-
-        try store.upsertUsageSnapshots([
-            UsageSnapshot(
-                id: UUID(),
-                accountID: firstAccount.id,
-                providerID: .openAI,
-                bucketStart: day,
-                bucketEnd: day.addingTimeInterval(3_600),
-                model: "gpt-5.4",
-                inputTokens: 12,
-                outputTokens: 18,
-                requests: 1,
-                quality: .exact
-            ),
-            UsageSnapshot(
-                id: UUID(),
-                accountID: secondAccount.id,
-                providerID: .openAI,
-                bucketStart: day,
-                bucketEnd: day.addingTimeInterval(3_600),
-                model: "gpt-5.4",
-                inputTokens: 7,
-                outputTokens: 11,
-                requests: 1,
-                quality: .exact
-            ),
-        ])
-
-        let firstSummary = try XCTUnwrap(store.fetchDailySummaries(accountID: firstAccount.id).first)
-        let secondSummary = try XCTUnwrap(store.fetchDailySummaries(accountID: secondAccount.id).first)
-
-        let entries = [
-            HistorySummaryEntry(accountName: firstAccount.displayName, summary: firstSummary),
-            HistorySummaryEntry(accountName: secondAccount.displayName, summary: secondSummary),
-        ]
-
-        XCTAssertEqual(entries.count, 2)
-        XCTAssertNotEqual(entries[0].id, entries[1].id)
-    }
-
     func testDailySummaryTotalTokensIncludesCacheClasses() throws {
         let store = try makeStore()
         let account = makeAccount()
@@ -306,11 +261,6 @@ final class SnapshotSummaryTests: XCTestCase {
         XCTAssertEqual(summaries[0].cacheReadTokens, 3_000)
         XCTAssertEqual(summaries[0].totalTokens, 3_250)
         XCTAssertNil(summaries[0].requestCount)
-    }
-
-    func testRequestsFormattingRendersUnreportedCountAsEmDash() {
-        XCTAssertEqual(AccountSummaryFormatting.requests(nil), "—")
-        XCTAssertEqual(AccountSummaryFormatting.requests(0), "0 requests")
     }
 
     private func makeStore() throws -> LedgerStore {

@@ -6,15 +6,13 @@ final class AccountDeletionFormattingTests: XCTestCase {
 
     private func summary(
         samples: Int = 0,
-        earliest: Date? = nil,
-        costs: Int = 0,
-        usage: Int = 0
+        earliest: Date? = nil
     ) -> AccountDeletionSummary {
         AccountDeletionSummary(
             rateWindowSampleCount: samples,
             earliestRateWindowObservedAt: earliest,
-            costSnapshotCount: costs,
-            usageSnapshotCount: usage
+            costSnapshotCount: 0,
+            usageSnapshotCount: 0
         )
     }
 
@@ -53,84 +51,22 @@ final class AccountDeletionFormattingTests: XCTestCase {
     /// unrecoverable history when there is none teaches the user to skip reading it.
     func testNoSamplesMeansNoUnrecoverableWarning() {
         let body = AccountDeletionFormatting.body(
-            summary: summary(samples: 0, costs: 12),
+            summary: summary(samples: 0),
             source: .claudeWebSession
         )
         XCTAssertFalse(body.lowercased().contains("cannot be recovered"))
         XCTAssertFalse(body.contains("rate window"))
     }
 
-    func testTheCostHistoryIsCalledRebuildable() {
+    /// The snapshot tables are gone, so the dialog may not offer to rebuild
+    /// anything: everything it names is unrecoverable.
+    func testTheBodyNeverNamesSnapshotsOrOffersARebuild() {
         let body = AccountDeletionFormatting.body(
-            summary: summary(costs: 3_412, usage: 3_400),
-            source: .localLogs
+            summary: summary(samples: 12, earliest: now),
+            source: .claudeWebSession
         )
-        XCTAssertTrue(body.contains("\(3_412.formatted(.number)) cost snapshots"))
-        XCTAssertTrue(body.lowercased().contains("rebuilt"))
-    }
-
-    /// "1 cost snapshots" in the app's only irreversible dialog. The number comes
-    /// from `.formatted(.number)` here as everywhere else in this file: a literal
-    /// "1" happens to be locale-proof, a literal "3.412" is not, and the two must
-    /// not be written differently.
-    func testASingleCostSnapshotReadsAsOne() {
-        let body = AccountDeletionFormatting.body(
-            summary: summary(costs: 1),
-            source: .localLogs
-        )
-        XCTAssertTrue(body.contains("\(1.formatted(.number)) cost snapshot."))
-        XCTAssertFalse(body.contains("cost snapshots"))
-        // The pronoun agrees with it, or the fix only moves the mistake along.
-        XCTAssertTrue(body.contains("This can be rebuilt"))
-        XCTAssertFalse(body.contains("These can be rebuilt"))
-    }
-
-    func testASingleUsageSnapshotReadsAsOne() {
-        let body = AccountDeletionFormatting.body(
-            summary: summary(usage: 1),
-            source: .localLogs
-        )
-        XCTAssertTrue(body.contains("\(1.formatted(.number)) usage snapshot."))
-        XCTAssertFalse(body.contains("usage snapshots"))
-        XCTAssertTrue(body.contains("This can be rebuilt"))
-    }
-
-    /// Two counts of one each are still two things, so the pronoun is plural even
-    /// though neither noun is.
-    func testOneOfEachIsStillPlural() {
-        let body = AccountDeletionFormatting.body(
-            summary: summary(costs: 1, usage: 1),
-            source: .localLogs
-        )
-        XCTAssertTrue(body.contains("\(1.formatted(.number)) cost snapshot and \(1.formatted(.number)) usage snapshot."))
-        XCTAssertTrue(body.contains("These can be rebuilt"))
-    }
-
-    func testSeveralSnapshotsStayPlural() {
-        let body = AccountDeletionFormatting.body(
-            summary: summary(costs: 0, usage: 2),
-            source: .localLogs
-        )
-        XCTAssertTrue(body.contains("\(2.formatted(.number)) usage snapshots"))
-        XCTAssertTrue(body.contains("These can be rebuilt"))
-    }
-
-    func testAZeroUsageCountIsNotNamed() {
-        let body = AccountDeletionFormatting.body(
-            summary: summary(costs: 12, usage: 0),
-            source: .localLogs
-        )
-        XCTAssertTrue(body.contains("\(12.formatted(.number)) cost snapshots"))
-        XCTAssertFalse(body.contains("usage snapshots"))
-    }
-
-    func testAZeroCostCountIsNotNamed() {
-        let body = AccountDeletionFormatting.body(
-            summary: summary(costs: 0, usage: 9),
-            source: .localLogs
-        )
-        XCTAssertTrue(body.contains("\(9.formatted(.number)) usage snapshots"))
-        XCTAssertFalse(body.contains("cost snapshots"))
+        XCTAssertFalse(body.lowercased().contains("snapshot"))
+        XCTAssertFalse(body.lowercased().contains("rebuilt"))
     }
 
     func testAWebSessionAccountIsToldItsSignInGoes() {

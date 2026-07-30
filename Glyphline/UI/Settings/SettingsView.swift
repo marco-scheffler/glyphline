@@ -32,16 +32,6 @@ struct SettingsView: View {
                 Text("Glyphline also syncs after the Mac wakes from sleep.")
                     .foregroundStyle(.secondary)
             }
-
-            Section("Data Quality Legend") {
-                ForEach(DataQuality.allCases, id: \.rawValue) { quality in
-                    HStack {
-                        DataQualityBadge(quality: quality)
-                        Text(qualityDescription(for: quality))
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
         }
         .formStyle(.grouped)
         .padding(24)
@@ -69,19 +59,6 @@ struct SettingsView: View {
             return "Glyphline behaves like a standard macOS app without a menu bar extra."
         case .menuBarAndWindow:
             return "Glyphline keeps both the dashboard window and menu bar extra available."
-        }
-    }
-
-    private func qualityDescription(for quality: DataQuality) -> String {
-        switch quality {
-        case .exact:
-            return "Provider-reported usage or cost."
-        case .estimated:
-            return "Derived from local pricing rules."
-        case .partial:
-            return "Some provider fields are unavailable."
-        case .unavailable:
-            return "No dependable usage value yet."
         }
     }
 }

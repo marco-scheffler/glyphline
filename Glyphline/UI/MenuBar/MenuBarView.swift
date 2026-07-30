@@ -9,7 +9,7 @@ struct MenuBarView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             // Computed once per render pass — the accessor rebuilds its array on
-            // every call, and the panel reads it three times.
+            // every call, and the panel reads it more than once.
             let quotaBars = coordinator.quotaBars
 
             header
@@ -56,11 +56,6 @@ struct MenuBarView: View {
                                 QuotaBarRowView(row: row, layout: .compact)
                             }
                         }
-                    }
-
-                    if let nextFree = coordinator.nextFreeText {
-                        Text("Next free: \(nextFree)")
-                            .font(.caption.weight(.medium).monospacedDigit())
                     }
                 }
             }

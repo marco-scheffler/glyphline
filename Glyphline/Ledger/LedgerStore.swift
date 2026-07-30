@@ -1239,8 +1239,7 @@ final class LedgerStore {
     /// that wrote them, and nothing here can tell "no period reported this time" from
     /// "no period any more". Only `supportsResetDate`, which *is* assigned
     /// unconditionally, carries that distinction, so it — not these columns — is what
-    /// decides whether a reset date may be shown. `AccountSummaryFormatting.billing`
-    /// is where that reading happens.
+    /// decides whether a reset date may be shown.
     private static func upsertAccountSyncState(
         _ result: ProviderSyncResult,
         updatedAt: Date,
