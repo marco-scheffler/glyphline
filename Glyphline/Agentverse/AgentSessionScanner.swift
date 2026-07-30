@@ -23,6 +23,9 @@ extension AgentSessionScanner: AgentSessionScanning {}
 /// opened at all, 732 of those 3 029, and reading their tails cost 103 ms and
 /// 138 MB. What bounds that second figure is `ClaudeTranscriptReader.tailBudget`
 /// per file, not transcript size — opening all 3 029 in full reads 1.86 GB.
+///
+/// The result is unordered. `AgentverseRules` sorts what it puts on the track,
+/// and sorting here as well would only be a second answer to the same question.
 struct AgentSessionScanner {
     /// How far back the sweep reads.
     ///
@@ -68,10 +71,14 @@ struct AgentSessionScanner {
         var sidechains: [String: (count: Int, newest: Date)] = [:]
 
         for url in transcriptURLs() {
-            let attributes = try? fileManager.attributesOfItem(atPath: url.path)
-            guard let modified = attributes?[.modificationDate] as? Date,
+            // Every step here is optional on purpose. A transcript can be deleted
+            // or rotated between the enumerator's snapshot and this open, and one
+            // file racing the sweep must cost that file, not the whole sweep —
+            // the caller turns a throw into an empty map and an error banner.
+            guard let modified = try? url.resourceValues(forKeys: [.contentModificationDateKey])
+                    .contentModificationDate,
                   modified >= cutoff,
-                  let tail = try reader.readTail(at: url)
+                  let tail = try? reader.readTail(at: url)
             else { continue }
 
             if tail.isSidechain {
@@ -99,27 +106,21 @@ struct AgentSessionScanner {
         // A sidechain without a main transcript inside the read window has no card
         // to sit on, and inventing one would put a subagent on the track as if it
         // were a session.
-        return mains.values
-            .map { session in
-                var session = session
-                if let side = sidechains[session.id] {
-                    session.subagentCount = side.count
-                    session.lastActivityAt = max(session.lastActivityAt, side.newest)
-                }
-                return session
+        return mains.values.map { session in
+            var session = session
+            if let side = sidechains[session.id] {
+                session.subagentCount = side.count
+                session.lastActivityAt = max(session.lastActivityAt, side.newest)
             }
-            .sorted { $0.lastActivityAt > $1.lastActivityAt }
+            return session
+        }
     }
 
     private func transcriptURLs() -> [URL] {
-        guard let enumerator = fileManager.enumerator(
-            at: directory,
-            includingPropertiesForKeys: [.contentModificationDateKey],
-            options: [.skipsHiddenFiles]
-        ) else { return [] }
-
-        return enumerator
-            .compactMap { $0 as? URL }
-            .filter { $0.pathExtension == "jsonl" }
+        ClaudeTranscriptDirectory.transcriptURLs(
+            in: directory,
+            fileManager: fileManager,
+            prefetching: [.contentModificationDateKey]
+        )
     }
 }
