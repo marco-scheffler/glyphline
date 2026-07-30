@@ -46,6 +46,11 @@ final class ClaudeSignInWindow: NSObject {
     /// establishes something the user cannot retry their way out of.
     private var pendingOutcome: Outcome = .cancelled
 
+    /// TEMPORARY DIAGNOSTIC — added 2026-07-30, see `ResponseShapeProbe`.
+    /// Structural summary of the last body the classifier rejected as the wrong
+    /// shape. Never holds any part of the body itself. Remove with the probe.
+    private var lastShapeSummary: String?
+
     init(account: Account, sessionStore: ClaudeWebSessionStore, timeout: Duration = .seconds(30)) {
         // One data store instance is shared by the visible view and by every
         // check, so a session established a moment ago is visible immediately
@@ -141,7 +146,14 @@ final class ClaudeSignInWindow: NSObject {
 
         do {
             let outcome = try await loader.load(url, timeout: timeout)
-            return classify(outcome.body, outcome.statusCode)
+            let result = classify(outcome.body, outcome.statusCode)
+            // TEMPORARY DIAGNOSTIC — added 2026-07-30, see `ResponseShapeProbe`.
+            if case .failure(.unexpectedResponseShape) = result {
+                lastShapeSummary = ResponseShapeProbe.describe(outcome.body)
+            } else {
+                lastShapeSummary = nil
+            }
+            return result
         } catch let error as RateWindowSourceError {
             return .failure(error)
         } catch {
@@ -152,7 +164,13 @@ final class ClaudeSignInWindow: NSObject {
     /// Shows why the check did not pass, using the error's own message and
     /// nothing from the response.
     private func report(_ error: RateWindowSourceError) {
-        statusLabel?.stringValue = error.message
+        // TEMPORARY DIAGNOSTIC — added 2026-07-30, see `ResponseShapeProbe`. The
+        // appended summary is structural only. Remove with the probe.
+        if case .unexpectedResponseShape = error, let lastShapeSummary {
+            statusLabel?.stringValue = "\(error.message) (diagnostic: \(lastShapeSummary))"
+        } else {
+            statusLabel?.stringValue = error.message
+        }
 
         switch error {
         case .notAvailable:
