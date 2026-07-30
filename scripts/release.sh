@@ -31,9 +31,6 @@ NOTARY_PROFILE="${NOTARY_PROFILE:-glyphline-notary}"
 
 cd "$REPO"
 
-VERSION="$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" Glyphline/Info.plist 2>/dev/null || echo "0.0")"
-ZIP="$BUILD/Glyphline-$VERSION.zip"
-
 echo "==> Prüfe Voraussetzungen"
 if ! security find-identity -v -p codesigning | grep -q "Developer ID Application"; then
     echo "FEHLER: Kein 'Developer ID Application'-Zertifikat im Schlüsselbund." >&2
@@ -78,6 +75,13 @@ if [ ! -d "$APP" ]; then
     echo "FEHLER: Export lieferte keine App unter $APP" >&2
     exit 1
 fi
+
+# Aus dem gebauten Bundle, nicht aus Glyphline/Info.plist: dort steht der
+# Platzhalter $(MARKETING_VERSION), den erst der Build ersetzt. Wer die Quelle
+# liest, bekommt den Platzhalter als Dateinamen — der ist nicht nur hässlich,
+# sondern in jedem Shell-Aufruf ein Zitierproblem.
+VERSION="$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$APP/Contents/Info.plist")"
+ZIP="$BUILD/Glyphline-$VERSION.zip"
 
 echo "==> Signatur prüfen"
 codesign --verify --strict --verbose=2 "$APP"
