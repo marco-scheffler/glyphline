@@ -182,9 +182,9 @@ enum QuotaIndicator {
         return .normal
     }
 
-    /// The one freshness predicate. The light, the next-free string and the
-    /// rendered rows all reach it — a rule applied at two of the three sites and
-    /// forgotten at the third is the mistake this feature kept making.
+    /// The one freshness predicate. The light and the rendered rows both reach
+    /// it — a rule applied at one site and forgotten at the other is the mistake
+    /// this feature kept making.
     static func isFresh(
         _ state: QuotaWindowState,
         now: Date,
@@ -244,58 +244,6 @@ enum QuotaIndicator {
         // is enough to withhold red, however many neighbours are exhausted.
         if verdicts.allSatisfy({ $0 == false }) { return .red }
         return .grey
-    }
-
-    /// The soonest reset an account can actually be waited out for: fresh
-    /// enough to still be believed — the same bound `decidableFraction`
-    /// applies, so the two functions cannot disagree about the same data — and
-    /// still in the future, because an elapsed `resetAt` names a moment that
-    /// has already come and gone.
-    ///
-    /// A window with no reset instant is skipped, and that is the deliberate
-    /// counterpart to `decidableFraction` counting it: "waiting is pointless,
-    /// come back at X" needs an X. The two rules pull in opposite directions on
-    /// purpose — such a window is available *now* and names no later moment.
-    private static func soonestUsefulReset(
-        _ state: QuotaAccountState,
-        now: Date,
-        freshness: TimeInterval
-    ) -> Date? {
-        state.windows
-            .filter { isFresh($0, now: now, freshness: freshness) }
-            .compactMap(\.window.resetAt)
-            .filter { $0 > now }
-            .min()
-    }
-
-    /// The account to reach for next, as a display string.
-    static func nextFree(
-        for states: [QuotaAccountState],
-        now: Date,
-        freshness: TimeInterval,
-        formatting: QuotaFormatting = .current
-    ) -> String? {
-        let available = states.first { hasHeadroom($0, now: now, freshness: freshness) == true }
-        if let available {
-            return "\(available.displayName) — now"
-        }
-
-        let soonest = states
-            .filter { hasHeadroom($0, now: now, freshness: freshness) == false }
-            .compactMap { state -> (String, Date)? in
-                guard let earliest = soonestUsefulReset(state, now: now, freshness: freshness) else {
-                    return nil
-                }
-                return (state.displayName, earliest)
-            }
-            .min { $0.1 < $1.1 }
-
-        guard let soonest else { return nil }
-
-        // "Name — when", the same shape as the "— now" branch above. Not
-        // "Name at <instant>": once the instant can carry a date, that reads
-        // "Max #1 at Jul 31, 2026 at 2:00 PM".
-        return "\(soonest.0) — \(instantText(soonest.1, now: now, formatting: formatting))"
     }
 
     /// An instant as the user reads it: the time alone when it falls on today,
@@ -411,7 +359,7 @@ enum QuotaIndicator {
     /// The menu blocks, one per account, with the freshness bound applied.
     ///
     /// This exists so the view cannot choose a bound of its own — the same
-    /// reason `quotaLight` and `nextFreeText` are resolved on the coordinator.
+    /// reason `quotaLight` is resolved on the coordinator.
     /// The rows were the one consumer that applied no bound at all: an
     /// observation the light had already discarded still printed "5h 62% —
     /// resets 14:00", flatly, as fact, under a grey icon and a missing header.

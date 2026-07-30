@@ -421,21 +421,6 @@ private struct AccountSyncStateRecord: Codable, FetchableRecord, PersistableReco
     var billingResetAt: Date?
     var updatedAt: Date
 
-    init(result: ProviderSyncResult, updatedAt: Date) {
-        accountID = result.accountID.uuidString
-        providerID = result.providerID.rawValue
-        supportsUsage = result.capabilities.supportsUsage
-        supportsActualCost = result.capabilities.supportsActualCost
-        supportsResetDate = result.capabilities.supportsResetDate
-        supportsModelBreakdown = result.capabilities.supportsModelBreakdown
-        quality = result.capabilities.dataQuality.rawValue
-        message = result.capabilities.message
-        billingStartsAt = result.billingPeriod?.startsAt
-        billingEndsAt = result.billingPeriod?.endsAt
-        billingResetAt = result.billingPeriod?.resetAt
-        self.updatedAt = updatedAt
-    }
-
     var capabilities: ProviderCapabilities {
         ProviderCapabilities(
             supportsUsage: supportsUsage,
@@ -687,26 +672,6 @@ final class LedgerStore {
         }
     }
 
-    func applySuccessfulSyncResult(
-        _ result: ProviderSyncResult,
-        syncRunID: UUID,
-        finishedAt: Date
-    ) throws {
-        try dbQueue.write { db in
-            try Self.upsertUsageSnapshots(result.usageSnapshots, db: db)
-            try Self.upsertCostSnapshots(result.costSnapshots, db: db)
-            try Self.upsertEstimateSnapshots(result.estimateSnapshots, db: db)
-            try Self.upsertAccountSyncState(result, updatedAt: finishedAt, db: db)
-            try Self.finishSyncRun(
-                id: syncRunID,
-                status: .succeeded,
-                message: nil,
-                finishedAt: finishedAt,
-                db: db
-            )
-        }
-    }
-
     func fetchUsageSnapshots(accountID: UUID) throws -> [UsageSnapshot] {
         try dbQueue.read { db in
             try UsageSnapshotRecord
@@ -884,74 +849,6 @@ final class LedgerStore {
                     record.fileMTime,
                     record.byteOffset,
                     record.updatedAt,
-                ]
-            )
-        }
-    }
-
-    func fetchBackfillCompletedThrough(accountID: UUID) throws -> Date? {
-        try dbQueue.read { db in
-            try Date.fetchOne(
-                db,
-                sql: """
-                    SELECT \(LedgerColumn.backfillCompletedThrough)
-                    FROM \(LedgerTable.accountSyncStates)
-                    WHERE \(LedgerColumn.accountID) = ?
-                    """,
-                arguments: [accountID.uuidString]
-            )
-        }
-    }
-
-    /// Records how far back backfill has walked for an account.
-    ///
-    /// An upsert rather than a bare `UPDATE`: an account that has not yet completed
-    /// a sync has no `accountSyncStates` row, and an `UPDATE` would then match
-    /// nothing and silently succeed, losing the watermark so backfill restarts from
-    /// scratch forever with no error anywhere.
-    ///
-    /// The synthesised row claims nothing it does not know: no capabilities and
-    /// `unavailable` quality, which is the truth until a sync reports otherwise.
-    /// `upsertAccountSyncState` overwrites every one of those columns on the next
-    /// sync and deliberately leaves `backfillCompletedThrough` alone, so the two
-    /// writers do not fight.
-    func saveBackfillCompletedThrough(_ day: Date, accountID: UUID) throws {
-        try dbQueue.write { db in
-            guard let providerID = try String.fetchOne(
-                db,
-                sql: """
-                    SELECT \(LedgerColumn.providerID)
-                    FROM \(LedgerTable.accounts)
-                    WHERE \(LedgerColumn.id) = ?
-                    """,
-                arguments: [accountID.uuidString]
-            ) else {
-                throw LedgerStoreError.unknownAccount
-            }
-
-            try db.execute(
-                sql: """
-                    INSERT INTO \(LedgerTable.accountSyncStates) (
-                        \(LedgerColumn.accountID),
-                        \(LedgerColumn.providerID),
-                        \(LedgerColumn.supportsUsage),
-                        \(LedgerColumn.supportsActualCost),
-                        \(LedgerColumn.supportsResetDate),
-                        \(LedgerColumn.supportsModelBreakdown),
-                        \(LedgerColumn.quality),
-                        \(LedgerColumn.updatedAt),
-                        \(LedgerColumn.backfillCompletedThrough)
-                    )
-                    VALUES (?, ?, 0, 0, 0, 0, ?, ?, ?)
-                    ON CONFLICT(\(LedgerColumn.accountID)) DO UPDATE SET
-                        \(LedgerColumn.backfillCompletedThrough) = excluded.\(LedgerColumn.backfillCompletedThrough)
-                    """,
-                arguments: [
-                    accountID.uuidString,
-                    providerID,
-                    DataQuality.unavailable.rawValue,
-                    Date(),
-                    day,
                 ]
             )
         }
@@ -1223,83 +1120,6 @@ final class LedgerStore {
                 ]
             )
         }
-    }
-
-    /// Persists the capabilities and billing period a sync reported.
-    ///
-    /// The three billing columns are `COALESCE`d rather than assigned, because a
-    /// result carrying no billing period means "this sync did not learn one", not
-    /// "this account has none". Backfill makes the difference load-bearing: a scoped
-    /// adapter returns `billingPeriod: nil` on purpose — a historic week is not a
-    /// billing period — and a plain `= excluded.…` would let each of the ~53 slices
-    /// NULL out the true period phase one had just written, so the reset date would
-    /// vanish from the UI until the next routine sync.
-    ///
-    /// The cost is that the three billing columns can go stale: they outlive the sync
-    /// that wrote them, and nothing here can tell "no period reported this time" from
-    /// "no period any more". Only `supportsResetDate`, which *is* assigned
-    /// unconditionally, carries that distinction, so it — not these columns — is what
-    /// decides whether a reset date may be shown.
-    private static func upsertAccountSyncState(
-        _ result: ProviderSyncResult,
-        updatedAt: Date,
-        db: Database
-    ) throws {
-        let record = AccountSyncStateRecord(result: result, updatedAt: updatedAt)
-        try db.execute(
-            sql: """
-                INSERT INTO \(LedgerTable.accountSyncStates) (
-                    \(LedgerColumn.accountID),
-                    \(LedgerColumn.providerID),
-                    \(LedgerColumn.supportsUsage),
-                    \(LedgerColumn.supportsActualCost),
-                    \(LedgerColumn.supportsResetDate),
-                    \(LedgerColumn.supportsModelBreakdown),
-                    \(LedgerColumn.quality),
-                    \(LedgerColumn.message),
-                    \(LedgerColumn.billingStartsAt),
-                    \(LedgerColumn.billingEndsAt),
-                    \(LedgerColumn.billingResetAt),
-                    \(LedgerColumn.updatedAt)
-                )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(\(LedgerColumn.accountID)) DO UPDATE SET
-                    \(LedgerColumn.providerID) = excluded.\(LedgerColumn.providerID),
-                    \(LedgerColumn.supportsUsage) = excluded.\(LedgerColumn.supportsUsage),
-                    \(LedgerColumn.supportsActualCost) = excluded.\(LedgerColumn.supportsActualCost),
-                    \(LedgerColumn.supportsResetDate) = excluded.\(LedgerColumn.supportsResetDate),
-                    \(LedgerColumn.supportsModelBreakdown) = excluded.\(LedgerColumn.supportsModelBreakdown),
-                    \(LedgerColumn.quality) = excluded.\(LedgerColumn.quality),
-                    \(LedgerColumn.message) = excluded.\(LedgerColumn.message),
-                    \(LedgerColumn.billingStartsAt) = COALESCE(
-                        excluded.\(LedgerColumn.billingStartsAt),
-                        \(LedgerColumn.billingStartsAt)
-                    ),
-                    \(LedgerColumn.billingEndsAt) = COALESCE(
-                        excluded.\(LedgerColumn.billingEndsAt),
-                        \(LedgerColumn.billingEndsAt)
-                    ),
-                    \(LedgerColumn.billingResetAt) = COALESCE(
-                        excluded.\(LedgerColumn.billingResetAt),
-                        \(LedgerColumn.billingResetAt)
-                    ),
-                    \(LedgerColumn.updatedAt) = excluded.\(LedgerColumn.updatedAt)
-                """,
-            arguments: [
-                record.accountID,
-                record.providerID,
-                record.supportsUsage,
-                record.supportsActualCost,
-                record.supportsResetDate,
-                record.supportsModelBreakdown,
-                record.quality,
-                record.message,
-                record.billingStartsAt,
-                record.billingEndsAt,
-                record.billingResetAt,
-                record.updatedAt,
-            ]
-        )
     }
 
     private static func finishSyncRun(

@@ -1,6 +1,6 @@
 import Foundation
 
-/// Decides which adapter, in which mode, serves a given account.
+/// Decides which quota source, if any, serves a given account.
 ///
 /// The decision comes from the account's credential reference. A reference
 /// beginning with `local-source://` marks a credential-free local source, one
@@ -9,61 +9,13 @@ import Foundation
 /// Keychain.
 struct ProviderAdapterRegistry {
     static let localSourceScheme = "local-source://"
-    /// Its own scheme rather than a reuse of `local-source://`, because the two
-    /// resolve to different cost adapters. Sharing the local scheme would give
-    /// every web-session subscription a `.localLogs` adapter reading the same
-    /// `~/.claude/projects`, and three subscriptions would then report one Mac's
-    /// costs three times — a wrong number rather than a visible failure.
+    /// Its own scheme rather than a reuse of `local-source://`: a web-session
+    /// subscription is reached through the user's own claude.ai session, which is
+    /// a different thing from a local directory on this Mac, and only the former
+    /// resolves to a quota source.
     static let webSessionScheme = "web-session://"
 
-    var session: URLSession
-    var claudeLogDirectory: URL
-    var watermarkStore: (any WatermarkStoring)?
     var sessionStore: ClaudeWebSessionStore = ClaudeWebSessionStore()
-
-    init(
-        session: URLSession = .shared,
-        claudeLogDirectory: URL = ProviderAdapterRegistry.defaultClaudeLogDirectory,
-        watermarkStore: (any WatermarkStoring)? = nil
-    ) {
-        self.session = session
-        self.claudeLogDirectory = claudeLogDirectory
-        self.watermarkStore = watermarkStore
-    }
-
-    static var defaultClaudeLogDirectory: URL {
-        FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".claude", isDirectory: true)
-            .appendingPathComponent("projects", isDirectory: true)
-    }
-
-    func adapter(for account: Account) -> any ProviderAdapter {
-        let isLocal = account.credentialReference.hasPrefix(Self.localSourceScheme)
-        let isWebSession = account.credentialReference.hasPrefix(Self.webSessionScheme)
-
-        switch account.providerID {
-        case .openAI:
-            return OpenAIUsageAdapter(session: session)
-        case .claude:
-            // Quota only. This account has no admin key and its costs are not its
-            // own to report, so the adapter says exactly that instead of reading a
-            // log directory that belongs to a different account.
-            if isWebSession {
-                return ClaudeUsageAdapter(mode: .webSessionQuotaOnly, session: session)
-            }
-
-            guard isLocal else {
-                return ClaudeUsageAdapter(mode: .adminAPI, session: session)
-            }
-
-            let reader = watermarkStore.map {
-                ClaudeCodeLogReader(directory: claudeLogDirectory, watermarkStore: $0)
-            }
-            return ClaudeUsageAdapter(mode: .localLogs, session: session, logReader: reader)
-        case .cursor:
-            return CursorUsageAdapter(mode: isLocal ? .localStatusOnly : .teamAPI, session: session)
-        }
-    }
 
     /// The quota source for an account.
     ///

@@ -81,12 +81,11 @@ struct MenuBarView: View {
             // these are the panel's exits, not its content.
             HStack(spacing: 6) {
                 Button("Open Dashboard", action: openDashboard)
-                Button("Sync Now") {
+                Button("Refresh") {
                     Task {
-                        await coordinator.syncAll()
+                        await coordinator.refreshRateWindowsOnDemand()
                     }
                 }
-                .disabled(coordinator.activities.values.contains(where: \.isRunning))
 
                 Spacer(minLength: 0)
 

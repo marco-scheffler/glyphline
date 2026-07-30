@@ -4,214 +4,43 @@ import XCTest
 
 @MainActor
 final class SyncCoordinatorTests: XCTestCase {
-    private func makeCoordinator(
-        ledger: LedgerStore,
-        credentials: InMemoryCredentialStore,
-        adapter: any ProviderAdapter = FixtureProviderAdapter(providerID: .openAI)
-    ) throws -> SyncCoordinator {
-        SyncCoordinator(
-            ledger: ledger,
-            credentials: credentials,
-            registry: ProviderAdapterRegistry(),
-            estimator: CostEstimator(
-                catalog: PricingCatalog(entries: [
-                    PricingEntry(
-                        providerID: .openAI,
-                        model: "fixture-model",
-                        inputMicrosPerMillionTokens: 1_000_000,
-                        outputMicrosPerMillionTokens: 2_000_000,
-                        cacheCreationMicrosPerMillionTokens: nil,
-                        cacheReadMicrosPerMillionTokens: nil,
-                        currency: "USD",
-                        effectiveDate: "2026-07-27",
-                        source: "test"
-                    ),
-                ])
-            ),
-            adapterProvider: { _ in adapter }
-        )
+    private static let now = Date(timeIntervalSince1970: 1_800_000_000)
+
+    private func makeLedger() throws -> (DatabaseQueue, LedgerStore) {
+        let dbQueue = try DatabaseQueueFactory.makeInMemory()
+        try Migrations.makeMigrator().migrate(dbQueue)
+        return (dbQueue, LedgerStore(dbQueue: dbQueue))
     }
 
-    func testSyncNowStoresSnapshotsAndReturnsToIdle() async throws {
-        let dbQueue = try DatabaseQueueFactory.makeInMemory()
-        try Migrations.migrate(dbQueue)
-        let ledger = LedgerStore(dbQueue: dbQueue)
-        let credentials = InMemoryCredentialStore()
-
+    @discardableResult
+    private func saveAccount(
+        _ name: String,
+        in ledger: LedgerStore,
+        isEnabled: Bool = true
+    ) throws -> Account {
         let account = Account(
             id: UUID(),
-            providerID: .openAI,
-            displayName: "Fixture",
-            credentialReference: "keychain://glyphline/fixture",
-            createdAt: Date(timeIntervalSince1970: 1_800_000_000),
-            isEnabled: true
+            providerID: .claude,
+            displayName: name,
+            credentialReference: "local-source://\(name)",
+            createdAt: Self.now,
+            isEnabled: isEnabled
         )
         try ledger.saveAccount(account)
-        try credentials.save(secret: "secret", for: account.credentialReference)
-
-        let coordinator = try makeCoordinator(ledger: ledger, credentials: credentials)
-        await coordinator.syncNow(account: account)
-
-        XCTAssertEqual(coordinator.activities[account.id], .idle)
-        XCTAssertFalse(try ledger.fetchUsageSnapshots(accountID: account.id).isEmpty)
-    }
-
-    func testMissingCredentialSurfacesAsFailedActivity() async throws {
-        let dbQueue = try DatabaseQueueFactory.makeInMemory()
-        try Migrations.migrate(dbQueue)
-        let ledger = LedgerStore(dbQueue: dbQueue)
-
-        let account = Account(
-            id: UUID(),
-            providerID: .openAI,
-            displayName: "No secret",
-            credentialReference: "keychain://glyphline/missing",
-            createdAt: Date(timeIntervalSince1970: 1_800_000_000),
-            isEnabled: true
-        )
-        try ledger.saveAccount(account)
-
-        let coordinator = try makeCoordinator(ledger: ledger, credentials: InMemoryCredentialStore())
-        await coordinator.syncNow(account: account)
-
-        guard case .failed = coordinator.activities[account.id] else {
-            return XCTFail("expected a failed activity, got \(String(describing: coordinator.activities[account.id]))")
-        }
-
-        // The accounts list renders this string verbatim, so it is pinned here.
-        // It must not claim the sync never ran or that data was discarded: the
-        // coordinator also reports .failed when cost estimation fails after
-        // snapshots were already persisted.
-        XCTAssertEqual(coordinator.activities[account.id], .failed("Credential missing in Keychain."))
-    }
-
-    func testProviderMismatchSurfacesItsOwnMessage() async throws {
-        let dbQueue = try DatabaseQueueFactory.makeInMemory()
-        try Migrations.migrate(dbQueue)
-        let ledger = LedgerStore(dbQueue: dbQueue)
-
-        let account = Account(
-            id: UUID(),
-            providerID: .openAI,
-            displayName: "Mismatched",
-            credentialReference: "keychain://glyphline/mismatch",
-            createdAt: Date(timeIntervalSince1970: 1_800_000_000),
-            isEnabled: true
-        )
-        try ledger.saveAccount(account)
-
-        let credentials = InMemoryCredentialStore()
-        try credentials.save(secret: "secret", for: account.credentialReference)
-
-        let coordinator = try makeCoordinator(
-            ledger: ledger,
-            credentials: credentials,
-            adapter: FixtureProviderAdapter(providerID: .cursor)
-        )
-        await coordinator.syncNow(account: account)
-
-        XCTAssertEqual(
-            coordinator.activities[account.id],
-            .failed("Account and adapter provider disagree.")
-        )
-    }
-
-    func testUnrecognisedFailuresUseTheGenericMessage() async throws {
-        let dbQueue = try DatabaseQueueFactory.makeInMemory()
-        try Migrations.migrate(dbQueue)
-        let ledger = LedgerStore(dbQueue: dbQueue)
-
-        let account = Account(
-            id: UUID(),
-            providerID: .openAI,
-            displayName: "Adapter throws",
-            credentialReference: "keychain://glyphline/throwing",
-            createdAt: Date(timeIntervalSince1970: 1_800_000_000),
-            isEnabled: true
-        )
-        try ledger.saveAccount(account)
-
-        let credentials = InMemoryCredentialStore()
-        try credentials.save(secret: "secret", for: account.credentialReference)
-
-        let coordinator = try makeCoordinator(
-            ledger: ledger,
-            credentials: credentials,
-            adapter: FailingProviderAdapter()
-        )
-        await coordinator.syncNow(account: account)
-
-        // The raw error never reaches the UI: adapter errors can carry request detail.
-        XCTAssertEqual(coordinator.activities[account.id], .failed("Sync failed."))
-    }
-
-    func testSyncAllSkipsDisabledAccounts() async throws {
-        let dbQueue = try DatabaseQueueFactory.makeInMemory()
-        try Migrations.migrate(dbQueue)
-        let ledger = LedgerStore(dbQueue: dbQueue)
-        let credentials = InMemoryCredentialStore()
-
-        let enabled = Account(
-            id: UUID(), providerID: .openAI, displayName: "On",
-            credentialReference: "keychain://glyphline/on",
-            createdAt: Date(timeIntervalSince1970: 1_800_000_000), isEnabled: true
-        )
-        let disabled = Account(
-            id: UUID(), providerID: .openAI, displayName: "Off",
-            credentialReference: "keychain://glyphline/off",
-            createdAt: Date(timeIntervalSince1970: 1_800_000_000), isEnabled: false
-        )
-        try ledger.saveAccount(enabled)
-        try ledger.saveAccount(disabled)
-        try credentials.save(secret: "secret", for: enabled.credentialReference)
-        try credentials.save(secret: "secret", for: disabled.credentialReference)
-
-        let coordinator = try makeCoordinator(ledger: ledger, credentials: credentials)
-        await coordinator.syncAll()
-
-        XCTAssertNotNil(coordinator.activities[enabled.id])
-        XCTAssertNil(coordinator.activities[disabled.id])
+        return account
     }
 
     // MARK: - Degraded path: no durable ledger
 
-    func testSyncAllWithoutALedgerReportsRatherThanSilentlyDoingNothing() async {
+    func testCollectingWithoutALedgerReportsRatherThanSilentlyDoingNothing() async {
         let coordinator = SyncCoordinator(
             ledger: nil,
             credentials: InMemoryCredentialStore(),
-            registry: ProviderAdapterRegistry(),
-            estimator: CostEstimator(catalog: PricingCatalog(entries: []))
+            registry: ProviderAdapterRegistry()
         )
 
-        await coordinator.syncAll()
+        await coordinator.collectRateWindows()
 
-        XCTAssertEqual(coordinator.syncFailureMessage, "Ledger unavailable. Nothing was synced.")
-    }
-
-    func testSyncNowWithoutALedgerFailsTheAccountInsteadOfAppearingToSucceed() async {
-        let account = Account(
-            id: UUID(),
-            providerID: .openAI,
-            displayName: "No ledger",
-            credentialReference: "keychain://glyphline/no-ledger",
-            createdAt: Date(timeIntervalSince1970: 1_800_000_000),
-            isEnabled: true
-        )
-
-        let coordinator = SyncCoordinator(
-            ledger: nil,
-            credentials: InMemoryCredentialStore(),
-            registry: ProviderAdapterRegistry(),
-            estimator: CostEstimator(catalog: PricingCatalog(entries: []))
-        )
-
-        await coordinator.syncNow(account: account)
-
-        // Must not land on .idle, which the accounts list renders as "no problem".
-        XCTAssertEqual(
-            coordinator.activities[account.id],
-            .failed("Ledger unavailable. Nothing was synced.")
-        )
         XCTAssertEqual(coordinator.syncFailureMessage, "Ledger unavailable. Nothing was synced.")
     }
 
@@ -223,39 +52,33 @@ final class SyncCoordinatorTests: XCTestCase {
         XCTAssertFalse(message.localizedCaseInsensitiveContains("token"))
     }
 
-    func testASuccessfulSyncAllClearsAStaleFailureMessage() async throws {
-        let dbQueue = try DatabaseQueueFactory.makeInMemory()
-        try Migrations.migrate(dbQueue)
-        let ledger = LedgerStore(dbQueue: dbQueue)
+    func testASuccessfulCollectionClearsAStaleFailureMessage() async throws {
+        let (_, ledger) = try makeLedger()
 
-        let coordinator = SyncCoordinator(
+        let degraded = SyncCoordinator(
             ledger: nil,
             credentials: InMemoryCredentialStore(),
-            registry: ProviderAdapterRegistry(),
-            estimator: CostEstimator(catalog: PricingCatalog(entries: []))
+            registry: ProviderAdapterRegistry()
         )
-        await coordinator.syncAll()
-        XCTAssertNotNil(coordinator.syncFailureMessage)
+        await degraded.collectRateWindows()
+        XCTAssertNotNil(degraded.syncFailureMessage)
 
         // A coordinator that does have a ledger must never carry the message.
-        let healthy = try makeCoordinator(ledger: ledger, credentials: InMemoryCredentialStore())
-        await healthy.syncAll()
+        let healthy = SyncCoordinator(
+            ledger: ledger,
+            credentials: InMemoryCredentialStore(),
+            registry: ProviderAdapterRegistry()
+        )
+        await healthy.collectRateWindows()
 
         XCTAssertNil(healthy.syncFailureMessage)
     }
-    func testSchedulerRepeatsUntilStopped() async throws {
-        let dbQueue = try DatabaseQueueFactory.makeInMemory()
-        try Migrations.migrate(dbQueue)
-        let ledger = LedgerStore(dbQueue: dbQueue)
-        let credentials = InMemoryCredentialStore()
 
-        let account = Account(
-            id: UUID(), providerID: .openAI, displayName: "Fixture",
-            credentialReference: "keychain://glyphline/fixture",
-            createdAt: Date(timeIntervalSince1970: 1_800_000_000), isEnabled: true
-        )
-        try ledger.saveAccount(account)
-        try credentials.save(secret: "secret", for: account.credentialReference)
+    // MARK: - The scheduler
+
+    func testSchedulerRepeatsUntilStopped() async throws {
+        let (_, ledger) = try makeLedger()
+        try saveAccount("Max #1", in: ledger)
 
         let sleeps = Counter()
         // Fulfilled from inside the injected sleep, so the test waits on the loop
@@ -266,10 +89,8 @@ final class SyncCoordinatorTests: XCTestCase {
 
         let coordinator = SyncCoordinator(
             ledger: ledger,
-            credentials: credentials,
+            credentials: InMemoryCredentialStore(),
             registry: ProviderAdapterRegistry(),
-            estimator: CostEstimator(catalog: PricingCatalog(entries: [])),
-            adapterProvider: { _ in FixtureProviderAdapter(providerID: .openAI) },
             sleepForSeconds: { _ in
                 await sleeps.increment()
                 looped.fulfill()
@@ -289,25 +110,17 @@ final class SyncCoordinatorTests: XCTestCase {
     /// The default interval is half an hour. Sleeping first meant the app showed
     /// nothing but stale quota for thirty minutes after every launch.
     func testSchedulerCollectsRateWindowsBeforeTheFirstSleepCompletes() async throws {
-        let dbQueue = try DatabaseQueueFactory.makeInMemory()
-        try Migrations.makeMigrator().migrate(dbQueue)
-        let ledger = LedgerStore(dbQueue: dbQueue)
+        let (_, ledger) = try makeLedger()
+        try saveAccount("Max #1", in: ledger)
 
-        let now = Date(timeIntervalSince1970: 1_800_000_000)
-        let account = Account(
-            id: UUID(), providerID: .claude, displayName: "Max #1",
-            credentialReference: "local-source://x", createdAt: now, isEnabled: true
-        )
-        try ledger.saveAccount(account)
-
+        let now = Self.now
         let collected = expectation(description: "rate windows collected")
         collected.assertForOverFulfill = false
 
         let coordinator = SyncCoordinator(
             ledger: ledger,
             credentials: InMemoryCredentialStore(),
-            registry: ProviderAdapterRegistry(watermarkStore: ledger),
-            estimator: CostEstimator(catalog: PricingCatalog(entries: [])),
+            registry: ProviderAdapterRegistry(),
             // A sleep that never returns: anything the test observes must
             // therefore have happened before the first interval elapsed.
             sleepForSeconds: { _ in try await Task.sleep(for: .seconds(3_600)) },
@@ -326,18 +139,15 @@ final class SyncCoordinatorTests: XCTestCase {
 
         // The fetch is signalled from inside the source, so reaching this line at
         // all means the collection ran while the first sleep was still pending.
-        // What the tick then writes is covered by the collection tests below.
         await fulfillment(of: [collected], timeout: 10)
     }
 
     func testStartingTwiceDoesNotRunTwoLoops() async throws {
-        let dbQueue = try DatabaseQueueFactory.makeInMemory()
-        try Migrations.migrate(dbQueue)
+        let (_, ledger) = try makeLedger()
         let coordinator = SyncCoordinator(
-            ledger: LedgerStore(dbQueue: dbQueue),
+            ledger: ledger,
             credentials: InMemoryCredentialStore(),
             registry: ProviderAdapterRegistry(),
-            estimator: CostEstimator(catalog: PricingCatalog(entries: [])),
             sleepForSeconds: { _ in try await Task.sleep(for: .milliseconds(10)) }
         )
 
@@ -350,8 +160,7 @@ final class SyncCoordinatorTests: XCTestCase {
     }
 
     func testReapplyingTheSameScheduleDoesNotResetThePhase() async throws {
-        let dbQueue = try DatabaseQueueFactory.makeInMemory()
-        try Migrations.migrate(dbQueue)
+        let (_, ledger) = try makeLedger()
 
         let intervals = IntervalRecorder()
         // Each loop start produces exactly one sleep call, because the injected
@@ -364,10 +173,9 @@ final class SyncCoordinatorTests: XCTestCase {
         secondStart.assertForOverFulfill = false
 
         let coordinator = SyncCoordinator(
-            ledger: LedgerStore(dbQueue: dbQueue),
+            ledger: ledger,
             credentials: InMemoryCredentialStore(),
             registry: ProviderAdapterRegistry(),
-            estimator: CostEstimator(catalog: PricingCatalog(entries: [])),
             sleepForSeconds: { seconds in
                 await intervals.record(seconds)
                 firstStart.fulfill()
@@ -387,7 +195,7 @@ final class SyncCoordinatorTests: XCTestCase {
         XCTAssertTrue(coordinator.isSchedulerRunning)
         XCTAssertEqual(
             coordinator.schedulerStartCount, 1,
-            "re-applying an unchanged schedule must not restart the loop and push the next sync out"
+            "re-applying an unchanged schedule must not restart the loop and push the next collection out"
         )
 
         // A genuine interval change must still restart the loop.
@@ -406,6 +214,8 @@ final class SyncCoordinatorTests: XCTestCase {
         XCTAssertNil(coordinator.currentIntervalSeconds)
     }
 
+    // MARK: - Collecting quota
+
     /// Non-async so GRDB's synchronous `read` overload is the one selected;
     /// the tests below call it from an async context.
     private nonisolated static func rateWindowSampleCount(_ dbQueue: DatabaseQueue) throws -> Int {
@@ -415,16 +225,9 @@ final class SyncCoordinatorTests: XCTestCase {
     }
 
     func testCollectingRateWindowsStoresThemAndAppliesRetention() async throws {
-        let dbQueue = try DatabaseQueueFactory.makeInMemory()
-        try Migrations.makeMigrator().migrate(dbQueue)
-        let ledger = LedgerStore(dbQueue: dbQueue)
-
-        let now = Date(timeIntervalSince1970: 1_800_000_000)
-        let account = Account(
-            id: UUID(), providerID: .claude, displayName: "Max #1",
-            credentialReference: "local-source://x", createdAt: now, isEnabled: true
-        )
-        try ledger.saveAccount(account)
+        let (dbQueue, ledger) = try makeLedger()
+        let now = Self.now
+        let account = try saveAccount("Max #1", in: ledger)
 
         // A sample far older than the retention window must not survive the tick.
         try ledger.saveRateWindow(
@@ -437,8 +240,7 @@ final class SyncCoordinatorTests: XCTestCase {
         let coordinator = SyncCoordinator(
             ledger: ledger,
             credentials: InMemoryCredentialStore(),
-            registry: ProviderAdapterRegistry(watermarkStore: ledger),
-            estimator: CostEstimator(catalog: PricingCatalog(entries: [])),
+            registry: ProviderAdapterRegistry(),
             now: { now },
             rateWindowSourceProvider: { _ in FixtureRateWindowSource(now: { now }) }
         )
@@ -452,121 +254,88 @@ final class SyncCoordinatorTests: XCTestCase {
         XCTAssertEqual(total, 2, "the 400-day-old sample should have been deleted by retention")
     }
 
-    /// Pins the actual guarantee: a failed quota fetch contributes no quota row.
-    ///
-    /// The account deliberately *does* have a billing period the cost sync already
-    /// established, so the billing-cycle derivation fires. That row is real
-    /// information from the cost path, not recorded ignorance, and it is the only
-    /// row allowed to exist here. Asserting a bare `COUNT(*) == 0` would pass only
-    /// by accident of the account having no billing period at all, and would say
-    /// nothing about whether the failing fetch wrote a quota row.
-    func testAFailingRateWindowFetchWritesNoQuotaRowAndRecordsAReason() async throws {
-        let dbQueue = try DatabaseQueueFactory.makeInMemory()
-        try Migrations.makeMigrator().migrate(dbQueue)
-        let ledger = LedgerStore(dbQueue: dbQueue)
-
-        let now = Date(timeIntervalSince1970: 1_800_000_000)
-        let account = Account(
-            id: UUID(), providerID: .openAI, displayName: "Max #1",
-            credentialReference: "keychain://glyphline/x", createdAt: now, isEnabled: true
-        )
-        try ledger.saveAccount(account)
-
-        let credentials = InMemoryCredentialStore()
-        try credentials.save(secret: "sk-test", for: "keychain://glyphline/x")
-
-        let coordinator = SyncCoordinator(
-            ledger: ledger,
-            credentials: credentials,
-            registry: ProviderAdapterRegistry(watermarkStore: ledger),
-            estimator: CostEstimator(catalog: PricingCatalog(entries: [])),
-            adapterProvider: { _ in FixtureProviderAdapter(providerID: .openAI) },
-            now: { now },
-            rateWindowSourceProvider: { _ in
-                FixtureRateWindowSource(now: { now }, behaviour: .unavailable)
-            }
-        )
-
-        // Establishes a billing period on the cost path, so the derivation branch fires.
-        await coordinator.syncAll()
-        let summary = try XCTUnwrap(try ledger.fetchAccountSummaries().first)
-        XCTAssertNotNil(summary.billingPeriod?.resetAt, "precondition: the cost sync stored a reset")
-
-        await coordinator.collectRateWindows()
-
-        let total = try Self.rateWindowSampleCount(dbQueue)
-        XCTAssertEqual(
-            total, 1,
-            "only the cost-derived billing cycle may exist; the failed fetch adds nothing"
-        )
-
-        let stored = try ledger.fetchLatestRateWindows(accountID: account.id)
-        XCTAssertEqual(stored.map(\.kind), [.billingCycle])
-        XCTAssertFalse(stored.contains { $0.kind == .rollingFiveHours })
-        XCTAssertFalse(stored.contains { $0.kind == .weekly })
-        XCTAssertNotNil(coordinator.rateWindowMessages[account.id])
-    }
-
-    func testAFailingRateWindowFetchLeavesTheCostSyncGreen() async throws {
-        let dbQueue = try DatabaseQueueFactory.makeInMemory()
-        try Migrations.makeMigrator().migrate(dbQueue)
-        let ledger = LedgerStore(dbQueue: dbQueue)
-
-        let now = Date(timeIntervalSince1970: 1_800_000_000)
-        let account = Account(
-            id: UUID(), providerID: .openAI, displayName: "OpenAI",
-            credentialReference: "keychain://glyphline/x", createdAt: now, isEnabled: true
-        )
-        try ledger.saveAccount(account)
-
-        let credentials = InMemoryCredentialStore()
-        try credentials.save(secret: "sk-test", for: "keychain://glyphline/x")
-
-        let coordinator = SyncCoordinator(
-            ledger: ledger,
-            credentials: credentials,
-            registry: ProviderAdapterRegistry(watermarkStore: ledger),
-            estimator: CostEstimator(catalog: PricingCatalog(entries: [])),
-            adapterProvider: { _ in FixtureProviderAdapter(providerID: .openAI) },
-            now: { now },
-            rateWindowSourceProvider: { _ in
-                FixtureRateWindowSource(now: { now }, behaviour: .unavailable)
-            }
-        )
-
-        await coordinator.syncAll()
-        await coordinator.collectRateWindows()
-
-        // The quota side must actually have failed, or the independence claim is
-        // unexercised: a source that silently succeeded would leave this green.
-        XCTAssertNotNil(coordinator.rateWindowMessages[account.id])
-
-        // The quota side failed; the cost side must be untouched by that.
-        XCTAssertNil(coordinator.syncFailureMessage)
-        XCTAssertFalse(try ledger.fetchUsageSnapshots(accountID: account.id).isEmpty)
-    }
-
-    /// Every real account takes this path — the registry resolves no source for
-    /// any of them — so this string is what every user reads. It must not imply
-    /// there is a setup step available: the spike found none.
-    func testAnAccountWithNoSourceIsToldQuotaIsUnavailableNotUnconfigured() async throws {
-        let dbQueue = try DatabaseQueueFactory.makeInMemory()
-        try Migrations.makeMigrator().migrate(dbQueue)
-        let ledger = LedgerStore(dbQueue: dbQueue)
-
-        let now = Date(timeIntervalSince1970: 1_800_000_000)
-        let account = Account(
-            id: UUID(), providerID: .claude, displayName: "Max #1",
-            credentialReference: "local-source://x", createdAt: now, isEnabled: true
-        )
-        try ledger.saveAccount(account)
+    func testDisabledAccountsAreNotCollectedFor() async throws {
+        let (_, ledger) = try makeLedger()
+        let now = Self.now
+        let enabled = try saveAccount("On", in: ledger)
+        let disabled = try saveAccount("Off", in: ledger, isEnabled: false)
 
         let coordinator = SyncCoordinator(
             ledger: ledger,
             credentials: InMemoryCredentialStore(),
-            registry: ProviderAdapterRegistry(watermarkStore: ledger),
-            estimator: CostEstimator(catalog: PricingCatalog(entries: [])),
-            now: { now }
+            registry: ProviderAdapterRegistry(),
+            now: { now },
+            rateWindowSourceProvider: { _ in FixtureRateWindowSource(now: { now }) }
+        )
+
+        await coordinator.collectRateWindows()
+
+        XCTAssertEqual(coordinator.quotaStates.map(\.accountID), [enabled.id])
+        XCTAssertTrue(try ledger.fetchLatestRateWindows(accountID: disabled.id).isEmpty)
+    }
+
+    /// Pins the actual guarantee: a failed quota fetch contributes no quota row.
+    func testAFailingRateWindowFetchWritesNoQuotaRowAndRecordsAReason() async throws {
+        let (dbQueue, ledger) = try makeLedger()
+        let now = Self.now
+        let account = try saveAccount("Max #1", in: ledger)
+
+        let coordinator = SyncCoordinator(
+            ledger: ledger,
+            credentials: InMemoryCredentialStore(),
+            registry: ProviderAdapterRegistry(),
+            now: { now },
+            rateWindowSourceProvider: { _ in
+                FixtureRateWindowSource(now: { now }, behaviour: .unavailable)
+            }
+        )
+
+        await coordinator.collectRateWindows()
+
+        XCTAssertEqual(try Self.rateWindowSampleCount(dbQueue), 0)
+        XCTAssertTrue(try ledger.fetchLatestRateWindows(accountID: account.id).isEmpty)
+        XCTAssertNotNil(coordinator.rateWindowMessages[account.id])
+    }
+
+    /// A per-account failure belongs to that account. `syncFailureMessage` is the
+    /// whole-app line in the menu bar panel, and a single silent subscription must
+    /// not raise it.
+    func testAFailingRateWindowFetchLeavesTheWholeAppFailureLineClear() async throws {
+        let (_, ledger) = try makeLedger()
+        let now = Self.now
+        let account = try saveAccount("Max #1", in: ledger)
+
+        let coordinator = SyncCoordinator(
+            ledger: ledger,
+            credentials: InMemoryCredentialStore(),
+            registry: ProviderAdapterRegistry(),
+            now: { now },
+            rateWindowSourceProvider: { _ in
+                FixtureRateWindowSource(now: { now }, behaviour: .unavailable)
+            }
+        )
+
+        await coordinator.collectRateWindows()
+
+        // The quota side must actually have failed, or the claim is unexercised.
+        XCTAssertNotNil(coordinator.rateWindowMessages[account.id])
+        XCTAssertNil(coordinator.syncFailureMessage)
+    }
+
+    /// Every account with no route takes this path, so this string is what a user
+    /// reads. It must not imply there is a setup step available: the spike found
+    /// none.
+    func testAnAccountWithNoSourceIsToldQuotaIsUnavailableNotUnconfigured() async throws {
+        let (_, ledger) = try makeLedger()
+        let now = Self.now
+        let account = try saveAccount("Max #1", in: ledger)
+
+        let coordinator = SyncCoordinator(
+            ledger: ledger,
+            credentials: InMemoryCredentialStore(),
+            registry: ProviderAdapterRegistry(),
+            now: { now },
+            rateWindowSourceProvider: { _ in nil }
         )
 
         await coordinator.collectRateWindows()
@@ -581,68 +350,19 @@ final class SyncCoordinatorTests: XCTestCase {
         )
     }
 
-    /// The production path, end to end. No account resolves to a quota source, so
-    /// every real account carries a message — and the menu rendered the message
-    /// *or* the windows, never both, which made the cost-derived billing cycle
-    /// invisible. It is the only genuine quota datum a real user gets today.
-    func testTheBillingCycleIsRenderedBesideTheNoSourceMessage() async throws {
-        let dbQueue = try DatabaseQueueFactory.makeInMemory()
-        try Migrations.makeMigrator().migrate(dbQueue)
-        let ledger = LedgerStore(dbQueue: dbQueue)
-
-        let now = Date(timeIntervalSince1970: 1_800_000_000)
-        let account = Account(
-            id: UUID(), providerID: .openAI, displayName: "OpenAI",
-            credentialReference: "keychain://glyphline/x", createdAt: now, isEnabled: true
-        )
-        try ledger.saveAccount(account)
-
-        let credentials = InMemoryCredentialStore()
-        try credentials.save(secret: "sk-test", for: "keychain://glyphline/x")
-
-        // The real registry, not an injected source: this is exactly what ships.
-        let coordinator = SyncCoordinator(
-            ledger: ledger,
-            credentials: credentials,
-            registry: ProviderAdapterRegistry(watermarkStore: ledger),
-            estimator: CostEstimator(catalog: PricingCatalog(entries: [])),
-            adapterProvider: { _ in FixtureProviderAdapter(providerID: .openAI) },
-            now: { now }
-        )
-
-        await coordinator.syncAll()
-        let summary = try XCTUnwrap(try ledger.fetchAccountSummaries().first)
-        XCTAssertNotNil(summary.billingPeriod?.resetAt, "precondition: the cost sync stored a reset")
-
-        await coordinator.collectRateWindows()
-
-        let group = try XCTUnwrap(coordinator.quotaRows.first)
-        XCTAssertEqual(group.message, RateWindowSourceError.notAvailable.message)
-        XCTAssertEqual(group.rows.count, 1, "the derived billing cycle must reach the menu")
-        XCTAssertTrue(
-            try XCTUnwrap(group.rows.first).hasPrefix("Cycle"),
-            "got \(group.rows)"
-        )
-    }
+    // MARK: - Freshness
 
     /// The end-to-end shape of the change-detection defect.
     ///
     /// The provider keeps reporting the same figure at the same reset instant.
     /// The store drops the repeat — correctly, the value has not changed — so
     /// the stored `observedAt` stays put. With freshness measured from that
-    /// column, a successful fetch seconds ago produced a grey icon and no "Next
-    /// free" line, which inverts what the feature is for.
+    /// column, a successful fetch seconds ago produced a grey icon, which
+    /// inverts what the feature is for.
     func testAStableReadingStaysFreshWhileTheProviderKeepsConfirmingIt() async throws {
-        let dbQueue = try DatabaseQueueFactory.makeInMemory()
-        try Migrations.makeMigrator().migrate(dbQueue)
-        let ledger = LedgerStore(dbQueue: dbQueue)
-
-        let now = Date(timeIntervalSince1970: 1_800_000_000)
-        let account = Account(
-            id: UUID(), providerID: .claude, displayName: "Max #1",
-            credentialReference: "local-source://x", createdAt: now, isEnabled: true
-        )
-        try ledger.saveAccount(account)
+        let (dbQueue, ledger) = try makeLedger()
+        let now = Self.now
+        let account = try saveAccount("Max #1", in: ledger)
 
         let resetAt = now.addingTimeInterval(1_800)
         let firstSeen = now.addingTimeInterval(-1_200)
@@ -658,8 +378,7 @@ final class SyncCoordinatorTests: XCTestCase {
         let coordinator = SyncCoordinator(
             ledger: ledger,
             credentials: InMemoryCredentialStore(),
-            registry: ProviderAdapterRegistry(watermarkStore: ledger),
-            estimator: CostEstimator(catalog: PricingCatalog(entries: [])),
+            registry: ProviderAdapterRegistry(),
             sleepForSeconds: { _ in try await Task.sleep(for: .seconds(3_600)) },
             now: { now },
             rateWindowSourceProvider: { _ in
@@ -690,27 +409,15 @@ final class SyncCoordinatorTests: XCTestCase {
 
         // And the display believes the fetch that just happened.
         XCTAssertEqual(coordinator.quotaLight, .green)
-        XCTAssertEqual(coordinator.nextFreeText, "Max #1 — now")
     }
 
-    /// The billing cycle comes from the cost path and the short windows from the
-    /// quota source; they succeed and fail independently. A single per-account
-    /// timestamp would let a derived billing cycle vouch for a rate window that
-    /// nobody managed to fetch.
-    func testAFreshBillingCycleDoesNotVouchForAStaleRateWindow() async throws {
-        let dbQueue = try DatabaseQueueFactory.makeInMemory()
-        try Migrations.makeMigrator().migrate(dbQueue)
-        let ledger = LedgerStore(dbQueue: dbQueue)
-
-        let now = Date(timeIntervalSince1970: 1_800_000_000)
-        let account = Account(
-            id: UUID(), providerID: .openAI, displayName: "OpenAI",
-            credentialReference: "keychain://glyphline/x", createdAt: now, isEnabled: true
-        )
-        try ledger.saveAccount(account)
-
-        let credentials = InMemoryCredentialStore()
-        try credentials.save(secret: "sk-test", for: "keychain://glyphline/x")
+    /// Window kinds are confirmed independently. A single per-account timestamp
+    /// would let a window that was just fetched vouch for one that nobody
+    /// managed to fetch on this tick.
+    func testAFreshlyConfirmedWindowDoesNotVouchForAStaleOneOfAnotherKind() async throws {
+        let (_, ledger) = try makeLedger()
+        let now = Self.now
+        let account = try saveAccount("Max #1", in: ledger)
 
         // Headroom, but observed well beyond the 600s bound and never confirmed.
         try ledger.saveRateWindow(
@@ -722,55 +429,45 @@ final class SyncCoordinatorTests: XCTestCase {
 
         let coordinator = SyncCoordinator(
             ledger: ledger,
-            credentials: credentials,
-            registry: ProviderAdapterRegistry(watermarkStore: ledger),
-            estimator: CostEstimator(catalog: PricingCatalog(entries: [])),
-            adapterProvider: { _ in FixtureProviderAdapter(providerID: .openAI) },
+            credentials: InMemoryCredentialStore(),
+            registry: ProviderAdapterRegistry(),
             sleepForSeconds: { _ in try await Task.sleep(for: .seconds(3_600)) },
             now: { now },
-            rateWindowSourceProvider: { _ in nil }
+            rateWindowSourceProvider: { _ in
+                // A different kind, fetched and confirmed on this very tick, and
+                // carrying no fraction — so it decides nothing by itself.
+                StableRateWindowSource(
+                    window: RateWindow(kind: .weekly, usedFraction: nil,
+                                       resetAt: now.addingTimeInterval(86_400), observedAt: now)
+                )
+            }
         )
 
         coordinator.startScheduler(intervalSeconds: 300)
         defer { coordinator.stopScheduler() }
 
-        // Establishes a billing period, so the cost-derived cycle is written and
-        // confirmed on this very tick.
-        await coordinator.syncAll()
         await coordinator.collectRateWindows()
 
         let kinds = try ledger.fetchLatestRateWindows(accountID: account.id).map(\.kind)
-        XCTAssertTrue(kinds.contains(.billingCycle), "precondition: the cycle was derived now")
+        XCTAssertTrue(kinds.contains(.weekly), "precondition: the weekly window was fetched now")
         XCTAssertTrue(kinds.contains(.rollingFiveHours), "precondition: the stale window is still stored")
 
         XCTAssertEqual(
             coordinator.quotaLight, .grey,
-            "a freshly derived billing cycle says nothing about a rate window nobody fetched"
+            "a freshly confirmed weekly window says nothing about a 5h window nobody fetched"
         )
     }
 
-    /// The menu-bar symbol and the "Next free" line must never disagree about
-    /// which observations are still believable.
-    ///
-    /// The poll interval is deliberately *not* the 1800s default, so the derived
-    /// freshness bound (2x the interval = 600s) sits on the other side of this
-    /// 20-minute-old observation from the 3600s a call site might otherwise
-    /// hardcode. With the bound hardcoded in the view this observation was fresh
-    /// enough to print "Max #1 — now" beside a grey icon that had already
-    /// discarded it.
-    func testTheLightAndTheNextFreeStringShareOneFreshnessBound() async throws {
-        let dbQueue = try DatabaseQueueFactory.makeInMemory()
-        try Migrations.makeMigrator().migrate(dbQueue)
-        let ledger = LedgerStore(dbQueue: dbQueue)
+    /// The light reads the bound the scheduler's own interval derives — twice the
+    /// poll interval — and not one a call site picked. The interval here is
+    /// deliberately not the 1800s default, so a hardcoded bound would believe this
+    /// 20-minute-old observation and turn the icon green.
+    func testTheLightUsesTheBoundDerivedFromThePollInterval() async throws {
+        let (_, ledger) = try makeLedger()
+        let now = Self.now
+        let account = try saveAccount("Max #1", in: ledger)
 
-        let now = Date(timeIntervalSince1970: 1_800_000_000)
-        let account = Account(
-            id: UUID(), providerID: .claude, displayName: "Max #1",
-            credentialReference: "local-source://x", createdAt: now, isEnabled: true
-        )
-        try ledger.saveAccount(account)
-
-        // Headroom, so a believed observation would yield green and "— now".
+        // Headroom, so a believed observation would yield green.
         try ledger.saveRateWindow(
             RateWindow(kind: .rollingFiveHours, usedFraction: 0.3,
                        resetAt: now.addingTimeInterval(1_800),
@@ -781,8 +478,7 @@ final class SyncCoordinatorTests: XCTestCase {
         let coordinator = SyncCoordinator(
             ledger: ledger,
             credentials: InMemoryCredentialStore(),
-            registry: ProviderAdapterRegistry(watermarkStore: ledger),
-            estimator: CostEstimator(catalog: PricingCatalog(entries: [])),
+            registry: ProviderAdapterRegistry(),
             sleepForSeconds: { _ in try await Task.sleep(for: .seconds(3_600)) },
             now: { now },
             rateWindowSourceProvider: { _ in nil }
@@ -794,10 +490,6 @@ final class SyncCoordinatorTests: XCTestCase {
         await coordinator.collectRateWindows()
 
         XCTAssertEqual(coordinator.quotaLight, .grey, "600s bound: a 20-minute-old observation is stale")
-        XCTAssertNil(
-            coordinator.nextFreeText,
-            "the next-free string must not believe an observation the light has discarded"
-        )
     }
 
     // MARK: - Notify once, on the transition
@@ -806,11 +498,8 @@ final class SyncCoordinatorTests: XCTestCase {
         source: any RateWindowSource,
         notifier: RecordingQuotaNotifier
     ) throws -> SyncCoordinator {
-        let dbQueue = try DatabaseQueueFactory.makeInMemory()
-        try Migrations.makeMigrator().migrate(dbQueue)
-        let ledger = LedgerStore(dbQueue: dbQueue)
-
-        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let (_, ledger) = try makeLedger()
+        let now = Self.now
         let account = Account(
             id: UUID(), providerID: .claude, displayName: "Max #1",
             credentialReference: "local-source://x", createdAt: now, isEnabled: true,
@@ -821,8 +510,7 @@ final class SyncCoordinatorTests: XCTestCase {
         return SyncCoordinator(
             ledger: ledger,
             credentials: InMemoryCredentialStore(),
-            registry: ProviderAdapterRegistry(watermarkStore: ledger),
-            estimator: CostEstimator(catalog: PricingCatalog(entries: [])),
+            registry: ProviderAdapterRegistry(),
             now: { now },
             rateWindowSourceProvider: { _ in source },
             quotaNotifier: notifier
@@ -893,47 +581,30 @@ final class SyncCoordinatorTests: XCTestCase {
     // MARK: - Forgetting a deleted account
 
     func testForgettingAnAccountClearsItsStateAndLeavesOthersAlone() async throws {
-        let now = Date(timeIntervalSince1970: 1_800_000_000)
-        let dbQueue = try DatabaseQueueFactory.makeInMemory()
-        try Migrations.makeMigrator().migrate(dbQueue)
-        let ledger = LedgerStore(dbQueue: dbQueue)
-        let credentials = InMemoryCredentialStore()
+        let (_, ledger) = try makeLedger()
+        let now = Self.now
+        let doomed = try saveAccount("Doomed", in: ledger)
+        let survivor = try saveAccount("Survivor", in: ledger)
 
-        func makeAccount(_ name: String) throws -> Account {
-            let account = Account(
-                id: UUID(),
-                providerID: .openAI,
-                displayName: name,
-                credentialReference: "keychain://glyphline/\(name)",
-                createdAt: now,
-                isEnabled: true
-            )
-            try ledger.saveAccount(account)
-            try credentials.save(secret: "secret", for: account.credentialReference)
-            return account
-        }
-
-        let doomed = try makeAccount("Doomed")
-        let survivor = try makeAccount("Survivor")
-
-        let coordinator = try makeCoordinator(ledger: ledger, credentials: credentials)
-        await coordinator.syncAll()
+        let coordinator = SyncCoordinator(
+            ledger: ledger,
+            credentials: InMemoryCredentialStore(),
+            registry: ProviderAdapterRegistry(),
+            now: { now },
+            rateWindowSourceProvider: { _ in nil }
+        )
         await coordinator.collectRateWindows()
 
         // Guards the assertions below. Without these, a coordinator that never
         // recorded any state would pass the whole test vacuously.
-        XCTAssertNotNil(coordinator.activities[doomed.id])
         XCTAssertNotNil(coordinator.rateWindowMessages[doomed.id])
         XCTAssertTrue(coordinator.quotaStates.contains { $0.accountID == doomed.id })
-        XCTAssertNotNil(coordinator.activities[survivor.id])
 
         coordinator.forgetAccount(id: doomed.id)
 
-        XCTAssertNil(coordinator.activities[doomed.id])
         XCTAssertNil(coordinator.rateWindowMessages[doomed.id])
         XCTAssertFalse(coordinator.quotaStates.contains { $0.accountID == doomed.id })
 
-        XCTAssertNotNil(coordinator.activities[survivor.id])
         XCTAssertNotNil(coordinator.rateWindowMessages[survivor.id])
         XCTAssertTrue(coordinator.quotaStates.contains { $0.accountID == survivor.id })
     }
@@ -1001,84 +672,16 @@ final class SyncCoordinatorTests: XCTestCase {
         XCTAssertNil(afterwards.windows.first?.confirmedAt)
     }
 
-    // MARK: - Deletion ordering
+    // MARK: - Deletion
 
-    /// The ordering the deletion depends on: the backfill is cancelled BEFORE the
-    /// durable delete, never after.
-    ///
-    /// A slice that starts while the delete is in flight writes snapshots under an
-    /// id the ledger is about to forget, and the schema has no foreign keys, so
-    /// those rows survive invisibly. This lived in `AccountsView` and was the wrong
-    /// way round there — delete first, cancel second — where no test could see it.
-    ///
-    /// Both events are recorded at the instant they happen: a cancellation handler
-    /// runs synchronously inside `Task.cancel()`, and `removeSession` is the first
-    /// thing `DeleteAccountFlow` does, ahead of every durable step.
-    func testDeletingAnAccountCancelsItsBackfillBeforeTheDurableDelete() async throws {
-        let dbQueue = try DatabaseQueueFactory.makeInMemory()
-        try Migrations.migrate(dbQueue)
-        let ledger = LedgerStore(dbQueue: dbQueue)
-
-        let accountID = UUID()
-        let account = Account(
-            id: accountID,
-            providerID: .claude,
-            displayName: "Max #1",
-            credentialReference: AccountCredentialReference.make(
-                accountID: accountID,
-                source: .claudeWebSession
-            ),
-            createdAt: Date(timeIntervalSince1970: 1_800_000_000),
-            isEnabled: true
-        )
-        try ledger.saveAccount(account)
-
-        let log = DeletionOrderLog()
-        let gate = ParkingAdapter.Gate()
-        let coordinator = try makeCoordinator(
-            ledger: ledger,
-            credentials: InMemoryCredentialStore(),
-            adapter: ParkingAdapter(gate: gate, log: log)
-        )
-
-        let running = Task { await coordinator.backfill(account: account) }
-
-        // A slice has to be in flight before the delete starts. Cancelling a task
-        // that has not begun would prove nothing about the order of the two steps.
-        var spins = 0
-        while !gate.isParked, spins < 10_000 {
-            spins += 1
-            await Task.yield()
-        }
-        guard gate.isParked else {
-            running.cancel()
-            gate.release()
-            _ = await running.value
-            return XCTFail("precondition: a backfill slice must be in flight")
-        }
-
-        let flow = DeleteAccountFlow(
-            ledgerStore: ledger,
-            credentialStore: InMemoryCredentialStore(),
-            webSessions: OrderRecordingRemover(log: log)
-        )
-        let outcome = await coordinator.deleteAccount(account, using: flow)
-        _ = await running.value
-
-        XCTAssertEqual(outcome, .deleted)
-        XCTAssertEqual(log.events, [.backfillCancelled, .sessionRemoved])
-    }
-
-    /// The other half of the guard in `deleteAccount`: `forgetAccount` runs only
-    /// when the flow reports `.deleted`.
+    /// `forgetAccount` runs only when the flow reports `.deleted`.
     ///
     /// A failed delete leaves the account in the ledger and on screen. Forgetting
     /// it anyway would blank the in-memory state of a row that is still there, so
-    /// the surviving account would show no activity at all.
+    /// the surviving account would show nothing at all.
     func testAFailedDeletionKeepsTheAccountsState() async throws {
-        let dbQueue = try DatabaseQueueFactory.makeInMemory()
-        try Migrations.migrate(dbQueue)
-        let ledger = LedgerStore(dbQueue: dbQueue)
+        let (_, ledger) = try makeLedger()
+        let now = Self.now
         let credentials = InMemoryCredentialStore()
 
         let accountID = UUID()
@@ -1090,20 +693,25 @@ final class SyncCoordinatorTests: XCTestCase {
                 accountID: accountID,
                 source: .claudeWebSession
             ),
-            createdAt: Date(timeIntervalSince1970: 1_800_000_000),
+            createdAt: now,
             isEnabled: true
         )
         try ledger.saveAccount(account)
-        try credentials.save(secret: "secret", for: account.credentialReference)
 
-        let coordinator = try makeCoordinator(ledger: ledger, credentials: credentials)
-        await coordinator.syncNow(account: account)
+        let coordinator = SyncCoordinator(
+            ledger: ledger,
+            credentials: credentials,
+            registry: ProviderAdapterRegistry(),
+            now: { now },
+            rateWindowSourceProvider: { _ in nil }
+        )
+        await coordinator.collectRateWindows()
 
         // Guards the assertion below. Without state to lose, a coordinator that
         // forgot the account unconditionally would still pass.
         XCTAssertNotNil(
-            coordinator.activities[accountID],
-            "precondition: the tick must have recorded an activity"
+            coordinator.rateWindowMessages[accountID],
+            "precondition: the tick must have recorded a reason"
         )
 
         let flow = DeleteAccountFlow(
@@ -1119,9 +727,52 @@ final class SyncCoordinatorTests: XCTestCase {
             "precondition: the failed delete must leave the ledger row in place"
         )
         XCTAssertNotNil(
-            coordinator.activities[accountID],
+            coordinator.rateWindowMessages[accountID],
             "a failed delete must not forget the account"
         )
+    }
+
+    /// The successful half: the coordinator drops what it holds for an account the
+    /// flow actually deleted, so no stale row survives the deletion on screen.
+    func testASuccessfulDeletionForgetsTheAccount() async throws {
+        let (_, ledger) = try makeLedger()
+        let now = Self.now
+        let credentials = InMemoryCredentialStore()
+
+        let accountID = UUID()
+        let account = Account(
+            id: accountID,
+            providerID: .claude,
+            displayName: "Max #1",
+            credentialReference: AccountCredentialReference.make(
+                accountID: accountID,
+                source: .claudeWebSession
+            ),
+            createdAt: now,
+            isEnabled: true
+        )
+        try ledger.saveAccount(account)
+
+        let coordinator = SyncCoordinator(
+            ledger: ledger,
+            credentials: credentials,
+            registry: ProviderAdapterRegistry(),
+            now: { now },
+            rateWindowSourceProvider: { _ in nil }
+        )
+        await coordinator.collectRateWindows()
+        XCTAssertNotNil(coordinator.rateWindowMessages[accountID])
+
+        let flow = DeleteAccountFlow(
+            ledgerStore: ledger,
+            credentialStore: credentials,
+            webSessions: SucceedingRemover()
+        )
+        let outcome = await coordinator.deleteAccount(account, using: flow)
+
+        XCTAssertEqual(outcome, .deleted)
+        XCTAssertNil(coordinator.rateWindowMessages[accountID])
+        XCTAssertTrue(coordinator.quotaStates.isEmpty)
     }
 }
 
@@ -1135,112 +786,10 @@ private final class FailingRemover: WebSessionRemoving {
     }
 }
 
-/// The two events whose order is the whole point of `deleteAccount`.
-private final class DeletionOrderLog: @unchecked Sendable {
-    enum Event {
-        case backfillCancelled
-        case sessionRemoved
-    }
-
-    private let lock = NSLock()
-    private var storage: [Event] = []
-
-    func record(_ event: Event) {
-        lock.lock()
-        defer { lock.unlock() }
-        storage.append(event)
-    }
-
-    var events: [Event] {
-        lock.lock()
-        defer { lock.unlock() }
-        return storage
-    }
-}
-
-extension DeletionOrderLog.Event: Equatable {}
-
-/// A stand-in for WebKit, recording the first step of the delete. Nothing here
-/// may touch a real `WKWebsiteDataStore`.
-@MainActor
-private final class OrderRecordingRemover: WebSessionRemoving {
-    private let log: DeletionOrderLog
-
-    init(log: DeletionOrderLog) {
-        self.log = log
-    }
-
-    func removeSession(for accountID: UUID) async throws {
-        log.record(.sessionRemoved)
-    }
-}
-
-/// A backfill slice that parks until the run is cancelled, and records the
-/// cancellation the moment it is delivered.
-///
-/// `withTaskCancellationHandler` runs its handler synchronously inside
-/// `Task.cancel()`, so the recorded moment is the moment the coordinator
-/// cancelled — not whenever the parked slice next got scheduled, which would make
-/// the recorded order a race rather than an observation.
-private struct ParkingAdapter: ProviderAdapter {
-    final class Gate: @unchecked Sendable {
-        private let lock = NSLock()
-        private var continuation: CheckedContinuation<Void, Never>?
-        private var isReleased = false
-        private var isParkedStorage = false
-
-        var isParked: Bool {
-            lock.lock()
-            defer { lock.unlock() }
-            return isParkedStorage
-        }
-
-        func park() async {
-            await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-                lock.lock()
-                isParkedStorage = true
-                if isReleased {
-                    lock.unlock()
-                    continuation.resume()
-                } else {
-                    self.continuation = continuation
-                    lock.unlock()
-                }
-            }
-        }
-
-        func release() {
-            lock.lock()
-            let waiting = continuation
-            continuation = nil
-            isReleased = true
-            lock.unlock()
-            waiting?.resume()
-        }
-    }
-
-    let providerID: ProviderID = .claude
-    let gate: Gate
-    let log: DeletionOrderLog
-
-    var requiresSecret: Bool { false }
-    var scopedIsNoOp: Bool { false }
-
-    func scoped(to interval: DateInterval) -> any ProviderAdapter { self }
-
-    func sync(account: Account, secret: String) async throws -> ProviderSyncResult {
-        await withTaskCancellationHandler {
-            await gate.park()
-        } onCancel: {
-            log.record(.backfillCancelled)
-            gate.release()
-        }
-
-        // A slice cancelled mid-flight produces nothing. Returning a result here
-        // would have the test writing snapshots for an account being deleted —
-        // the very thing the cancel exists to prevent.
-        throw CancellationError()
-    }
+/// A stand-in for WebKit on the successful path. Nothing here may touch a real
+/// `WKWebsiteDataStore`.
+private final class SucceedingRemover: WebSessionRemoving {
+    func removeSession(for accountID: UUID) async throws {}
 }
 
 /// Records what was sent, not merely how often, so a test can prove *which*
@@ -1338,19 +887,5 @@ private struct SignallingRateWindowSource: RateWindowSource {
     func fetchWindows(account: Account, secret: String?) async throws -> RateWindowResult {
         onFetch()
         return RateWindowResult(windows: [window], dataQuality: .exact, message: nil)
-    }
-}
-
-/// Throws an error carrying detail that must never reach the UI.
-private struct FailingProviderAdapter: ProviderAdapter {
-    struct Failure: Error {
-        let detail = "Authorization: Bearer super-secret"
-    }
-
-    let providerID: ProviderID = .openAI
-    var requiresSecret: Bool { true }
-
-    func sync(account: Account, secret: String) async throws -> ProviderSyncResult {
-        throw Failure()
     }
 }

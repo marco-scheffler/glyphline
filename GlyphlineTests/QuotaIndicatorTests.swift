@@ -119,49 +119,6 @@ final class QuotaIndicatorTests: XCTestCase {
         XCTAssertEqual(QuotaIndicator.light(for: states, now: now, freshness: freshness), .green)
     }
 
-    /// It is available *now*, so it is named that way. The reset instant decides
-    /// how a wait is described, never whether there is capacity.
-    func testAnUnusedSubscriptionIsNamedAsAvailableNow() {
-        let states = [accountWith("Second Subscription", windows: [
-            windowWithoutReset(used: 0),
-        ])]
-
-        XCTAssertEqual(
-            visible(QuotaIndicator.nextFree(for: states, now: now, freshness: freshness, formatting: formatting)),
-            "Second Subscription — now"
-        )
-    }
-
-    /// The counter-rule, and the reason the two are deliberately asymmetric: a
-    /// window with no reset instant cannot be waited out, so it must never be
-    /// offered as a moment to come back at. An exhausted account with no instant
-    /// names nothing at all.
-    func testAnExhaustedWindowWithNoResetInstantNamesNoNextFreeMoment() {
-        let states = [accountWith("Max #1", windows: [
-            windowWithoutReset(used: 1.0),
-        ])]
-
-        XCTAssertNil(
-            QuotaIndicator.nextFree(for: states, now: now, freshness: freshness, formatting: formatting)
-        )
-    }
-
-    /// And it must not win the "soonest" comparison either — a nil instant
-    /// treated as `.distantPast` would beat every real one and name an account
-    /// that will never free up on its own.
-    func testANilResetInstantDoesNotOutrankARealOne() {
-        let states = [
-            accountWith("Max #1", windows: [windowWithoutReset(used: 1.0)]),
-            // 09:00 UTC plus 60 minutes.
-            accountWith("Max #2", windows: [window(used: 1.0, resetMinutesFromNow: 60)]),
-        ]
-
-        XCTAssertEqual(
-            visible(QuotaIndicator.nextFree(for: states, now: now, freshness: freshness, formatting: formatting)),
-            "Max #2 — 10:00 AM"
-        )
-    }
-
     /// The row says what is true instead of borrowing "resets in …" for a window
     /// that is not running.
     func testARowWithNoResetInstantSaysThereIsNoActiveWindow() {
@@ -272,73 +229,6 @@ final class QuotaIndicatorTests: XCTestCase {
         XCTAssertEqual(QuotaIndicator.light(for: states, now: now, freshness: freshness), .grey)
     }
 
-    func testNextFreeNamesAnAccountWithHeadroomAsAvailableNow() {
-        let states = [account("Max #1", used: 1.0), account("Max #2", used: 0.2)]
-        XCTAssertEqual(
-            visible(QuotaIndicator.nextFree(for: states, now: now, freshness: freshness, formatting: formatting)),
-            "Max #2 — now"
-        )
-    }
-
-    func testNextFreeNamesTheEarliestResetWhenAllAreExhausted() {
-        // Distinct reset instants, so "earliest" is actually discriminated: an
-        // implementation returning max(), or the first element, fails here.
-        // `now` is 09:00 UTC, so +60 minutes is 10:00 and +180 is 12:00.
-        let states = [
-            account("Max #1", used: 1.0, resetMinutesFromNow: 180),
-            account("Max #2", used: 1.0, resetMinutesFromNow: 60),
-        ]
-        XCTAssertEqual(
-            visible(QuotaIndicator.nextFree(for: states, now: now, freshness: freshness, formatting: formatting)),
-            "Max #2 — 10:00 AM"
-        )
-    }
-
-    func testNextFreeIgnoresResetsFromStaleWindows() {
-        // The light discards the stale weekly window as unknown; nextFree must
-        // agree, rather than naming a reset instant it no longer believes.
-        let states = [
-            accountWith("Max #1", windows: [
-                window(kind: .rollingFiveHours, used: 1.0, resetMinutesFromNow: 120),
-                window(kind: .weekly, used: 1.0, observedMinutesAgo: 1_440, resetMinutesFromNow: 30),
-            ]),
-        ]
-        XCTAssertEqual(
-            visible(QuotaIndicator.nextFree(for: states, now: now, freshness: freshness, formatting: formatting)),
-            "Max #1 — 11:00 AM"
-        )
-    }
-
-    func testNextFreeIgnoresResetsThatHaveAlreadyElapsed() {
-        // A window can be fresh and still carry a reset instant in the past.
-        let states = [
-            accountWith("Max #1", windows: [
-                window(kind: .rollingFiveHours, used: 1.0, resetMinutesFromNow: 120),
-                window(kind: .weekly, used: 1.0, resetMinutesFromNow: -15),
-            ]),
-        ]
-        XCTAssertEqual(
-            visible(QuotaIndicator.nextFree(for: states, now: now, freshness: freshness, formatting: formatting)),
-            "Max #1 — 11:00 AM"
-        )
-    }
-
-    /// The reset the header names can be days out — a weekly window resets days
-    /// out by definition. "Max #1 — 2:00 PM" for a Friday reset read as today.
-    func testNextFreeCarriesTheDateWhenTheResetIsNotToday() {
-        let states = [
-            accountWith("Max #1", windows: [
-                window(kind: .weekly, used: 1.0, resetMinutesFromNow: 3 * 24 * 60 + 5 * 60),
-            ]),
-        ]
-        XCTAssertEqual(
-            visible(QuotaIndicator.nextFree(for: states, now: now, freshness: freshness, formatting: formatting)),
-            // A numeric date, not "Jul 31": a spelled month follows the system
-            // language and would print German inside this English string.
-            "Max #1 — 7/31/2026, 2:00 PM"
-        )
-    }
-
     /// The defect this pair exists for. A provider that keeps reporting the same
     /// figure produces no new row, so the stored `observedAt` stops moving — and
     /// freshness measured from it declared an actively confirmed reading unknown.
@@ -352,10 +242,6 @@ final class QuotaIndicatorTests: XCTestCase {
         ]
 
         XCTAssertEqual(QuotaIndicator.light(for: states, now: now, freshness: freshness), .green)
-        XCTAssertEqual(
-            visible(QuotaIndicator.nextFree(for: states, now: now, freshness: freshness, formatting: formatting)),
-            "Max #1 — now"
-        )
     }
 
     /// The converse, so the fix cannot degenerate into "always fresh": a
@@ -368,7 +254,6 @@ final class QuotaIndicatorTests: XCTestCase {
         ]
 
         XCTAssertEqual(QuotaIndicator.light(for: states, now: now, freshness: freshness), .grey)
-        XCTAssertNil(QuotaIndicator.nextFree(for: states, now: now, freshness: freshness, formatting: formatting))
     }
 
     /// A row read back before any fetch has run still has to be judged, and

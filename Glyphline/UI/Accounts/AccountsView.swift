@@ -5,14 +5,13 @@ struct AccountsView: View {
     var ledgerStore: LedgerStore? = LedgerStore.makeDefault()
     var credentialStore: any CredentialStore = KeychainStore()
     var webSessions: any WebSessionRemoving = ClaudeWebSessionStore()
-    var onSyncFinished: () -> Void = {}
     var onDeleted: () -> Void = {}
 
     @EnvironmentObject private var coordinator: SyncCoordinator
     @State private var pendingDeletion: PendingDeletion?
     @State private var deletionError: String?
-    /// The account whose delete is in flight. `activities` stays idle across the
-    /// await, so without this a second press starts a second deletion.
+    /// The account whose delete is in flight. Nothing else marks an account busy,
+    /// so without this a second press starts a second deletion.
     @State private var deletingAccountID: UUID?
 
     /// Carries the counts alongside the account so the alert renders from the
@@ -54,22 +53,8 @@ struct AccountsView: View {
 
                                     Spacer(minLength: 12)
 
-                                    // Phase one first, so the dashboard is usable within
-                                    // seconds; phase two then walks back a year.
-                                    Button("Sync Now") {
-                                        Task {
-                                            await coordinator.syncNow(account: summary.account)
-                                            onSyncFinished()
-                                            await coordinator.backfill(account: summary.account)
-                                            onSyncFinished()
-                                        }
-                                    }
-                                    .buttonStyle(.bordered)
-                                    .disabled(coordinator.activities[summary.account.id]?.isRunning == true)
-
-                                    // Disabled while a sync or backfill is running:
-                                    // deleting mid-run races the very task
-                                    // `deleteAccount` cancels.
+                                    // Disabled only while this account's own delete
+                                    // is in flight.
                                     Button {
                                         guard let ledgerStore else { return }
                                         let counts = (try? ledgerStore.deletionSummary(
@@ -89,10 +74,7 @@ struct AccountsView: View {
                                     // action in the app; it may not be nameless.
                                     .accessibilityLabel("Delete account")
                                     .help("Delete account")
-                                    .disabled(
-                                        coordinator.activities[summary.account.id]?.isRunning == true
-                                            || deletingAccountID == summary.account.id
-                                    )
+                                    .disabled(deletingAccountID == summary.account.id)
                                 }
 
                                 HStack(spacing: 16) {
@@ -126,26 +108,6 @@ struct AccountsView: View {
                                     }
                                 }
 
-                                if let activity = coordinator.activities[summary.account.id] {
-                                    switch activity {
-                                    case .idle:
-                                        EmptyView()
-                                    case let .running(phase):
-                                        HStack(spacing: 8) {
-                                            ProgressView().controlSize(.small)
-                                            Text(phase).font(.caption).foregroundStyle(.secondary)
-                                        }
-                                    case let .failed(message):
-                                        Text(message).font(.caption).foregroundStyle(.red)
-                                    }
-                                }
-
-                                if coordinator.activities[summary.account.id]?.isRunning == true {
-                                    Button("Cancel") {
-                                        coordinator.cancelBackfill(account: summary.account)
-                                    }
-                                    .buttonStyle(.link)
-                                }
                             }
                             .padding(16)
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -213,10 +175,8 @@ struct AccountsView: View {
             webSessions: webSessions
         )
         Task {
-            // The coordinator owns the ordering — cancel, then delete, then forget.
-            // Doing it here would put an ordering guarantee somewhere no test can
-            // reach it, and this view got it wrong: it deleted first and cancelled
-            // after, which is no guarantee at all.
+            // The coordinator owns delete-then-forget, so the in-memory state a
+            // deleted account leaves behind is dropped where a test can see it.
             let outcome = await coordinator.deleteAccount(account, using: flow)
             deletingAccountID = nil
             switch outcome {

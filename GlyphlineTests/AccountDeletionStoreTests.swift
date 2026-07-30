@@ -93,7 +93,31 @@ final class AccountDeletionStoreTests: XCTestCase {
             )
         )
 
-        try store.saveBackfillCompletedThrough(now, accountID: accountID)
+        // Written directly: the app no longer has a writer for this table, and
+        // the delete must still clear it until the table itself is dropped.
+        try dbQueue.write { db in
+            try db.execute(
+                sql: """
+                    INSERT INTO \(LedgerTable.accountSyncStates) (
+                        \(LedgerColumn.accountID),
+                        \(LedgerColumn.providerID),
+                        \(LedgerColumn.supportsUsage),
+                        \(LedgerColumn.supportsActualCost),
+                        \(LedgerColumn.supportsResetDate),
+                        \(LedgerColumn.supportsModelBreakdown),
+                        \(LedgerColumn.quality),
+                        \(LedgerColumn.updatedAt)
+                    )
+                    VALUES (?, ?, 0, 0, 0, 0, ?, ?)
+                    """,
+                arguments: [
+                    accountID.uuidString,
+                    ProviderID.claude.rawValue,
+                    DataQuality.unavailable.rawValue,
+                    now,
+                ]
+            )
+        }
 
         // resetAt must be in the future relative to observedAt, or
         // `RateWindow.isPlausible` rejects the sample and nothing is written.

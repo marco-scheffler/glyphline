@@ -16,83 +16,14 @@ final class ProviderAdapterRegistryTests: XCTestCase {
         )
     }
 
-    func testKeychainBackedClaudeAccountUsesAdminAPI() throws {
-        let registry = ProviderAdapterRegistry()
-        let account = makeAccount(.claude, reference: "keychain://glyphline/abc")
-
-        let adapter = try XCTUnwrap(registry.adapter(for: account) as? ClaudeUsageAdapter)
-        XCTAssertEqual(adapter.mode, .adminAPI)
-        XCTAssertTrue(adapter.requiresSecret)
-    }
-
-    func testLocalSourceClaudeAccountUsesLocalLogs() throws {
-        let registry = ProviderAdapterRegistry()
-        let account = makeAccount(.claude, reference: "local-source://claude-code")
-
-        let adapter = try XCTUnwrap(registry.adapter(for: account) as? ClaudeUsageAdapter)
-        XCTAssertEqual(adapter.mode, .localLogs)
-        XCTAssertFalse(adapter.requiresSecret)
-    }
-
-    /// The cost path for a web-session subscription. It must NOT be `.localLogs`:
-    /// that mode reads `~/.claude/projects`, so three web-session accounts would
-    /// each report the same local logs and treble the cost figures — wrong numbers
-    /// rather than a visible failure.
-    func testWebSessionClaudeAccountNeverReadsTheLocalLogs() throws {
-        let registry = ProviderAdapterRegistry()
-        let account = makeAccount(.claude, reference: "web-session://\(UUID().uuidString)")
-
-        let adapter = try XCTUnwrap(registry.adapter(for: account) as? ClaudeUsageAdapter)
-        XCTAssertEqual(adapter.mode, .webSessionQuotaOnly)
-        XCTAssertNotEqual(adapter.mode, .localLogs)
-        XCTAssertNotEqual(adapter.mode, .adminAPI)
-        // There is no secret behind a web session, so the scheduler must not look
-        // for one and fail the whole sync when it finds nothing.
-        XCTAssertFalse(adapter.requiresSecret)
-    }
-
-    /// The scheme the registry reads is the one the Add Account screen writes.
-    func testTheWebSessionSchemeIsTheOneTheReferenceBuilderProduces() throws {
-        let registry = ProviderAdapterRegistry()
-        let id = UUID()
-        let reference = AccountCredentialReference.make(accountID: id, source: .claudeWebSession)
-        let account = makeAccount(.claude, reference: reference)
-
-        let adapter = try XCTUnwrap(registry.adapter(for: account) as? ClaudeUsageAdapter)
-        XCTAssertEqual(adapter.mode, .webSessionQuotaOnly)
-    }
-
-    /// The pairing the entry point produces end to end: quota comes from the web
-    /// session, cost reports honestly that it has none.
+    /// What the entry point produces end to end: a signed-in web-session account
+    /// draws its quota from the web source.
     func testAWebSessionAccountWithAnOrganisationDrawsQuotaFromTheWebSource() throws {
         let registry = ProviderAdapterRegistry()
         var account = makeAccount(.claude, reference: "web-session://\(UUID().uuidString)")
         account.claudeOrganizationID = organizationID
 
         XCTAssertTrue(registry.rateWindowSource(for: account) is ClaudeWebQuotaSource)
-    }
-
-    func testKeychainBackedCursorAccountUsesTeamAPI() throws {
-        let registry = ProviderAdapterRegistry()
-        let account = makeAccount(.cursor, reference: "keychain://glyphline/abc")
-
-        let adapter = try XCTUnwrap(registry.adapter(for: account) as? CursorUsageAdapter)
-        XCTAssertEqual(adapter.mode, .teamAPI)
-    }
-
-    func testLocalSourceCursorAccountUsesLocalStatusOnly() throws {
-        let registry = ProviderAdapterRegistry()
-        let account = makeAccount(.cursor, reference: "local-source://cursor")
-
-        let adapter = try XCTUnwrap(registry.adapter(for: account) as? CursorUsageAdapter)
-        XCTAssertEqual(adapter.mode, .localStatusOnly)
-    }
-
-    func testOpenAIAccountUsesUsageAdapter() throws {
-        let registry = ProviderAdapterRegistry()
-        let account = makeAccount(.openAI, reference: "keychain://glyphline/abc")
-
-        XCTAssertTrue(registry.adapter(for: account) is OpenAIUsageAdapter)
     }
 
     /// An account with no quota credential has no quota source at all — it must

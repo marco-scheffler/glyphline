@@ -24,16 +24,13 @@ final class AccountCredentialReferenceTests: XCTestCase {
             createdAt: Date(timeIntervalSince1970: 1_800_000_000),
             isEnabled: true
         )
-        let adapter = ProviderAdapterRegistry().adapter(for: account) as? ClaudeUsageAdapter
-
-        XCTAssertEqual(adapter?.mode, .localLogs)
+        XCTAssertEqual(AccountCredentialReference.source(of: account.credentialReference), .localLogs)
     }
 
     /// The three schemes are three different answers to "where does this account's
     /// data come from", and the registry tells them apart by prefix alone. A
-    /// web-session reference that matched the local prefix would send every
-    /// subscription to the same `~/.claude/projects` and report one Mac's costs
-    /// once per account.
+    /// web-session reference that matched the local prefix would be read as a
+    /// local source, and no account would ever resolve to its quota source.
     func testWebSessionReferenceIsItsOwnSchemeAndNotTheLocalOne() {
         let id = UUID()
         let reference = AccountCredentialReference.make(accountID: id, source: .claudeWebSession)

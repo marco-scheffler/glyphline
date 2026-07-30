@@ -31,13 +31,12 @@ struct DashboardView: View {
             ToolbarItem(placement: .primaryAction) {
                 Button {
                     Task {
-                        await coordinator.syncAll()
+                        await coordinator.refreshRateWindowsOnDemand()
                         loadDashboard()
                     }
                 } label: {
-                    Label("Sync All", systemImage: "arrow.triangle.2.circlepath")
+                    Label("Refresh", systemImage: "arrow.triangle.2.circlepath")
                 }
-                .disabled(coordinator.activities.values.contains(where: \.isRunning))
             }
         }
         .onAppear(perform: loadDashboard)
@@ -61,7 +60,6 @@ struct DashboardView: View {
             AccountsView(
                 accounts: accountSummaries,
                 ledgerStore: ledgerStore,
-                onSyncFinished: loadDashboard,
                 onDeleted: loadDashboard
             )
         case .addAccount:

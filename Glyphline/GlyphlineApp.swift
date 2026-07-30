@@ -10,19 +10,14 @@ struct GlyphlineApp: App {
         let settings = AppSettingsStore()
         _settings = StateObject(wrappedValue: settings)
 
-        let estimator = CostEstimator(
-            catalog: (try? PricingCatalog.bundled()) ?? PricingCatalog(entries: [])
-        )
         // Deliberately no in-memory stand-in when the on-disk ledger cannot be
-        // opened: the coordinator refuses to sync without a durable ledger and
+        // opened: the coordinator refuses to collect without a durable ledger and
         // says so, rather than crashing at launch or writing to a scratch file.
-        let ledger = LedgerStore.makeDefault()
         _coordinator = StateObject(
             wrappedValue: SyncCoordinator(
-                ledger: ledger,
+                ledger: LedgerStore.makeDefault(),
                 credentials: KeychainStore(),
-                registry: ProviderAdapterRegistry(watermarkStore: ledger),
-                estimator: estimator
+                registry: ProviderAdapterRegistry()
             )
         )
     }

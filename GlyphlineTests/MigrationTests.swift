@@ -110,61 +110,6 @@ final class MigrationTests: XCTestCase {
         XCTAssertEqual(try store.fetchWatermark(sourceKey: "/tmp/a.jsonl")?.byteOffset, 8192)
     }
 
-    func testBackfillProgressRoundTrips() throws {
-        let dbQueue = try DatabaseQueueFactory.makeInMemory()
-        try Migrations.migrate(dbQueue)
-        let store = LedgerStore(dbQueue: dbQueue)
-        let accountID = UUID()
-        let day = Date(timeIntervalSince1970: 1_800_000_000)
-
-        XCTAssertNil(try store.fetchBackfillCompletedThrough(accountID: accountID))
-
-        let account = Account(
-            id: accountID,
-            providerID: .claude,
-            displayName: "Personal",
-            credentialReference: "keychain://glyphline/\(accountID.uuidString)",
-            createdAt: day,
-            isEnabled: true
-        )
-        try store.saveAccount(account)
-
-        // The accountSyncStates row that carries backfill progress is created by
-        // a successful sync, so establish it the same way production does.
-        let syncRunID = try store.startSyncRun(
-            accountID: accountID,
-            providerID: account.providerID,
-            startedAt: day
-        )
-        try store.applySuccessfulSyncResult(
-            ProviderSyncResult(
-                providerID: account.providerID,
-                accountID: accountID,
-                capabilities: ProviderCapabilities(
-                    supportsUsage: true,
-                    supportsActualCost: false,
-                    supportsResetDate: false,
-                    supportsModelBreakdown: true,
-                    dataQuality: .exact,
-                    message: nil
-                ),
-                billingPeriod: nil,
-                usageSnapshots: [],
-                costSnapshots: [],
-                estimateSnapshots: [],
-                syncedAt: day
-            ),
-            syncRunID: syncRunID,
-            finishedAt: day
-        )
-
-        XCTAssertNil(try store.fetchBackfillCompletedThrough(accountID: accountID))
-
-        try store.saveBackfillCompletedThrough(day, accountID: accountID)
-
-        XCTAssertEqual(try store.fetchBackfillCompletedThrough(accountID: accountID), day)
-    }
-
     func testV6CreatesRateWindowSamplesAndPreservesExistingAccounts() throws {
         let dbQueue = try DatabaseQueueFactory.makeInMemory()
         let migrator = Migrations.makeMigrator()

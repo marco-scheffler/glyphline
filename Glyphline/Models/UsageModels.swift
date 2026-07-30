@@ -30,6 +30,18 @@ struct BillingPeriod: Codable, Equatable, Sendable {
     var resetAt: Date?
 }
 
+/// What a stored sync state records about the provider it came from. Moved here
+/// when `ProviderAdapter` was deleted; the ledger still reads it back off
+/// `accountSyncStates`.
+struct ProviderCapabilities: Codable, Equatable, Sendable {
+    var supportsUsage: Bool
+    var supportsActualCost: Bool
+    var supportsResetDate: Bool
+    var supportsModelBreakdown: Bool
+    var dataQuality: DataQuality
+    var message: String?
+}
+
 struct UsageSnapshot: Identifiable, Codable, Equatable, Sendable {
     let id: UUID
     var accountID: UUID
