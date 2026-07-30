@@ -9,7 +9,15 @@ import Foundation
 // the first account, so this probe reports the *structure* of that body in the
 // sign-in window's status line.
 //
-// Remove this file, its tests and its call site in `ClaudeSignInWindow` once the
+// A second, related silence: for one subscription `/usage` decodes cleanly and
+// yields *no* rate window at all, with no failure message, so the panel says
+// "No quota reported yet." and nothing distinguishes an idle subscription from a
+// shape the tolerant decoder skipped. The probe therefore also runs on the
+// polling path, and for that case it descends one level into `five_hour` and
+// `seven_day` — still key names and value types only.
+//
+// Remove this file, its tests and its two call sites — in `ClaudeSignInWindow`
+// and in `ClaudeWebQuotaSource.result(from:body:observedAt:)` — once the
 // difference is understood.
 //
 // **Shape only, never content.** The probe may emit the byte length, the first
@@ -51,10 +59,32 @@ enum ResponseShapeProbe {
         }
 
         if let object = parsed as? [String: Any] {
-            return "\(prefix), JSON object, keys: \(keyList(of: object))"
+            var summary = "\(prefix), JSON object, keys: \(keyList(of: object))"
+            for key in nestedKeys {
+                summary += "; \(nestedDescription(of: object, key: key))"
+            }
+            return summary
         }
 
         return "\(prefix), JSON but neither array nor object"
+    }
+
+    /// The only keys the probe descends into. The question this diagnostic exists
+    /// to answer is what is *inside* the two usage windows; every other key stays
+    /// at one level, so nothing else can be described by accident.
+    private static let nestedKeys = ["five_hour", "seven_day"]
+
+    /// One nested key's own key names and value types — or, plainly, that there
+    /// is nothing there to describe.
+    private static func nestedDescription(of object: [String: Any], key: String) -> String {
+        guard let value = object[key] else {
+            return "\(key) absent"
+        }
+        guard let nested = value as? [String: Any] else {
+            if value is NSNull { return "\(key) is null" }
+            return "\(key) is not an object"
+        }
+        return "\(key){\(keyList(of: nested))}"
     }
 
     /// Key names and the *type* of each value — never the values themselves.

@@ -337,7 +337,11 @@ final class SyncCoordinator: ObservableObject {
                     continue
                 }
 
-                rateWindowMessages[account.id] = nil
+                // A successful fetch may still have something to say — a source
+                // that answered with no window at all explains itself here — so
+                // the message is carried through rather than cleared. Nil stays
+                // nil, which is the ordinary case.
+                rateWindowMessages[account.id] = result.message
                 // The fetch worked, so the next expiry is a fresh transition.
                 sessionExpiryNotified.remove(account.id)
                 for window in result.windows {

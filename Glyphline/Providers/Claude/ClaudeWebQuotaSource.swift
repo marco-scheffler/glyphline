@@ -32,8 +32,9 @@ enum ClaudeWebEndpoints {
 /// There is no token and no cookie here. The session lives in the account's
 /// `WKWebsiteDataStore`; this type asks a web view to navigate, reads the
 /// document text, and hands it to `ClaudeWebResponseClassifier`, which owns every
-/// judgement about what the response actually is. Nothing in this file inspects a
-/// body, and no part of one reaches a message.
+/// judgement about what the response actually is. No part of a body reaches a
+/// message — the one exception is the temporary `ResponseShapeProbe` summary in
+/// `result(from:body:observedAt:)`, which reports structure and never content.
 ///
 /// `@MainActor` because `WKWebView` is. `RateWindowSource`'s requirement is
 /// `async`, so a main-actor witness is fine — the caller hops.
@@ -96,12 +97,36 @@ struct ClaudeWebQuotaSource: RateWindowSource {
                 return Self.unavailable(.unexpectedResponseShape)
             }
 
-            return RateWindowResult(
-                windows: response.rateWindows(observedAt: now()),
-                dataQuality: .exact,
-                message: nil
-            )
+            return Self.result(from: response, body: outcome.body, observedAt: now())
         }
+    }
+
+    /// TEMPORARY DIAGNOSTIC — added 2026-07-30, remove with `ResponseShapeProbe`.
+    ///
+    /// A decode that succeeds and still yields no window is indistinguishable
+    /// from a genuinely idle subscription: the panel says "No quota reported
+    /// yet." either way. For that one case the result carries the probe's
+    /// *structural* summary of the body — key names and value types, never a
+    /// value — so the two can be told apart.
+    ///
+    /// `dataQuality` stays `.exact`: a subscription with no active window is not
+    /// a failure, and `.unavailable` would make the account read as broken.
+    static func result(
+        from response: ClaudeUsageResponse,
+        body: String,
+        observedAt: Date
+    ) -> RateWindowResult {
+        let windows = response.rateWindows(observedAt: observedAt)
+        return RateWindowResult(
+            windows: windows,
+            dataQuality: .exact,
+            message: windows.isEmpty ? emptyWindowMessage(body: body) : nil
+        )
+    }
+
+    /// TEMPORARY DIAGNOSTIC — added 2026-07-30, remove with `ResponseShapeProbe`.
+    static func emptyWindowMessage(body: String) -> String {
+        "claude.ai reported no active limits for this subscription. (\(ResponseShapeProbe.describe(body)))"
     }
 
     /// Messages come from `RateWindowSourceError` and nowhere else, so no part of
