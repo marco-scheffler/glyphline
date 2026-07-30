@@ -79,11 +79,13 @@
 		B8B5DF46E5F52175C3B0C9F8 /* UsageModelsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6038A4E395A2847039481F0D /* UsageModelsTests.swift */; };
 		BE2B9EEEA941F5F4FDD5FDEA /* AppMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12E48ACC872A23A3B329B354 /* AppMode.swift */; };
 		BE564013C16C892F7848C0AA /* StatisticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4E90AE35CAB8BF805E71E5C /* StatisticsView.swift */; };
+		C0976190599A88D6F50D380D /* AgentverseModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC85C589F9485DF64325D43E /* AgentverseModel.swift */; };
 		C188981DAC4E75CE72DC3B58 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68867B1F76ECF4DE1E6FA098 /* SettingsView.swift */; };
 		C7D043D534497E4E92F09CF5 /* DeleteAccountFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E897587F3639B71FA29F250 /* DeleteAccountFlowTests.swift */; };
 		CAE25CBB5FB46C3D44E6BD64 /* LedgerStoreFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2ACCDCE077861E9661ECBFF /* LedgerStoreFactory.swift */; };
 		D8B77926E2F0A8CA8B0916E2 /* UsageModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE8DBF95730F8FD235AFAC47 /* UsageModels.swift */; };
 		DB6A9090D4D818A7DA838E14 /* LocalUsageStatisticsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8ACB43E390F384515433FB04 /* LocalUsageStatisticsTests.swift */; };
+		DF165E242EA15AA2635A186F /* AgentverseModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9AD08F137C04548B835D868 /* AgentverseModelTests.swift */; };
 		E26E4CED2DF7349EFDE10AEA /* AccountDeletionFormatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93FBE86612C30FFEEC2EE1FD /* AccountDeletionFormatting.swift */; };
 		E87053D134E5E5BCF23BD177 /* ClaudeWebSessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D5247CB250C44F5D5A195E8 /* ClaudeWebSessionStore.swift */; };
 		E9F07FC2418C6707018C3666 /* MoneyAmountTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55BA8694018F37636CBB9BF7 /* MoneyAmountTests.swift */; };
@@ -186,9 +188,11 @@
 		C15E082BDAB475C5EB9759CE /* ClaudeWebPageLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeWebPageLoader.swift; sourceTree = "<group>"; };
 		C65F3F058519D3D6E8B2C8CE /* SyncCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncCoordinator.swift; sourceTree = "<group>"; };
 		C69732493AABC7109EB74F3F /* ProviderID.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderID.swift; sourceTree = "<group>"; };
+		C9AD08F137C04548B835D868 /* AgentverseModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentverseModelTests.swift; sourceTree = "<group>"; };
 		CA6C8BEB41F3B3EE32D28A76 /* RateWindowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RateWindowTests.swift; sourceTree = "<group>"; };
 		CAB6B58FFD4950C915812BC0 /* ClaudeWebSessionStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeWebSessionStoreTests.swift; sourceTree = "<group>"; };
 		CBDCA09F2919D27BE31E10C4 /* QuotaBarRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuotaBarRowView.swift; sourceTree = "<group>"; };
+		CC85C589F9485DF64325D43E /* AgentverseModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentverseModel.swift; sourceTree = "<group>"; };
 		D10078AD9B1875C460A90C37 /* CostEstimatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CostEstimatorTests.swift; sourceTree = "<group>"; };
 		D2875A21D3F767FBB58928F1 /* FixtureRateWindowSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FixtureRateWindowSource.swift; sourceTree = "<group>"; };
 		D461F567F4AC93CAD78D6410 /* Account.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Account.swift; sourceTree = "<group>"; };
@@ -234,6 +238,7 @@
 			isa = PBXGroup;
 			children = (
 				AFA5A35ACBFF7C3C12DC8EB8 /* AgentSessionScanner.swift */,
+				CC85C589F9485DF64325D43E /* AgentverseModel.swift */,
 			);
 			path = Agentverse;
 			sourceTree = "<group>";
@@ -341,6 +346,7 @@
 				849077EF726D5E3F756B4805 /* AccountSummaryFormattingTests.swift */,
 				40D313DABDF65EC1DBCADDBD /* AddAccountFlowTests.swift */,
 				9BD3C2C540C231D67EC5F063 /* AgentSessionScannerTests.swift */,
+				C9AD08F137C04548B835D868 /* AgentverseModelTests.swift */,
 				A452BABCF11A72A0A23A41AE /* AgentverseParkedStoreTests.swift */,
 				347CEC22ED71F6DCC815DB03 /* AppModeTests.swift */,
 				BD5F66FB95D8BBD93EFCBE00 /* AppSettingsStoreTests.swift */,
@@ -602,6 +608,7 @@
 				314BE108752F760302660DC4 /* AccountSummaryFormattingTests.swift in Sources */,
 				72517151B7BCCE3BC2748539 /* AddAccountFlowTests.swift in Sources */,
 				54B04C19F46485890B8DC28B /* AgentSessionScannerTests.swift in Sources */,
+				DF165E242EA15AA2635A186F /* AgentverseModelTests.swift in Sources */,
 				6C8F31A87FCB44BF844C8E11 /* AgentverseParkedStoreTests.swift in Sources */,
 				1F057127236C7C74BCADB639 /* AppModeTests.swift in Sources */,
 				29DAC97DF9CC2CB3A0D01784 /* AppSettingsStoreTests.swift in Sources */,
@@ -647,6 +654,7 @@
 				B838F331BD89C2B524410914 /* AddAccountView.swift in Sources */,
 				36548FF69B18205F3FA28F1D /* AgentSession.swift in Sources */,
 				14D0B598D9BBA709C48BEED0 /* AgentSessionScanner.swift in Sources */,
+				C0976190599A88D6F50D380D /* AgentverseModel.swift in Sources */,
 				37CFE0A06075136004EBA62F /* AppActivationController.swift in Sources */,
 				BE2B9EEEA941F5F4FDD5FDEA /* AppMode.swift in Sources */,
 				2BDACE3AAE0A202FCB9520BC /* AppSettingsStore.swift in Sources */,
