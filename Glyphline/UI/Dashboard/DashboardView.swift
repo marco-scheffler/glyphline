@@ -156,6 +156,11 @@ private struct DashboardOverview: View {
     let loadError: String?
     let syncFailureMessage: String?
 
+    /// Read here rather than passed down: `quotaBars` is the coordinator's own
+    /// accessor, and routing it through an initialiser would let a caller
+    /// substitute an array built against some other freshness bound.
+    @EnvironmentObject private var coordinator: SyncCoordinator
+
     private let columns = [
         GridItem(.flexible(minimum: 160), spacing: 16),
         GridItem(.flexible(minimum: 160), spacing: 16),
@@ -226,30 +231,64 @@ private struct DashboardOverview: View {
                         Text("No accounts saved yet.")
                             .foregroundStyle(.secondary)
                     } else {
+                        // Computed once per render pass. The accessor rebuilds the
+                        // whole array on every call, so reading it inside the
+                        // ForEach would cost one rebuild per card.
+                        let quotaBars = coordinator.quotaBars
+
                         ForEach(accountSummaries) { summary in
-                            HStack(alignment: .top, spacing: 12) {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(summary.account.displayName)
+                            VStack(alignment: .leading, spacing: 10) {
+                                HStack(alignment: .top, spacing: 12) {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(summary.account.displayName)
+                                            .font(.headline)
+                                        Text(AccountSummaryFormatting.costSource(summary))
+                                            .foregroundStyle(.secondary)
+                                    }
+
+                                    Spacer(minLength: 12)
+
+                                    VStack(alignment: .trailing, spacing: 6) {
+                                        DataQualityBadge(quality: summary.dataQuality)
+                                        Text(AccountSummaryFormatting.money(
+                                            summary.displayAmountMicros,
+                                            currency: summary.displayCurrency
+                                        ))
                                         .font(.headline)
-                                    Text(AccountSummaryFormatting.costSource(summary))
-                                        .foregroundStyle(.secondary)
+                                        Text(AccountSummaryFormatting.billing(summary))
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
                                 }
 
-                                Spacer(minLength: 12)
-
-                                VStack(alignment: .trailing, spacing: 6) {
-                                    DataQualityBadge(quality: summary.dataQuality)
-                                    Text(AccountSummaryFormatting.money(
-                                        summary.displayAmountMicros,
-                                        currency: summary.displayCurrency
-                                    ))
-                                    .font(.headline)
-                                    Text(AccountSummaryFormatting.billing(summary))
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
+                                // Matched by account id, never by position: this
+                                // list and the quota groups are ordered
+                                // independently, and attributing one
+                                // subscription's quota to another is the failure
+                                // this app works hardest to avoid.
+                                if let quota = quotaBars.first(where: { $0.id == summary.account.id }) {
+                                    if let message = quota.message {
+                                        Text(message)
+                                            .font(.callout)
+                                            .foregroundStyle(.secondary)
+                                    } else if quota.isSilent {
+                                        Text(QuotaIndicator.noQuotaReportedMessage)
+                                            .font(.callout)
+                                            .foregroundStyle(.secondary)
+                                    } else {
+                                        // Per group, never flattened: a row's id is
+                                        // its window kind, unique within a group but
+                                        // repeated across accounts.
+                                        VStack(alignment: .leading, spacing: 6) {
+                                            ForEach(quota.rows) { row in
+                                                QuotaBarRowView(row: row)
+                                            }
+                                        }
+                                    }
                                 }
                             }
                             .padding(14)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                             .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 8))
                         }
                     }
