@@ -42,6 +42,46 @@ struct SyncWatermark: Equatable, Sendable {
     var updatedAt: Date
 }
 
+/// A machine-wide daily total for one model, read from the local Claude Code
+/// transcripts.
+///
+/// Deliberately account-free: the transcripts carry no marker of which
+/// subscription was active, so these totals are the sum across all of them and
+/// must not pretend otherwise.
+///
+/// A write is a *delta*, not a state. Transcripts are read incrementally, so the
+/// same `(bucketStart, modelKey)` is written repeatedly with only the newly-read
+/// tokens; the store adds it to what is already there.
+struct LocalTokenUsage: Equatable, Sendable {
+    /// Start of the UTC day this total belongs to.
+    var bucketStart: Date
+    var model: String?
+    var inputTokens: Int64 = 0
+    var cacheCreationTokens: Int64 = 0
+    var cacheReadTokens: Int64 = 0
+    var outputTokens: Int64 = 0
+    var requests: Int64 = 0
+
+    /// Stable key for a possibly-absent model name, so an unnamed model gets one
+    /// row rather than colliding on NULL.
+    var modelKey: String { LedgerModelIdentity.makeKey(for: model) }
+
+    var totalTokens: Int64 {
+        inputTokens + cacheCreationTokens + cacheReadTokens + outputTokens
+    }
+}
+
+/// Resume point for the machine-wide transcript scan. `SyncWatermark` minus its
+/// account, because the scan has none.
+struct LocalScanWatermark: Equatable, Sendable {
+    /// Stable identifier for the source. For local logs, the file path.
+    var sourceKey: String
+    var fileSize: Int64
+    var fileMTime: Date
+    var byteOffset: Int64
+    var updatedAt: Date
+}
+
 struct DailyUsageSummary: Identifiable, Equatable, Sendable {
     let accountID: UUID
     var dayStart: Date
@@ -476,6 +516,59 @@ private struct SyncWatermarkRecord: Codable, FetchableRecord, PersistableRecord,
     }
 }
 
+private struct LocalTokenUsageRecord: Codable, FetchableRecord, PersistableRecord, TableRecord {
+    static let databaseTableName = LedgerTable.localTokenUsage
+
+    var bucketStart: Date
+    var modelKey: String
+    var model: String?
+    var inputTokens: Int64
+    var cacheCreationTokens: Int64
+    var cacheReadTokens: Int64
+    var outputTokens: Int64
+    var requests: Int64
+
+    var usage: LocalTokenUsage {
+        LocalTokenUsage(
+            bucketStart: bucketStart,
+            model: model,
+            inputTokens: inputTokens,
+            cacheCreationTokens: cacheCreationTokens,
+            cacheReadTokens: cacheReadTokens,
+            outputTokens: outputTokens,
+            requests: requests
+        )
+    }
+}
+
+private struct LocalScanWatermarkRecord: Codable, FetchableRecord, PersistableRecord, TableRecord {
+    static let databaseTableName = LedgerTable.localScanWatermarks
+
+    var sourceKey: String
+    var fileSize: Int64
+    var fileMTime: Date
+    var byteOffset: Int64
+    var updatedAt: Date
+
+    init(_ watermark: LocalScanWatermark) {
+        sourceKey = watermark.sourceKey
+        fileSize = watermark.fileSize
+        fileMTime = watermark.fileMTime
+        byteOffset = watermark.byteOffset
+        updatedAt = watermark.updatedAt
+    }
+
+    var watermark: LocalScanWatermark {
+        LocalScanWatermark(
+            sourceKey: sourceKey,
+            fileSize: fileSize,
+            fileMTime: fileMTime,
+            byteOffset: byteOffset,
+            updatedAt: updatedAt
+        )
+    }
+}
+
 private struct RateWindowSampleRecord: Codable, FetchableRecord, PersistableRecord, TableRecord {
     static let databaseTableName = LedgerTable.rateWindowSamples
 
@@ -808,6 +901,118 @@ final class LedgerStore {
                     estimateSnapshots: estimateSnapshots
                 )
             }
+        }
+    }
+
+    /// Adds the given deltas to the machine-wide daily per-model totals.
+    ///
+    /// **This accumulates; it does not replace.** A transcript is read
+    /// incrementally, so the same `(bucketStart, modelKey)` arrives again and
+    /// again carrying only the tokens read since the last write. Turning any of
+    /// these clauses into `= excluded.column` silently destroys everything
+    /// accumulated for that day and model — a defect this project has shipped
+    /// three times.
+    func upsertLocalTokenUsage(_ rows: [LocalTokenUsage]) throws {
+        guard !rows.isEmpty else { return }
+
+        try dbQueue.write { db in
+            for row in rows {
+                try db.execute(
+                    sql: """
+                        INSERT INTO \(LedgerTable.localTokenUsage) (
+                            \(LedgerColumn.bucketStart),
+                            \(LedgerColumn.modelKey),
+                            \(LedgerColumn.model),
+                            \(LedgerColumn.inputTokens),
+                            \(LedgerColumn.cacheCreationTokens),
+                            \(LedgerColumn.cacheReadTokens),
+                            \(LedgerColumn.outputTokens),
+                            \(LedgerColumn.requests)
+                        )
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        ON CONFLICT(\(LedgerColumn.bucketStart), \(LedgerColumn.modelKey)) DO UPDATE SET
+                            \(LedgerColumn.model) = excluded.\(LedgerColumn.model),
+                            \(LedgerColumn.inputTokens) =
+                                \(LedgerColumn.inputTokens) + excluded.\(LedgerColumn.inputTokens),
+                            \(LedgerColumn.cacheCreationTokens) =
+                                \(LedgerColumn.cacheCreationTokens) + excluded.\(LedgerColumn.cacheCreationTokens),
+                            \(LedgerColumn.cacheReadTokens) =
+                                \(LedgerColumn.cacheReadTokens) + excluded.\(LedgerColumn.cacheReadTokens),
+                            \(LedgerColumn.outputTokens) =
+                                \(LedgerColumn.outputTokens) + excluded.\(LedgerColumn.outputTokens),
+                            \(LedgerColumn.requests) =
+                                \(LedgerColumn.requests) + excluded.\(LedgerColumn.requests)
+                        """,
+                    arguments: [
+                        row.bucketStart,
+                        row.modelKey,
+                        row.model,
+                        row.inputTokens,
+                        row.cacheCreationTokens,
+                        row.cacheReadTokens,
+                        row.outputTokens,
+                        row.requests,
+                    ]
+                )
+            }
+        }
+    }
+
+    /// Rows whose day starts on or after `since`. Nil means all time.
+    func fetchLocalTokenUsage(since: Date?) throws -> [LocalTokenUsage] {
+        try dbQueue.read { db in
+            var request = LocalTokenUsageRecord.all()
+            if let since {
+                request = request.filter(Column(LedgerColumn.bucketStart) >= since)
+            }
+
+            return try request
+                .order(
+                    Column(LedgerColumn.bucketStart).asc,
+                    Column(LedgerColumn.modelKey).asc
+                )
+                .fetchAll(db)
+                .map(\.usage)
+        }
+    }
+
+    func fetchLocalScanWatermark(sourceKey: String) throws -> LocalScanWatermark? {
+        try dbQueue.read { db in
+            try LocalScanWatermarkRecord
+                .filter(Column(LedgerColumn.sourceKey) == sourceKey)
+                .fetchOne(db)?
+                .watermark
+        }
+    }
+
+    func saveLocalScanWatermark(_ watermark: LocalScanWatermark) throws {
+        let record = LocalScanWatermarkRecord(watermark)
+
+        try dbQueue.write { db in
+            try db.execute(
+                sql: """
+                    INSERT INTO \(LedgerTable.localScanWatermarks) (
+                        \(LedgerColumn.sourceKey),
+                        \(LedgerColumn.fileSize),
+                        \(LedgerColumn.fileMTime),
+                        \(LedgerColumn.byteOffset),
+                        \(LedgerColumn.updatedAt)
+                    )
+                    VALUES (?, ?, ?, ?, ?)
+                    ON CONFLICT(\(LedgerColumn.sourceKey)) DO UPDATE SET
+                        \(LedgerColumn.fileSize) = excluded.\(LedgerColumn.fileSize),
+                        \(LedgerColumn.fileMTime) = excluded.\(LedgerColumn.fileMTime),
+                        \(LedgerColumn.byteOffset) = excluded.\(LedgerColumn.byteOffset),
+                        \(LedgerColumn.updatedAt) = excluded.\(LedgerColumn.updatedAt)
+                    """,
+                arguments: [
+                    record.sourceKey,
+                    record.fileSize,
+                    record.fileMTime,
+                    record.byteOffset,
+                    record.updatedAt,
+                ]
+            )
         }
     }
 

@@ -337,6 +337,84 @@ final class MigrationTests: XCTestCase {
         }
     }
 
+    /// v9 adds the two account-free tables. The absence of an account column is
+    /// the point, not an oversight: the transcripts cannot be attributed to a
+    /// subscription, so a column — even a nullable one — would be read as an
+    /// attribution that does not exist.
+    func testV9CreatesAccountFreeLocalTables() throws {
+        let dbQueue = try DatabaseQueueFactory.makeInMemory()
+        try Migrations.makeMigrator().migrate(dbQueue)
+
+        try dbQueue.read { db in
+            XCTAssertTrue(try db.tableExists(LedgerTable.localTokenUsage))
+            XCTAssertTrue(try db.tableExists(LedgerTable.localScanWatermarks))
+
+            let usageColumns = try db.columns(in: LedgerTable.localTokenUsage).map(\.name)
+            XCTAssertFalse(
+                usageColumns.contains(LedgerColumn.accountID),
+                "these totals span every subscription and must carry no account"
+            )
+            XCTAssertEqual(
+                Set(usageColumns),
+                Set([
+                    LedgerColumn.bucketStart, LedgerColumn.modelKey, LedgerColumn.model,
+                    LedgerColumn.inputTokens, LedgerColumn.cacheCreationTokens,
+                    LedgerColumn.cacheReadTokens, LedgerColumn.outputTokens,
+                    LedgerColumn.requests,
+                ])
+            )
+
+            let primaryKey = try db.primaryKey(LedgerTable.localTokenUsage)
+            XCTAssertEqual(primaryKey.columns, [LedgerColumn.bucketStart, LedgerColumn.modelKey])
+
+            let watermarkColumns = try db.columns(in: LedgerTable.localScanWatermarks).map(\.name)
+            XCTAssertFalse(watermarkColumns.contains(LedgerColumn.accountID))
+            XCTAssertEqual(
+                Set(watermarkColumns),
+                Set([
+                    LedgerColumn.sourceKey, LedgerColumn.fileSize, LedgerColumn.fileMTime,
+                    LedgerColumn.byteOffset, LedgerColumn.updatedAt,
+                ])
+            )
+        }
+    }
+
+    /// v9 only adds. A database that stopped at v8 must arrive with its existing
+    /// sync watermarks — which do carry an account — untouched.
+    func testV9LeavesSyncWatermarksAloneAndPreservesTheirRows() throws {
+        let dbQueue = try DatabaseQueueFactory.makeInMemory()
+        let migrator = Migrations.makeMigrator()
+
+        try migrator.migrate(dbQueue, upTo: "v8_rate_window_reset_optional")
+
+        let accountID = UUID()
+        let stamp = Date(timeIntervalSince1970: 1_800_000_000)
+        try dbQueue.write { db in
+            try db.execute(
+                sql: """
+                    INSERT INTO syncWatermarks (sourceKey, accountID, fileSize, fileMTime, byteOffset, updatedAt)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                arguments: ["/tmp/existing.jsonl", accountID.uuidString, 4_096, stamp, 2_048, stamp]
+            )
+        }
+
+        try migrator.migrate(dbQueue)
+
+        let store = LedgerStore(dbQueue: dbQueue)
+        let surviving = try XCTUnwrap(try store.fetchWatermark(sourceKey: "/tmp/existing.jsonl"))
+        XCTAssertEqual(surviving.accountID, accountID)
+        XCTAssertEqual(surviving.byteOffset, 2_048)
+
+        try dbQueue.read { db in
+            XCTAssertTrue(
+                try db.columns(in: LedgerTable.syncWatermarks).map(\.name)
+                    .contains(LedgerColumn.accountID),
+                "syncWatermarks keeps its account; only the new table drops the concept"
+            )
+        }
+    }
+
     /// A v6 database — one that never saw v7 either — must arrive at the current
     /// schema with its samples intact. The upgrade path a real install takes is
     /// the whole chain, not the last step alone.

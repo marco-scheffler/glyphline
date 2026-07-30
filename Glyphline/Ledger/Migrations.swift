@@ -9,6 +9,8 @@ enum LedgerTable {
     static let accountSyncStates = "accountSyncStates"
     static let syncWatermarks = "syncWatermarks"
     static let rateWindowSamples = "rateWindowSamples"
+    static let localTokenUsage = "localTokenUsage"
+    static let localScanWatermarks = "localScanWatermarks"
 }
 
 enum LedgerColumn {
@@ -334,6 +336,36 @@ enum Migrations {
                     LedgerColumn.observedAt,
                 ]
             )
+        }
+
+        migrator.registerMigration("v9_local_token_usage") { db in
+            // Machine-wide daily totals per model. There is deliberately no
+            // account column: the transcripts under ~/.claude/projects carry no
+            // marker of which subscription was active, and `/login` writes into
+            // the same directory. These totals are the sum across every
+            // subscription and cannot be split. A nullable column or a sentinel
+            // id would be read as an account by the next person to look.
+            try db.create(table: LedgerTable.localTokenUsage) { table in
+                table.column(LedgerColumn.bucketStart, .datetime).notNull()
+                table.column(LedgerColumn.modelKey, .text).notNull()
+                table.column(LedgerColumn.model, .text)
+                table.column(LedgerColumn.inputTokens, .integer).notNull().defaults(to: 0)
+                table.column(LedgerColumn.cacheCreationTokens, .integer).notNull().defaults(to: 0)
+                table.column(LedgerColumn.cacheReadTokens, .integer).notNull().defaults(to: 0)
+                table.column(LedgerColumn.outputTokens, .integer).notNull().defaults(to: 0)
+                table.column(LedgerColumn.requests, .integer).notNull().defaults(to: 0)
+                table.primaryKey([LedgerColumn.bucketStart, LedgerColumn.modelKey])
+            }
+
+            // The same shape as syncWatermarks minus accountID, for the same
+            // reason: a machine-wide scan has no account.
+            try db.create(table: LedgerTable.localScanWatermarks) { table in
+                table.column(LedgerColumn.sourceKey, .text).primaryKey()
+                table.column(LedgerColumn.fileSize, .integer).notNull()
+                table.column(LedgerColumn.fileMTime, .datetime).notNull()
+                table.column(LedgerColumn.byteOffset, .integer).notNull()
+                table.column(LedgerColumn.updatedAt, .datetime).notNull()
+            }
         }
 
         return migrator
