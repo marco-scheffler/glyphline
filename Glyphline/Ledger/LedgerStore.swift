@@ -82,6 +82,22 @@ struct LocalScanWatermark: Equatable, Sendable {
     var updatedAt: Date
 }
 
+/// A session sitting in the pit lane: it was on the map, then went quiet for
+/// longer than the horizon.
+///
+/// `lastActivityAt` is kept alongside `parkedAt` because they answer different
+/// questions — how long since it did anything, versus how long until it expires.
+struct ParkedAgentSession: Identifiable, Equatable, Sendable {
+    var sessionID: String
+    var cwd: String
+    var gitBranch: String?
+    var subagentCount: Int
+    var lastActivityAt: Date
+    var parkedAt: Date
+
+    var id: String { sessionID }
+}
+
 struct DailyUsageSummary: Identifiable, Equatable, Sendable {
     let accountID: UUID
     var dayStart: Date
@@ -569,6 +585,37 @@ private struct LocalScanWatermarkRecord: Codable, FetchableRecord, PersistableRe
     }
 }
 
+private struct ParkedAgentRecord: Codable, FetchableRecord, PersistableRecord, TableRecord {
+    static let databaseTableName = LedgerTable.agentverseParked
+
+    var sessionID: String
+    var cwd: String
+    var gitBranch: String?
+    var subagentCount: Int
+    var lastActivityAt: Date
+    var parkedAt: Date
+
+    init(_ session: ParkedAgentSession) {
+        sessionID = session.sessionID
+        cwd = session.cwd
+        gitBranch = session.gitBranch
+        subagentCount = session.subagentCount
+        lastActivityAt = session.lastActivityAt
+        parkedAt = session.parkedAt
+    }
+
+    var session: ParkedAgentSession {
+        ParkedAgentSession(
+            sessionID: sessionID,
+            cwd: cwd,
+            gitBranch: gitBranch,
+            subagentCount: subagentCount,
+            lastActivityAt: lastActivityAt,
+            parkedAt: parkedAt
+        )
+    }
+}
+
 private struct RateWindowSampleRecord: Codable, FetchableRecord, PersistableRecord, TableRecord {
     static let databaseTableName = LedgerTable.rateWindowSamples
 
@@ -1044,6 +1091,43 @@ final class LedgerStore {
                 record.updatedAt,
             ]
         )
+    }
+
+    /// Upsert on the session id: a session that parks, wakes and parks again is
+    /// one card, not three.
+    func saveParkedAgent(_ session: ParkedAgentSession) throws {
+        try dbQueue.write { db in
+            try ParkedAgentRecord(session).save(db)
+        }
+    }
+
+    func fetchParkedAgents() throws -> [ParkedAgentSession] {
+        try dbQueue.read { db in
+            try ParkedAgentRecord
+                .order(Column(LedgerColumn.parkedAt).desc)
+                .fetchAll(db)
+                .map(\.session)
+        }
+    }
+
+    /// This is what dismissing a session means. There is no tombstone: if it
+    /// writes again it comes back through the ordinary entry rule, which is what
+    /// stops a dismissal from hiding something that is still running.
+    func deleteParkedAgent(sessionID: String) throws {
+        try dbQueue.write { db in
+            _ = try ParkedAgentRecord
+                .filter(Column(LedgerColumn.sessionID) == sessionID)
+                .deleteAll(db)
+        }
+    }
+
+    @discardableResult
+    func expireParkedAgents(parkedBefore cutoff: Date) throws -> Int {
+        try dbQueue.write { db in
+            try ParkedAgentRecord
+                .filter(Column(LedgerColumn.parkedAt) < cutoff)
+                .deleteAll(db)
+        }
     }
 
     func fetchWatermark(sourceKey: String) throws -> SyncWatermark? {

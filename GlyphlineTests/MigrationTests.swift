@@ -451,4 +451,29 @@ final class MigrationTests: XCTestCase {
             accuracy: 0.001
         )
     }
+
+    /// The table is new, so nothing is carried across — what matters is that a
+    /// database already at v9 reaches v10 and can hold a row.
+    func testV10AddsTheParkedAgentTableToAnExistingLedger() throws {
+        let dbQueue = try DatabaseQueueFactory.makeInMemory()
+        let migrator = Migrations.makeMigrator()
+        try migrator.migrate(dbQueue, upTo: "v9_local_token_usage")
+
+        try migrator.migrate(dbQueue)
+
+        let store = LedgerStore(dbQueue: dbQueue)
+        try store.saveParkedAgent(
+            ParkedAgentSession(
+                sessionID: "S1",
+                cwd: "/repo",
+                gitBranch: nil,
+                subagentCount: 0,
+                lastActivityAt: Date(timeIntervalSince1970: 1_800_000_000),
+                parkedAt: Date(timeIntervalSince1970: 1_800_003_600)
+            )
+        )
+
+        XCTAssertEqual(try store.fetchParkedAgents().count, 1)
+        XCTAssertNil(try store.fetchParkedAgents()[0].gitBranch)
+    }
 }

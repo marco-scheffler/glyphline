@@ -11,6 +11,7 @@ enum LedgerTable {
     static let rateWindowSamples = "rateWindowSamples"
     static let localTokenUsage = "localTokenUsage"
     static let localScanWatermarks = "localScanWatermarks"
+    static let agentverseParked = "agentverseParked"
 }
 
 enum LedgerColumn {
@@ -57,6 +58,12 @@ enum LedgerColumn {
     static let resetAt = "resetAt"
     static let quotaCredentialReference = "quotaCredentialReference"
     static let claudeOrganizationID = "claudeOrganizationID"
+    static let sessionID = "sessionID"
+    static let cwd = "cwd"
+    static let gitBranch = "gitBranch"
+    static let subagentCount = "subagentCount"
+    static let lastActivityAt = "lastActivityAt"
+    static let parkedAt = "parkedAt"
 }
 
 enum Migrations {
@@ -366,6 +373,35 @@ enum Migrations {
                 table.column(LedgerColumn.byteOffset, .integer).notNull()
                 table.column(LedgerColumn.updatedAt, .datetime).notNull()
             }
+        }
+
+        migrator.registerMigration("v10_agentverse_parked") { db in
+            // Sessions that dropped off the map but have not been thrown away yet.
+            //
+            // Persisted rather than held in memory, because the 96-hour expiry is
+            // otherwise meaningless: every restart would clear the pit lane and the
+            // frist would never elapse. With the rows on disk, dismissing a session
+            // is simply deleting one, and a session that starts writing again
+            // re-enters through the ordinary 60-minute rule — no second mechanism,
+            // and no way to stay blind to something that is running.
+            //
+            // Account-free like the rest of the local scan: a transcript carries no
+            // marker of which subscription produced it.
+            try db.create(table: LedgerTable.agentverseParked) { table in
+                table.column(LedgerColumn.sessionID, .text).primaryKey()
+                table.column(LedgerColumn.cwd, .text).notNull()
+                table.column(LedgerColumn.gitBranch, .text)
+                table.column(LedgerColumn.subagentCount, .integer).notNull().defaults(to: 0)
+                table.column(LedgerColumn.lastActivityAt, .datetime).notNull()
+                table.column(LedgerColumn.parkedAt, .datetime).notNull()
+            }
+
+            // The expiry sweep and the render both order by this.
+            try db.create(
+                index: "index_agentverseParked_on_parkedAt",
+                on: LedgerTable.agentverseParked,
+                columns: [LedgerColumn.parkedAt]
+            )
         }
 
         return migrator
