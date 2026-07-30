@@ -192,7 +192,10 @@ final class ClaudeSignInWindow: NSObject {
 
         let statusLabel = NSTextField(labelWithString: Self.promptText)
         statusLabel.lineBreakMode = .byWordWrapping
-        statusLabel.maximumNumberOfLines = 2
+        // Four, not two: a failure sentence carrying the shape diagnostic runs
+        // longer than two lines, and a truncated diagnostic is worse than none —
+        // it is read as the whole message and sends the reader off wrong.
+        statusLabel.maximumNumberOfLines = 4
         statusLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         self.statusLabel = statusLabel
 
