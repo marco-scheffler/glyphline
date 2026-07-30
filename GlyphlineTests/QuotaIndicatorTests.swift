@@ -86,6 +86,161 @@ final class QuotaIndicatorTests: XCTestCase {
         )
     }
 
+    /// The shape a freshly added subscription reports: a real fraction and no
+    /// window running at all, because a rolling window only starts on first use.
+    private func windowWithoutReset(
+        kind: RateWindowKind = .rollingFiveHours,
+        used: Double?,
+        observedMinutesAgo: Double = 0,
+        confirmedMinutesAgo: Double? = nil
+    ) -> QuotaWindowState {
+        QuotaWindowState(
+            window: RateWindow(
+                kind: kind,
+                usedFraction: used,
+                resetAt: nil,
+                observedAt: now.addingTimeInterval(-observedMinutesAgo * 60)
+            ),
+            confirmedAt: confirmedMinutesAgo.map { now.addingTimeInterval(-$0 * 60) }
+        )
+    }
+
+    // MARK: - Windows with no reset instant
+
+    /// The defect this change exists for. An unused subscription is the most
+    /// available account there is — nothing consumed — and the light showed grey
+    /// because the reading carried no reset instant to go with the fraction.
+    func testAnUnusedSubscriptionIsGreenRatherThanGrey() {
+        let states = [accountWith("Second Subscription", windows: [
+            windowWithoutReset(kind: .rollingFiveHours, used: 0),
+            windowWithoutReset(kind: .weekly, used: 0),
+        ])]
+
+        XCTAssertEqual(QuotaIndicator.light(for: states, now: now, freshness: freshness), .green)
+    }
+
+    /// It is available *now*, so it is named that way. The reset instant decides
+    /// how a wait is described, never whether there is capacity.
+    func testAnUnusedSubscriptionIsNamedAsAvailableNow() {
+        let states = [accountWith("Second Subscription", windows: [
+            windowWithoutReset(used: 0),
+        ])]
+
+        XCTAssertEqual(
+            visible(QuotaIndicator.nextFree(for: states, now: now, freshness: freshness, formatting: formatting)),
+            "Second Subscription — now"
+        )
+    }
+
+    /// The counter-rule, and the reason the two are deliberately asymmetric: a
+    /// window with no reset instant cannot be waited out, so it must never be
+    /// offered as a moment to come back at. An exhausted account with no instant
+    /// names nothing at all.
+    func testAnExhaustedWindowWithNoResetInstantNamesNoNextFreeMoment() {
+        let states = [accountWith("Max #1", windows: [
+            windowWithoutReset(used: 1.0),
+        ])]
+
+        XCTAssertNil(
+            QuotaIndicator.nextFree(for: states, now: now, freshness: freshness, formatting: formatting)
+        )
+    }
+
+    /// And it must not win the "soonest" comparison either — a nil instant
+    /// treated as `.distantPast` would beat every real one and name an account
+    /// that will never free up on its own.
+    func testANilResetInstantDoesNotOutrankARealOne() {
+        let states = [
+            accountWith("Max #1", windows: [windowWithoutReset(used: 1.0)]),
+            // 09:00 UTC plus 60 minutes.
+            accountWith("Max #2", windows: [window(used: 1.0, resetMinutesFromNow: 60)]),
+        ]
+
+        XCTAssertEqual(
+            visible(QuotaIndicator.nextFree(for: states, now: now, freshness: freshness, formatting: formatting)),
+            "Max #2 — 10:00 AM"
+        )
+    }
+
+    /// The row says what is true instead of borrowing "resets in …" for a window
+    /// that is not running.
+    func testARowWithNoResetInstantSaysThereIsNoActiveWindow() {
+        let window = RateWindow(
+            kind: .rollingFiveHours,
+            usedFraction: 0,
+            resetAt: nil,
+            observedAt: now
+        )
+        let text = visible(QuotaIndicator.rowText(for: window, now: now, formatting: formatting)) ?? ""
+
+        XCTAssertEqual(text, "5h 0% — no active window")
+        XCTAssertFalse(text.contains("resets"), "there is no instant, so nothing may be said to reset")
+    }
+
+    /// The verb belongs to the instant, not to the row: with nothing to end,
+    /// the cycle does not say "ends" either.
+    func testACycleWithNoEndInstantDropsItsVerbToo() {
+        let window = RateWindow(
+            kind: .billingCycle,
+            usedFraction: nil,
+            resetAt: nil,
+            observedAt: now
+        )
+        let text = visible(QuotaIndicator.rowText(for: window, now: now, formatting: formatting)) ?? ""
+
+        XCTAssertEqual(text, "Cycle — usage unknown, no active window")
+        XCTAssertFalse(text.contains("ends"))
+    }
+
+    /// The bar detail, which is the string a real user reads on the card: the
+    /// number that matters, and an honest blank where the countdown would be.
+    func testABarDetailWithNoResetInstantReadsAsFullAndIdle() {
+        let states = [accountWith("Second Subscription", windows: [
+            windowWithoutReset(used: 0),
+        ])]
+
+        let row = QuotaIndicator.barGroups(
+            for: states, now: now, freshness: freshness, formatting: formatting
+        ).first?.rows.first
+
+        XCTAssertEqual(row?.detail, "100% left · no active window")
+        XCTAssertEqual(row?.remainingFraction, 1.0)
+        XCTAssertEqual(row?.severity, .normal)
+        XCTAssertFalse(row?.detail.contains("resets") ?? true)
+    }
+
+    /// A group built from such a window has rows, so the "No quota reported yet."
+    /// placeholder must not take their place.
+    func testAnUnusedSubscriptionIsNotSilent() {
+        let states = [accountWith("Second Subscription", windows: [
+            windowWithoutReset(kind: .rollingFiveHours, used: 0),
+            windowWithoutReset(kind: .weekly, used: 0),
+        ])]
+
+        let group = QuotaIndicator.barGroups(
+            for: states, now: now, freshness: freshness, formatting: formatting
+        ).first
+
+        XCTAssertEqual(group?.rows.count, 2)
+        XCTAssertEqual(group?.isSilent, false)
+    }
+
+    /// Freshness still applies: no reset instant is not a licence to believe an
+    /// aged reading forever.
+    func testAStaleWindowWithNoResetInstantIsStillStale() {
+        let states = [accountWith("Second Subscription", windows: [
+            windowWithoutReset(used: 0, observedMinutesAgo: 120),
+        ])]
+
+        XCTAssertEqual(QuotaIndicator.light(for: states, now: now, freshness: freshness), .grey)
+        XCTAssertEqual(
+            visible(QuotaIndicator.rowGroups(
+                for: states, now: now, freshness: freshness, formatting: formatting
+            ).first?.rows.first),
+            "5h 0% — no active window (as of 7:00 AM)"
+        )
+    }
+
     func testHeadroomAnywhereIsGreen() {
         let states = [account("A", used: 1.0), account("B", used: 0.3)]
         XCTAssertEqual(QuotaIndicator.light(for: states, now: now, freshness: freshness), .green)

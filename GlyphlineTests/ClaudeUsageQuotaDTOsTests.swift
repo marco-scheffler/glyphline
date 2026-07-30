@@ -31,7 +31,11 @@ final class ClaudeUsageQuotaDTOsTests: XCTestCase {
 
         let fiveHour = try XCTUnwrap(windows.first { $0.kind == .rollingFiveHours })
         // 2026-07-29T10:30:00.695306+00:00 — microsecond precision must parse.
-        XCTAssertEqual(fiveHour.resetAt.timeIntervalSince1970, 1_785_321_000.695306, accuracy: 0.001)
+        XCTAssertEqual(
+            try XCTUnwrap(fiveHour.resetAt).timeIntervalSince1970,
+            1_785_321_000.695306,
+            accuracy: 0.001
+        )
     }
 
     func testDecodingSurvivesWithEveryCodenameFieldRemoved() throws {

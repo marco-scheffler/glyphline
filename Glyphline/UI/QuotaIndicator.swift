@@ -138,6 +138,16 @@ enum QuotaIndicator {
     /// nothing under it reads as a broken row, so no group renders headless.
     static let noQuotaReportedMessage = "No quota reported yet."
 
+    /// Stands in for the reset instant on a window that has none. Both surfaces
+    /// read this one constant so a row and a bar cannot start wording the same
+    /// fact differently.
+    ///
+    /// Not "unknown" and not "never": the app knows exactly what it was told —
+    /// there is no window running, so there is nothing to wait for. Deliberately
+    /// carries no verb, because "resets never" would be a claim about the
+    /// future and "resets —" would be a gap.
+    static let noActiveWindowText = "no active window"
+
     /// The one exhaustion threshold in the app. `hasHeadroom` — and therefore
     /// the menu bar light — and a row's `.exhausted` verdict both compare
     /// against *this* constant rather than against two literals that happen to
@@ -186,6 +196,12 @@ enum QuotaIndicator {
     /// A window can only decide headroom when it is fresh *and* carries a
     /// fraction. A reset instant without a fraction is worth displaying but
     /// tells us nothing about capacity.
+    ///
+    /// The converse is deliberately NOT symmetric: a fraction without a reset
+    /// instant decides headroom perfectly well. An unused subscription reports
+    /// exactly that — 0% consumed, no window running — and it is the most
+    /// available account there is. Requiring an instant here would have hidden
+    /// every freshly added subscription behind a grey light.
     private static func decidableFraction(
         _ state: QuotaWindowState,
         now: Date,
@@ -235,14 +251,20 @@ enum QuotaIndicator {
     /// applies, so the two functions cannot disagree about the same data — and
     /// still in the future, because an elapsed `resetAt` names a moment that
     /// has already come and gone.
+    ///
+    /// A window with no reset instant is skipped, and that is the deliberate
+    /// counterpart to `decidableFraction` counting it: "waiting is pointless,
+    /// come back at X" needs an X. The two rules pull in opposite directions on
+    /// purpose — such a window is available *now* and names no later moment.
     private static func soonestUsefulReset(
         _ state: QuotaAccountState,
         now: Date,
         freshness: TimeInterval
     ) -> Date? {
         state.windows
-            .filter { isFresh($0, now: now, freshness: freshness) && $0.window.resetAt > now }
-            .map(\.window.resetAt)
+            .filter { isFresh($0, now: now, freshness: freshness) }
+            .compactMap(\.window.resetAt)
+            .filter { $0 > now }
             .min()
     }
 
@@ -461,11 +483,14 @@ enum QuotaIndicator {
                     // decide whether to wait, and "13:10" makes the reader
                     // subtract. Built against the injected `now` so it stays
                     // testable.
-                    let remaining = remainingText(
-                        until: windowState.window.resetAt,
-                        now: now,
-                        verb: verb
-                    )
+                    //
+                    // With no reset instant there is no wait to state, so the
+                    // slot says what is actually true rather than borrowing a
+                    // verb: "resets in …" over a window that is not running
+                    // would invent a countdown.
+                    let remaining = windowState.window.resetAt.map {
+                        remainingText(until: $0, now: now, verb: verb)
+                    } ?? noActiveWindowText
 
                     // The inversion lives here and nowhere else: `usedFraction`
                     // is what the provider reports and what `isPlausible`
@@ -503,6 +528,10 @@ enum QuotaIndicator {
     /// `asOf` is set exactly when the window is past the freshness bound. The row
     /// then names when the figure was last believed, because a percentage the app
     /// has formally decided not to trust must not be printed as a plain fact.
+    ///
+    /// A window with no reset instant says so in place of the instant. The verb
+    /// goes with the instant and not with the row, so `.billingCycle` still
+    /// reads "ends" wherever there is something to end.
     static func rowText(
         for window: RateWindow,
         now: Date,
@@ -511,13 +540,15 @@ enum QuotaIndicator {
     ) -> String {
         let (label, verb) = labelAndVerb(for: window.kind)
 
-        let reset = instantText(window.resetAt, now: now, formatting: formatting)
+        let tail = window.resetAt.map {
+            "\(verb) \(instantText($0, now: now, formatting: formatting))"
+        } ?? noActiveWindowText
 
         let head: String
         if let fraction = window.usedFraction {
-            head = "\(label) \(Int((fraction * 100).rounded()))% — \(verb) \(reset)"
+            head = "\(label) \(Int((fraction * 100).rounded()))% — \(tail)"
         } else {
-            head = "\(label) — usage unknown, \(verb) \(reset)"
+            head = "\(label) — usage unknown, \(tail)"
         }
 
         guard let asOf else { return head }

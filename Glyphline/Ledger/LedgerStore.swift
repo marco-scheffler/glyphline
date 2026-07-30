@@ -499,7 +499,9 @@ private struct RateWindowSampleRecord: Codable, FetchableRecord, PersistableReco
     var kind: String
     var observedAt: Date
     var usedFraction: Double?
-    var resetAt: Date
+    /// Nullable since v8: a window with no active reset is a state worth
+    /// storing, not a row to discard.
+    var resetAt: Date?
 
     init(_ window: RateWindow, accountID: UUID) {
         // A fresh UUID per observation, unlike the snapshot tables where
@@ -528,6 +530,31 @@ private struct RateWindowSampleRecord: Codable, FetchableRecord, PersistableReco
 final class LedgerStore {
     /// Just above GRDB's millisecond storage resolution.
     private static let resetAtStorageTolerance: TimeInterval = 0.002
+
+    /// Whether two reset instants are the same *as stored*.
+    ///
+    /// GRDB stores `Date` at millisecond resolution, so an instant carrying
+    /// finer precision never compares equal to its own round trip; an exact
+    /// comparison would append a row on every poll. The bound is just above the
+    /// storage error, not a semantic tolerance — a reset genuinely moving is
+    /// always far larger.
+    ///
+    /// Nil is a value here, not a wildcard: two windows with no active reset are
+    /// the same reading, and a window gaining or losing its reset is a genuine
+    /// change that must be recorded. Getting either half wrong is silent — one
+    /// way writes a duplicate row on every poll, the other drops a real
+    /// transition — which is why this is a named function with its own tests
+    /// rather than an expression inside the dedupe.
+    static func isSameStoredReset(_ lhs: Date?, _ rhs: Date?) -> Bool {
+        switch (lhs, rhs) {
+        case (nil, nil):
+            return true
+        case let (lhs?, rhs?):
+            return abs(lhs.timeIntervalSince(rhs)) < resetAtStorageTolerance
+        default:
+            return false
+        }
+    }
 
     private let dbQueue: DatabaseQueue
 
@@ -961,14 +988,9 @@ final class LedgerStore {
                 .order(Column(LedgerColumn.observedAt).desc)
                 .fetchOne(db)
 
-            // GRDB stores Date at millisecond resolution, so a resetAt carrying
-            // finer precision never compares equal to its own round trip. An
-            // exact comparison would therefore append a row on every tick.
-            // The bound is just above the storage error, not a semantic
-            // tolerance: a reset genuinely moving is always far larger.
             if let newest,
                newest.usedFraction == window.usedFraction,
-               abs(newest.resetAt.timeIntervalSince(window.resetAt)) < Self.resetAtStorageTolerance {
+               Self.isSameStoredReset(newest.resetAt, window.resetAt) {
                 return
             }
 

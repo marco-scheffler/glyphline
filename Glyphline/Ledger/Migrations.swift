@@ -278,6 +278,64 @@ enum Migrations {
             }
         }
 
+        migrator.registerMigration("v8_rate_window_reset_optional") { db in
+            // A window with no reset instant is a real state — a subscription
+            // that has not been used yet has nothing to reset — and the NOT NULL
+            // constraint made it unstorable. SQLite cannot drop a NOT NULL in
+            // place, so the table is recreated and copied, exactly as v4 did.
+            let rebuilt = "rateWindowSamples_v8"
+
+            try db.create(table: rebuilt) { table in
+                table.column(LedgerColumn.id, .text).primaryKey()
+                table.column(LedgerColumn.accountID, .text).notNull()
+                table.column(LedgerColumn.kind, .text).notNull()
+                table.column(LedgerColumn.observedAt, .datetime).notNull()
+                table.column(LedgerColumn.usedFraction, .double)
+                // The one difference from v6: nullable.
+                table.column(LedgerColumn.resetAt, .datetime)
+            }
+
+            // Every column copied straight across — this migration changes what
+            // the column may hold, never what any existing row holds.
+            try db.execute(
+                sql: """
+                    INSERT INTO \(rebuilt) (
+                        \(LedgerColumn.id),
+                        \(LedgerColumn.accountID),
+                        \(LedgerColumn.kind),
+                        \(LedgerColumn.observedAt),
+                        \(LedgerColumn.usedFraction),
+                        \(LedgerColumn.resetAt)
+                    )
+                    SELECT
+                        \(LedgerColumn.id),
+                        \(LedgerColumn.accountID),
+                        \(LedgerColumn.kind),
+                        \(LedgerColumn.observedAt),
+                        \(LedgerColumn.usedFraction),
+                        \(LedgerColumn.resetAt)
+                    FROM \(LedgerTable.rateWindowSamples)
+                    """
+            )
+
+            try db.drop(table: LedgerTable.rateWindowSamples)
+            try db.rename(table: rebuilt, to: LedgerTable.rateWindowSamples)
+
+            // Dropping the old table took its index with it, and the rename does
+            // not bring one along. Recreated under the v6 name so the schema
+            // ends up identical apart from the nullability — without this the
+            // "newest sample per account per kind" read degrades to a scan.
+            try db.create(
+                index: "index_rateWindowSamples_on_account_kind_observedAt",
+                on: LedgerTable.rateWindowSamples,
+                columns: [
+                    LedgerColumn.accountID,
+                    LedgerColumn.kind,
+                    LedgerColumn.observedAt,
+                ]
+            )
+        }
+
         return migrator
     }
 }

@@ -297,4 +297,135 @@ final class MigrationTests: XCTestCase {
             ))
         }
     }
+
+    /// The user's live ledger holds samples written under v6's `NOT NULL`, and
+    /// this migration recreates the table to lift that constraint. Recreate-and-
+    /// copy is exactly the step where rows go missing, so the surviving row is
+    /// checked value by value — not merely counted.
+    func testV8KeepsEveryExistingSampleWhileMakingTheResetInstantNullable() throws {
+        let dbQueue = try DatabaseQueueFactory.makeInMemory()
+        let migrator = Migrations.makeMigrator()
+
+        try migrator.migrate(dbQueue, upTo: "v7_claude_organization_id")
+
+        let accountID = UUID()
+        let sampleID = UUID().uuidString
+        let observedAt = Date(timeIntervalSince1970: 1_800_000_000)
+        let resetAt = Date(timeIntervalSince1970: 1_800_003_600)
+
+        try dbQueue.write { db in
+            try db.execute(
+                sql: """
+                    INSERT INTO rateWindowSamples (id, accountID, kind, observedAt, usedFraction, resetAt)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                arguments: [
+                    sampleID, accountID.uuidString, RateWindowKind.rollingFiveHours.rawValue,
+                    observedAt, 0.62, resetAt,
+                ]
+            )
+        }
+
+        try migrator.migrate(dbQueue)
+
+        try dbQueue.read { db in
+            XCTAssertEqual(
+                try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM rateWindowSamples"),
+                1,
+                "the recreate-and-copy must not lose a row"
+            )
+
+            let row = try XCTUnwrap(Row.fetchOne(
+                db,
+                sql: "SELECT * FROM rateWindowSamples WHERE id = ?",
+                arguments: [sampleID]
+            ))
+            XCTAssertEqual(row["accountID"], accountID.uuidString)
+            XCTAssertEqual(row["kind"], RateWindowKind.rollingFiveHours.rawValue)
+            XCTAssertEqual((row["observedAt"] as Date).timeIntervalSince1970,
+                           observedAt.timeIntervalSince1970, accuracy: 0.001)
+            XCTAssertEqual(try XCTUnwrap(row["usedFraction"] as Double?), 0.62, accuracy: 1e-9)
+            XCTAssertEqual(
+                try XCTUnwrap(row["resetAt"] as Date?).timeIntervalSince1970,
+                resetAt.timeIntervalSince1970,
+                accuracy: 0.001,
+                "an existing reset instant must come through unchanged, not blanked"
+            )
+        }
+
+        // And the point of the whole migration: the column now accepts NULL.
+        try dbQueue.write { db in
+            try db.execute(
+                sql: """
+                    INSERT INTO rateWindowSamples (id, accountID, kind, observedAt, usedFraction, resetAt)
+                    VALUES (?, ?, ?, ?, ?, NULL)
+                    """,
+                arguments: [
+                    UUID().uuidString, accountID.uuidString, RateWindowKind.weekly.rawValue,
+                    observedAt, 0.0,
+                ]
+            )
+        }
+
+        try dbQueue.read { db in
+            XCTAssertEqual(try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM rateWindowSamples"), 2)
+        }
+    }
+
+    /// Dropping the old table takes its index with it, and a rename does not
+    /// bring one along. Without this the "newest sample per account and kind"
+    /// read — which runs on every menu open — silently degrades to a scan.
+    func testV8LeavesTheSampleIndexInPlace() throws {
+        let dbQueue = try DatabaseQueueFactory.makeInMemory()
+        try Migrations.makeMigrator().migrate(dbQueue)
+
+        try dbQueue.read { db in
+            let indexes = try db.indexes(on: LedgerTable.rateWindowSamples)
+            let sampleIndex = try XCTUnwrap(
+                indexes.first { $0.name == "index_rateWindowSamples_on_account_kind_observedAt" },
+                "index names: \(indexes.map(\.name))"
+            )
+            XCTAssertEqual(
+                sampleIndex.columns,
+                [LedgerColumn.accountID, LedgerColumn.kind, LedgerColumn.observedAt]
+            )
+        }
+    }
+
+    /// A v6 database — one that never saw v7 either — must arrive at the current
+    /// schema with its samples intact. The upgrade path a real install takes is
+    /// the whole chain, not the last step alone.
+    func testASampleWrittenUnderV6SurvivesTheWholeChain() throws {
+        let dbQueue = try DatabaseQueueFactory.makeInMemory()
+        let migrator = Migrations.makeMigrator()
+
+        try migrator.migrate(dbQueue, upTo: "v6_rate_window_samples")
+
+        let accountID = UUID()
+        let observedAt = Date(timeIntervalSince1970: 1_799_000_000)
+        try dbQueue.write { db in
+            try db.execute(
+                sql: """
+                    INSERT INTO rateWindowSamples (id, accountID, kind, observedAt, usedFraction, resetAt)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                arguments: [
+                    UUID().uuidString, accountID.uuidString, RateWindowKind.weekly.rawValue,
+                    observedAt, 0.31, observedAt.addingTimeInterval(86_400),
+                ]
+            )
+        }
+
+        try migrator.migrate(dbQueue)
+
+        let store = LedgerStore(dbQueue: dbQueue)
+        let windows = try store.fetchLatestRateWindows(accountID: accountID)
+        XCTAssertEqual(windows.count, 1)
+        XCTAssertEqual(try XCTUnwrap(windows.first?.usedFraction), 0.31, accuracy: 1e-9)
+        XCTAssertEqual(
+            try XCTUnwrap(windows.first?.resetAt).timeIntervalSince1970,
+            observedAt.addingTimeInterval(86_400).timeIntervalSince1970,
+            accuracy: 0.001
+        )
+    }
 }

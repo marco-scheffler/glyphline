@@ -95,20 +95,124 @@ final class RateWindowStoreTests: XCTestCase {
 
     func testAResetMovingByMoreThanTheToleranceIsStillAChange() throws {
         let (store, dbQueue, accountID) = try makeStore()
+        let reset = Date(timeIntervalSince1970: 1_800_003_600)
         let window = RateWindow(
             kind: .rollingFiveHours,
             usedFraction: 0.04,
-            resetAt: Date(timeIntervalSince1970: 1_800_003_600),
+            resetAt: reset,
             observedAt: now
         )
         XCTAssertTrue(try store.saveRateWindow(window, accountID: accountID))
 
         var moved = window
-        moved.resetAt = window.resetAt.addingTimeInterval(60)
+        moved.resetAt = reset.addingTimeInterval(60)
         moved.observedAt = now.addingTimeInterval(1_800)
         XCTAssertTrue(try store.saveRateWindow(moved, accountID: accountID))
 
         XCTAssertEqual(try sampleCount(dbQueue), 2)
+    }
+
+    // MARK: - Windows with no reset instant
+
+    /// A subscription that has not been used yet reports the same "0% consumed,
+    /// nothing running" on every poll. If nil did not compare equal to nil the
+    /// dedupe would miss it and append a row every few minutes, forever.
+    func testTwoIdenticalObservationsWithNoResetInstantWriteOneRow() throws {
+        let (store, dbQueue, accountID) = try makeStore()
+        let window = RateWindow(
+            kind: .rollingFiveHours,
+            usedFraction: 0,
+            resetAt: nil,
+            observedAt: now
+        )
+
+        XCTAssertTrue(try store.saveRateWindow(window, accountID: accountID))
+
+        var repeated = window
+        repeated.observedAt = now.addingTimeInterval(1_800)
+        XCTAssertTrue(try store.saveRateWindow(repeated, accountID: accountID))
+
+        XCTAssertEqual(
+            try sampleCount(dbQueue), 1,
+            "the same reading twice is one observation, whether or not it has a reset instant"
+        )
+    }
+
+    /// The other half, and the one a sloppy nil comparison silently swallows:
+    /// the first use of a subscription *starts* the window, so the instant
+    /// appears out of nowhere. Dropping that transition would freeze the app on
+    /// "no active window" for as long as the fraction happened not to move.
+    func testAWindowGainingAResetInstantIsAppended() throws {
+        let (store, dbQueue, accountID) = try makeStore()
+        let idle = RateWindow(
+            kind: .rollingFiveHours,
+            usedFraction: 0,
+            resetAt: nil,
+            observedAt: now
+        )
+        XCTAssertTrue(try store.saveRateWindow(idle, accountID: accountID))
+
+        var started = idle
+        started.resetAt = now.addingTimeInterval(3_600)
+        started.observedAt = now.addingTimeInterval(1_800)
+        XCTAssertTrue(try store.saveRateWindow(started, accountID: accountID))
+
+        XCTAssertEqual(try sampleCount(dbQueue), 2, "nil and an instant are different readings")
+        XCTAssertNotNil(try store.fetchLatestRateWindows(accountID: accountID).first?.resetAt)
+    }
+
+    /// The mirror image: a window that stops running loses its instant, and that
+    /// is just as much a change. Asserted separately because a comparison can be
+    /// wrong in one direction only.
+    func testAWindowLosingItsResetInstantIsAppended() throws {
+        let (store, dbQueue, accountID) = try makeStore()
+        let running = RateWindow(
+            kind: .rollingFiveHours,
+            usedFraction: 0,
+            resetAt: now.addingTimeInterval(3_600),
+            observedAt: now
+        )
+        XCTAssertTrue(try store.saveRateWindow(running, accountID: accountID))
+
+        var stopped = running
+        stopped.resetAt = nil
+        stopped.observedAt = now.addingTimeInterval(1_800)
+        XCTAssertTrue(try store.saveRateWindow(stopped, accountID: accountID))
+
+        XCTAssertEqual(try sampleCount(dbQueue), 2)
+        XCTAssertNil(try store.fetchLatestRateWindows(accountID: accountID).first?.resetAt)
+    }
+
+    /// The comparison the two tests above hang on, pinned directly so a
+    /// regression names itself instead of surfacing as a row count.
+    func testResetInstantsCompareAsStoredWithNilAsAValue() {
+        let instant = Date(timeIntervalSince1970: 1_800_003_600)
+
+        XCTAssertTrue(LedgerStore.isSameStoredReset(nil, nil), "no window equals no window")
+        XCTAssertFalse(LedgerStore.isSameStoredReset(nil, instant))
+        XCTAssertFalse(LedgerStore.isSameStoredReset(instant, nil))
+        XCTAssertTrue(LedgerStore.isSameStoredReset(instant, instant.addingTimeInterval(0.0005)))
+        XCTAssertFalse(LedgerStore.isSameStoredReset(instant, instant.addingTimeInterval(60)))
+    }
+
+    /// A window with no reset instant has to survive the round trip through the
+    /// v8 column, or the ledger keeps it only until the next read.
+    func testAWindowWithNoResetInstantRoundTripsThroughTheLedger() throws {
+        let (store, _, accountID) = try makeStore()
+
+        XCTAssertTrue(
+            try store.saveRateWindow(
+                RateWindow(kind: .weekly, usedFraction: 0, resetAt: nil, observedAt: now),
+                accountID: accountID
+            ),
+            "a window with nothing to reset is a believable reading"
+        )
+
+        let stored = try XCTUnwrap(
+            store.fetchLatestRateWindows(accountID: accountID).first { $0.kind == .weekly }
+        )
+        XCTAssertNil(stored.resetAt)
+        XCTAssertEqual(try XCTUnwrap(stored.usedFraction), 0, accuracy: 1e-12)
     }
 
     func testImplausibleObservationsAreDiscarded() throws {

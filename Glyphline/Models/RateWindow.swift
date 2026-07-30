@@ -17,7 +17,16 @@ struct RateWindow: Codable, Equatable, Sendable {
     /// `nil` when a provider reports a reset instant but no consumed fraction.
     /// Such a window cannot contribute to a headroom decision.
     var usedFraction: Double?
-    var resetAt: Date
+    /// `nil` when there is no active window to reset — a real, common state, not
+    /// missing data. A rolling five-hour window only starts on first use, so a
+    /// freshly added subscription reports a fraction with no instant at all.
+    /// Treating that as unusable threw away the most useful reading there is:
+    /// nothing consumed, everything left.
+    ///
+    /// It means "cannot be waited out", never "unknown": a window with no
+    /// instant names no moment to come back at, which is why the next-free
+    /// string skips it while the light still counts it.
+    var resetAt: Date?
     var observedAt: Date
 
     /// Rejects readings that cannot be true.
@@ -30,6 +39,11 @@ struct RateWindow: Codable, Equatable, Sendable {
         if let usedFraction, !(0...1).contains(usedFraction) {
             return false
         }
+        // No instant is a *state*, not a defect, so there is nothing here to
+        // disbelieve. An instant that IS present still has to be in the future:
+        // a reset already elapsed at the moment of observation is a reading the
+        // provider cannot have meant.
+        guard let resetAt else { return true }
         return resetAt > now
     }
 }

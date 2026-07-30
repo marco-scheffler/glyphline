@@ -22,7 +22,13 @@ final class RateWindowSourceTests: XCTestCase {
         XCTAssertEqual(result.dataQuality, .partial)
         XCTAssertEqual(Set(result.windows.map(\.kind)), [.rollingFiveHours, .weekly])
         XCTAssertTrue(result.windows.allSatisfy { $0.observedAt == self.now })
-        XCTAssertTrue(result.windows.allSatisfy { $0.resetAt > self.now })
+        // `resetAt` is optional now, so "in the future" has to be asserted
+        // together with "present at all" — `map { … } ?? true` would pass for a
+        // fixture that stopped supplying an instant.
+        XCTAssertTrue(result.windows.allSatisfy { window in
+            guard let resetAt = window.resetAt else { return false }
+            return resetAt > self.now
+        })
     }
 
     func testTheFixtureSourceCanReportNoSourceConfigured() async throws {
