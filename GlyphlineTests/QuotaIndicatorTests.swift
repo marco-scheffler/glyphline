@@ -1,3 +1,4 @@
+import AppKit
 import XCTest
 @testable import Glyphline
 
@@ -777,4 +778,14 @@ final class QuotaIndicatorTests: XCTestCase {
             "usage unknown · ends in 3d"
         )
     }
+    /// `Image(systemName:)` given a name that does not exist renders nothing and
+    /// reports no error, so a typo here produces an invisible menu bar item —
+    /// indistinguishable from the app not running. This is the guard.
+    func testTheMenuBarSymbolExists() {
+        XCTAssertNotNil(
+            NSImage(systemSymbolName: QuotaIndicator.menuBarSymbolName, accessibilityDescription: nil),
+            "\(QuotaIndicator.menuBarSymbolName) does not resolve, so the menu bar would draw nothing"
+        )
+    }
+
 }

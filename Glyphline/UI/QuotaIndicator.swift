@@ -342,6 +342,17 @@ enum QuotaIndicator {
         return "\(minutes)m"
     }
 
+    /// The menu bar's fixed mark.
+    ///
+    /// A named constant rather than a literal at the call site so it can be
+    /// asserted: `Image(systemName:)` given a name that does not exist renders
+    /// *nothing* and reports no error, so a typo or a renamed symbol produces an
+    /// invisible menu bar item — a failure that looks exactly like the app not
+    /// running at all.
+    ///
+    /// Placeholder for custom artwork echoing the app icon's gauge.
+    static let menuBarSymbolName = "gauge.with.needle"
+
     /// What VoiceOver reads for the menu bar item.
     ///
     /// Deliberately still state-dependent even though the menu bar glyph is now
