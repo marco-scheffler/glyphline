@@ -44,6 +44,14 @@ final class ClaudeCodeLogReaderTests: XCTestCase {
         try handle.close()
     }
 
+    /// Persists a scan the way production must: rows and watermarks in one
+    /// transaction. Returns the rows, so a test can assert on the deltas.
+    @discardableResult
+    private func apply(_ result: LocalScanResult) throws -> [LocalTokenUsage] {
+        try ledger.applyLocalScan(usage: result.usage, watermarks: result.watermarks)
+        return result.usage
+    }
+
     func testAggregatesUsageByDayAndModel() throws {
         try write(
             [
@@ -55,7 +63,7 @@ final class ClaudeCodeLogReaderTests: XCTestCase {
         )
 
         let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger)
-        let rows = try reader.read()
+        let rows = try apply(reader.read())
 
         XCTAssertEqual(rows.count, 2)
 
@@ -77,7 +85,7 @@ final class ClaudeCodeLogReaderTests: XCTestCase {
         )
 
         let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger)
-        let row = try XCTUnwrap(try reader.read().first)
+        let row = try XCTUnwrap(try apply(reader.read()).first)
 
         XCTAssertEqual(row.model, "claude-opus-4-8")
         XCTAssertEqual(row.inputTokens, 10)
@@ -104,16 +112,16 @@ final class ClaudeCodeLogReaderTests: XCTestCase {
         )
 
         let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger)
-        _ = try reader.read()
+        _ = try apply(reader.read())
 
-        XCTAssertTrue(try reader.read().isEmpty, "nothing new to read")
+        XCTAssertTrue(try apply(reader.read()).isEmpty, "nothing new to read")
 
         try append(
             line(model: "claude-opus-4-8", input: 7, cacheWrite: 0, cacheRead: 0, output: 3, timestamp: "2026-07-02T09:00:00.000Z") + "\n",
             to: "session.jsonl"
         )
 
-        let second = try reader.read()
+        let second = try apply(reader.read())
         XCTAssertEqual(second.count, 1)
         XCTAssertEqual(second.first?.inputTokens, 7, "only the appended line, not the whole file")
     }
@@ -129,7 +137,7 @@ final class ClaudeCodeLogReaderTests: XCTestCase {
             line(model: "claude-opus-4-8", input: 100, cacheWrite: 0, cacheRead: 0, output: 10, timestamp: "2026-07-01T09:00:00.000Z") + "\n",
             to: "session.jsonl"
         )
-        let first = try reader.read()
+        let first = try apply(reader.read())
         XCTAssertEqual(first.first?.inputTokens, 100)
 
         try append(
@@ -137,13 +145,10 @@ final class ClaudeCodeLogReaderTests: XCTestCase {
             to: "session.jsonl"
         )
 
-        let second = try reader.read()
+        let second = try apply(reader.read())
         XCTAssertEqual(second.count, 1)
         XCTAssertEqual(second.first?.inputTokens, 20, "the appended delta, not the day total read twice")
         XCTAssertEqual(second.first?.outputTokens, 2)
-
-        try ledger.upsertLocalTokenUsage(first)
-        try ledger.upsertLocalTokenUsage(second)
 
         let persisted = try ledger.fetchLocalTokenUsage(since: nil)
         XCTAssertEqual(persisted.count, 1)
@@ -159,8 +164,8 @@ final class ClaudeCodeLogReaderTests: XCTestCase {
 
         let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger)
 
-        XCTAssertEqual(try reader.read().count, 1)
-        XCTAssertTrue(try reader.read().isEmpty, "a completed day is consumed once")
+        XCTAssertEqual(try apply(reader.read()).count, 1)
+        XCTAssertTrue(try apply(reader.read()).isEmpty, "a completed day is consumed once")
     }
 
     /// A line stamped with a day that has already closed can still be flushed after
@@ -174,7 +179,7 @@ final class ClaudeCodeLogReaderTests: XCTestCase {
             line(model: "claude-opus-4-8", input: 100, cacheWrite: 0, cacheRead: 0, output: 10, timestamp: "2026-07-01T09:00:00.000Z") + "\n",
             to: "session.jsonl"
         )
-        let first = try reader.read()
+        let first = try apply(reader.read())
         XCTAssertEqual(first.first?.inputTokens, 100)
 
         // Written by Claude Code a moment after the sync began, still stamped with
@@ -184,14 +189,11 @@ final class ClaudeCodeLogReaderTests: XCTestCase {
             to: "session.jsonl"
         )
 
-        let second = try reader.read()
+        let second = try apply(reader.read())
 
         XCTAssertEqual(second.count, 1)
         XCTAssertEqual(second.first?.bucketStart, first.first?.bucketStart, "same UTC day")
         XCTAssertEqual(second.first?.inputTokens, 20)
-
-        try ledger.upsertLocalTokenUsage(first)
-        try ledger.upsertLocalTokenUsage(second)
 
         let persisted = try ledger.fetchLocalTokenUsage(since: nil)
         XCTAssertEqual(persisted.count, 1)
@@ -213,7 +215,7 @@ final class ClaudeCodeLogReaderTests: XCTestCase {
         )
 
         let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger)
-        XCTAssertEqual(try reader.read().count, 1)
+        XCTAssertEqual(try apply(reader.read()).count, 1)
 
         // Same length, mtime half a second earlier: inside the old one-second slack,
         // so the stale byte offset used to be trusted and the whole file skipped.
@@ -225,7 +227,7 @@ final class ClaudeCodeLogReaderTests: XCTestCase {
             ofItemAtPath: url.path
         )
 
-        let reread = try reader.read()
+        let reread = try apply(reader.read())
 
         XCTAssertEqual(reread.count, 1, "a rewritten file must be read from the beginning")
         XCTAssertEqual(reread.first?.inputTokens, 10)
@@ -241,14 +243,14 @@ final class ClaudeCodeLogReaderTests: XCTestCase {
         )
 
         let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger)
-        _ = try reader.read()
+        _ = try apply(reader.read())
 
         try write(
             line(model: "claude-opus-4-8", input: 1, cacheWrite: 0, cacheRead: 0, output: 1, timestamp: "2026-07-03T09:00:00.000Z") + "\n",
             to: "session.jsonl"
         )
 
-        let rescanned = try reader.read()
+        let rescanned = try apply(reader.read())
         XCTAssertEqual(rescanned.first?.inputTokens, 1)
     }
 
@@ -261,11 +263,11 @@ final class ClaudeCodeLogReaderTests: XCTestCase {
         try write(complete + "\n" + String(pending.prefix(30)), to: "session.jsonl")
 
         let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger)
-        XCTAssertEqual(try reader.read().first?.inputTokens, 10)
+        XCTAssertEqual(try apply(reader.read()).first?.inputTokens, 10)
 
         try append(String(pending.dropFirst(30)) + "\n", to: "session.jsonl")
 
-        let second = try reader.read()
+        let second = try apply(reader.read())
         XCTAssertEqual(second.count, 1)
         XCTAssertEqual(second.first?.inputTokens, 5, "the once-partial line is counted exactly once")
     }
@@ -281,7 +283,7 @@ final class ClaudeCodeLogReaderTests: XCTestCase {
         )
 
         let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger)
-        let rows = try reader.read()
+        let rows = try apply(reader.read())
 
         XCTAssertEqual(rows.count, 1)
         XCTAssertEqual(rows.first?.inputTokens, 4)
@@ -293,6 +295,6 @@ final class ClaudeCodeLogReaderTests: XCTestCase {
             watermarkStore: ledger
         )
 
-        XCTAssertTrue(try reader.read().isEmpty)
+        XCTAssertTrue(try apply(reader.read()).isEmpty)
     }
 }

@@ -179,4 +179,116 @@ final class LocalTokenUsageStoreTests: XCTestCase {
         XCTAssertEqual(advanced.fileSize, 8_192)
         XCTAssertNil(try store.fetchLocalScanWatermark(sourceKey: "/tmp/b.jsonl"))
     }
+
+    private func scanUsage(input: Int64) -> LocalTokenUsage {
+        LocalTokenUsage(
+            bucketStart: day,
+            model: "claude-opus-4-8",
+            inputTokens: input,
+            cacheCreationTokens: 0,
+            cacheReadTokens: 0,
+            outputTokens: 0,
+            requests: 1
+        )
+    }
+
+    private func scanWatermark(byteOffset: Int64) -> LocalScanWatermark {
+        LocalScanWatermark(
+            sourceKey: "/tmp/scan.jsonl",
+            fileSize: 4_096,
+            fileMTime: day,
+            byteOffset: byteOffset,
+            updatedAt: day
+        )
+    }
+
+    func testApplyLocalScanWritesRowsAndWatermarksTogether() throws {
+        let store = try makeStore()
+
+        try store.applyLocalScan(
+            usage: [scanUsage(input: 100)],
+            watermarks: [scanWatermark(byteOffset: 512)]
+        )
+
+        let rows = try store.fetchLocalTokenUsage(since: nil)
+        XCTAssertEqual(rows.count, 1)
+        XCTAssertEqual(rows.first?.inputTokens, 100)
+
+        let watermark = try XCTUnwrap(try store.fetchLocalScanWatermark(sourceKey: "/tmp/scan.jsonl"))
+        XCTAssertEqual(watermark.byteOffset, 512)
+    }
+
+    /// The one that matters. The scan emits deltas, so a watermark that advances
+    /// without its tokens landing loses those tokens permanently — the bytes are
+    /// never read again. If the write fails anywhere, nothing may survive it.
+    func testAFailedApplyLocalScanWritesNeitherRowsNorWatermarks() throws {
+        let dbQueue = try DatabaseQueueFactory.makeInMemory()
+        try Migrations.migrate(dbQueue)
+        let store = LedgerStore(dbQueue: dbQueue)
+
+        try store.applyLocalScan(
+            usage: [scanUsage(input: 100)],
+            watermarks: [scanWatermark(byteOffset: 512)]
+        )
+
+        // Make the watermark half of the next apply fail, after the usage half
+        // has already been written inside the same transaction.
+        try dbQueue.write { db in
+            try db.execute(
+                sql: """
+                    CREATE TRIGGER blockWatermarks
+                    BEFORE INSERT ON \(LedgerTable.localScanWatermarks)
+                    BEGIN SELECT RAISE(ABORT, 'watermark write failed'); END
+                    """
+            )
+        }
+
+        XCTAssertThrowsError(
+            try store.applyLocalScan(
+                usage: [scanUsage(input: 7)],
+                watermarks: [scanWatermark(byteOffset: 1_024)]
+            )
+        )
+
+        let rows = try store.fetchLocalTokenUsage(since: nil)
+        XCTAssertEqual(rows.count, 1)
+        XCTAssertEqual(
+            rows.first?.inputTokens,
+            100,
+            "the failed scan's tokens must be rolled back, not added"
+        )
+
+        try dbQueue.write { db in
+            try db.execute(sql: "DROP TRIGGER blockWatermarks")
+        }
+
+        let watermark = try XCTUnwrap(try store.fetchLocalScanWatermark(sourceKey: "/tmp/scan.jsonl"))
+        XCTAssertEqual(
+            watermark.byteOffset,
+            512,
+            "the failed scan must not have advanced the resume point"
+        )
+    }
+
+    /// The watermark of a successful apply really does advance, so the next scan
+    /// resumes past what was already counted instead of adding it twice.
+    func testASecondApplyResumesFromTheAdvancedWatermark() throws {
+        let store = try makeStore()
+
+        try store.applyLocalScan(
+            usage: [scanUsage(input: 100)],
+            watermarks: [scanWatermark(byteOffset: 512)]
+        )
+        try store.applyLocalScan(
+            usage: [scanUsage(input: 20)],
+            watermarks: [scanWatermark(byteOffset: 1_024)]
+        )
+
+        let rows = try store.fetchLocalTokenUsage(since: nil)
+        XCTAssertEqual(rows.count, 1)
+        XCTAssertEqual(rows.first?.inputTokens, 120, "two deltas, added once each")
+
+        let watermark = try XCTUnwrap(try store.fetchLocalScanWatermark(sourceKey: "/tmp/scan.jsonl"))
+        XCTAssertEqual(watermark.byteOffset, 1_024)
+    }
 }

@@ -2,15 +2,31 @@ import Foundation
 
 /// Narrow view of the ledger, so the reader can be tested without the full store.
 ///
+/// Fetch only. The reader emits deltas, so the tokens it read and the watermarks
+/// that consume them have to be persisted together or not at all — a save here
+/// would let the reader advance a resume point on its own and lose the tokens
+/// that went with it. Writing is the caller's job, through
+/// `LedgerStore.applyLocalScan(usage:watermarks:)`.
+///
 /// Account-free on purpose: the transcripts under `~/.claude/projects` carry no
 /// marker of which subscription was active, so the scan they feed is
 /// machine-wide and has no account to key its resume point by.
 protocol LocalScanWatermarkStoring: AnyObject {
     func fetchLocalScanWatermark(sourceKey: String) throws -> LocalScanWatermark?
-    func saveLocalScanWatermark(_ watermark: LocalScanWatermark) throws
 }
 
 extension LedgerStore: LocalScanWatermarkStoring {}
+
+/// One scan's tokens together with the resume points that consume them.
+///
+/// The two halves are inseparable: `usage` holds only the tokens read since the
+/// last resume point, and `watermarks` is what makes those bytes unreadable
+/// again. Persist both in one transaction — `LedgerStore.applyLocalScan` — or
+/// neither; anything else loses tokens permanently on the next interruption.
+struct LocalScanResult: Equatable, Sendable {
+    var usage: [LocalTokenUsage]
+    var watermarks: [LocalScanWatermark]
+}
 
 /// One assistant record in a Claude Code transcript. Records that are not
 /// assistant turns simply fail to decode and are skipped.
@@ -90,23 +106,25 @@ final class ClaudeCodeLogReader: @unchecked Sendable {
     }
 
     /// Reads everything not yet consumed and returns it as per-day, per-model
-    /// *deltas*.
+    /// *deltas*, paired with the resume points that consume them.
     ///
     /// Each returned row carries only the tokens read by this call, because
     /// `upsertLocalTokenUsage` adds a row to what is already stored rather than
-    /// replacing it. Every complete line is therefore consumed and the watermark
-    /// advances past it: re-reading a day would add its tokens a second time.
-    func read() throws -> [LocalTokenUsage] {
+    /// replacing it. Nothing is persisted here: the returned watermarks must be
+    /// written in the same transaction as the rows, or the tokens between the
+    /// old and the new resume point are lost for good.
+    func read() throws -> LocalScanResult {
         var totals: [BucketKey: Totals] = [:]
+        var watermarks: [LocalScanWatermark] = []
         // Built once per sync, not once per line: `ISO8601DateFormatter` is
         // expensive to construct and `read` parses millions of lines on a cold start.
         let dates = TimestampParser()
 
         for file in transcriptURLs() {
-            try consume(file, dates: dates, into: &totals)
+            try consume(file, dates: dates, into: &totals, watermarks: &watermarks)
         }
 
-        return totals.map { key, value in
+        let usage = totals.map { key, value in
             LocalTokenUsage(
                 bucketStart: key.dayStart,
                 model: key.model,
@@ -117,6 +135,8 @@ final class ClaudeCodeLogReader: @unchecked Sendable {
             )
         }
         .sorted { $0.bucketStart < $1.bucketStart }
+
+        return LocalScanResult(usage: usage, watermarks: watermarks)
     }
 
     private func transcriptURLs() -> [URL] {
@@ -137,7 +157,8 @@ final class ClaudeCodeLogReader: @unchecked Sendable {
     private func consume(
         _ file: URL,
         dates: TimestampParser,
-        into totals: inout [BucketKey: Totals]
+        into totals: inout [BucketKey: Totals],
+        watermarks: inout [LocalScanWatermark]
     ) throws {
         let attributes = try? fileManager.attributesOfItem(atPath: file.path)
         let size = (attributes?[.size] as? NSNumber)?.int64Value ?? 0
@@ -205,7 +226,7 @@ final class ClaudeCodeLogReader: @unchecked Sendable {
             consumable = lineEnd
         }
 
-        try watermarkStore.saveLocalScanWatermark(
+        watermarks.append(
             LocalScanWatermark(
                 sourceKey: file.path,
                 fileSize: size,

@@ -916,45 +916,68 @@ final class LedgerStore {
         guard !rows.isEmpty else { return }
 
         try dbQueue.write { db in
-            for row in rows {
-                try db.execute(
-                    sql: """
-                        INSERT INTO \(LedgerTable.localTokenUsage) (
-                            \(LedgerColumn.bucketStart),
-                            \(LedgerColumn.modelKey),
-                            \(LedgerColumn.model),
-                            \(LedgerColumn.inputTokens),
-                            \(LedgerColumn.cacheCreationTokens),
-                            \(LedgerColumn.cacheReadTokens),
-                            \(LedgerColumn.outputTokens),
-                            \(LedgerColumn.requests)
-                        )
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                        ON CONFLICT(\(LedgerColumn.bucketStart), \(LedgerColumn.modelKey)) DO UPDATE SET
-                            \(LedgerColumn.model) = excluded.\(LedgerColumn.model),
-                            \(LedgerColumn.inputTokens) =
-                                \(LedgerColumn.inputTokens) + excluded.\(LedgerColumn.inputTokens),
-                            \(LedgerColumn.cacheCreationTokens) =
-                                \(LedgerColumn.cacheCreationTokens) + excluded.\(LedgerColumn.cacheCreationTokens),
-                            \(LedgerColumn.cacheReadTokens) =
-                                \(LedgerColumn.cacheReadTokens) + excluded.\(LedgerColumn.cacheReadTokens),
-                            \(LedgerColumn.outputTokens) =
-                                \(LedgerColumn.outputTokens) + excluded.\(LedgerColumn.outputTokens),
-                            \(LedgerColumn.requests) =
-                                \(LedgerColumn.requests) + excluded.\(LedgerColumn.requests)
-                        """,
-                    arguments: [
-                        row.bucketStart,
-                        row.modelKey,
-                        row.model,
-                        row.inputTokens,
-                        row.cacheCreationTokens,
-                        row.cacheReadTokens,
-                        row.outputTokens,
-                        row.requests,
-                    ]
-                )
+            try Self.addLocalTokenUsage(rows, in: db)
+        }
+    }
+
+    /// Persists one local scan: its token deltas and the resume points that
+    /// consume them, in a single transaction.
+    ///
+    /// The scan emits deltas, so the two halves cannot be split. If the tokens
+    /// landed but the watermarks did not, the next scan would read those bytes
+    /// again and double-count them; if the watermarks landed but the tokens did
+    /// not, those bytes are never read again and the totals understate for good.
+    /// One transaction: both, or neither.
+    func applyLocalScan(usage: [LocalTokenUsage], watermarks: [LocalScanWatermark]) throws {
+        guard !usage.isEmpty || !watermarks.isEmpty else { return }
+
+        try dbQueue.write { db in
+            try Self.addLocalTokenUsage(usage, in: db)
+            for watermark in watermarks {
+                try Self.saveLocalScanWatermark(watermark, in: db)
             }
+        }
+    }
+
+    private static func addLocalTokenUsage(_ rows: [LocalTokenUsage], in db: Database) throws {
+        for row in rows {
+            try db.execute(
+                sql: """
+                    INSERT INTO \(LedgerTable.localTokenUsage) (
+                        \(LedgerColumn.bucketStart),
+                        \(LedgerColumn.modelKey),
+                        \(LedgerColumn.model),
+                        \(LedgerColumn.inputTokens),
+                        \(LedgerColumn.cacheCreationTokens),
+                        \(LedgerColumn.cacheReadTokens),
+                        \(LedgerColumn.outputTokens),
+                        \(LedgerColumn.requests)
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(\(LedgerColumn.bucketStart), \(LedgerColumn.modelKey)) DO UPDATE SET
+                        \(LedgerColumn.model) = excluded.\(LedgerColumn.model),
+                        \(LedgerColumn.inputTokens) =
+                            \(LedgerColumn.inputTokens) + excluded.\(LedgerColumn.inputTokens),
+                        \(LedgerColumn.cacheCreationTokens) =
+                            \(LedgerColumn.cacheCreationTokens) + excluded.\(LedgerColumn.cacheCreationTokens),
+                        \(LedgerColumn.cacheReadTokens) =
+                            \(LedgerColumn.cacheReadTokens) + excluded.\(LedgerColumn.cacheReadTokens),
+                        \(LedgerColumn.outputTokens) =
+                            \(LedgerColumn.outputTokens) + excluded.\(LedgerColumn.outputTokens),
+                        \(LedgerColumn.requests) =
+                            \(LedgerColumn.requests) + excluded.\(LedgerColumn.requests)
+                    """,
+                arguments: [
+                    row.bucketStart,
+                    row.modelKey,
+                    row.model,
+                    row.inputTokens,
+                    row.cacheCreationTokens,
+                    row.cacheReadTokens,
+                    row.outputTokens,
+                    row.requests,
+                ]
+            )
         }
     }
 
@@ -986,34 +1009,41 @@ final class LedgerStore {
     }
 
     func saveLocalScanWatermark(_ watermark: LocalScanWatermark) throws {
+        try dbQueue.write { db in
+            try Self.saveLocalScanWatermark(watermark, in: db)
+        }
+    }
+
+    private static func saveLocalScanWatermark(
+        _ watermark: LocalScanWatermark,
+        in db: Database
+    ) throws {
         let record = LocalScanWatermarkRecord(watermark)
 
-        try dbQueue.write { db in
-            try db.execute(
-                sql: """
-                    INSERT INTO \(LedgerTable.localScanWatermarks) (
-                        \(LedgerColumn.sourceKey),
-                        \(LedgerColumn.fileSize),
-                        \(LedgerColumn.fileMTime),
-                        \(LedgerColumn.byteOffset),
-                        \(LedgerColumn.updatedAt)
-                    )
-                    VALUES (?, ?, ?, ?, ?)
-                    ON CONFLICT(\(LedgerColumn.sourceKey)) DO UPDATE SET
-                        \(LedgerColumn.fileSize) = excluded.\(LedgerColumn.fileSize),
-                        \(LedgerColumn.fileMTime) = excluded.\(LedgerColumn.fileMTime),
-                        \(LedgerColumn.byteOffset) = excluded.\(LedgerColumn.byteOffset),
-                        \(LedgerColumn.updatedAt) = excluded.\(LedgerColumn.updatedAt)
-                    """,
-                arguments: [
-                    record.sourceKey,
-                    record.fileSize,
-                    record.fileMTime,
-                    record.byteOffset,
-                    record.updatedAt,
-                ]
-            )
-        }
+        try db.execute(
+            sql: """
+                INSERT INTO \(LedgerTable.localScanWatermarks) (
+                    \(LedgerColumn.sourceKey),
+                    \(LedgerColumn.fileSize),
+                    \(LedgerColumn.fileMTime),
+                    \(LedgerColumn.byteOffset),
+                    \(LedgerColumn.updatedAt)
+                )
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(\(LedgerColumn.sourceKey)) DO UPDATE SET
+                    \(LedgerColumn.fileSize) = excluded.\(LedgerColumn.fileSize),
+                    \(LedgerColumn.fileMTime) = excluded.\(LedgerColumn.fileMTime),
+                    \(LedgerColumn.byteOffset) = excluded.\(LedgerColumn.byteOffset),
+                    \(LedgerColumn.updatedAt) = excluded.\(LedgerColumn.updatedAt)
+                """,
+            arguments: [
+                record.sourceKey,
+                record.fileSize,
+                record.fileMTime,
+                record.byteOffset,
+                record.updatedAt,
+            ]
+        )
     }
 
     func fetchWatermark(sourceKey: String) throws -> SyncWatermark? {
