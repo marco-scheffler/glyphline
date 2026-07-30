@@ -130,7 +130,7 @@ final class ClaudeCodeLogReader: @unchecked Sendable {
         var watermarks: [LocalScanWatermark] = []
         // Built once per sync, not once per line: `ISO8601DateFormatter` is
         // expensive to construct and `read` parses millions of lines on a cold start.
-        let dates = TimestampParser()
+        let dates = TranscriptTimestampParser()
 
         for file in transcriptURLs() {
             try consume(file, dates: dates, into: &totals, watermarks: &watermarks)
@@ -152,23 +152,16 @@ final class ClaudeCodeLogReader: @unchecked Sendable {
     }
 
     private func transcriptURLs() -> [URL] {
-        guard let enumerator = fileManager.enumerator(
-            at: directory,
-            includingPropertiesForKeys: [.fileSizeKey, .contentModificationDateKey],
-            options: [.skipsHiddenFiles]
-        ) else {
-            return []
-        }
-
-        return enumerator
-            .compactMap { $0 as? URL }
-            .filter { $0.pathExtension == "jsonl" }
-            .sorted { $0.path < $1.path }
+        ClaudeTranscriptDirectory.transcriptURLs(
+            in: directory,
+            fileManager: fileManager,
+            prefetching: [.fileSizeKey, .contentModificationDateKey]
+        )
     }
 
     private func consume(
         _ file: URL,
-        dates: TimestampParser,
+        dates: TranscriptTimestampParser,
         into totals: inout [BucketKey: Totals],
         watermarks: inout [LocalScanWatermark]
     ) throws {
@@ -248,28 +241,5 @@ final class ClaudeCodeLogReader: @unchecked Sendable {
                 updatedAt: Date()
             )
         )
-    }
-}
-
-/// Parses transcript timestamps, holding its formatters for the length of one sync.
-///
-/// `ISO8601DateFormatter` is not `Sendable`, so a static instance would need an
-/// unsafe opt-out; constructing one per line would dominate the parse. A short-lived
-/// value owned by a single call needs neither. Transcript timestamps carry fractional
-/// seconds, which the formatter rejects unless `.withFractionalSeconds` is set —
-/// hence the second, plain formatter as a fallback.
-private struct TimestampParser {
-    private let fractional: ISO8601DateFormatter
-    private let plain: ISO8601DateFormatter
-
-    init() {
-        fractional = ISO8601DateFormatter()
-        fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        plain = ISO8601DateFormatter()
-        plain.formatOptions = [.withInternetDateTime]
-    }
-
-    func date(from string: String) -> Date? {
-        fractional.date(from: string) ?? plain.date(from: string)
     }
 }

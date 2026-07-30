@@ -20,11 +20,9 @@ struct ClaudeTranscriptReader: Sendable {
 
     private struct Record: Decodable {
         struct Message: Decodable {
-            var role: String?
             var stopReason: String?
 
             enum CodingKeys: String, CodingKey {
-                case role
                 case stopReason = "stop_reason"
             }
         }
@@ -88,25 +86,5 @@ struct ClaudeTranscriptReader: Sendable {
               stop != "tool_use"
         else { return .working }
         return .waitingForYou
-    }
-}
-
-/// Transcript timestamps carry fractional seconds, which `ISO8601DateFormatter`
-/// rejects unless told to expect them — hence the plain formatter as a fallback.
-/// Held by the caller for the length of one sweep: constructing one per line
-/// would dominate the parse, and the type is not `Sendable`.
-struct TranscriptTimestampParser {
-    private let fractional: ISO8601DateFormatter
-    private let plain: ISO8601DateFormatter
-
-    init() {
-        fractional = ISO8601DateFormatter()
-        fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        plain = ISO8601DateFormatter()
-        plain.formatOptions = [.withInternetDateTime]
-    }
-
-    func date(from string: String) -> Date? {
-        fractional.date(from: string) ?? plain.date(from: string)
     }
 }
