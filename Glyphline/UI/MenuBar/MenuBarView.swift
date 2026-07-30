@@ -54,7 +54,7 @@ struct MenuBarView: View {
                             // accounts, and one ForEach would silently drop the
                             // duplicates.
                             ForEach(group.rows) { row in
-                                QuotaBarRowView(row: row, barWidth: 110)
+                                QuotaBarRowView(row: row, layout: .compact)
                             }
                         }
                     }
