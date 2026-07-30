@@ -8,6 +8,10 @@ struct MenuBarView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
+            // Computed once per render pass — the accessor rebuilds its array on
+            // every call, and the panel reads it three times.
+            let quotaBars = coordinator.quotaBars
+
             Text("Glyphline")
                 .font(.headline)
 
@@ -19,18 +23,18 @@ struct MenuBarView: View {
             }
             .pickerStyle(.segmented)
 
-            if !coordinator.quotaRows.isEmpty {
-                VStack(alignment: .leading, spacing: 6) {
+            if !quotaBars.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
                     if let nextFree = coordinator.nextFreeText {
                         Text("Next free: \(nextFree)")
                             .font(.caption.weight(.medium))
                     }
 
-                    // Rows come pre-rendered from the coordinator, against the
-                    // same freshness bound as the light and the header. The view
-                    // has no bound of its own to get wrong.
-                    ForEach(coordinator.quotaRows) { group in
-                        VStack(alignment: .leading, spacing: 2) {
+                    // Rows come from the coordinator, against the same freshness
+                    // bound as the light and the header. The view has no bound of
+                    // its own to get wrong.
+                    ForEach(quotaBars) { group in
+                        VStack(alignment: .leading, spacing: 4) {
                             Text(group.displayName)
                                 .font(.caption)
 
@@ -45,10 +49,12 @@ struct MenuBarView: View {
                                     .foregroundStyle(.secondary)
                             }
 
-                            ForEach(Array(group.rows.enumerated()), id: \.offset) { _, row in
-                                Text(row)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
+                            // Per group, never flattened: a row's id is its window
+                            // kind, unique within a group but repeated across
+                            // accounts, and one ForEach would silently drop the
+                            // duplicates.
+                            ForEach(group.rows) { row in
+                                QuotaBarRowView(row: row, barWidth: 110)
                             }
                         }
                     }
@@ -64,7 +70,7 @@ struct MenuBarView: View {
                 Text(syncFailureMessage)
                     .font(.caption)
                     .foregroundStyle(.red)
-            } else if coordinator.quotaRows.isEmpty {
+            } else if quotaBars.isEmpty {
                 // Without this a fresh install shows a title, a picker and three
                 // buttons, with nothing saying why the popover is empty.
                 Text("No accounts yet. Open the dashboard to add one.")

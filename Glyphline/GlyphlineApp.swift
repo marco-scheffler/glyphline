@@ -56,6 +56,12 @@ struct GlyphlineApp: App {
                     Text(QuotaIndicator.accessibilityLabel(for: coordinator.quotaLight))
                 )
         }
+        // `.window`, not the default `.menu`: the content is a laid-out panel
+        // with a fixed width, padding, a segmented picker and bordered buttons.
+        // A menu honours none of those — it renders its content as menu items,
+        // shows a picker as a bare checkmark and cannot draw a progress bar at
+        // all.
+        .menuBarExtraStyle(.window)
     }
 
     private var menuBarExtraInsertion: Binding<Bool> {
