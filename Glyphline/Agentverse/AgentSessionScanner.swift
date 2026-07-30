@@ -6,9 +6,7 @@ protocol TranscriptTailReading: Sendable {
     func readTail(at url: URL) throws -> TranscriptTail?
 }
 
-// The reader holds nothing mutable, but Swift only accepts a checked `Sendable`
-// in the type's own file, and Task 1's reader stays untouched.
-extension ClaudeTranscriptReader: TranscriptTailReading, @unchecked Sendable {}
+extension ClaudeTranscriptReader: TranscriptTailReading {}
 
 /// Sweeps `~/.claude/projects` and returns the sessions that have written
 /// recently, with their subagents folded in.

@@ -6,7 +6,7 @@ import Foundation
 /// Only the tail: a transcript can run to hundreds of megabytes, and the answer
 /// is always within the last few records. The budget is generous enough to step
 /// back over the bookkeeping that usually follows the final turn.
-struct ClaudeTranscriptReader {
+struct ClaudeTranscriptReader: Sendable {
     /// How much of the end of the file to consider. Measured against the
     /// reference machine, the last conversational record sat at most nine lines
     /// from the end; 256 KB covers that with room for very long tool results.
