@@ -44,14 +44,23 @@ struct GlyphlineApp: App {
                     .environmentObject(coordinator)
             }
         } label: {
-            // The icon *is* the light: it follows `quotaLight` rather than
-            // staying fixed.
+            // One fixed mark: the icon no longer follows `quotaLight`. The state
+            // lives in the panel that opens — its header dot and the tinted bar
+            // on every row — so the menu bar keeps a single stable silhouette.
+            //
+            // `gauge.with.needle` is a placeholder for custom artwork (a minimal
+            // gauge glyph, one arc plus one needle) that echoes the app icon. It
+            // was picked as a stand-in, not as a considered final mark: swap the
+            // custom asset in here.
             //
             // `Image`, not `Label`: a `Label` generally resolves to title *and*
             // icon, which would put the word "Glyphline" in the menu bar beside
             // the symbol. The name still reaches VoiceOver, through the
             // accessibility label rather than through rendered text.
-            Image(systemName: QuotaIndicator.symbolName(for: coordinator.quotaLight))
+            //
+            // The accessibility label stays state-dependent on purpose — see
+            // `QuotaIndicator.accessibilityLabel(for:)`.
+            Image(systemName: "gauge.with.needle")
                 .accessibilityLabel(
                     Text(QuotaIndicator.accessibilityLabel(for: coordinator.quotaLight))
                 )

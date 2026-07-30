@@ -243,27 +243,9 @@ final class QuotaIndicatorTests: XCTestCase {
         XCTAssertEqual(QuotaIndicator.light(for: states, now: now, freshness: freshness), .green)
     }
 
-    func testEachLightStateHasItsOwnSymbol() {
-        let symbols = Set([
-            QuotaIndicator.symbolName(for: .green),
-            QuotaIndicator.symbolName(for: .red),
-            QuotaIndicator.symbolName(for: .grey),
-        ])
-        XCTAssertEqual(symbols.count, 3, "the three states must visually distinguishable")
-    }
-
-    /// Grey is not a rare degraded state: the access spike found no provider route
-    /// to rate windows, so it is what every user sees until a real source ships.
-    /// The state carrying no information must not cost the app its identity in the
-    /// menu bar.
-    func testGreyRendersTheAppsOwnGlyphRatherThanANeutralDot() {
-        XCTAssertEqual(QuotaIndicator.symbolName(for: .grey), QuotaIndicator.appSymbolName)
-        XCTAssertNotEqual(QuotaIndicator.symbolName(for: .green), QuotaIndicator.appSymbolName)
-        XCTAssertNotEqual(QuotaIndicator.symbolName(for: .red), QuotaIndicator.appSymbolName)
-    }
-
-    /// The menu bar item renders only a symbol, so this string is the whole of
-    /// what a VoiceOver user gets. It must name the app and the state.
+    /// The menu bar glyph is fixed, so this string is the whole of what a
+    /// VoiceOver user gets before opening the panel. It must name the app and
+    /// the state.
     func testEachLightStateHasItsOwnAccessibilityLabel() {
         let labels = [
             QuotaIndicator.accessibilityLabel(for: .green),

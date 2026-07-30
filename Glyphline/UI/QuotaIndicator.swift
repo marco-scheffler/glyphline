@@ -342,28 +342,14 @@ enum QuotaIndicator {
         return "\(minutes)m"
     }
 
-    /// The app's own glyph, and what the menu bar shows when the light carries no
-    /// information.
-    static let appSymbolName = "chart.line.uptrend.xyaxis"
-
-    /// Three symbols that differ in fill as well as in name, so the light is
-    /// legible in a monochrome menu bar rather than only in code.
+    /// What VoiceOver reads for the menu bar item.
     ///
-    /// Grey is the app's own glyph rather than a neutral dot. The access-route
-    /// spike found no provider route to short-term rate windows, so grey is not a
-    /// rare degraded state — it is what every user sees until a real source
-    /// ships. The state that carries no information must not also cost the app its
-    /// identity in the menu bar; green and red are the deviation from normal.
-    static func symbolName(for state: QuotaLightState) -> String {
-        switch state {
-        case .green: "circle.fill"
-        case .red: "circle.slash.fill"
-        case .grey: appSymbolName
-        }
-    }
-
-    /// What VoiceOver reads for the menu bar item. The symbol alone conveys the
-    /// state visually; this is the same information in words.
+    /// Deliberately still state-dependent even though the menu bar glyph is now
+    /// fixed. A sighted user reads the state from the panel — its header dot and
+    /// the tinted bar on every row. A VoiceOver user would otherwise have to open
+    /// the panel to learn anything at all, so the accessible name carries the
+    /// state and saves them the trip. That it says more than the glyph shows is
+    /// intentional, not an oversight.
     static func accessibilityLabel(for state: QuotaLightState) -> String {
         switch state {
         case .green: "Glyphline — quota available"
