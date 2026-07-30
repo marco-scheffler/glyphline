@@ -1,3 +1,4 @@
+import GRDB
 import XCTest
 @testable import Glyphline
 
@@ -82,14 +83,14 @@ final class AgentSessionScannerTests: XCTestCase {
         XCTAssertTrue(try AgentSessionScanner(directory: root).scan(now: now).isEmpty)
     }
 
-    /// 2 972 transcripts sat on the reference machine against 32 main sessions in
-    /// a day. Reading all of them on every sweep is the difference between a
+    /// 3 029 transcripts sat on the reference machine against 732 inside the read
+    /// window. Reading all of them on every sweep is the difference between a
     /// stat and a gigabyte.
-    func testTranscriptsOlderThanTheHorizonAreNeverOpened() throws {
+    func testTranscriptsOlderThanTheReadWindowAreNeverOpened() throws {
         let now = Date(timeIntervalSince1970: 1_800_000_000)
         let old = try transcript(slug: "-repo-old", name: "OLD", sessionID: "OLD",
                                  isSidechain: false, cwd: "/repo/old",
-                                 at: now.addingTimeInterval(-90 * 60))
+                                 at: now.addingTimeInterval(-AgentSessionScanner.readWindow - 60))
         try transcript(slug: "-repo-new", name: "NEW", sessionID: "NEW", isSidechain: false,
                        cwd: "/repo/new", at: now.addingTimeInterval(-60))
 
@@ -98,6 +99,56 @@ final class AgentSessionScannerTests: XCTestCase {
 
         XCTAssertEqual(sessions.map(\.id), ["NEW"])
         XCTAssertFalse(counting.opened.contains(old), "an old transcript must not be read")
+    }
+
+    /// The regression a stubbed scanner cannot catch. Parking needs the sweep to
+    /// keep returning a session *after* it crossed the park threshold; when the
+    /// read window and that threshold were one constant, the session left the
+    /// sweep at the instant it became park-eligible and nothing ever parked.
+    ///
+    /// Real scanner, real transcript on disk, real ledger — only the clock moves.
+    @MainActor
+    func testASessionGoingQuietOnDiskParksAndIsPersisted() async throws {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        try transcript(slug: "-repo-a", name: "S1", sessionID: "S1", isSidechain: false,
+                       cwd: "/repo/a", at: now.addingTimeInterval(-60))
+
+        let dbQueue = try DatabaseQueueFactory.makeInMemory()
+        try Migrations.migrate(dbQueue)
+        let ledger = LedgerStore(dbQueue: dbQueue)
+        let coordinator = AgentverseCoordinator(
+            scanner: AgentSessionScanner(directory: root),
+            ledger: ledger
+        )
+
+        await coordinator.refresh(now: now)
+        XCTAssertEqual(coordinator.onTrack.map(\.id), ["S1"])
+
+        // Nothing writes to the transcript again; the clock alone carries it past
+        // the park threshold.
+        await coordinator.refresh(now: now.addingTimeInterval(AgentSessionScanner.horizon + 600))
+
+        XCTAssertTrue(coordinator.onTrack.isEmpty)
+        XCTAssertEqual(coordinator.parked.map(\.sessionID), ["S1"])
+        XCTAssertEqual(try ledger.fetchParkedAgents().map(\.sessionID), ["S1"])
+    }
+
+    /// Day one. The read window deliberately hands the rules sessions that are
+    /// already cold, so the promise that a first launch offers nothing to throw
+    /// away now rests entirely on `liveSessionIDs` starting empty.
+    func testASessionColdSinceBeforeLaunchIsNeitherOnTrackNorParked() throws {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        try transcript(slug: "-repo-cold", name: "COLD", sessionID: "COLD", isSidechain: false,
+                       cwd: "/repo/cold", at: now.addingTimeInterval(-8 * 3600))
+
+        let scanned = try AgentSessionScanner(directory: root).scan(now: now)
+        XCTAssertEqual(scanned.map(\.id), ["COLD"], "inside the read window, so still swept")
+
+        let out = AgentverseRules.reconcile(scanned: scanned, parked: [], now: now)
+
+        XCTAssertTrue(out.onTrack.isEmpty)
+        XCTAssertTrue(out.newlyParked.isEmpty, "never seen live means never parked")
+        XCTAssertTrue(out.parked.isEmpty)
     }
 
     private final class CountingReader: TranscriptTailReading, @unchecked Sendable {

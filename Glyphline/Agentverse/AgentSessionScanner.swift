@@ -15,16 +15,33 @@ protocol AgentSessionScanning: Sendable {
 
 extension AgentSessionScanner: AgentSessionScanning {}
 
-/// Sweeps `~/.claude/projects` and returns the sessions that have written
-/// recently, with their subagents folded in.
+/// Sweeps `~/.claude/projects` and returns the sessions that wrote inside the
+/// read window, with their subagents folded in.
 ///
-/// The sweep is deliberately cheap. A full `stat` of all 2 972 transcripts on the
-/// reference machine took 254 ms; opening them all took 0.5 s and read 1.86 GB.
-/// Only files whose modification date falls inside the horizon are opened at all,
-/// which on that machine was 23 files out of 2 972.
+/// The sweep is deliberately cheap. Walking and statting all 3 029 transcripts on
+/// the reference machine took 374 ms; only the files inside `readWindow` are
+/// opened at all, 732 of those 3 029, and reading their tails cost 103 ms and
+/// 138 MB. What bounds that second figure is `ClaudeTranscriptReader.tailBudget`
+/// per file, not transcript size — opening all 3 029 in full reads 1.86 GB.
 struct AgentSessionScanner {
-    /// How far back a transcript may have been written and still count as on the
-    /// map. Doubles as the park threshold — see `AgentverseModel`.
+    /// How far back the sweep reads.
+    ///
+    /// Deliberately wider than `horizon`, and the two must never be the same
+    /// number: a session parks by being *scanned* after it has gone quiet, so it
+    /// has to stay in the sweep well past the moment it crosses the park
+    /// threshold. One number doing both jobs drops a session out of the sweep at
+    /// the exact instant it becomes park-eligible, and then nothing ever parks.
+    ///
+    /// Sized to `AgentverseRules.parkExpiry`: a session quiet for longer than the
+    /// pit lane keeps a row could not produce a row worth keeping anyway. Spelled
+    /// out rather than referenced, because the rules already reach into the
+    /// scanner and a reference back would make that circular to read.
+    static let readWindow: TimeInterval = 96 * 60 * 60
+
+    /// How recently a transcript must have been written for its session to still
+    /// count as on the map. The park threshold and nothing else — it is applied
+    /// in `AgentverseRules.reconcile`, never here, because parking is a decision
+    /// about a session the sweep already returned.
     static let horizon: TimeInterval = 60 * 60
 
     private let directory: URL
@@ -45,7 +62,7 @@ struct AgentSessionScanner {
     }
 
     func scan(now: Date = Date()) throws -> [AgentSession] {
-        let cutoff = now.addingTimeInterval(-Self.horizon)
+        let cutoff = now.addingTimeInterval(-Self.readWindow)
 
         var mains: [String: AgentSession] = [:]
         var sidechains: [String: (count: Int, newest: Date)] = [:]
@@ -79,8 +96,8 @@ struct AgentSessionScanner {
             }
         }
 
-        // A sidechain without a main transcript inside the horizon has no card to
-        // sit on, and inventing one would put a subagent on the track as if it
+        // A sidechain without a main transcript inside the read window has no card
+        // to sit on, and inventing one would put a subagent on the track as if it
         // were a session.
         return mains.values
             .map { session in
