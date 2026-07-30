@@ -5,7 +5,6 @@ import XCTest
 final class ClaudeCodeLogReaderTests: XCTestCase {
     private var directory: URL!
     private var ledger: LedgerStore!
-    private let accountID = UUID()
 
     override func setUpWithError() throws {
         try super.setUpWithError()
@@ -56,17 +55,46 @@ final class ClaudeCodeLogReaderTests: XCTestCase {
         )
 
         let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger)
-        let snapshots = try reader.read(accountID: accountID)
+        let rows = try reader.read()
 
-        XCTAssertEqual(snapshots.count, 2)
+        XCTAssertEqual(rows.count, 2)
 
-        let opus = try XCTUnwrap(snapshots.first { $0.model == "claude-opus-4-8" })
+        let opus = try XCTUnwrap(rows.first { $0.model == "claude-opus-4-8" })
         XCTAssertEqual(opus.inputTokens, 11)
         XCTAssertEqual(opus.cacheCreationTokens, 22)
         XCTAssertEqual(opus.cacheReadTokens, 33)
         XCTAssertEqual(opus.outputTokens, 44)
-        XCTAssertEqual(opus.quality, .partial)
-        XCTAssertNil(opus.requests)
+        XCTAssertEqual(opus.bucketStart, Date(timeIntervalSince1970: 1_782_864_000)) // 2026-07-01T00:00:00Z
+    }
+
+    /// The transcripts cannot be attributed to a subscription, so nothing the
+    /// reader emits may name one. This is a compile-shaped guarantee — the type has
+    /// no account field at all — and this test pins the intent alongside it.
+    func testEmittedRowsCarryNoAccount() throws {
+        try write(
+            line(model: "claude-opus-4-8", input: 10, cacheWrite: 0, cacheRead: 0, output: 10, timestamp: "2026-07-01T09:00:00.000Z") + "\n",
+            to: "session.jsonl"
+        )
+
+        let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger)
+        let row = try XCTUnwrap(try reader.read().first)
+
+        XCTAssertEqual(row.model, "claude-opus-4-8")
+        XCTAssertEqual(row.inputTokens, 10)
+        XCTAssertEqual(row.outputTokens, 10)
+        // The stored resume point is machine-wide too.
+        // The reader keys the watermark by the enumerated file's path, which on
+        // macOS carries the resolved `/private` prefix the temporary directory hides.
+        let enumerated = try XCTUnwrap(
+            FileManager.default
+                .enumerator(at: directory, includingPropertiesForKeys: nil)?
+                .compactMap { $0 as? URL }
+                .first { $0.pathExtension == "jsonl" }
+        )
+        let watermark = try XCTUnwrap(
+            try ledger.fetchLocalScanWatermark(sourceKey: enumerated.path)
+        )
+        XCTAssertGreaterThan(watermark.byteOffset, 0)
     }
 
     func testSecondReadOnlyReturnsAppendedLines() throws {
@@ -76,35 +104,32 @@ final class ClaudeCodeLogReaderTests: XCTestCase {
         )
 
         let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger)
-        _ = try reader.read(accountID: accountID)
+        _ = try reader.read()
 
-        XCTAssertTrue(try reader.read(accountID: accountID).isEmpty, "nothing new to read")
+        XCTAssertTrue(try reader.read().isEmpty, "nothing new to read")
 
         try append(
             line(model: "claude-opus-4-8", input: 7, cacheWrite: 0, cacheRead: 0, output: 3, timestamp: "2026-07-02T09:00:00.000Z") + "\n",
             to: "session.jsonl"
         )
 
-        let second = try reader.read(accountID: accountID)
+        let second = try reader.read()
         XCTAssertEqual(second.count, 1)
         XCTAssertEqual(second.first?.inputTokens, 7, "only the appended line, not the whole file")
     }
 
-    /// The ledger's usage upsert replaces a bucket's totals rather than adding to
-    /// them, so a snapshot must always carry the bucket's absolute total. A day that
-    /// can still grow therefore stays unconsumed and is re-read in full every sync.
-    func testSameDayAppendYieldsTheAccumulatedDayTotalNotTheDelta() throws {
-        let reader = ClaudeCodeLogReader(
-            directory: directory,
-            watermarkStore: ledger,
-            now: { Date(timeIntervalSince1970: 1_782_897_600) } // 2026-07-01T09:20:00Z
-        )
+    /// The store *adds* what it is handed, so a second read of the same day must
+    /// carry only the newly-read lines — and the two writes together must leave the
+    /// ledger at the day's full total. Emitting the accumulated total again here
+    /// would double-count the first read.
+    func testSameDayAppendYieldsOnlyTheDeltaAndTheLedgerEndsAtTheFullTotal() throws {
+        let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger)
 
         try write(
             line(model: "claude-opus-4-8", input: 100, cacheWrite: 0, cacheRead: 0, output: 10, timestamp: "2026-07-01T09:00:00.000Z") + "\n",
             to: "session.jsonl"
         )
-        let first = try reader.read(accountID: accountID)
+        let first = try reader.read()
         XCTAssertEqual(first.first?.inputTokens, 100)
 
         try append(
@@ -112,27 +137,18 @@ final class ClaudeCodeLogReaderTests: XCTestCase {
             to: "session.jsonl"
         )
 
-        let second = try reader.read(accountID: accountID)
+        let second = try reader.read()
         XCTAssertEqual(second.count, 1)
-        XCTAssertEqual(second.first?.inputTokens, 120, "absolute day total, not just the appended delta")
-        XCTAssertEqual(second.first?.outputTokens, 12)
+        XCTAssertEqual(second.first?.inputTokens, 20, "the appended delta, not the day total read twice")
+        XCTAssertEqual(second.first?.outputTokens, 2)
 
-        // And the replacing upsert therefore leaves the ledger at the full total.
-        let account = Account(
-            id: accountID,
-            providerID: .claude,
-            displayName: "Local",
-            credentialReference: "local-source://claude-code",
-            createdAt: Date(timeIntervalSince1970: 1_780_000_000),
-            isEnabled: true
-        )
-        try ledger.saveAccount(account)
-        try ledger.upsertUsageSnapshots(first)
-        try ledger.upsertUsageSnapshots(second)
+        try ledger.upsertLocalTokenUsage(first)
+        try ledger.upsertLocalTokenUsage(second)
 
-        let persisted = try ledger.fetchUsageSnapshots(accountID: accountID)
+        let persisted = try ledger.fetchLocalTokenUsage(since: nil)
         XCTAssertEqual(persisted.count, 1)
         XCTAssertEqual(persisted.first?.inputTokens, 120)
+        XCTAssertEqual(persisted.first?.outputTokens, 12)
     }
 
     func testCompletedDayIsNotReReadOnTheNextSync() throws {
@@ -141,71 +157,48 @@ final class ClaudeCodeLogReaderTests: XCTestCase {
             to: "session.jsonl"
         )
 
-        let reader = ClaudeCodeLogReader(
-            directory: directory,
-            watermarkStore: ledger,
-            now: { Date(timeIntervalSince1970: 1_782_997_200) } // 2026-07-02T13:00:00Z
-        )
+        let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger)
 
-        XCTAssertEqual(try reader.read(accountID: accountID).count, 1)
-        XCTAssertTrue(try reader.read(accountID: accountID).isEmpty, "a completed day is consumed once")
+        XCTAssertEqual(try reader.read().count, 1)
+        XCTAssertTrue(try reader.read().isEmpty, "a completed day is consumed once")
     }
 
-    /// A sync that starts just after 00:00 UTC must not declare the day it is
-    /// straddling complete. Doing so consumes that day's bytes and advances the
-    /// watermark to EOF, so a line the transcript flushes moments later is picked up
-    /// by the next sync as a lone fragment — and the ledger's usage upsert *replaces*
-    /// a bucket, so that fragment overwrites the day's real total. The day is never
-    /// rescanned, so nothing ever repairs it.
-    func testASyncCrossingMidnightDoesNotCloseTheDayItIsStraddling() throws {
-        // 2026-07-02T00:00:00.500Z — half a second into the new UTC day.
-        let reader = ClaudeCodeLogReader(
-            directory: directory,
-            watermarkStore: ledger,
-            now: { Date(timeIntervalSince1970: 1_782_950_400.5) }
-        )
+    /// A line stamped with a day that has already closed can still be flushed after
+    /// a sync has read past it — a sync running just after 00:00 UTC sees this all
+    /// the time. It must land on the day it names and be added to that day's stored
+    /// total, not dropped and not written over it.
+    func testALineForAnAlreadyClosedDayIsAddedToThatDay() throws {
+        let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger)
 
         try write(
             line(model: "claude-opus-4-8", input: 100, cacheWrite: 0, cacheRead: 0, output: 10, timestamp: "2026-07-01T09:00:00.000Z") + "\n",
             to: "session.jsonl"
         )
-        let first = try reader.read(accountID: accountID)
+        let first = try reader.read()
         XCTAssertEqual(first.first?.inputTokens, 100)
 
-        // Written by Claude Code a moment after the sync began, still stamped
-        // with the day that was closing.
+        // Written by Claude Code a moment after the sync began, still stamped with
+        // the day that was closing.
         try append(
             line(model: "claude-opus-4-8", input: 20, cacheWrite: 0, cacheRead: 0, output: 2, timestamp: "2026-07-01T23:59:59.500Z") + "\n",
             to: "session.jsonl"
         )
 
-        let second = try reader.read(accountID: accountID)
+        let second = try reader.read()
 
         XCTAssertEqual(second.count, 1)
-        XCTAssertEqual(
-            second.first?.inputTokens,
-            120,
-            "the straddled day must still be emitted whole, not as the appended delta"
-        )
+        XCTAssertEqual(second.first?.bucketStart, first.first?.bucketStart, "same UTC day")
+        XCTAssertEqual(second.first?.inputTokens, 20)
 
-        let account = Account(
-            id: accountID,
-            providerID: .claude,
-            displayName: "Local",
-            credentialReference: "local-source://claude-code",
-            createdAt: Date(timeIntervalSince1970: 1_780_000_000),
-            isEnabled: true
-        )
-        try ledger.saveAccount(account)
-        try ledger.upsertUsageSnapshots(first)
-        try ledger.upsertUsageSnapshots(second)
+        try ledger.upsertLocalTokenUsage(first)
+        try ledger.upsertLocalTokenUsage(second)
 
-        let persisted = try ledger.fetchUsageSnapshots(accountID: accountID)
+        let persisted = try ledger.fetchLocalTokenUsage(since: nil)
         XCTAssertEqual(persisted.count, 1)
         XCTAssertEqual(
             persisted.first?.inputTokens,
             120,
-            "a replacing upsert must not be handed a fragment of a closed day"
+            "the late line is added to the closed day, never written over it"
         )
     }
 
@@ -219,12 +212,8 @@ final class ClaudeCodeLogReaderTests: XCTestCase {
             to: "session.jsonl"
         )
 
-        let reader = ClaudeCodeLogReader(
-            directory: directory,
-            watermarkStore: ledger,
-            now: { Date(timeIntervalSince1970: 1_782_997_200) } // 2026-07-02T13:00:00Z
-        )
-        XCTAssertEqual(try reader.read(accountID: accountID).count, 1)
+        let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger)
+        XCTAssertEqual(try reader.read().count, 1)
 
         // Same length, mtime half a second earlier: inside the old one-second slack,
         // so the stale byte offset used to be trusted and the whole file skipped.
@@ -236,7 +225,7 @@ final class ClaudeCodeLogReaderTests: XCTestCase {
             ofItemAtPath: url.path
         )
 
-        let reread = try reader.read(accountID: accountID)
+        let reread = try reader.read()
 
         XCTAssertEqual(reread.count, 1, "a rewritten file must be read from the beginning")
         XCTAssertEqual(reread.first?.inputTokens, 10)
@@ -252,15 +241,33 @@ final class ClaudeCodeLogReaderTests: XCTestCase {
         )
 
         let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger)
-        _ = try reader.read(accountID: accountID)
+        _ = try reader.read()
 
         try write(
             line(model: "claude-opus-4-8", input: 1, cacheWrite: 0, cacheRead: 0, output: 1, timestamp: "2026-07-03T09:00:00.000Z") + "\n",
             to: "session.jsonl"
         )
 
-        let rescanned = try reader.read(accountID: accountID)
+        let rescanned = try reader.read()
         XCTAssertEqual(rescanned.first?.inputTokens, 1)
+    }
+
+    /// A trailing line still being written is left for the next pass, so it is
+    /// counted exactly once — never as a truncated fragment and never twice.
+    func testAPartiallyWrittenTrailingLineIsLeftForTheNextRead() throws {
+        let complete = line(model: "claude-opus-4-8", input: 10, cacheWrite: 0, cacheRead: 0, output: 10, timestamp: "2026-07-01T09:00:00.000Z")
+        let pending = line(model: "claude-opus-4-8", input: 5, cacheWrite: 0, cacheRead: 0, output: 5, timestamp: "2026-07-01T10:00:00.000Z")
+
+        try write(complete + "\n" + String(pending.prefix(30)), to: "session.jsonl")
+
+        let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger)
+        XCTAssertEqual(try reader.read().first?.inputTokens, 10)
+
+        try append(String(pending.dropFirst(30)) + "\n", to: "session.jsonl")
+
+        let second = try reader.read()
+        XCTAssertEqual(second.count, 1)
+        XCTAssertEqual(second.first?.inputTokens, 5, "the once-partial line is counted exactly once")
     }
 
     func testMalformedLinesAreSkipped() throws {
@@ -274,10 +281,10 @@ final class ClaudeCodeLogReaderTests: XCTestCase {
         )
 
         let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger)
-        let snapshots = try reader.read(accountID: accountID)
+        let rows = try reader.read()
 
-        XCTAssertEqual(snapshots.count, 1)
-        XCTAssertEqual(snapshots.first?.inputTokens, 4)
+        XCTAssertEqual(rows.count, 1)
+        XCTAssertEqual(rows.first?.inputTokens, 4)
     }
 
     func testMissingDirectoryYieldsNothingRatherThanThrowing() throws {
@@ -286,6 +293,6 @@ final class ClaudeCodeLogReaderTests: XCTestCase {
             watermarkStore: ledger
         )
 
-        XCTAssertTrue(try reader.read(accountID: accountID).isEmpty)
+        XCTAssertTrue(try reader.read().isEmpty)
     }
 }

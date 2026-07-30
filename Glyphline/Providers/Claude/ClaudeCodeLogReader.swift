@@ -1,12 +1,16 @@
 import Foundation
 
 /// Narrow view of the ledger, so the reader can be tested without the full store.
-protocol WatermarkStoring: AnyObject {
-    func fetchWatermark(sourceKey: String) throws -> SyncWatermark?
-    func saveWatermark(_ watermark: SyncWatermark) throws
+///
+/// Account-free on purpose: the transcripts under `~/.claude/projects` carry no
+/// marker of which subscription was active, so the scan they feed is
+/// machine-wide and has no account to key its resume point by.
+protocol LocalScanWatermarkStoring: AnyObject {
+    func fetchLocalScanWatermark(sourceKey: String) throws -> LocalScanWatermark?
+    func saveLocalScanWatermark(_ watermark: LocalScanWatermark) throws
 }
 
-extension LedgerStore: WatermarkStoring {}
+extension LedgerStore: LocalScanWatermarkStoring {}
 
 /// One assistant record in a Claude Code transcript. Records that are not
 /// assistant turns simply fail to decode and are skipped.
@@ -36,27 +40,28 @@ private struct ClaudeCodeLogRecord: Decodable {
 
 /// Reads Claude Code transcripts incrementally and aggregates them into daily buckets.
 ///
+/// The result is machine-wide and account-free. The transcripts carry no marker of
+/// which Claude subscription was active — `/login` writes into the same directory —
+/// so the totals are the sum across every subscription and cannot be split.
+///
 /// All stored state is immutable and the parse state lives entirely on the
 /// stack, so the class is safe to share; the unchecked escape only exists
 /// because `FileManager` and the injected store are not statically `Sendable`.
 final class ClaudeCodeLogReader: @unchecked Sendable {
     private let directory: URL
-    private let watermarkStore: any WatermarkStoring
+    private let watermarkStore: any LocalScanWatermarkStoring
     private let fileManager: FileManager
     private let calendar: Calendar
-    private let now: @Sendable () -> Date
 
     init(
         directory: URL,
-        watermarkStore: any WatermarkStoring,
+        watermarkStore: any LocalScanWatermarkStoring,
         fileManager: FileManager = .default,
-        calendar: Calendar = Calendar(identifier: .gregorian),
-        now: @escaping @Sendable () -> Date = Date.init
+        calendar: Calendar = Calendar(identifier: .gregorian)
     ) {
         self.directory = directory
         self.watermarkStore = watermarkStore
         self.fileManager = fileManager
-        self.now = now
         var utc = calendar
         utc.timeZone = TimeZone(identifier: "UTC") ?? .gmt
         self.calendar = utc
@@ -72,22 +77,6 @@ final class ClaudeCodeLogReader: @unchecked Sendable {
     /// place within the tolerance would be resumed from a stale offset.
     private static let mTimeTolerance: TimeInterval = 0.002
 
-    /// How far back from `now` the "still open" bucket boundary is pulled.
-    ///
-    /// A sync captures `now()` once and calls everything before it closed. Without
-    /// this margin a sync starting a hair after 00:00 UTC declares the day that just
-    /// ended complete, consumes its bytes and advances the watermark to EOF — and a
-    /// line for that day flushed milliseconds later is then read by the *next* sync
-    /// as a lone fragment, which the replacing ledger upsert writes over that day's
-    /// full total. The day is never rescanned, so the loss is silent and permanent.
-    /// Manual sync made that a millisecond-wide window; scheduled sync runs
-    /// unattended on a fixed interval and will land in it eventually.
-    ///
-    /// The cost of the margin is re-reading a day that just closed for another
-    /// fifteen minutes, which is what the reader already does for the open day all
-    /// day long: it is idempotent and emits absolute day totals.
-    private static let openBucketGrace: TimeInterval = 15 * 60
-
     private struct BucketKey: Hashable {
         var dayStart: Date
         var model: String?
@@ -100,49 +89,31 @@ final class ClaudeCodeLogReader: @unchecked Sendable {
         var output: Int64 = 0
     }
 
-    func read(accountID: UUID) throws -> [UsageSnapshot] {
+    /// Reads everything not yet consumed and returns it as per-day, per-model
+    /// *deltas*.
+    ///
+    /// Each returned row carries only the tokens read by this call, because
+    /// `upsertLocalTokenUsage` adds a row to what is already stored rather than
+    /// replacing it. Every complete line is therefore consumed and the watermark
+    /// advances past it: re-reading a day would add its tokens a second time.
+    func read() throws -> [LocalTokenUsage] {
         var totals: [BucketKey: Totals] = [:]
-        // Everything from this day onwards belongs to a bucket that can still grow,
-        // so those bytes stay unconsumed and are re-read every sync. Taken from
-        // `now` minus the grace period, so a sync that crosses midnight does not
-        // close the day it is still straddling. See `openBucketGrace`.
-        let openDayStart = calendar.startOfDay(for: now().addingTimeInterval(-Self.openBucketGrace))
         // Built once per sync, not once per line: `ISO8601DateFormatter` is
         // expensive to construct and `read` parses millions of lines on a cold start.
         let dates = TimestampParser()
 
         for file in transcriptURLs() {
-            try consume(
-                file,
-                accountID: accountID,
-                openDayStart: openDayStart,
-                dates: dates,
-                into: &totals
-            )
+            try consume(file, dates: dates, into: &totals)
         }
 
         return totals.map { key, value in
-            let dayEnd = calendar.date(byAdding: .day, value: 1, to: key.dayStart) ?? key.dayStart
-
-            return UsageSnapshot(
-                id: SnapshotIdentity.make(
-                    accountID: accountID,
-                    providerID: .claude,
-                    bucketStart: key.dayStart,
-                    bucketEnd: dayEnd,
-                    discriminator: key.model ?? "usage"
-                ),
-                accountID: accountID,
-                providerID: .claude,
+            LocalTokenUsage(
                 bucketStart: key.dayStart,
-                bucketEnd: dayEnd,
                 model: key.model,
                 inputTokens: value.input,
                 cacheCreationTokens: value.cacheCreation,
                 cacheReadTokens: value.cacheRead,
-                outputTokens: value.output,
-                requests: nil,
-                quality: .partial
+                outputTokens: value.output
             )
         }
         .sorted { $0.bucketStart < $1.bucketStart }
@@ -165,8 +136,6 @@ final class ClaudeCodeLogReader: @unchecked Sendable {
 
     private func consume(
         _ file: URL,
-        accountID: UUID,
-        openDayStart: Date,
         dates: TimestampParser,
         into totals: inout [BucketKey: Totals]
     ) throws {
@@ -174,7 +143,7 @@ final class ClaudeCodeLogReader: @unchecked Sendable {
         let size = (attributes?[.size] as? NSNumber)?.int64Value ?? 0
         let modified = attributes?[.modificationDate] as? Date ?? Date(timeIntervalSince1970: 0)
 
-        let stored = try watermarkStore.fetchWatermark(sourceKey: file.path)
+        let stored = try watermarkStore.fetchLocalScanWatermark(sourceKey: file.path)
         // A file that shrank or moved backwards in time was rewritten; start over.
         // The ledger stores dates at millisecond precision and rounds, so an
         // unchanged file can come back a hair ahead of its own mtime; the
@@ -208,11 +177,10 @@ final class ClaudeCodeLogReader: @unchecked Sendable {
         let complete = data[data.startIndex ... lastNewline]
 
         let decoder = JSONDecoder()
-        // Bytes, relative to `offset`, that belong to buckets no longer able to
-        // grow. The watermark never moves past this point, so a bucket is never
-        // split across two reads and every bucket is emitted in full.
+        // Bytes, relative to `offset`, that this pass has read in full. Every
+        // complete line counts: the emitted rows are deltas the store adds, so a
+        // bucket may be split across reads, but a line must never be read twice.
         var consumable = 0
-        var reachedOpenBucket = false
         var lineStart = complete.startIndex
 
         while lineStart <= lastNewline,
@@ -225,10 +193,6 @@ final class ClaudeCodeLogReader: @unchecked Sendable {
                let usage = record.message?.usage,
                let timestamp = dates.date(from: record.timestamp) {
                 let dayStart = calendar.startOfDay(for: timestamp)
-                if dayStart >= openDayStart {
-                    reachedOpenBucket = true
-                }
-
                 let key = BucketKey(dayStart: dayStart, model: record.message?.model)
                 var bucket = totals[key] ?? Totals()
                 bucket.input += usage.inputTokens ?? 0
@@ -238,15 +202,12 @@ final class ClaudeCodeLogReader: @unchecked Sendable {
                 totals[key] = bucket
             }
 
-            if !reachedOpenBucket {
-                consumable = lineEnd
-            }
+            consumable = lineEnd
         }
 
-        try watermarkStore.saveWatermark(
-            SyncWatermark(
+        try watermarkStore.saveLocalScanWatermark(
+            LocalScanWatermark(
                 sourceKey: file.path,
-                accountID: accountID,
                 fileSize: size,
                 fileMTime: modified,
                 byteOffset: offset + Int64(consumable),
