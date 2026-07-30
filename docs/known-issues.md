@@ -249,6 +249,23 @@ not a monthly renewal, so the copy must not call it "resets".
 **Cursor is undetermined.** Resolving it needs a Cursor team API key plus one
 focused probe of the documented Team API for a limits endpoint.
 
+**Per-account cost for a Claude subscription is not obtainable.** The monthly
+fee appears in no field of the usage response. `spend.used{amount_minor,
+currency, exponent}` is a real money figure but belongs to the *extra usage*
+wallet (`can_purchase_credits`, `balance`, `cap` sit beside it), which is off for
+this user and therefore always zero. The window-level `limit_dollars` /
+`used_dollars` / `remaining_dollars` are null even on an actively used
+subscription — measured, not assumed. And local Claude Code logs carry no marker
+of which subscription paid for a session, so a token-derived estimate cannot be
+split per account. Route closed.
+
+**The usage response also carries a `limits` array** — 3 elements on the
+reference account, each with `kind`, `percent`, `resets_at`, `is_active`,
+`severity`, `group`. It looks like a newer, richer form of the same quota data
+that `five_hour` / `seven_day` express, and `is_active` would state directly what
+this app currently infers from a null `resets_at`. Not adopted; recorded as the
+obvious next source if the current keys ever stop being populated.
+
 **Do not revisit `claude setup-token`.** Its authorisation URL requests
 `scope=user:inference` and nothing else. That is a property of the grant, not a
 setting to be found.
