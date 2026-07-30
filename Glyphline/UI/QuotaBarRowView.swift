@@ -44,8 +44,11 @@ struct QuotaBarRowView: View {
             bar
                 .frame(maxWidth: barWidth)
 
+            // Monospaced digits: percentages and remaining times change every
+            // poll, and proportional figures make the whole line shift sideways
+            // as they do.
             Text(row.detail)
-                .font(.callout)
+                .font(.callout.monospacedDigit())
                 .foregroundStyle(.secondary)
 
             if let asOf = row.asOf {
@@ -56,7 +59,7 @@ struct QuotaBarRowView: View {
     }
 
     private var compactBody: some View {
-        VStack(alignment: .leading, spacing: 3) {
+        VStack(alignment: .leading, spacing: 4) {
             // A `Spacer` rather than a fixed label width: label left, detail
             // right, using the full width the panel gives us instead of a gutter
             // sized for a wider surface.
@@ -67,7 +70,7 @@ struct QuotaBarRowView: View {
                 Spacer(minLength: 8)
 
                 Text(row.detail)
-                    .font(.caption)
+                    .font(.caption.monospacedDigit())
                     .foregroundStyle(.secondary)
             }
 
@@ -88,7 +91,20 @@ struct QuotaBarRowView: View {
     private var bar: some View {
         ProgressView(value: row.fraction ?? 0)
             .progressViewStyle(.linear)
+            .tint(tint)
             .opacity(row.fraction == nil ? 0.25 : 1)
+    }
+
+    /// The verdict is `QuotaIndicator`'s; this only picks the paint. `nil` leaves
+    /// the accent tint alone on a bar that is already dimmed to near invisibility
+    /// — an unknown figure gets no colour, because colour here means a number.
+    private var tint: Color? {
+        switch row.severity {
+        case .normal: .green
+        case .warning: .orange
+        case .exhausted: .red
+        case .unknown: nil
+        }
     }
 
     private func asOfCaption(_ asOf: Date) -> some View {
