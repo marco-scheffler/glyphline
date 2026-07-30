@@ -86,13 +86,15 @@ struct QuotaBarRowView: View {
         }
     }
 
-    /// `fraction ?? 0` only ever reaches a bar dimmed to near invisibility: a
-    /// missing figure must not read as an empty quota.
+    /// The bar drains: it shows what is left, so a full bar means a fresh
+    /// window. `?? 0` only ever reaches a bar dimmed to near invisibility — an
+    /// unknown figure draws an empty track rather than a full one, because a
+    /// full bar would assert "nothing used yet".
     private var bar: some View {
-        ProgressView(value: row.fraction ?? 0)
+        ProgressView(value: row.remainingFraction ?? 0)
             .progressViewStyle(.linear)
             .tint(tint)
-            .opacity(row.fraction == nil ? 0.25 : 1)
+            .opacity(row.remainingFraction == nil ? 0.25 : 1)
     }
 
     /// The verdict is `QuotaIndicator`'s; this only picks the paint. `nil` leaves

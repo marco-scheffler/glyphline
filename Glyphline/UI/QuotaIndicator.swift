@@ -94,15 +94,20 @@ struct QuotaRowGroup: Identifiable, Equatable, Sendable {
 struct QuotaBarRow: Identifiable, Equatable, Sendable {
     var id: String
     var label: String
+    /// How much of the window is **left**, not how much is used — the bar drains
+    /// as quota is consumed. Named for the meaning so the sense cannot be
+    /// flipped a second time by someone reading a bare `fraction`.
+    ///
     /// `nil` means the provider reported no consumed fraction. A bar must then
-    /// be absent rather than empty — 0% is a wrong number, not a missing one.
-    var fraction: Double?
+    /// be absent rather than empty — 0% is a wrong number, not a missing one,
+    /// and 100% left would be a confidently wrong one.
+    var remainingFraction: Double?
     var detail: String
     /// Non-nil exactly when the window is past the freshness bound; the instant
     /// the figure was last believed.
     var asOf: Date?
-    /// Decided from `fraction` by `QuotaIndicator.severity(for:)`, so the colour
-    /// a bar takes and the state the light reports come from one rule.
+    /// Decided from `remainingFraction` by `QuotaIndicator.severity(forRemaining:)`,
+    /// so the colour a bar takes and the state the light reports come from one rule.
     var severity: QuotaSeverity = .unknown
 }
 
@@ -122,17 +127,31 @@ enum QuotaIndicator {
     /// agree today.
     static let exhaustedFraction = 1.0
 
-    /// Advisory only, and deliberately below `exhaustedFraction`. The light has
-    /// no opinion about this band and never claims "no warning" — it says
-    /// "usable" or "known exhausted" — so an amber bar can never contradict a
-    /// green icon.
-    static let warningFraction = 0.8
+    /// The same threshold expressed on the remaining fraction — *derived* from
+    /// `exhaustedFraction`, not a second literal that happens to agree. Rows are
+    /// judged on what is left, the light on what is used, and this identity is
+    /// the only reason the two cannot drift apart.
+    static let exhaustedRemainingFraction = 1 - exhaustedFraction
 
-    /// A window's verdict. `nil` is `.unknown`: a missing fraction is not 0%.
-    static func severity(for fraction: Double?) -> QuotaSeverity {
-        guard let fraction else { return .unknown }
-        if fraction >= exhaustedFraction { return .exhausted }
-        if fraction >= warningFraction { return .warning }
+    /// Advisory only, and deliberately above `exhaustedRemainingFraction`: a
+    /// little left, but not nothing. The light has no opinion about this band
+    /// and never claims "no warning" — it says "usable" or "known exhausted" —
+    /// so an amber bar can never contradict a green icon.
+    static let lowRemainingFraction = 0.2
+
+    /// What is left of a window, from what the provider says was used. `nil`
+    /// stays `nil`: an unknown usage is not "100% left".
+    static func remainingFraction(forUsed used: Double?) -> Double? {
+        guard let used else { return nil }
+        return 1 - used
+    }
+
+    /// A window's verdict, read off the remaining fraction. `nil` is `.unknown`:
+    /// a missing fraction is not "nothing left" and not "everything left".
+    static func severity(forRemaining remaining: Double?) -> QuotaSeverity {
+        guard let remaining else { return .unknown }
+        if remaining <= exhaustedRemainingFraction { return .exhausted }
+        if remaining <= lowRemainingFraction { return .warning }
         return .normal
     }
 
@@ -434,9 +453,17 @@ enum QuotaIndicator {
                         verb: verb
                     )
 
+                    // The inversion lives here and nowhere else: `usedFraction`
+                    // is what the provider reports and what `isPlausible`
+                    // validates, and it stays as it is.
+                    let left = remainingFraction(forUsed: windowState.window.usedFraction)
+
                     let detail: String
-                    if let fraction = windowState.window.usedFraction {
-                        detail = "\(Int((fraction * 100).rounded()))% · \(remaining)"
+                    if let left {
+                        // "left", not a bare percentage: "45%" reads either way,
+                        // and the whole point of the change is that the reader
+                        // no longer has to subtract.
+                        detail = "\(Int((left * 100).rounded()))% left · \(remaining)"
                     } else {
                         detail = "usage unknown · \(remaining)"
                     }
@@ -444,10 +471,10 @@ enum QuotaIndicator {
                     return QuotaBarRow(
                         id: windowState.window.kind.rawValue,
                         label: label,
-                        fraction: windowState.window.usedFraction,
+                        remainingFraction: left,
                         detail: detail,
                         asOf: asOf,
-                        severity: severity(for: windowState.window.usedFraction)
+                        severity: severity(forRemaining: left)
                     )
                 }
             )

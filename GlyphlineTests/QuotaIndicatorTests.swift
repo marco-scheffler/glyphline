@@ -566,8 +566,12 @@ final class QuotaIndicatorTests: XCTestCase {
         )
 
         let row = QuotaIndicator.barGroups(for: [state], now: now, freshness: 3_600).first?.rows.first
-        XCTAssertNil(row?.fraction)
+        XCTAssertNil(row?.remainingFraction)
         XCTAssertFalse(row?.detail.contains("0%") ?? true)
+        XCTAssertFalse(
+            row?.detail.contains("100%") ?? true,
+            "an unknown usage must not become '100% left'"
+        )
     }
 
     /// The cycle says "ends", not "resets" — a term end returns no capacity. Both
@@ -615,28 +619,72 @@ final class QuotaIndicatorTests: XCTestCase {
 
     // MARK: - Severity
 
-    /// The severity a row would be drawn with, straight from a fraction.
-    private func severity(ofRowWith used: Double?) -> QuotaSeverity? {
-        QuotaIndicator
+    /// The severity a row would be drawn with, for a window that has `remaining`
+    /// of its quota left. Goes through `barGroups` on purpose: this pins the
+    /// bands *as the rows see them*, so removing the inversion reddens it.
+    private func severity(ofRowWithRemaining remaining: Double?) -> QuotaSeverity? {
+        let used = remaining.map { 1 - $0 }
+        return QuotaIndicator
             .barGroups(for: [account("A", used: used)], now: now, freshness: freshness)
             .first?.rows.first?.severity
     }
 
     func testSeverityBandsAtTheirBoundaries() {
-        XCTAssertEqual(severity(ofRowWith: 0.79), .normal)
+        XCTAssertEqual(severity(ofRowWithRemaining: 0.21), .normal)
         XCTAssertEqual(
-            severity(ofRowWith: QuotaIndicator.warningFraction), .warning,
-            "the warning band is inclusive at its lower edge"
+            severity(ofRowWithRemaining: QuotaIndicator.lowRemainingFraction), .warning,
+            "the warning band is inclusive at its upper edge — 20% left already warns"
         )
-        XCTAssertEqual(severity(ofRowWith: 0.99), .warning)
+        XCTAssertEqual(severity(ofRowWithRemaining: 0.01), .warning)
         XCTAssertEqual(
-            severity(ofRowWith: QuotaIndicator.exhaustedFraction), .exhausted,
-            "exactly at the exhaustion threshold is exhausted, not warning"
+            severity(ofRowWithRemaining: QuotaIndicator.exhaustedRemainingFraction), .exhausted,
+            "exactly nothing left is exhausted, not warning"
         )
         XCTAssertEqual(
-            severity(ofRowWith: nil), .unknown,
-            "a missing fraction gets no colour — it is not 0%"
+            severity(ofRowWithRemaining: nil), .unknown,
+            "a missing fraction gets no colour — it is neither empty nor full"
         )
+    }
+
+    /// The exhaustion threshold the rows use is the light's, derived rather than
+    /// restated. A second literal that merely agrees today is the failure this
+    /// pins.
+    func testTheRemainingExhaustionThresholdIsDerivedFromTheUsedOne() {
+        XCTAssertEqual(
+            QuotaIndicator.exhaustedRemainingFraction,
+            1 - QuotaIndicator.exhaustedFraction,
+            accuracy: 1e-12
+        )
+    }
+
+    /// The arithmetic the whole inversion rests on: what a row shows plus what
+    /// the provider reported as used is the whole window.
+    func testARowsRemainingFractionCompletesTheUsedFraction() {
+        for used in [0.0, 0.15, 0.45, 0.8, 1.0] {
+            let states = [accountWith("Max #1", windows: [window(used: used)])]
+            let row = QuotaIndicator
+                .barGroups(for: states, now: now, freshness: freshness)
+                .first?.rows.first
+            guard let remaining = row?.remainingFraction else {
+                XCTFail("no remaining fraction for a window at \(used) used")
+                continue
+            }
+            XCTAssertEqual(
+                remaining + used, 1.0, accuracy: 1e-12,
+                "a row for \(used) used must show \(1 - used) remaining"
+            )
+        }
+    }
+
+    /// A `nil` used fraction must stay `nil`, not become "100% left" — a
+    /// confidently wrong number is worse than a missing one.
+    func testAMissingUsedFractionYieldsNoRemainingFraction() {
+        let states = [accountWith("Max #1", windows: [window(used: nil)])]
+        let row = QuotaIndicator
+            .barGroups(for: states, now: now, freshness: freshness)
+            .first?.rows.first
+        XCTAssertNil(row?.remainingFraction)
+        XCTAssertNil(QuotaIndicator.remainingFraction(forUsed: nil))
     }
 
     /// The load-bearing one. The light and the rows read the same number through
@@ -720,7 +768,9 @@ final class QuotaIndicatorTests: XCTestCase {
         )
     }
 
-    func testTheBarDetailReadsAsRemainingTime() {
+    /// The figure is worded, not bare: "45%" could be read either way, and the
+    /// user's question is how much is left.
+    func testTheBarDetailReadsAsRemainingQuotaAndRemainingTime() {
         let states = [
             accountWith("Max #1", windows: [
                 window(used: 0.45, resetMinutesFromNow: 200),
@@ -729,7 +779,7 @@ final class QuotaIndicatorTests: XCTestCase {
 
         XCTAssertEqual(
             QuotaIndicator.barGroups(for: states, now: now, freshness: freshness).first?.rows.first?.detail,
-            "45% · resets in 3h 20m"
+            "55% left · resets in 3h 20m"
         )
     }
 
