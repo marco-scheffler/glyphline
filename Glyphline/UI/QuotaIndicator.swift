@@ -221,22 +221,30 @@ enum QuotaIndicator {
         calendar.locale = formatting.locale
         calendar.timeZone = formatting.timeZone
 
-        // A local, not a `static let`: `DateFormatter` is not `Sendable`.
-        let formatter = DateFormatter()
-        formatter.locale = formatting.locale
-        formatter.timeZone = formatting.timeZone
-        formatter.timeStyle = .short
-        // `.short`, not `.medium`: a medium date spells the month, and a spelled
-        // month is a word, so it follows the *system* language — "resets 31. Okt.
-        // 2026" inside an English menu on a German Mac. The fix is a numeric
-        // style rather than a forced English locale: forcing English would fix
-        // the word and break the field order, printing "10/31/2026" to a reader
-        // who reads the day first. `.short` keeps the order local and spells
-        // nothing. It is set here rather than in `QuotaFormatting` because
-        // `QuotaFormatting` carries *where* the reader is, not how much of the
-        // date to show — that is this function's own same-day decision.
-        formatter.dateStyle = calendar.isDate(instant, inSameDayAs: now) ? .none : .short
-        return formatter.string(from: instant)
+        // A value type, not a `DateFormatter`: `Date.FormatStyle` is `Sendable`,
+        // so this path carries no non-Sendable class instance at all.
+        //
+        // `.numeric`, not `.medium`: a medium date spells the month, and a
+        // spelled month is a word, so it follows the *system* language —
+        // "resets 31. Okt. 2026" inside an English menu on a German Mac. The
+        // fix is the numeral form rather than a forced English locale: forcing
+        // English would fix the word and break the field order, printing
+        // "10/31/2026" to a reader who reads the day first. `.numeric` keeps
+        // the order local, spells nothing, and — unlike `DateFormatter`'s
+        // `.short` — writes the year in full. That last part is not cosmetic:
+        // the row this date exists for is a subscription term ending in 2027,
+        // and "3/9/27" is the same ambiguity the date was added to remove.
+        //
+        // The style is chosen here and not in `QuotaFormatting` because that
+        // type carries *where* the reader is, not how much of the date to show
+        // — that is this function's own same-day decision.
+        let style = Date.FormatStyle(
+            date: calendar.isDate(instant, inSameDayAs: now) ? .omitted : .numeric,
+            time: .shortened,
+            locale: formatting.locale,
+            timeZone: formatting.timeZone
+        )
+        return instant.formatted(style)
     }
 
     /// The app's own glyph, and what the menu bar shows when the light carries no
