@@ -380,7 +380,7 @@ enum Migrations {
             //
             // Persisted rather than held in memory, because the 96-hour expiry is
             // otherwise meaningless: every restart would clear the pit lane and the
-            // frist would never elapse. With the rows on disk, dismissing a session
+            // deadline would never elapse. With the rows on disk, dismissing a session
             // is simply deleting one, and a session that starts writing again
             // re-enters through the ordinary 60-minute rule — no second mechanism,
             // and no way to stay blind to something that is running.
