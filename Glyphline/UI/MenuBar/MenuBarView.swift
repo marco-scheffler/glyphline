@@ -7,36 +7,27 @@ struct MenuBarView: View {
     @EnvironmentObject private var coordinator: SyncCoordinator
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 12) {
             // Computed once per render pass — the accessor rebuilds its array on
             // every call, and the panel reads it three times.
             let quotaBars = coordinator.quotaBars
 
-            Text("Glyphline")
-                .font(.headline)
-
-            Picker("Mode", selection: appModeBinding) {
-                ForEach(AppMode.allCases) { mode in
-                    Text(mode.displayName)
-                        .tag(mode)
-                }
-            }
-            .pickerStyle(.segmented)
+            header
 
             if !quotaBars.isEmpty {
-                VStack(alignment: .leading, spacing: 8) {
-                    if let nextFree = coordinator.nextFreeText {
-                        Text("Next free: \(nextFree)")
-                            .font(.caption.weight(.medium))
-                    }
-
+                VStack(alignment: .leading, spacing: 12) {
                     // Rows come from the coordinator, against the same freshness
                     // bound as the light and the header. The view has no bound of
                     // its own to get wrong.
                     ForEach(quotaBars) { group in
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(group.displayName)
-                                .font(.caption)
+                        VStack(alignment: .leading, spacing: 6) {
+                            // A quiet section header rather than a second body
+                            // line: the account name groups the bars, it is not
+                            // one of the figures being read.
+                            Text(group.displayName.uppercased())
+                                .font(.caption2.weight(.semibold))
+                                .kerning(0.6)
+                                .foregroundStyle(.secondary)
 
                             // Message *and* rows. Accounts without a quota source
                             // appear with their reason, and that reason is not
@@ -58,9 +49,12 @@ struct MenuBarView: View {
                             }
                         }
                     }
-                }
 
-                Divider()
+                    if let nextFree = coordinator.nextFreeText {
+                        Text("Next free: \(nextFree)")
+                            .font(.caption.weight(.medium).monospacedDigit())
+                    }
+                }
             }
 
             // Whole-app failures only — the ledger being unavailable or
@@ -71,14 +65,18 @@ struct MenuBarView: View {
                     .font(.caption)
                     .foregroundStyle(.red)
             } else if quotaBars.isEmpty {
-                // Without this a fresh install shows a title, a picker and three
-                // buttons, with nothing saying why the popover is empty.
+                // Without this a fresh install shows a title and three buttons,
+                // with nothing saying why the panel is empty.
                 Text("No accounts yet. Open the dashboard to add one.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
-            HStack(spacing: 10) {
+            Divider()
+
+            // A compact footer row rather than three stacked full-width buttons:
+            // these are the panel's exits, not its content.
+            HStack(spacing: 6) {
                 Button("Open Dashboard", action: openDashboard)
                 Button("Sync Now") {
                     Task {
@@ -86,30 +84,47 @@ struct MenuBarView: View {
                     }
                 }
                 .disabled(coordinator.activities.values.contains(where: \.isRunning))
+
+                Spacer(minLength: 0)
+
                 Button("Quit") {
                     NSApp.terminate(nil)
                 }
             }
             .buttonStyle(.bordered)
+            .controlSize(.small)
         }
-        .padding(14)
+        .padding(12)
         .frame(width: 320)
         .task {
             await coordinator.refreshRateWindowsOnDemand()
         }
     }
 
-    private var appModeBinding: Binding<AppMode> {
-        Binding(
-            get: { settings.appMode },
-            set: { newMode in
-                let previousMode = settings.appMode
-                settings.appMode = newMode
-                if newMode.requiresDashboardOpen(afterTransitioningFrom: previousMode) {
-                    openDashboard()
-                }
-            }
-        )
+    /// Title left, the light right. The dot is the *same* state the menu bar icon
+    /// shows — read from `quotaLight`, never recomputed here — so the panel and
+    /// the icon cannot disagree once the panel is open.
+    private var header: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text("Glyphline")
+                .font(.headline)
+
+            Spacer(minLength: 8)
+
+            Circle()
+                .fill(lightColor(for: coordinator.quotaLight))
+                .frame(width: 8, height: 8)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(QuotaIndicator.accessibilityLabel(for: coordinator.quotaLight))
+        }
+    }
+
+    private func lightColor(for state: QuotaLightState) -> Color {
+        switch state {
+        case .green: .green
+        case .red: .red
+        case .grey: .secondary
+        }
     }
 
     private func openDashboard() {
