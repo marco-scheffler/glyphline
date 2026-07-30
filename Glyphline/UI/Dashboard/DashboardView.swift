@@ -46,6 +46,10 @@ struct DashboardView: View {
         // `refreshRateWindowsOnDemand` guards per account against a concurrent
         // fetch, so overlapping with a scheduled tick is safe.
         .task { await coordinator.refreshRateWindowsOnDemand() }
+        // Once per launch, alongside the quota collection and never from the
+        // statistics screen's own appearance: the first scan reads gigabytes
+        // across hundreds of project directories.
+        .task { await coordinator.scanLocalUsageOnceAtLaunch() }
     }
 
     @ViewBuilder private var detailView: some View {
@@ -62,6 +66,8 @@ struct DashboardView: View {
                 ledgerStore: ledgerStore,
                 onDeleted: loadDashboard
             )
+        case .statistics:
+            StatisticsView()
         case .addAccount:
             AddAccountView(ledgerStore: ledgerStore, onSave: loadDashboard)
         case .settings:
@@ -89,6 +95,7 @@ struct DashboardView: View {
 private enum DashboardDestination: String, CaseIterable, Identifiable {
     case overview
     case accounts
+    case statistics
     case addAccount
     case settings
 
@@ -100,6 +107,8 @@ private enum DashboardDestination: String, CaseIterable, Identifiable {
             "Overview"
         case .accounts:
             "Accounts"
+        case .statistics:
+            "Statistics"
         case .addAccount:
             "Add Account"
         case .settings:
@@ -113,6 +122,8 @@ private enum DashboardDestination: String, CaseIterable, Identifiable {
             "rectangle.grid.2x2"
         case .accounts:
             "person.2"
+        case .statistics:
+            "chart.bar"
         case .addAccount:
             "plus.circle"
         case .settings:

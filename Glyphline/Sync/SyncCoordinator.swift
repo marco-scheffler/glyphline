@@ -100,6 +100,102 @@ final class SyncCoordinator: ObservableObject {
         await collectRateWindows()
     }
 
+    // MARK: - Machine-wide local token usage
+
+    /// True while a transcript scan is running. The first scan reads gigabytes
+    /// across hundreds of project directories, so the screen says it is working
+    /// rather than showing an empty table.
+    @Published private(set) var isScanningLocalUsage = false
+
+    /// Set when a scan could not be attempted or failed outright.
+    @Published private(set) var localScanFailureMessage: String?
+
+    /// Bumped after every scan that wrote something, so a view can reload its
+    /// aggregates without polling the ledger on each render pass.
+    @Published private(set) var localUsageRevision = 0
+
+    /// Guards the launch-time scan, so navigating back to the screen does not
+    /// start another one. Set before the scan, not after, so a refused scan is
+    /// not retried on every window opening either.
+    private var hasScannedLocalUsageAtLaunch = false
+
+    /// Reads the not-yet-consumed transcript bytes. Nil when there is no ledger
+    /// to resume from, in which case no scan is attempted at all.
+    private let localScan: (@Sendable () throws -> LocalScanResult)?
+
+    /// Nil when the bundled pricing catalog could not be loaded; the screen then
+    /// has tokens but no estimate, which is the honest rendering.
+    private let costEstimator: CostEstimator?
+
+    /// Machine-wide, account-free: `/login` writes every subscription's sessions
+    /// into the same directory.
+    static let claudeProjectsDirectory = FileManager.default
+        .homeDirectoryForCurrentUser
+        .appendingPathComponent(".claude", isDirectory: true)
+        .appendingPathComponent("projects", isDirectory: true)
+
+    static let localScanUnavailableMessage = "Ledger unavailable. Local usage was not scanned."
+    static let localScanFailedMessage = "Could not read the local Claude Code transcripts."
+
+    /// Runs the scan once per launch. Called from the dashboard window's root
+    /// alongside the quota collection — deliberately not from the statistics
+    /// screen's appearance, which fires on every sidebar navigation.
+    func scanLocalUsageOnceAtLaunch() async {
+        guard !hasScannedLocalUsageAtLaunch else { return }
+        hasScannedLocalUsageAtLaunch = true
+        await scanLocalUsage()
+    }
+
+    /// Reads the transcripts off the main actor and persists the result.
+    ///
+    /// The write goes through `applyLocalScan`, never through
+    /// `upsertLocalTokenUsage` and `saveLocalScanWatermark` separately: the
+    /// reader emits deltas, so a watermark that advanced without its tokens
+    /// landing makes those bytes unreadable for good and understates the totals
+    /// silently, forever.
+    func scanLocalUsage() async {
+        guard let ledger, let localScan else {
+            localScanFailureMessage = Self.localScanUnavailableMessage
+            return
+        }
+
+        guard !isScanningLocalUsage else { return }
+        isScanningLocalUsage = true
+        defer { isScanningLocalUsage = false }
+
+        // Off the main actor: the first scan reads gigabytes and would freeze
+        // the window for the whole of it.
+        let failed = await Task.detached(priority: .utility) { () -> Bool in
+            do {
+                let scan = try localScan()
+                try ledger.applyLocalScan(usage: scan.usage, watermarks: scan.watermarks)
+                return false
+            } catch {
+                return true
+            }
+        }.value
+
+        if failed {
+            localScanFailureMessage = Self.localScanFailedMessage
+        } else {
+            localScanFailureMessage = nil
+            localUsageRevision += 1
+        }
+    }
+
+    /// Aggregates the stored rows for a period into per-model totals and
+    /// API-equivalent estimates. Nil when there is nothing to read them from.
+    func localUsageStatistics(since: Date?) -> LocalUsageStatistics? {
+        guard let ledger,
+              let costEstimator,
+              let rows = try? ledger.fetchLocalTokenUsage(since: since)
+        else {
+            return nil
+        }
+
+        return LocalUsageStatistics(rows: rows, estimator: costEstimator)
+    }
+
     /// Injected so scheduling can be exercised without waiting on wall-clock time.
     private let sleepForSeconds: @Sendable (TimeInterval) async throws -> Void
     private var schedulerTask: Task<Void, Never>?
@@ -121,8 +217,24 @@ final class SyncCoordinator: ObservableObject {
         },
         now: @escaping @Sendable () -> Date = Date.init,
         rateWindowSourceProvider: (@MainActor (Account) -> (any RateWindowSource)?)? = nil,
-        quotaNotifier: any QuotaNotifier = UserNotificationQuotaNotifier()
+        quotaNotifier: any QuotaNotifier = UserNotificationQuotaNotifier(),
+        localScan: (@Sendable () throws -> LocalScanResult)? = nil,
+        costEstimator: CostEstimator? = nil
     ) {
+        if let localScan {
+            self.localScan = localScan
+        } else if let ledger {
+            let reader = ClaudeCodeLogReader(
+                directory: Self.claudeProjectsDirectory,
+                watermarkStore: ledger
+            )
+            self.localScan = { try reader.read() }
+        } else {
+            self.localScan = nil
+        }
+
+        self.costEstimator = costEstimator
+            ?? (try? PricingCatalog.bundled()).map { CostEstimator(catalog: $0) }
         self.quotaNotifier = quotaNotifier
         self.sleepForSeconds = sleepForSeconds
         self.now = now
