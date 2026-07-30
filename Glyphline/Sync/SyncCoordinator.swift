@@ -171,7 +171,7 @@ final class SyncCoordinator: ObservableObject {
 
     /// Applies a desired schedule without disturbing one that already matches.
     ///
-    /// The loop sleeps a full interval *before* its first sync, so an
+    /// The loop sleeps a full interval before its first *cost* sync, so an
     /// unconditional stop-then-start would push the next sync out by a whole
     /// interval every time it ran. This is called from `onAppear`, which fires
     /// again each time the dashboard scene is recreated, so a user reopening the
