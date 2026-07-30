@@ -512,6 +512,7 @@
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
 					E61E4F4E6C3927C0F5FC0C74 = {
+						DevelopmentTeam = 7YN7YUH475;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -670,6 +671,8 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 7YN7YUH475;
+				ENABLE_HARDENED_RUNTIME = YES;
 				INFOPLIST_FILE = Glyphline/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -771,6 +774,8 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 7YN7YUH475;
+				ENABLE_HARDENED_RUNTIME = YES;
 				INFOPLIST_FILE = Glyphline/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

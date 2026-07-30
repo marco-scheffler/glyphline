@@ -26,6 +26,13 @@ targets:
       INFOPLIST_FILE: Glyphline/Info.plist
       SWIFT_VERSION: 6.0
       CODE_SIGN_STYLE: Automatic
+      DEVELOPMENT_TEAM: 7YN7YUH475
+      # Notarisierung setzt die Hardened Runtime voraus — ohne sie lehnt der
+      # Notary-Service ab. Sie hier und nicht nur im Release-Skript zu setzen
+      # heißt: der tägliche Debug-Build läuft unter denselben Regeln wie das,
+      # was am Ende verteilt wird. Sonst fällt eine Unverträglichkeit erst beim
+      # Verteilen auf, wenn niemand mehr damit rechnet.
+      ENABLE_HARDENED_RUNTIME: YES
   GlyphlineTests:
     type: bundle.unit-test
     platform: macOS
