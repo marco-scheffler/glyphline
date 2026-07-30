@@ -32,7 +32,11 @@ final class AccountDeletionFormattingTests: XCTestCase {
         // en_US and fail on this project's own machine, which runs de_DE:
         // `.number` groups with a period there, and the date reorders.
         XCTAssertTrue(body.contains("\(148.formatted(.number)) rate window samples"))
-        XCTAssertTrue(body.contains(now.formatted(date: .abbreviated, time: .omitted)))
+        XCTAssertTrue(body.contains(now.formatted(date: .numeric, time: .omitted)))
+        // And not the abbreviated date it used to carry: that one spells the
+        // month, so on a German system it printed "Okt." inside this English
+        // sentence. Numerals follow the system; words follow the app.
+        XCTAssertFalse(body.contains(now.formatted(date: .abbreviated, time: .omitted)))
         XCTAssertTrue(body.lowercased().contains("cannot be recovered"))
     }
 

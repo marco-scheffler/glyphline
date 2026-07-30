@@ -226,7 +226,16 @@ enum QuotaIndicator {
         formatter.locale = formatting.locale
         formatter.timeZone = formatting.timeZone
         formatter.timeStyle = .short
-        formatter.dateStyle = calendar.isDate(instant, inSameDayAs: now) ? .none : .medium
+        // `.short`, not `.medium`: a medium date spells the month, and a spelled
+        // month is a word, so it follows the *system* language — "resets 31. Okt.
+        // 2026" inside an English menu on a German Mac. The fix is a numeric
+        // style rather than a forced English locale: forcing English would fix
+        // the word and break the field order, printing "10/31/2026" to a reader
+        // who reads the day first. `.short` keeps the order local and spells
+        // nothing. It is set here rather than in `QuotaFormatting` because
+        // `QuotaFormatting` carries *where* the reader is, not how much of the
+        // date to show — that is this function's own same-day decision.
+        formatter.dateStyle = calendar.isDate(instant, inSameDayAs: now) ? .none : .short
         return formatter.string(from: instant)
     }
 

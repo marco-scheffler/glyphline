@@ -22,7 +22,14 @@ enum AccountDeletionFormatting {
             let noun = summary.rateWindowSampleCount == 1 ? "sample" : "samples"
             var sentence = "\(summary.rateWindowSampleCount.formatted(.number)) rate window \(noun) "
             if let earliest = summary.earliestRateWindowObservedAt {
-                sentence += "recorded since \(earliest.formatted(date: .abbreviated, time: .omitted)). "
+                // `.numeric`, not `.abbreviated`: an abbreviated date spells the
+                // month, and a spelled month follows the *system* language. On a
+                // German Mac that drops "Okt." into this English sentence, in the
+                // app's only irreversible dialog. Forcing English here would fix
+                // the word and break the order — "10/4/2026" for a reader who
+                // reads day first. `.numeric` renders "04.10.2026": no word to
+                // translate, numerals still local.
+                sentence += "recorded since \(earliest.formatted(date: .numeric, time: .omitted)). "
             } else {
                 sentence += "recorded. "
             }

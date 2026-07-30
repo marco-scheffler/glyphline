@@ -177,7 +177,9 @@ final class QuotaIndicatorTests: XCTestCase {
         ]
         XCTAssertEqual(
             visible(QuotaIndicator.nextFree(for: states, now: now, freshness: freshness, formatting: formatting)),
-            "Max #1 — Jul 31, 2026 at 2:00 PM"
+            // A numeric date, not "Jul 31": a spelled month follows the system
+            // language and would print German inside this English string.
+            "Max #1 — 7/31/26, 2:00 PM"
         )
     }
 
@@ -314,7 +316,7 @@ final class QuotaIndicatorTests: XCTestCase {
         )
         XCTAssertEqual(
             visible(QuotaIndicator.rowText(for: window, now: now, formatting: formatting)),
-            "Week 40% — resets Jul 31, 2026 at 2:00 PM"
+            "Week 40% — resets 7/31/26, 2:00 PM"
         )
     }
 
@@ -330,7 +332,7 @@ final class QuotaIndicatorTests: XCTestCase {
         )
         let text = visible(QuotaIndicator.rowText(for: window, now: now, formatting: formatting)) ?? ""
 
-        XCTAssertEqual(text, "Cycle — usage unknown, ends Mar 9, 2027 at 9:00 AM")
+        XCTAssertEqual(text, "Cycle — usage unknown, ends 3/9/27, 9:00 AM")
         XCTAssertFalse(
             text.contains("resets"),
             "a subscription term end returns no capacity, so it must not be called a reset"

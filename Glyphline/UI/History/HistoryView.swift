@@ -46,7 +46,10 @@ struct HistorySummaryRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             VStack(alignment: .leading, spacing: compact ? 4 : 6) {
-                Text(entry.summary.dayStart, format: .dateTime.month(.abbreviated).day().year())
+                // A numeric date, not `.month(.abbreviated)`: an abbreviated
+                // month is a word, and words follow the system language — the
+                // row headed a German "Okt." in an otherwise English screen.
+                Text(entry.summary.dayStart, format: Date.FormatStyle(date: .numeric, time: .omitted))
                     .font(compact ? .subheadline.weight(.semibold) : .headline)
 
                 if let accountName = entry.accountName {
