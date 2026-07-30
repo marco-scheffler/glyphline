@@ -46,11 +46,6 @@ final class ClaudeSignInWindow: NSObject {
     /// establishes something the user cannot retry their way out of.
     private var pendingOutcome: Outcome = .cancelled
 
-    /// TEMPORARY DIAGNOSTIC — added 2026-07-30, see `ResponseShapeProbe`.
-    /// Structural summary of the last body the classifier rejected as the wrong
-    /// shape. Never holds any part of the body itself. Remove with the probe.
-    private var lastShapeSummary: String?
-
     init(account: Account, sessionStore: ClaudeWebSessionStore, timeout: Duration = .seconds(30)) {
         // One data store instance is shared by the visible view and by every
         // check, so a session established a moment ago is visible immediately
@@ -146,14 +141,7 @@ final class ClaudeSignInWindow: NSObject {
 
         do {
             let outcome = try await loader.load(url, timeout: timeout)
-            let result = classify(outcome.body, outcome.statusCode)
-            // TEMPORARY DIAGNOSTIC — added 2026-07-30, see `ResponseShapeProbe`.
-            if case .failure(.unexpectedResponseShape) = result {
-                lastShapeSummary = ResponseShapeProbe.describe(outcome.body)
-            } else {
-                lastShapeSummary = nil
-            }
-            return result
+            return classify(outcome.body, outcome.statusCode)
         } catch let error as RateWindowSourceError {
             return .failure(error)
         } catch {
@@ -164,13 +152,7 @@ final class ClaudeSignInWindow: NSObject {
     /// Shows why the check did not pass, using the error's own message and
     /// nothing from the response.
     private func report(_ error: RateWindowSourceError) {
-        // TEMPORARY DIAGNOSTIC — added 2026-07-30, see `ResponseShapeProbe`. The
-        // appended summary is structural only. Remove with the probe.
-        if case .unexpectedResponseShape = error, let lastShapeSummary {
-            statusLabel?.stringValue = "\(error.message) (diagnostic: \(lastShapeSummary))"
-        } else {
-            statusLabel?.stringValue = error.message
-        }
+        statusLabel?.stringValue = error.message
 
         switch error {
         case .notAvailable:
@@ -192,9 +174,10 @@ final class ClaudeSignInWindow: NSObject {
 
         let statusLabel = NSTextField(labelWithString: Self.promptText)
         statusLabel.lineBreakMode = .byWordWrapping
-        // Four, not two: a failure sentence carrying the shape diagnostic runs
-        // longer than two lines, and a truncated diagnostic is worse than none —
-        // it is read as the whole message and sends the reader off wrong.
+        // Four, not two: the failure sentences fit in fewer, but the extra room
+        // costs nothing and a truncated failure message is worse than a slightly
+        // tall label — it is read as the whole message and sends the reader off
+        // wrong.
         statusLabel.maximumNumberOfLines = 4
         statusLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         self.statusLabel = statusLabel

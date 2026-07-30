@@ -32,7 +32,6 @@
 		2BDACE3AAE0A202FCB9520BC /* AppSettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E78F87ED03A83F2D193EF8B /* AppSettingsStore.swift */; };
 		2DF42C50602C384C26283736 /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = C1D17CF7506CDB47E08BD82A /* GRDB */; };
 		314BE108752F760302660DC4 /* AccountSummaryFormattingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 849077EF726D5E3F756B4805 /* AccountSummaryFormattingTests.swift */; };
-		32E88DB5A64093D7D73DD2A1 /* ResponseShapeProbeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0288E5E10CC95258AB25317 /* ResponseShapeProbeTests.swift */; };
 		373696DD1AD3D4D19DAF6605 /* CursorUsageAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F92E1F1D1168A5B8A662B28F /* CursorUsageAdapter.swift */; };
 		37CFE0A06075136004EBA62F /* AppActivationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64891BE57A59E15EEFF1CD5F /* AppActivationController.swift */; };
 		380A032B21975B0786C28EB0 /* QuotaBarRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBDCA09F2919D27BE31E10C4 /* QuotaBarRowView.swift */; };
@@ -101,7 +100,6 @@
 		D8B77926E2F0A8CA8B0916E2 /* UsageModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE8DBF95730F8FD235AFAC47 /* UsageModels.swift */; };
 		D9A5D612D6C4A3437775ADC3 /* cursor-usage-events.json in Resources */ = {isa = PBXBuildFile; fileRef = 5E57F6B2EA86558037E4D70F /* cursor-usage-events.json */; };
 		DD65CBEE767BCD073129FC0C /* ProviderAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6BA50B54580BB6EDF13DF33 /* ProviderAdapter.swift */; };
-		E021E1005AB7B544D461086E /* ResponseShapeProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 397C686BCB71898A5F0524C5 /* ResponseShapeProbe.swift */; };
 		E26E4CED2DF7349EFDE10AEA /* AccountDeletionFormatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93FBE86612C30FFEEC2EE1FD /* AccountDeletionFormatting.swift */; };
 		E3ADEBC94C92A0EC346D4FDF /* OpenAIUsageDTOs.swift in Sources */ = {isa = PBXBuildFile; fileRef = F55EFBB4240EAC3D099E29A3 /* OpenAIUsageDTOs.swift */; };
 		E87053D134E5E5BCF23BD177 /* ClaudeWebSessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D5247CB250C44F5D5A195E8 /* ClaudeWebSessionStore.swift */; };
@@ -153,7 +151,6 @@
 		38CEA8D84FAB5879F7C9B70E /* MigrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MigrationTests.swift; sourceTree = "<group>"; };
 		38E16DBA6601CED2ABB83448 /* ProviderAdapterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderAdapterTests.swift; sourceTree = "<group>"; };
 		392B5FF66B8772E918631363 /* RateWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RateWindow.swift; sourceTree = "<group>"; };
-		397C686BCB71898A5F0524C5 /* ResponseShapeProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResponseShapeProbe.swift; sourceTree = "<group>"; };
 		3B1D47E3EFDB4A47186A23AF /* .gitkeep */ = {isa = PBXFileReference; path = .gitkeep; sourceTree = "<group>"; };
 		3E4A6EC8C6579850C8C770C5 /* FixtureProviderAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FixtureProviderAdapter.swift; sourceTree = "<group>"; };
 		40D313DABDF65EC1DBCADDBD /* AddAccountFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddAccountFlowTests.swift; sourceTree = "<group>"; };
@@ -228,7 +225,6 @@
 		E2ACCDCE077861E9661ECBFF /* LedgerStoreFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LedgerStoreFactory.swift; sourceTree = "<group>"; };
 		E42FEF51480E9EE7A6F5CB44 /* cursor-spend.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "cursor-spend.json"; sourceTree = "<group>"; };
 		E78959ED32C99389D71E836A /* ClaudeUsageQuotaDTOsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeUsageQuotaDTOsTests.swift; sourceTree = "<group>"; };
-		F0288E5E10CC95258AB25317 /* ResponseShapeProbeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResponseShapeProbeTests.swift; sourceTree = "<group>"; };
 		F06FF5203E4C15863CAB3EE3 /* AccountsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountsView.swift; sourceTree = "<group>"; };
 		F0CDFE7985B9A951A9272425 /* claude-usage-report-page2.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "claude-usage-report-page2.json"; sourceTree = "<group>"; };
 		F23BD4A6011089522A8246FA /* StubURLProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StubURLProtocol.swift; sourceTree = "<group>"; };
@@ -401,7 +397,6 @@
 				11D41DE98E9E03A2433764CC /* RateWindowSourceTests.swift */,
 				1923CB6870F90CE15FC576F9 /* RateWindowStoreTests.swift */,
 				CA6C8BEB41F3B3EE32D28A76 /* RateWindowTests.swift */,
-				F0288E5E10CC95258AB25317 /* ResponseShapeProbeTests.swift */,
 				B5287B8477F8EF75ABA938B2 /* SnapshotSummaryTests.swift */,
 				F23BD4A6011089522A8246FA /* StubURLProtocol.swift */,
 				62C5666D45C5D74DC69F722E /* SyncCoordinatorTests.swift */,
@@ -518,7 +513,6 @@
 				D968A135D66AE439311BECFE /* ClaudeUsageQuotaDTOs.swift */,
 				15AE8CE25E9DFB53944DBD13 /* ClaudeWebQuotaSource.swift */,
 				383FF44EC0D7B7C405AE465B /* ClaudeWebResponseClassifier.swift */,
-				397C686BCB71898A5F0524C5 /* ResponseShapeProbe.swift */,
 			);
 			path = Claude;
 			sourceTree = "<group>";
@@ -697,7 +691,6 @@
 				05ADA18D2E958FB3A3558030 /* RateWindowSourceTests.swift in Sources */,
 				9442C7847482BDAC9B50C660 /* RateWindowStoreTests.swift in Sources */,
 				F56211A4FDCF96FDAFB59C92 /* RateWindowTests.swift in Sources */,
-				32E88DB5A64093D7D73DD2A1 /* ResponseShapeProbeTests.swift in Sources */,
 				AC776B32695D0B125B30B305 /* SnapshotSummaryTests.swift in Sources */,
 				D3E95C4A8677984AD229DE0B /* StubURLProtocol.swift in Sources */,
 				AA9559C25108258EBA10DC8A /* SyncCoordinatorTests.swift in Sources */,
@@ -758,7 +751,6 @@
 				4116A5BE773935FFD1910B9F /* QuotaNotifier.swift in Sources */,
 				8A0A7176801705F955EB4B5C /* RateWindow.swift in Sources */,
 				8A3BE7918F84E156A45F3259 /* RateWindowSource.swift in Sources */,
-				E021E1005AB7B544D461086E /* ResponseShapeProbe.swift in Sources */,
 				C188981DAC4E75CE72DC3B58 /* SettingsView.swift in Sources */,
 				B077494A20202025E2ABBE46 /* SnapshotIdentity.swift in Sources */,
 				576165D2272B5A18C6F12EE9 /* SyncActivity.swift in Sources */,
