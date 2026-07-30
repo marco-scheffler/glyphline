@@ -165,7 +165,9 @@ final class ClaudeWebQuotaSourceEmptyWindowProbeTests: XCTestCase {
     }
 
     func testZeroWindowsCarriesTheStructuralSummary() throws {
-        let body = #"{"five_hour":{"utilization":0,"resets_at":null},"seven_day":null}"#
+        // Both window objects genuinely absent — the only shape that still
+        // yields nothing at all now that a null `resets_at` keeps its window.
+        let body = #"{"five_hour":null,"seven_day":null}"#
 
         let result = try result(body: body)
 
@@ -176,9 +178,23 @@ final class ClaudeWebQuotaSourceEmptyWindowProbeTests: XCTestCase {
             message.hasPrefix("claude.ai reported no active limits for this subscription. ("),
             message
         )
-        XCTAssertTrue(message.contains("five_hour{resets_at: null, utilization: number}"), message)
+        XCTAssertTrue(message.contains("five_hour is null"), message)
         XCTAssertTrue(message.contains("seven_day is null"), message)
         XCTAssertTrue(message.hasSuffix(")"), message)
+    }
+
+    /// The shape this whole change exists for: a window that is present but has
+    /// no reset instant is a *reported* window now, so the "no active limits"
+    /// diagnostic must not fire over it. It used to — that message is exactly
+    /// what the user saw in place of "100% left".
+    func testAWindowWithoutAResetInstantIsNotTreatedAsNoWindowAtAll() throws {
+        let body = #"{"five_hour":{"utilization":0,"resets_at":null},"seven_day":{"utilization":0,"resets_at":null}}"#
+
+        let result = try result(body: body)
+
+        XCTAssertEqual(result.windows.count, 2)
+        XCTAssertTrue(result.windows.allSatisfy { $0.resetAt == nil })
+        XCTAssertNil(result.message, "two reported windows are not 'no active limits'")
     }
 
     func testAtLeastOneWindowCarriesNoDiagnostic() throws {
@@ -192,7 +208,9 @@ final class ClaudeWebQuotaSourceEmptyWindowProbeTests: XCTestCase {
     }
 
     func testTheDiagnosticNeverCarriesAValue() throws {
-        let body = #"{"five_hour":{"utilization":98765,"resets_at":"SECRET-VALUE-1234"},"account":"someone@example.com"}"#
+        // No window object at all, so the diagnostic fires — while the body
+        // still carries the values that must not reach the message.
+        let body = #"{"five_hour":null,"seven_day":null,"utilization":98765,"session":"SECRET-VALUE-1234","account":"someone@example.com"}"#
 
         let message = try XCTUnwrap(result(body: body).message)
 

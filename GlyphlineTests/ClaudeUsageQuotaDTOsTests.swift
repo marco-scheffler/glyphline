@@ -85,7 +85,10 @@ final class ClaudeUsageQuotaDTOsTests: XCTestCase {
 
     private static let completeWindow = #"{"utilization": 7.0, "resets_at": "2026-08-03T22:59:59.695335+00:00"}"#
 
-    func testAWindowWithoutAResetInstantIsDroppedAndTheSiblingSurvives() throws {
+    /// A null `resets_at` used to take the whole window with it, including the
+    /// `utilization` beside it. The fraction is the useful half of the reading
+    /// and it is reported correctly, so it must survive on its own.
+    func testAWindowWithoutAResetInstantKeepsItsFractionAndTheSiblingSurvives() throws {
         let json = productionShaped(
             fiveHour: #"{"utilization": 12.0, "resets_at": null}"#,
             sevenDay: Self.completeWindow
@@ -93,8 +96,40 @@ final class ClaudeUsageQuotaDTOsTests: XCTestCase {
 
         let windows = try ClaudeUsageResponse.decode(json).rateWindows(observedAt: observedAt)
 
-        XCTAssertEqual(windows.map(\.kind), [.weekly])
-        XCTAssertEqual(try XCTUnwrap(windows[0].usedFraction), 0.07, accuracy: 0.0001)
+        XCTAssertEqual(windows.map(\.kind), [.rollingFiveHours, .weekly])
+
+        let fiveHour = try XCTUnwrap(windows.first { $0.kind == .rollingFiveHours })
+        XCTAssertNil(fiveHour.resetAt, "a null resets_at is no instant, not an invented one")
+        XCTAssertEqual(try XCTUnwrap(fiveHour.usedFraction), 0.12, accuracy: 0.0001)
+
+        let weekly = try XCTUnwrap(windows.first { $0.kind == .weekly })
+        XCTAssertNotNil(weekly.resetAt, "the sibling's own instant is untouched")
+        XCTAssertEqual(try XCTUnwrap(weekly.usedFraction), 0.07, accuracy: 0.0001)
+    }
+
+    /// The exact shape a freshly added subscription returns: both windows
+    /// present, both `resets_at` null, both `utilization` a real number. A
+    /// rolling window only starts on first use, so there is genuinely nothing to
+    /// reset — and "0% consumed" is the most useful thing the endpoint ever
+    /// says. This response used to yield no windows at all and the account
+    /// showed nothing.
+    func testAnUnusedSubscriptionYieldsBothWindowsWithNoResetInstant() throws {
+        let json = productionShaped(
+            fiveHour: #"{"limit_dollars": null, "remaining_dollars": null, "resets_at": null, "used_dollars": null, "utilization": 0}"#,
+            sevenDay: #"{"limit_dollars": null, "remaining_dollars": null, "resets_at": null, "used_dollars": null, "utilization": 0}"#
+        )
+
+        let windows = try ClaudeUsageResponse.decode(json).rateWindows(observedAt: observedAt)
+
+        XCTAssertEqual(windows.count, 2)
+        XCTAssertEqual(Set(windows.map(\.kind)), [.rollingFiveHours, .weekly])
+        XCTAssertTrue(windows.allSatisfy { $0.resetAt == nil })
+        // Zero, and present — distinct from the nil that means "usage unknown".
+        for window in windows {
+            XCTAssertEqual(try XCTUnwrap(window.usedFraction), 0, accuracy: 1e-12)
+        }
+        // And the ledger must accept them, or the decode fix changes nothing.
+        XCTAssertTrue(windows.allSatisfy { $0.isPlausible(now: observedAt) })
     }
 
     func testAWindowWithoutUtilizationKeepsItsResetInstantAndReportsUsageAsUnknown() throws {
@@ -123,7 +158,10 @@ final class ClaudeUsageQuotaDTOsTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(fiveHour.usedFraction), 0.12, accuracy: 0.0001)
     }
 
-    func testAMalformedResetInstantDropsOnlyItsOwnWindow() throws {
+    /// A timestamp we cannot parse costs that window its instant and nothing
+    /// else — not the fraction beside it, and above all not the sibling window,
+    /// which decodes through the same date strategy.
+    func testAMalformedResetInstantCostsOnlyThatWindowsInstant() throws {
         let json = productionShaped(
             fiveHour: #"{"utilization": 12.0, "resets_at": "not-a-timestamp"}"#,
             sevenDay: Self.completeWindow
@@ -131,7 +169,13 @@ final class ClaudeUsageQuotaDTOsTests: XCTestCase {
 
         let windows = try ClaudeUsageResponse.decode(json).rateWindows(observedAt: observedAt)
 
-        XCTAssertEqual(windows.map(\.kind), [.weekly])
+        XCTAssertEqual(windows.map(\.kind), [.rollingFiveHours, .weekly])
+
+        let fiveHour = try XCTUnwrap(windows.first { $0.kind == .rollingFiveHours })
+        XCTAssertNil(fiveHour.resetAt)
+        XCTAssertEqual(try XCTUnwrap(fiveHour.usedFraction), 0.12, accuracy: 0.0001)
+
+        XCTAssertNotNil(try XCTUnwrap(windows.first { $0.kind == .weekly }).resetAt)
     }
 
     func testAWholeWindowValueBeingNullStaysTolerated() throws {
