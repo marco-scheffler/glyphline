@@ -41,7 +41,10 @@ enum AccountSummaryFormatting {
                 return "Synced"
             }
 
-            return "Synced \(finishedAt.formatted(.relative(presentation: .named)))"
+            // Numerals and dates elsewhere follow the system locale on purpose, but
+            // this style renders WORDS, and the app's own strings are English — the
+            // system locale would produce "Synced vor 11 Minuten".
+            return "Synced \(finishedAt.formatted(.relative(presentation: .named).locale(Locale(identifier: "en_US"))))"
         case .failed:
             return syncRun.message ?? "Sync failed"
         }
