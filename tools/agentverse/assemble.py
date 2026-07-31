@@ -6,15 +6,20 @@ import pathlib
 import re
 import sys
 
-HERE = pathlib.Path(__file__).parent
-DEST = pathlib.Path("/Users/x/coding/Private/glyphline/"
-                    ".superpowers/brainstorm/77643-1785429566/content")
+HERE = pathlib.Path(__file__).resolve().parent
+REPO = HERE.parent.parent
+# Die Daten liegen seit dem Bundling nicht mehr neben den Skripten.
+DATA = REPO / "Glyphline" / "Resources" / "agentverse"
+# Der Mockup ist ein Wegwerfartefakt und landet neben dem Skript, sofern nichts
+# anderes gesagt wird — vorher stand hier ein fester Pfad in ein bestimmtes
+# Home-Verzeichnis, was das Skript auf jedem anderen Rechner scheitern ließ.
+DEST = pathlib.Path(os.environ.get("AGENTVERSE_OUT", HERE))
 
 name = sys.argv[1] if len(sys.argv) > 1 else "agentverse-v4.html"
 tpl = (HERE / "template2.html").read_text()
 
-circuits = (HERE / "circuits.json").read_text()
-scenery_path = HERE / "scenery.json"
+circuits = (DATA / "circuits.json").read_text()
+scenery_path = DATA / "scenery.json"
 if scenery_path.exists():
     scenery = scenery_path.read_text()
 else:
@@ -22,7 +27,7 @@ else:
     scenery = "null"
 
 def optional(fname):
-    p = HERE / fname
+    p = DATA / fname
     if p.exists():
         return p.read_text()
     print(f"{fname} missing — that layer stays off")
