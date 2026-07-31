@@ -314,12 +314,70 @@ enum QuotaIndicator {
         return "\(verb) in \(compactDuration(remaining))"
     }
 
-    /// "3h 20m", "45m", "4d". Every component floors, so the figure is always a
-    /// lower bound on the wait rather than an optimistic round-up.
+    /// How long the window itself spans, which is what makes its start
+    /// derivable from its reset instant.
+    ///
+    /// A billing cycle deliberately has none: its length is whatever the
+    /// subscription says, a month or a year, and guessing one would put a
+    /// confident prediction on the window least able to support it.
+    private static func span(of kind: RateWindowKind) -> TimeInterval? {
+        switch kind {
+        case .rollingFiveHours: 5 * 60 * 60
+        case .weekly: 7 * 24 * 60 * 60
+        case .billingCycle: nil
+        }
+    }
+
+    /// When this window runs dry at the pace it has been consumed so far —
+    /// worded only if that happens before it resets.
+    ///
+    /// Averaged across the window rather than differentiated between readings.
+    /// The provider quantises `usedFraction` to whole percent, so consecutive
+    /// samples are usually identical: a derivative would read zero for twenty
+    /// minutes and then spike as the figure steps by one. Averaging also means
+    /// this needs no sample history at all — the window's start is `resetAt`
+    /// minus its own span, so a prediction exists from the first reading rather
+    /// than after days of collection.
+    ///
+    /// Silent when the window lasts. The bar already says a healthy row is
+    /// healthy, and a note on every row would be noise in a panel whose whole
+    /// purpose is being readable at a glance.
+    static func exhaustionText(for window: RateWindow, now: Date) -> String? {
+        guard let resetAt = window.resetAt,
+              let span = span(of: window.kind),
+              let used = window.usedFraction,
+              // Nothing consumed is not a pace of zero, it is no pace at all;
+              // and a window already spent has its answer in the bar.
+              used > 0, used < 1
+        else { return nil }
+
+        let elapsed = now.timeIntervalSince(resetAt.addingTimeInterval(-span))
+        guard elapsed > 0 else { return nil }
+
+        let remaining = (1 - used) * elapsed / used
+        guard remaining < resetAt.timeIntervalSince(now) else { return nil }
+
+        return "empty in \(compactDuration(remaining))"
+    }
+
+    /// "3h 20m", "45m", "4d 6h". Every component floors, so the figure is always
+    /// a lower bound on the wait rather than an optimistic round-up.
     private static func compactDuration(_ interval: TimeInterval) -> String {
-        let totalMinutes = Int(interval / 60)
+        // Rounded to the second before the components are taken. These intervals
+        // are increasingly computed rather than measured, and a pace
+        // extrapolation lands on 33 599.999 999 where the arithmetic means
+        // 33 600 — flooring that raw reports a minute less than the figure it
+        // came from, for no reason a reader could ever discover.
+        let totalMinutes = Int(interval.rounded() / 60)
         let days = totalMinutes / (60 * 24)
-        if days >= 1 { return "\(days)d" }
+        if days >= 1 {
+            // The hours are carried for exactly the reason the minutes are
+            // carried below. A bare "4d" hides up to another 23 hours, which is
+            // the single-unit rounding `remainingText` documents itself as
+            // refusing — and this branch did it anyway.
+            let hours = (totalMinutes / 60) % 24
+            return hours == 0 ? "\(days)d" : "\(days)d \(hours)h"
+        }
 
         let hours = totalMinutes / 60
         let minutes = totalMinutes % 60
@@ -445,7 +503,7 @@ enum QuotaIndicator {
                     // validates, and it stays as it is.
                     let left = remainingFraction(forUsed: windowState.window.usedFraction)
 
-                    let detail: String
+                    var detail: String
                     if let left {
                         // "left", not a bare percentage: "45%" reads either way,
                         // and the whole point of the change is that the reader
@@ -453,6 +511,13 @@ enum QuotaIndicator {
                         detail = "\(Int((left * 100).rounded()))% left · \(remaining)"
                     } else {
                         detail = "usage unknown · \(remaining)"
+                    }
+
+                    // Appended rather than replacing anything, and only when the
+                    // window will not survive to its own reset — see
+                    // `exhaustionText`.
+                    if let exhaustion = exhaustionText(for: windowState.window, now: now) {
+                        detail += " · \(exhaustion)"
                     }
 
                     return QuotaBarRow(

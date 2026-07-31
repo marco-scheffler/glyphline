@@ -791,8 +791,134 @@ final class QuotaIndicatorTests: XCTestCase {
         )
     }
 
+    /// The days component used to stand alone, so "resets in 4d" could hide
+    /// anything up to another 23 hours — while the hours component had always
+    /// carried its minutes. The doc comment on `remainingText` argues at length
+    /// against rounding to a single unit; the days branch did it anyway.
+    func testAWaitOfDaysCarriesItsHours() {
+        XCTAssertEqual(
+            QuotaIndicator.remainingText(
+                until: now.addingTimeInterval(4 * 86_400 + 6 * 3_600), now: now, verb: "resets"
+            ),
+            "resets in 4d 6h"
+        )
+        XCTAssertEqual(
+            QuotaIndicator.remainingText(
+                until: now.addingTimeInterval(86_400 + 30 * 60), now: now, verb: "resets"
+            ),
+            "resets in 1d",
+            "minutes are below the resolution a multi-day wait is read at"
+        )
+    }
+
+    // MARK: - Predicted exhaustion
+
+    /// Pace is averaged across the window so far — `resetAt` minus the window's
+    /// own span gives its start — rather than differentiated between readings.
+    /// The provider quantises `usedFraction` to whole percent, so consecutive
+    /// samples are usually identical and a derivative reads zero until it spikes.
+    func testAWindowBurningFasterThanItsResetSaysWhenItRunsOut() {
+        // Half the week gone, nine tenths consumed: the last tenth is worth
+        // another 9h 20m at that pace, far short of the 3½ days to the reset.
+        let window = RateWindow(
+            kind: .weekly,
+            usedFraction: 0.9,
+            resetAt: now.addingTimeInterval(3.5 * 86_400),
+            observedAt: now
+        )
+
+        XCTAssertEqual(QuotaIndicator.exhaustionText(for: window, now: now), "empty in 9h 20m")
+    }
+
+    /// A row that makes it to the reset says nothing extra. The bar already
+    /// reports that it is fine, and a note on every healthy row is noise in a
+    /// panel read at a glance.
+    func testAWindowThatLastsToItsResetSaysNothing() {
+        let window = RateWindow(
+            kind: .weekly,
+            usedFraction: 0.1,
+            resetAt: now.addingTimeInterval(3.5 * 86_400),
+            observedAt: now
+        )
+
+        XCTAssertNil(QuotaIndicator.exhaustionText(for: window, now: now))
+    }
+
+    func testEachWindowIsMeasuredAgainstItsOwnSpan() {
+        // Four of the five hours elapsed, nine tenths gone: about 26m left.
+        let window = RateWindow(
+            kind: .rollingFiveHours,
+            usedFraction: 0.9,
+            resetAt: now.addingTimeInterval(3_600),
+            observedAt: now
+        )
+
+        XCTAssertEqual(QuotaIndicator.exhaustionText(for: window, now: now), "empty in 26m")
+    }
+
+    func testThereIsNoPredictionWithoutSomethingToExtrapolateFrom() {
+        XCTAssertNil(
+            QuotaIndicator.exhaustionText(
+                for: RateWindow(kind: .weekly, usedFraction: 0.5, resetAt: nil, observedAt: now),
+                now: now
+            ),
+            "no reset instant means no window start, so no pace"
+        )
+        XCTAssertNil(
+            QuotaIndicator.exhaustionText(
+                for: RateWindow(
+                    kind: .weekly, usedFraction: 0,
+                    resetAt: now.addingTimeInterval(86_400), observedAt: now
+                ),
+                now: now
+            ),
+            "nothing consumed is not a pace of zero, it is no pace at all"
+        )
+        XCTAssertNil(
+            QuotaIndicator.exhaustionText(
+                for: RateWindow(
+                    kind: .weekly, usedFraction: nil,
+                    resetAt: now.addingTimeInterval(86_400), observedAt: now
+                ),
+                now: now
+            )
+        )
+        XCTAssertNil(
+            QuotaIndicator.exhaustionText(
+                for: RateWindow(
+                    kind: .billingCycle, usedFraction: 0.9,
+                    resetAt: now.addingTimeInterval(86_400), observedAt: now
+                ),
+                now: now
+            ),
+            "a billing cycle has no fixed span, so its start cannot be derived"
+        )
+    }
+
+    /// The prediction reaches the panel, and only where there is a shortfall.
+    func testTheBarDetailNamesTheShortfallOnlyWhenThereIsOne() {
+        let states = [accountWith("Sub", windows: [
+            window(kind: .weekly, used: 0.9, resetMinutesFromNow: 3.5 * 24 * 60),
+            window(kind: .rollingFiveHours, used: 0.1, resetMinutesFromNow: 60),
+        ])]
+
+        let rows = QuotaIndicator.barGroups(
+            for: states, now: now, freshness: freshness, formatting: formatting
+        )[0].rows
+
+        XCTAssertEqual(rows[0].detail, "10% left · resets in 3d 12h · empty in 9h 20m")
+        XCTAssertEqual(
+            rows[1].detail, "90% left · resets in 1h",
+            "a window with headroom carries no prediction at all"
+        )
+    }
+
     /// The figure is worded, not bare: "45%" could be read either way, and the
     /// user's question is how much is left.
+    ///
+    /// The prediction rides along because this fixture earns one: 45% gone in
+    /// the window's first 100 minutes leaves about 122 minutes of headroom
+    /// against 200 minutes until the reset, so it really does run dry first.
     func testTheBarDetailReadsAsRemainingQuotaAndRemainingTime() {
         let states = [
             accountWith("Max #1", windows: [
@@ -802,7 +928,7 @@ final class QuotaIndicatorTests: XCTestCase {
 
         XCTAssertEqual(
             QuotaIndicator.barGroups(for: states, now: now, freshness: freshness).first?.rows.first?.detail,
-            "55% left · resets in 3h 20m"
+            "55% left · resets in 3h 20m · empty in 2h 2m"
         )
     }
 
