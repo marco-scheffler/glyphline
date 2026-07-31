@@ -68,6 +68,12 @@ struct AgentverseWindow: View {
                                            lineCap: .round, lineJoin: .round)
                     )
 
+                    context.stroke(
+                        CircuitTrackShape.startFinish(for: circuit, fit: fit),
+                        with: .color(Color(white: 0.85)),
+                        lineWidth: 2
+                    )
+
                     let radius = max(3.5, fit.width(metres: 5, atLeast: 7) / 2)
 
                     func drawCar(at point: CGPoint, livery: CarLivery,
@@ -99,8 +105,9 @@ struct AgentverseWindow: View {
                     for session in coordinator.onTrack {
                         let tokens = coordinator.workTokens[session.id] ?? 0
                         let fraction = CarPosition.lapFraction(workTokens: tokens)
-                        let index = min(circuit.points.count - 1,
-                                        Int(fraction * Double(circuit.points.count)))
+                        let index = CarPosition.pointIndex(fraction: fraction,
+                                                           startIdx: circuit.startIdx,
+                                                           count: circuit.points.count)
                         let livery = CarLivery.forSession(session.id)
                         let waiting = session.activity == .waitingForYou
 

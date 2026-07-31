@@ -17,11 +17,24 @@ enum CarPosition {
         return max(0, workTokens) / tokensPerLap
     }
 
-    /// 0 at the start/finish line, approaching 1 at the end of the lap.
+    /// 0 at the start/finish line, approaching 1 at the end of the lap. Which
+    /// stored point that is depends on the circuit — see `pointIndex`.
     static func lapFraction(workTokens: Int64, tokensPerLap: Int64 = tokensPerLap) -> Double {
         guard tokensPerLap > 0 else { return 0 }
         let remainder = max(0, workTokens) % tokensPerLap
         return Double(remainder) / Double(tokensPerLap)
+    }
+
+    /// Which centreline point a car at `fraction` of a lap stands on.
+    ///
+    /// The geometry does not start at the line: `startIdx` is 118 of 159 on
+    /// Monaco and 167 of 171 at Suzuka. Counting from `points[0]` would put a
+    /// car with no completed lap most of a lap from where its odometer says it
+    /// is, and would wrap the lap at an arbitrary corner instead of at the line.
+    static func pointIndex(fraction: Double, startIdx: Int, count: Int) -> Int {
+        guard count > 0 else { return 0 }
+        let step = min(count - 1, max(0, Int(fraction * Double(count))))
+        return (startIdx + step) % count
     }
 
     /// Where the nth of `count` parked cars stands along the pit lane, as a
