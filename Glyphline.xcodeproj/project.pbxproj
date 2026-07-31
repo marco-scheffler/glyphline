@@ -93,6 +93,7 @@
 		AEE77B35497B4D068C0E2FA5 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69F038C1101F3228D2C607FB /* DashboardView.swift */; };
 		B077494A20202025E2ABBE46 /* SnapshotIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = F94F481767914DA33C8B0E8D /* SnapshotIdentity.swift */; };
 		B3F171351A59C208FD3AF3F4 /* claude-usage-minimal.json in Resources */ = {isa = PBXBuildFile; fileRef = 115EF78DDBF22BE7B267CE5B /* claude-usage-minimal.json */; };
+		B478D06C9EC6D212E0D7EE98 /* AgentverseScene.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EC4E85D055A158D0AB6AE19 /* AgentverseScene.swift */; };
 		B61E521F9859F0DA80A53702 /* ClaudeWebQuotaSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15AE8CE25E9DFB53944DBD13 /* ClaudeWebQuotaSource.swift */; };
 		B838F331BD89C2B524410914 /* AddAccountView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A63DE4BE6B1E5DD6EBDEC233 /* AddAccountView.swift */; };
 		B85CA610DA5E8BBC7879D1CD /* LedgerStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 461DE0E81EA86DEF3F3E1A47 /* LedgerStore.swift */; };
@@ -187,6 +188,7 @@
 		7B39FBF9301271154CF363EE /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		7B784EDCB98F4CFE937F3132 /* ClaudeCodeLogReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeCodeLogReader.swift; sourceTree = "<group>"; };
 		7E78F87ED03A83F2D193EF8B /* AppSettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettingsStore.swift; sourceTree = "<group>"; };
+		7EC4E85D055A158D0AB6AE19 /* AgentverseScene.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentverseScene.swift; sourceTree = "<group>"; };
 		849077EF726D5E3F756B4805 /* AccountSummaryFormattingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountSummaryFormattingTests.swift; sourceTree = "<group>"; };
 		86370203C13C77899EEB6DA7 /* TranscriptTimestampParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptTimestampParser.swift; sourceTree = "<group>"; };
 		89EEFE279720CAF7CA13AEB0 /* KeychainStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStoreTests.swift; sourceTree = "<group>"; };
@@ -286,6 +288,7 @@
 			isa = PBXGroup;
 			children = (
 				D6BD6C14C75AEFB9B82A4095 /* AgentRow.swift */,
+				7EC4E85D055A158D0AB6AE19 /* AgentverseScene.swift */,
 				1AF1829AD2379CF1AA77C13C /* AgentverseWindow.swift */,
 				171CD6F2FD83D799ACB69C91 /* CarLivery.swift */,
 				95C07C54958DB8497140B7F0 /* CarPosition.swift */,
@@ -759,6 +762,7 @@
 				14D0B598D9BBA709C48BEED0 /* AgentSessionScanner.swift in Sources */,
 				7BB34FDDD9F07754C4B60EF3 /* AgentverseCoordinator.swift in Sources */,
 				C0976190599A88D6F50D380D /* AgentverseModel.swift in Sources */,
+				B478D06C9EC6D212E0D7EE98 /* AgentverseScene.swift in Sources */,
 				7A236834E440289A3C2FB2CD /* AgentverseWindow.swift in Sources */,
 				37CFE0A06075136004EBA62F /* AppActivationController.swift in Sources */,
 				BE2B9EEEA941F5F4FDD5FDEA /* AppMode.swift in Sources */,
