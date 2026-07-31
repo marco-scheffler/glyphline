@@ -62,7 +62,7 @@ for key, c in CIRC.items():
     kx = R * math.cos(math.radians(lat0))
     ct, st = math.cos(rot), math.sin(rot)
 
-    # A generous search window: the coast can run on beyond the frame
+    # Suchfenster grosszügig: die Küste kann ausserhalb des Bildes weiterlaufen
     half = max(T["maxX"] - T["minX"], T["maxY"] - T["minY"]) * 0.85
     radius = int(half + 1200)
     q = (f'[out:json][timeout:180];'
@@ -81,12 +81,12 @@ for key, c in CIRC.items():
                 pts.append((wx * ct - wy * st, wx * st + wy * ct))
             ways.append(pts)
     except Exception as exc:
-        print(f"{key:8s} coastline query failed: {exc}")
+        print(f"{key:8s} Küstenabfrage fehlgeschlagen: {exc}")
         ways = []
 
     if not ways:
         T["sea"] = None
-        print(f"{key:8s} no coastline in range — entirely inland")
+        print(f"{key:8s} keine Küste im Umkreis — reines Binnenland")
         time.sleep(3)
         continue
 
@@ -119,10 +119,10 @@ for key, c in CIRC.items():
 
     sea = sum(mask)
     T["sea"] = list(mask)
-    print(f"{key:8s} {len(segs):4d} coastline segments  ->  "
-          f"{sea*100//(gw*gh)}% of the frame is water")
+    print(f"{key:8s} {len(segs):4d} Küstensegmente  ->  "
+          f"{sea*100//(gw*gh)}% der Fläche ist Wasser")
     time.sleep(3)
 
 dest = DATA / "terrain.json"
 json.dump(TERR, open(dest, "w"), separators=(",", ":"))
-print(f"\nupdated {dest} ({os.path.getsize(dest)/1024:.0f} KB)")
+print(f"\n{dest} aktualisiert ({os.path.getsize(dest)/1024:.0f} KB)")
