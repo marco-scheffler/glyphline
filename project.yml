@@ -40,6 +40,12 @@ targets:
     sources:
       - GlyphlineTests
     resources:
+      # Die Circuit-Daten müssen auch ins Testbundle, weil die Tests über
+      # Bundle(for:) laden. Sie stehen hier nicht als eigener Pfad, sondern als
+      # Symlink unter Fixtures/agentverse: XcodeGen legt pro Dateipfad genau eine
+      # Build-File-Referenz an, und der Pfad Glyphline/Resources/agentverse hängt
+      # schon am App-Target — ein zweiter Eintrag darauf wird stillschweigend
+      # verworfen und das Testbundle bleibt leer.
       - GlyphlineTests/Fixtures
     dependencies:
       - target: Glyphline

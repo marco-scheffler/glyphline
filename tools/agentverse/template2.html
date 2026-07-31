@@ -1,0 +1,689 @@
+<h2>Agentverse — echte Kulisse, gerechnetes Licht</h2>
+<p class="subtitle">
+  Gebäudegrundrisse, Höhen, Wasser und Wald kommen aus OpenStreetMap. Schatten werden
+  aus <code>Höhe / tan(Sonnenhöhe)</code> geworfen, Wände nach Lambert beleuchtet.
+  Schieb die Zeit über einen Sonnenauf- oder ‑untergang.
+</p>
+
+<style>
+  .zx-ctl{display:flex;flex-wrap:wrap;gap:15px;align-items:center;margin:20px 0 12px;padding:11px 13px;
+          background:#0a0e14;border:1px solid rgba(255,255,255,.09);border-radius:11px}
+  .zx-seg{display:flex;gap:2px;background:#11161e;padding:3px;border-radius:8px}
+  .zx-seg button{border:0;background:transparent;color:#8b9bb0;font-size:11.5px;padding:6px 10px;
+                 border-radius:6px;cursor:pointer;font-family:inherit}
+  .zx-seg button:hover{color:#dbe5f2}
+  .zx-seg button.on{background:#26303d;color:#eaf2ff}
+  .zx-lab{font-size:9.5px;letter-spacing:1.4px;text-transform:uppercase;color:#5b6a7f}
+  .zx-time{display:flex;align-items:center;gap:9px;flex:1;min-width:250px}
+  .zx-time input{flex:1;accent-color:#7fd4e8}
+  .zx-clock{font-family:ui-monospace,Menlo,monospace;font-size:13px;color:#eaf2ff;min-width:46px}
+  .zx-now{border:1px solid rgba(127,212,232,.4);background:transparent;color:#7fd4e8;font-size:11px;
+          padding:5px 9px;border-radius:6px;cursor:pointer;font-family:inherit}
+  .zx-shell{display:grid;grid-template-columns:264px 1fr;background:#05070b;
+            border:1px solid rgba(255,255,255,.10);border-radius:14px;overflow:hidden}
+  .zx-list{background:#0a0e14;border-right:1px solid rgba(255,255,255,.08);padding:12px 0 14px}
+  .zx-group{font-size:9.5px;letter-spacing:1.6px;text-transform:uppercase;color:#5b6a7f;padding:11px 15px 6px}
+  .zx-group:first-child{padding-top:2px}
+  .zx-row{display:flex;align-items:center;gap:9px;padding:6px 13px;border-left:2px solid transparent;
+          transition:background .12s,border-color .12s}
+  .zx-row:hover{background:rgba(120,190,255,.09);border-left-color:#7fd4e8}
+  .zx-sw{width:20px;height:11px;border-radius:2px;flex:none;box-shadow:0 0 0 1px rgba(0,0,0,.6) inset}
+  .zx-meta{min-width:0;flex:1}
+  .zx-name{font-size:11.5px;color:#dbe5f2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .zx-br{font-size:9.5px;color:#6b7c92;font-family:ui-monospace,Menlo,monospace;
+         white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .zx-laps{font-size:9.5px;font-family:ui-monospace,Menlo,monospace;color:#8fa3bb;text-align:right;flex:none}
+  .zx-laps b{display:block;color:#eaf2ff;font-size:12px}
+  .zx-chip{font-size:8.5px;letter-spacing:.5px;text-transform:uppercase;padding:2px 5px;border-radius:4px;
+           flex:none;font-family:ui-monospace,Menlo,monospace}
+  .z-work{background:rgba(74,222,128,.14);color:#86efac}
+  .z-wait{background:rgba(251,191,36,.18);color:#fcd34d}
+  .z-park{background:rgba(148,163,184,.12);color:#94a3b8}
+  .zx-x{font-size:12px;color:#46556b;cursor:pointer;flex:none}
+  .zx-x:hover{color:#f87171}
+  .zx-stage{position:relative;height:620px}
+  .zx-stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+  .zx-badge{position:absolute;left:17px;top:15px;font-family:ui-monospace,Menlo,monospace;font-size:9.5px;
+            letter-spacing:1.6px;color:rgba(255,255,255,.5);pointer-events:none;text-shadow:0 1px 8px rgba(0,0,0,.95)}
+  .zx-badge b{display:block;font-size:17px;letter-spacing:.5px;color:#fff;margin:3px 0 2px;font-weight:600}
+  .zx-badge i{font-style:normal;color:rgba(255,255,255,.68);font-size:10.5px;letter-spacing:.7px}
+  .zx-sun{position:absolute;right:17px;top:15px;font-family:ui-monospace,Menlo,monospace;font-size:10px;
+          line-height:1.7;color:rgba(255,255,255,.62);text-align:right;pointer-events:none;
+          text-shadow:0 1px 8px rgba(0,0,0,.95)}
+  .zx-sun b{color:#fff;font-weight:600}
+</style>
+
+<div class="zx-ctl">
+  <span class="zx-lab">Strecke</span>
+  <div class="zx-seg" id="zT">
+    <button data-t="monaco" class="on">Monaco</button>
+    <button data-t="spa">Spa</button>
+    <button data-t="suzuka">Suzuka</button>
+    <button data-t="monza">Monza</button>
+    <button data-t="vegas">Las Vegas</button>
+  </div>
+  <span class="zx-lab">Wetter</span>
+  <div class="zx-seg" id="zW">
+    <button data-w="auto" class="on">Vor Ort</button>
+    <button data-w="clear">Klar</button>
+    <button data-w="cloud">Bewölkt</button>
+    <button data-w="rain">Regen</button>
+    <button data-w="fog">Nebel</button>
+  </div>
+  <div class="zx-time">
+    <span class="zx-lab">Ortszeit</span>
+    <input type="range" id="zS" min="0" max="1439" step="1">
+    <span class="zx-clock" id="zC">–</span>
+    <button class="zx-now" id="zN">Jetzt</button>
+  </div>
+</div>
+
+<div class="zx-shell">
+  <div class="zx-list" id="zL"></div>
+  <div class="zx-stage">
+    <canvas id="zx"></canvas>
+    <div class="zx-badge" id="zB"></div>
+    <div class="zx-sun" id="zSun"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+const CIRCUITS = /*__CIRCUITS__*/ null;
+const SCENERY  = /*__SCENERY__*/ null;
+const TERRAIN  = /*__TERRAIN__*/ null;
+const CORNERS  = /*__CORNERS__*/ null;
+
+const META = {
+  monaco:{wx:'clear', straight:'BOULEVARD ALBERT 1ER', hair:'FAIRMONT',  ground:[88,81,70]},
+  spa:   {wx:'rain',  straight:'START-ZIEL',           hair:'LA SOURCE', ground:[86,102,64]},
+  suzuka:{wx:'cloud', straight:'START-ZIEL',           hair:'HAARNADEL', ground:[92,106,68]},
+  monza: {wx:'clear', straight:'RETTIFILO',            hair:'VARIANTE',  ground:[88,104,64]},
+  vegas: {wx:'clear', straight:'KOVAL LANE',           hair:'T14',       ground:[142,124,96]},
+};
+
+const AGENTS=[
+ {id:'a1',repo:'Acme-Suite',br:'feat/startseite-neu',st:'work',age:'gerade eben',subs:0,lv:0,laps:41,tok:'6.8M'},
+ {id:'a2',repo:'Acme-Suite',br:'main',st:'work',age:'8s',subs:0,lv:1,laps:12,tok:'2.0M'},
+ {id:'a3',repo:'Acme-Suite',br:'feat/ki-usecase-messages',st:'work',age:'5m',subs:2,lv:2,laps:27,tok:'4.5M'},
+ {id:'a4',repo:'glyphline',br:'main',st:'work',age:'2s',subs:0,lv:3,laps:33,tok:'5.4M'},
+ {id:'a5',repo:'glyphline',br:'main',st:'wait',age:'4m',subs:0,lv:4,laps:19,tok:'3.1M'},
+ {id:'a6',repo:'Acme-Suite',br:'frontend/src',st:'wait',age:'9m',subs:0,lv:5,laps:6,tok:'1.0M'},
+ {id:'a7',repo:'gathered-sisters',br:'main',st:'park',age:'3h',subs:0,lv:6,laps:24,tok:'3.9M'},
+ {id:'a8',repo:'WhisperLocal',br:'main',st:'park',age:'4h',subs:0,lv:7,laps:9,tok:'1.5M'},
+ {id:'a9',repo:'siftbox',br:'main',st:'park',age:'11h',subs:0,lv:8,laps:15,tok:'2.4M'},
+];
+const LV=[
+ {n:'Gulf',base:[95,194,220],a:[240,130,30],pat:'twin'},
+ {n:'Martini',base:[242,245,249],a:[200,16,46],b:[11,43,92],pat:'martini'},
+ {n:'Rothmans',base:[247,249,252],a:[26,63,160],b:[232,178,19],pat:'twin'},
+ {n:'Pink Pig',base:[231,156,183],a:[34,38,44],pat:'butcher'},
+ {n:'Salzburg',base:[245,247,250],a:[213,31,43],pat:'centre'},
+ {n:'Midnight',base:[18,22,29],a:[57,255,136],pat:'centre'},
+ {n:'Signal',base:[242,183,5],a:[28,31,38],pat:'hoops'},
+ {n:'Dazzle',base:[40,48,61],a:[207,216,230],pat:'dazzle'},
+ {n:'Carbon',base:[24,28,35],a:[176,141,63],pat:'twin'},
+];
+
+/* ===================== Determinismus ===================== */
+/* Ohne das ist jede Arbeit am Aussehen Blindflug: zwei Läufe mit gleichen
+   Parametern müssen pixelgleich sein, sonst lässt sich kein Vorher/Nachher
+   vergleichen. `Math.random()` im Szenencode ist deshalb ein Fehler, kein Stil. */
+const Q = new URLSearchParams(location.search);
+const SEED = +(Q.get('seed') ?? 1);
+const FIXED_FRAME = Q.has('frame') ? +Q.get('frame') : null;
+const HUD = Q.get('hud') !== 'off';
+
+function mulberry32(a) {
+  return function () {
+    a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+let RND = mulberry32(SEED);
+/* Für alles, was pro Bild neu gewürfelt wird — Gischt hinter den Autos, Regen:
+   eine reine Hashfunktion über (Bildnummer, Objekt, Index) statt eines Stroms,
+   damit Bild 600 immer gleich aussieht, egal wie man dorthin gekommen ist. */
+function hash01(x, y, z) {
+  let h = (Math.imul(x | 0, 374761393) + Math.imul(y | 0, 668265263) + Math.imul(z | 0, 2246822519)) >>> 0;
+  h = (h ^ h >>> 13) >>> 0;
+  h = Math.imul(h, 1274126177) >>> 0;
+  return ((h ^ h >>> 16) >>> 0) / 4294967296;
+}
+
+/* ===================== Sonnenstand (NOAA) ===================== */
+function solar(date, lat, lon){
+  const R=Math.PI/180;
+  const jd=date.getTime()/86400000+2440587.5, n=jd-2451545.0;
+  const L=(280.460+0.9856474*n)%360;
+  const g=((357.528+0.9856003*n)%360)*R;
+  const lam=(L+1.915*Math.sin(g)+0.020*Math.sin(2*g))*R;
+  const eps=(23.439-0.0000004*n)*R;
+  const dec=Math.asin(Math.sin(eps)*Math.sin(lam));
+  const ra=Math.atan2(Math.cos(eps)*Math.sin(lam),Math.cos(lam));
+  let gmst=(18.697374558+24.06570982441908*n)%24; if(gmst<0)gmst+=24;
+  const ha=(gmst*15+lon)*R-ra;
+  const la=lat*R;
+  const el=Math.asin(Math.sin(la)*Math.sin(dec)+Math.cos(la)*Math.cos(dec)*Math.cos(ha));
+  let ca=(Math.sin(dec)-Math.sin(el)*Math.sin(la))/(Math.cos(el)*Math.cos(la));
+  ca=Math.max(-1,Math.min(1,ca));
+  let az=Math.acos(ca); if(Math.sin(ha)>0) az=2*Math.PI-az;
+  return {el:el/R, az};
+}
+function tzOffset(tz, when){
+  const f=new Intl.DateTimeFormat('en-US',{timeZone:tz,hour12:false,
+    year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  const p={}; for(const x of f.formatToParts(when)) p[x.type]=x.value;
+  return (Date.UTC(+p.year,+p.month-1,+p.day,+p.hour%24,+p.minute,+p.second)
+          - Math.floor(when.getTime()/1000)*1000)/60000;
+}
+
+/*__LIGHTING__*/
+
+/*__SCENE__*/
+
+/* ===================== Zustand ===================== */
+let TRACK='monaco', WXSEL='auto', minOfDay=0, hovered=null, mouse=null;
+const cv=document.getElementById('zx'), ctx=cv.getContext('2d');
+const zB=document.getElementById('zB'), zSun=document.getElementById('zSun'), zL=document.getElementById('zL');
+const zS=document.getElementById('zS'), zC=document.getElementById('zC');
+let W=0,H=0,S=1,P=[],total=0,hairIdx=0,startI=0,MPP=1,PITP=[],SCENE=null,TER=null,TRECT=null,
+    CORNERLBL=[],KERB_MIN=0.016,statics=null,sctx=null,glow=null,gctx=null,grain=null,lastKey='',rain=[],stars=[];
+
+function wxNow(){ return WXSEL==='auto' ? META[TRACK].wx : WXSEL; }
+function localNow(){ const d=new Date(); return (Math.floor(d.getTime()/60000)+tzOffset(CIRCUITS[TRACK].tz,d))%1440; }
+function fmt(m){ m=((m%1440)+1440)%1440; return String(m/60|0).padStart(2,'0')+':'+String(m%60).padStart(2,'0'); }
+function trackW(){ return Math.max(8.5*S, Math.min(30*S, 13*MPP)); }
+
+/* ===================== Geometrie ===================== */
+function buildGeometry(){
+  const r=cv.getBoundingClientRect();
+  S=Math.min(2,devicePixelRatio||1);
+  W=cv.width=r.width*S; H=cv.height=r.height*S;
+  const C=CIRCUITS[TRACK];
+  TER=TERRAIN&&TERRAIN[TRACK]||null;
+  const pad=26*S;
+  // Höhe kostet Bildhöhe: die Schrägprojektion schiebt hochgelegene Punkte nach
+  // oben, also muss der Höhenbereich in die Einpassung einfliessen — sonst
+  // klettert Monacos Oberstadt aus dem Bild.
+  const elevRange=TER?(TER.hi-TER.lo):0;
+  MPP=Math.min((W-2*pad)/C.spanX,(H-2*pad)/(C.spanY+elevRange*LEAN));
+  const liftPx=elevRange*MPP*LEAN;
+  const ox=(W-C.spanX*MPP)/2-C.minX*MPP;
+  const oy=pad+liftPx-C.minY*MPP+(H-2*pad-C.spanY*MPP-liftPx)/2;
+  const lift=(x,y)=>TER?(elevAt(TER,x,y)-TER.lo)*MPP*LEAN:0;
+  const map=([x,y])=>[x*MPP+ox,y*MPP+oy-lift(x,y)];
+  const flat=([x,y])=>[x*MPP+ox,y*MPP+oy];
+  TRECT=TER?[...flat([TER.minX,TER.minY]),...flat([TER.maxX,TER.maxY])]:null;
+
+  const pts=C.points.map(map);
+  PITP=C.pit.map(map);
+  const closed=[...pts,pts[0]];
+  let acc=[],len=0;
+  for(let i=0;i<closed.length-1;i++){
+    const a=closed[i],b=closed[i+1],d=Math.hypot(b[0]-a[0],b[1]-a[1]);
+    acc.push({a,b,d,at:len}); len+=d;
+  }
+  total=len;
+  const STEP=Math.max(2.0*S,len/2400);
+  P=[]; let seg=0;
+  for(let s=0;s<len;s+=STEP){
+    while(seg<acc.length-1&&acc[seg].at+acc[seg].d<s) seg++;
+    const e=acc[seg],t=e.d?(s-e.at)/e.d:0;
+    P.push({x:e.a[0]+(e.b[0]-e.a[0])*t,y:e.a[1]+(e.b[1]-e.a[1])*t,at:s});
+  }
+  const N=P.length;
+  for(let i=0;i<N;i++){ const p=P[i],q=P[(i+1)%N]; p.ang=Math.atan2(q.y-p.y,q.x-p.x); }
+  const K=Math.max(3,(N/90)|0);
+  for(let i=0;i<N;i++){
+    const a=P[(i-K+N)%N],b=P[i],c2=P[(i+K)%N];
+    const mx=(a.x+c2.x)/2-b.x,my=(a.y+c2.y)/2-b.y,m=Math.hypot(mx,my)||1;
+    b.inx=mx/m; b.iny=my/m;
+    const v1=Math.atan2(b.y-a.y,b.x-a.x),v2=Math.atan2(c2.y-b.y,c2.x-b.x);
+    let dv=v2-v1; while(dv>Math.PI)dv-=2*Math.PI; while(dv<-Math.PI)dv+=2*Math.PI;
+    b.curv=Math.abs(dv);
+  }
+  for(let i=0;i<N;i++){ const a=P[(i-2+N)%N],b=P[i],c2=P[(i+2)%N]; b.curvS=(a.curv+b.curv+c2.curv)/3; }
+
+  const sp=map(C.points[C.startIdx]);
+  startI=0; let sd=Infinity;
+  for(let i=0;i<N;i++){ const d=(P[i].x-sp[0])**2+(P[i].y-sp[1])**2; if(d<sd){sd=d;startI=i;} }
+  hairIdx=0; for(let i=0;i<N;i++) if(P[i].curvS>P[hairIdx].curvS) hairIdx=i;
+  // Randsteine liegen an Kurvenscheiteln, nicht auf der ganzen Runde. Eine feste
+  // Schwelle hat auf jeder Strecke etwas anderes bedeutet — Monaco sah damit aus
+  // wie eine Zuckerstange. Ein Anteil der schärfsten Kurve war das Gegenteil:
+  // Monacos Haarnadel ist so eng, dass daneben nichts mehr in Frage kam. Ein
+  // Perzentil trifft auf jeder Strecke ungefähr die gleiche Menge Kurven.
+  {
+    const sorted=P.map(p=>p.curvS).sort((a,b)=>a-b);
+    KERB_MIN=Math.max(0.008, sorted[Math.floor(sorted.length*0.86)]);
+  }
+
+  SCENE=prepareScene(SCENERY&&SCENERY[TRACK], map, MPP);
+  CORNERLBL=[];
+  if(CORNERS&&CORNERS[TRACK]) for(const cn of CORNERS[TRACK]){
+    const src=map(C.points[Math.min(cn.idx,C.points.length-1)]);
+    let bi=0,bd=Infinity;
+    for(let i=0;i<P.length;i++){ const d=(P[i].x-src[0])**2+(P[i].y-src[1])**2; if(d<bd){bd=d;bi=i;} }
+    CORNERLBL.push({name:cn.name,i:bi});
+  }
+
+  statics=document.createElement('canvas'); statics.width=W; statics.height=H; sctx=statics.getContext('2d');
+  glow=document.createElement('canvas'); glow.width=W; glow.height=H; gctx=glow.getContext('2d');
+  RND=mulberry32(SEED);
+  if(!grain){
+    grain=document.createElement('canvas'); grain.width=grain.height=180;
+    const g=grain.getContext('2d'),im=g.createImageData(180,180),d=im.data;
+    for(let i=0;i<d.length;i+=4){ const v=(RND()*255)|0; d[i]=d[i+1]=d[i+2]=v; d[i+3]=255; }
+    g.putImageData(im,0,0);
+  }
+  stars=Array.from({length:200},()=>({x:RND()*W,y:RND()*H*.8,a:RND()*.8+.15,s:RND()*1.5+.4}));
+  rain=Array.from({length:340},()=>({x:RND()*W,y:RND()*H,l:(9+RND()*18)*S,v:(11+RND()*9)*S}));
+  lastKey='';
+}
+
+/* ===================== Statische Ebene ===================== */
+function drawStatic(L,t){
+  const c=sctx,M=META[TRACK],tw=trackW();
+  c.setTransform(1,0,0,1,0,0); c.clearRect(0,0,W,H);
+
+  const horizon=css(L.skyC), groundLit=shadeRoof(L,M.ground);
+  const bg=c.createLinearGradient(0,0,0,H);
+  bg.addColorStop(0,horizon);
+  bg.addColorStop(.30,css(mixRGB(L.skyC,groundLit,.72)));
+  bg.addColorStop(1,css([groundLit[0]*.82,groundLit[1]*.82,groundLit[2]*.82]));
+  c.fillStyle=bg; c.fillRect(0,0,W,H);
+
+  if(L.night>.4&&L.wx==='clear') for(const s of stars){
+    c.fillStyle=`rgba(226,236,255,${s.a*.55*L.night})`; c.fillRect(s.x,s.y,s.s*S,s.s*S); }
+
+  // Gelände zuerst: die Hügelschattierung ist der Boden, auf dem alles steht
+  if(TER&&TRECT) drawTerrain(c,TER,L,M.ground,TRECT[0],TRECT[1],TRECT[2],TRECT[3]);
+
+  drawAreas(c,SCENE,L,MPP,t);
+  buildingShadows(c,SCENE,L);
+  drawBuildings(c,SCENE,L,MPP);
+
+  // ---- Fahrbahn ----
+  const trace=()=>{ c.beginPath(); P.forEach((p,i)=>i?c.lineTo(p.x,p.y):c.moveTo(p.x,p.y)); c.closePath(); };
+  c.lineJoin=c.lineCap='round';
+  if(L.shadowAlpha>.02){ trace(); c.strokeStyle=`rgba(0,0,0,${L.shadowAlpha*.4})`;
+    c.lineWidth=tw+13*S; c.stroke(); }
+  trace(); c.strokeStyle=css(shadeRoof(L,[120,124,120])); c.lineWidth=tw+7*S; c.stroke();
+  const asph=L.wet?[26,31,38]:[52,56,62];
+  trace(); c.strokeStyle=css(shadeRoof(L,asph)); c.lineWidth=tw; c.stroke();
+  if(L.wet){ trace(); c.strokeStyle=css(L.skyC,.16); c.lineWidth=tw*.55; c.stroke(); }
+
+  c.save(); c.globalAlpha=.30+.30*L.diffuse;
+  for(const s of [1,-1]){
+    c.beginPath();
+    for(let i=0;i<=P.length;i++){ const p=P[i%P.length],o=s*(tw/2-1.6*S);
+      const nx=-Math.sin(p.ang)*o,ny=Math.cos(p.ang)*o;
+      i?c.lineTo(p.x+nx,p.y+ny):c.moveTo(p.x+nx,p.y+ny); }
+    c.closePath(); c.strokeStyle=css(shadeRoof(L,[235,239,245])); c.lineWidth=1.5*S; c.stroke();
+  }
+  c.restore();
+
+  const kw=tw*.34, red=shadeRoof(L,[205,40,32]), white=shadeRoof(L,[240,243,247]);
+  for(let i=0;i<P.length;i++){
+    const p=P[i]; if(p.curvS<KERB_MIN) continue;
+    c.fillStyle=(Math.floor(i/Math.max(2,(P.length/190)|0))%2)===0?css(red):css(white);
+    const ux=Math.cos(p.ang),uy=Math.sin(p.ang);
+    const bx=p.x+p.inx*(tw/2),by=p.y+p.iny*(tw/2);
+    c.beginPath();
+    c.moveTo(bx-ux*1.6*S,by-uy*1.6*S); c.lineTo(bx+ux*1.6*S,by+uy*1.6*S);
+    c.lineTo(bx+ux*1.6*S+p.inx*kw,by+uy*1.6*S+p.iny*kw);
+    c.lineTo(bx-ux*1.6*S+p.inx*kw,by-uy*1.6*S+p.iny*kw);
+    c.closePath(); c.fill();
+  }
+
+  c.beginPath();
+  for(let i=0;i<=P.length;i++){ const p=P[i%P.length],o=Math.min(tw*.30,p.curvS*tw*14);
+    i?c.lineTo(p.x+p.inx*o,p.y+p.iny*o):c.moveTo(p.x+p.inx*o,p.y+p.iny*o); }
+  c.closePath(); c.strokeStyle=`rgba(10,12,16,${L.wet?.14:.26})`; c.lineWidth=tw*.42; c.stroke();
+
+  // ---- Boxengasse ----
+  const pw=Math.max(6*S,Math.min(22*S,12*MPP));
+  let ax=0,ay=0;
+  if(PITP.length>3){
+    c.beginPath(); PITP.forEach((p,i)=>i?c.lineTo(p[0],p[1]):c.moveTo(p[0],p[1]));
+    c.strokeStyle=`rgba(0,0,0,${.10+L.shadowAlpha*.35})`; c.lineWidth=pw+5*S; c.stroke();
+    c.strokeStyle=css(shadeRoof(L,[46,52,60])); c.lineWidth=pw; c.stroke();
+    c.setLineDash([5*S,6*S]); c.strokeStyle=css(shadeRoof(L,[225,232,242]),.5);
+    c.lineWidth=1.2*S; c.stroke(); c.setLineDash([]);
+
+    const mid=PITP[PITP.length>>1];
+    let ni=0,nd=Infinity;
+    for(let i=0;i<P.length;i++){ const d=(P[i].x-mid[0])**2+(P[i].y-mid[1])**2; if(d<nd){nd=d;ni=i;} }
+    ax=mid[0]-P[ni].x; ay=mid[1]-P[ni].y;
+    const al=Math.hypot(ax,ay)||1; ax/=al; ay/=al;
+    const step=Math.max(2,(PITP.length/12)|0);
+    for(let k=step;k<PITP.length-step;k+=step){
+      const a=PITP[k-1],b=PITP[k],ang=Math.atan2(b[1]-a[1],b[0]-a[0]);
+      c.save(); c.translate(b[0]+ax*(pw*.5+7*S),b[1]+ay*(pw*.5+7*S)); c.rotate(ang);
+      c.fillStyle=`rgba(0,0,0,${L.shadowAlpha*.45})`; c.fillRect(-7*S,-2.6*S,14*S,10*S);
+      c.fillStyle=css(shadeWall(L,ax,ay,[132,138,150])); c.fillRect(-7*S,-5.5*S,14*S,11*S);
+      c.fillStyle=L.night>.1?`rgba(255,224,158,${.28+.55*L.night})`:css(shadeWall(L,ax,ay,[70,76,88]));
+      c.fillRect(-6*S,-4.6*S,12*S,3.2*S);
+      c.restore();
+    }
+    c.save();
+    c.translate(mid[0]+ax*(pw*.5+20*S),mid[1]+ay*(pw*.5+20*S));
+    const a2=PITP[(PITP.length>>1)-1]||PITP[0];
+    let pa=Math.atan2(mid[1]-a2[1],mid[0]-a2[0]);
+    if(pa>Math.PI/2||pa<-Math.PI/2) pa+=Math.PI;
+    c.rotate(pa); c.font=`${8.5*S}px ui-monospace,Menlo,monospace`; c.textAlign='center';
+    c.fillStyle=`rgba(224,234,248,${.26+.34*L.diffuse})`; c.fillText('BOXENGASSE',0,0); c.restore();
+  }
+
+  // ---- Tribüne gegenüber ----
+  for(let k=-18;k<=18;k+=9){
+    const p=P[(startI+k+P.length*2)%P.length];
+    c.save(); c.translate(p.x-ax*tw*1.2,p.y-ay*tw*1.2); c.rotate(p.ang);
+    c.fillStyle=`rgba(0,0,0,${L.shadowAlpha*.45})`; c.fillRect(-11*S,-2*S,22*S,11*S);
+    c.fillStyle=css(shadeWall(L,-ax,-ay,[118,124,134])); c.fillRect(-11*S,-5.5*S,22*S,11*S);
+    for(let r2=0;r2<4;r2++){
+      c.fillStyle=css(shadeRoof(L,[200-r2*26,208-r2*26,222-r2*26]),.55);
+      c.fillRect(-10*S,-4.5*S+r2*2.6*S,20*S,1.8*S); }
+    c.restore();
+  }
+
+  const s0=P[startI];
+  c.save(); c.translate(s0.x,s0.y); c.rotate(s0.ang);
+  const cell=tw/5;
+  for(let i=-2;i<3;i++) for(let j=0;j<2;j++){
+    c.fillStyle=(i+j)%2?css(shadeRoof(L,[242,245,249])):'#20242b';
+    c.fillRect(j*cell*1.2-cell*1.2,i*cell,cell*1.2,cell); }
+  c.restore();
+
+  c.font=`${9*S}px ui-monospace,Menlo,monospace`; c.textAlign='center';
+  c.fillStyle=`rgba(226,236,250,${.24+.34*L.diffuse})`;
+  {
+    const sm=P[(startI+16)%P.length];
+    c.save(); c.translate(sm.x-ax*tw*2.6,sm.y-ay*tw*2.6);
+    let ra=sm.ang; if(ra>Math.PI/2||ra<-Math.PI/2) ra+=Math.PI; c.rotate(ra);
+    c.fillText(M.straight,0,0); c.restore();
+  }
+  // Kurvennamen aus OSM, wo die Mapper sie vergeben haben; sonst die engste
+  // Kurve, die aus der Krümmung gefunden wird.
+  if(CORNERLBL.length){
+    c.font=`${8.5*S}px ui-monospace,Menlo,monospace`;
+    for(const lb of CORNERLBL){
+      const p=P[lb.i];
+      c.fillStyle=`rgba(232,240,252,${.30+.34*L.diffuse})`;
+      c.fillText(lb.name,p.x+p.inx*tw*2.3,p.y+p.iny*tw*2.3+3*S);
+    }
+  } else {
+    const hp=P[hairIdx];
+    c.fillText(M.hair,hp.x+hp.inx*tw*2.4,hp.y+hp.iny*tw*2.4+3*S);
+  }
+
+  // ---- Bloom: was hell ist, blutet aus. Nachts sind das die Fenster ----
+  if(L.night>.15&&gctx.filter!==undefined){
+    gctx.setTransform(1,0,0,1,0,0); gctx.clearRect(0,0,W,H);
+    gctx.filter=`blur(${7*S}px) brightness(1.5)`;
+    gctx.drawImage(statics,0,0); gctx.filter='none';
+    c.globalCompositeOperation='lighter'; c.globalAlpha=.34*L.night;
+    c.drawImage(glow,0,0);
+    c.globalCompositeOperation='source-over'; c.globalAlpha=1;
+  }
+
+  // ---- Tilt-Shift: Schärfe liegt auf der Strecke, die Ränder fallen ab ----
+  if(sctx.filter!==undefined){
+    const band=Math.round(H*.17);
+    gctx.setTransform(1,0,0,1,0,0); gctx.clearRect(0,0,W,H);
+    gctx.filter=`blur(${2.4*S}px)`; gctx.drawImage(statics,0,0); gctx.filter='none';
+    c.save();
+    c.beginPath(); c.rect(0,0,W,band); c.rect(0,H-band,W,band); c.clip();
+    c.globalAlpha=.85; c.drawImage(glow,0,0); c.restore();
+  }
+}
+
+/* ===================== Auto ===================== */
+function car(x,y,ang,Lv,o,L){
+  const {dim=1,blink=false,spot=false,sc=1,speed=0}=o;
+  const u=Math.max(.5*S,trackW()*.44/16)*sc;
+
+  if(L.shadowAlpha>.02){
+    const len=9*u*Math.min(3.2,L.shadowLen);
+    ctx.save(); ctx.globalAlpha=dim*L.shadowAlpha*1.25;
+    ctx.translate(x+L.shadowDirX*len,y+L.shadowDirY*len*.55);
+    ctx.rotate(ang+Math.PI/2); ctx.fillStyle='#000';
+    rr(-8*u,-15*u,16*u,30*u,4.4*u); ctx.fill(); ctx.restore();
+  }
+  ctx.save(); ctx.translate(x,y); ctx.rotate(ang+Math.PI/2); ctx.globalAlpha=dim;
+  if(spot){ const g=ctx.createRadialGradient(0,0,0,0,0,36*u);
+    g.addColorStop(0,'rgba(150,215,255,.30)'); g.addColorStop(1,'rgba(150,215,255,0)');
+    ctx.fillStyle=g; ctx.beginPath(); ctx.arc(0,0,36*u,0,7); ctx.fill(); }
+  if(L.night>.25&&speed>.001){
+    ctx.globalCompositeOperation='lighter';
+    const g=ctx.createLinearGradient(0,-14*u,0,-64*u);
+    g.addColorStop(0,`rgba(255,240,206,${.36*L.night})`); g.addColorStop(1,'rgba(255,240,206,0)');
+    ctx.fillStyle=g; ctx.beginPath(); ctx.moveTo(-5*u,-14*u); ctx.lineTo(5*u,-14*u);
+    ctx.lineTo(24*u,-64*u); ctx.lineTo(-24*u,-64*u); ctx.closePath(); ctx.fill();
+    ctx.globalCompositeOperation='source-over';
+  }
+
+  const body=shadeRoof(L,Lv.base), acc=shadeRoof(L,Lv.a);
+  ctx.fillStyle='rgba(0,0,0,.30)'; rr(-8.4*u,-14.6*u,16.8*u,30*u,4.6*u); ctx.fill();
+  ctx.fillStyle=css(body); rr(-8*u,-15*u,16*u,30*u,4.4*u); ctx.fill();
+  ctx.save(); ctx.clip();
+  ctx.fillStyle=css(acc);
+  if(Lv.pat==='centre') ctx.fillRect(-2.6*u,-15*u,5.2*u,30*u);
+  if(Lv.pat==='twin'){ ctx.fillRect(-5.4*u,-15*u,3.3*u,30*u); ctx.fillRect(2.1*u,-15*u,3.3*u,30*u); }
+  if(Lv.pat==='hoops') for(let i=-14;i<15;i+=7) ctx.fillRect(-8*u,i*u,16*u,2.5*u);
+  if(Lv.pat==='martini'){ const b2=shadeRoof(L,Lv.b);
+    ctx.fillStyle=css(b2); ctx.fillRect(-8*u,-4*u,16*u,2.3*u);
+    ctx.fillStyle=css(acc); ctx.fillRect(-8*u,-1.3*u,16*u,2.3*u);
+    ctx.fillStyle=css(b2); ctx.fillRect(-8*u,1.4*u,16*u,1.3*u); }
+  if(Lv.pat==='butcher'){ ctx.strokeStyle=css(acc); ctx.lineWidth=.7*u;
+    for(let i=-13;i<15;i+=5){ctx.beginPath();ctx.moveTo(-8*u,i*u);ctx.lineTo(8*u,i*u);ctx.stroke();}
+    ctx.beginPath();ctx.moveTo(0,-15*u);ctx.lineTo(0,15*u);ctx.stroke(); }
+  if(Lv.pat==='dazzle'){ ctx.fillStyle=css(acc);
+    for(let i=-15;i<15;i+=6){ctx.beginPath();ctx.moveTo(-8*u,i*u);ctx.lineTo(8*u,(i+3)*u);
+      ctx.lineTo(8*u,(i+5)*u);ctx.lineTo(-8*u,(i+2)*u);ctx.closePath();ctx.fill();} }
+  // Spiegelung: der Glanzpunkt sitzt dort, wo die Sonne steht
+  const la=Math.atan2(L.sunY,L.sunX)-(ang+Math.PI/2);
+  const gx=Math.cos(la)*6.5*u,gy=Math.sin(la)*6.5*u;
+  const sp2=ctx.createRadialGradient(gx,gy,0,gx,gy,12*u);
+  sp2.addColorStop(0,`rgba(255,252,242,${.06+.42*L.direct})`); sp2.addColorStop(1,'rgba(255,252,242,0)');
+  ctx.fillStyle=sp2; ctx.fillRect(-8*u,-15*u,16*u,30*u);
+  const skyRefl=ctx.createLinearGradient(0,-15*u,0,15*u);
+  skyRefl.addColorStop(0,css(L.skyC,.22*L.diffuse)); skyRefl.addColorStop(1,'rgba(0,0,0,.20)');
+  ctx.fillStyle=skyRefl; ctx.fillRect(-8*u,-15*u,16*u,30*u);
+  ctx.restore();
+
+  ctx.fillStyle=css(shadeRoof(L,[16,20,27])); rr(-5.4*u,-5*u,10.8*u,12*u,2.3*u); ctx.fill();
+  ctx.fillStyle=css(mixRGB(L.skyC,[190,215,240],.4),.30+.28*L.diffuse);
+  rr(-5*u,-5.4*u,10*u,3.1*u,1.3*u); ctx.fill();
+  ctx.fillStyle='#0f1319';
+  [[-8.7,-9.2],[6.5,-9.2],[-8.7,5.6],[6.5,5.6]].forEach(([wx,wy])=>{ rr(wx*u,wy*u,2.2*u,5.6*u,.8*u); ctx.fill(); });
+  ctx.fillStyle='#0d1117';
+  ctx.fillRect(-4.4*u,12.3*u,1.6*u,3.4*u); ctx.fillRect(2.8*u,12.3*u,1.6*u,3.4*u);
+  rr(-10.8*u,14.5*u,21.6*u,2.9*u,1.1*u); ctx.fill();
+  ctx.fillStyle=css(acc); ctx.fillRect(-1.5*u,14.5*u,3*u,2.9*u);
+  ctx.fillStyle=L.night>.25?'rgba(255,250,232,1)':css(shadeRoof(L,[250,244,222]),.7);
+  ctx.beginPath(); ctx.arc(-5*u,-13.4*u,1.5*u,0,7); ctx.fill();
+  ctx.beginPath(); ctx.arc(5*u,-13.4*u,1.5*u,0,7); ctx.fill();
+  if(L.night>.25){ ctx.fillStyle=`rgba(255,58,38,${.5+.45*L.night})`;
+    ctx.shadowColor='rgba(255,58,38,.9)'; ctx.shadowBlur=7*u;
+    ctx.fillRect(-6.6*u,14*u,3.6*u,1.4*u); ctx.fillRect(3*u,14*u,3.6*u,1.4*u); ctx.shadowBlur=0; }
+  if(blink){ ctx.fillStyle='#ffb020'; ctx.shadowColor='#ffb020'; ctx.shadowBlur=18*u;
+    [[-7,-12.3],[7,-12.3],[-7,12.3],[7,12.3]].forEach(([bx,by])=>{
+      ctx.beginPath(); ctx.arc(bx*u,by*u,1.9*u,0,7); ctx.fill(); }); ctx.shadowBlur=0; }
+  ctx.restore();
+
+  if(L.wet&&speed>.002){ ctx.save(); ctx.globalAlpha=dim*.30; ctx.fillStyle='#d3dde8';
+    for(let i=0;i<8;i++){ const d=(9+i*3.4)*u,a2=ang+Math.PI+(hash01(FRAMENO,o.key||0,i)-.5)*.6;
+      ctx.beginPath(); ctx.arc(x+Math.cos(a2)*d,y+Math.sin(a2)*d,(1.7-i*.15)*u,0,7); ctx.fill(); }
+    ctx.restore(); }
+}
+function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y);
+  ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+
+/* ===================== Liste ===================== */
+(function(){
+  let h='';
+  for(const [title,pred] of [['Auf der Strecke',a=>a.st!=='park'],['Boxengasse',a=>a.st==='park']]){
+    const rows=AGENTS.filter(pred);
+    h+=`<div class="zx-group">${title} · ${rows.length}</div>`;
+    for(const a of rows){ const Lv=LV[a.lv];
+      const c=a.st==='work'?['z-work','fährt']:a.st==='wait'?['z-wait','wartet']:['z-park','Box'];
+      const b=`rgb(${Lv.base.join(',')})`,ac=`rgb(${Lv.a.join(',')})`;
+      h+=`<div class="zx-row" data-agent="${a.id}">
+        <div class="zx-sw" style="background:linear-gradient(90deg,${b} 0 38%,${ac} 38% 62%,${b} 62%)"></div>
+        <div class="zx-meta"><div class="zx-name">${a.repo}${a.subs?` <span style="color:#4ade80;font-size:8.5px">+${a.subs}</span>`:''}</div>
+        <div class="zx-br">${a.br} · ${a.age}</div></div>
+        <div class="zx-laps"><b>L${a.laps}</b>${a.tok}</div>
+        <div class="zx-chip ${c[0]}">${c[1]}</div>
+        ${a.st==='park'?'<div class="zx-x" title="Aus dem Agentverse werfen">✕</div>':''}</div>`;
+    }
+  }
+  zL.innerHTML=h;
+  zL.querySelectorAll('.zx-row').forEach(r=>{
+    r.addEventListener('mouseenter',()=>hovered=r.dataset.agent);
+    r.addEventListener('mouseleave',()=>hovered=null); });
+})();
+
+const onT=AGENTS.filter(a=>a.st!=='park'), inP=AGENTS.filter(a=>a.st==='park');
+// Startposition und Tempo, nicht der laufende Zustand: die Position wird aus der
+// Bildnummer errechnet, damit Bild 600 immer dasselbe zeigt — egal ob man
+// dorthin animiert oder direkt hinspringt.
+onT.forEach((a,i)=>{ a.s0=i/onT.length; a.v=a.st==='work'?.040+i*.008:0; a.key=i+1; });
+
+/* ===================== Steuerung ===================== */
+function syncNow(){ minOfDay=localNow(); zS.value=minOfDay; zC.textContent=fmt(minOfDay); }
+zS.addEventListener('input',e=>{ minOfDay=+e.target.value; zC.textContent=fmt(minOfDay); });
+document.getElementById('zN').addEventListener('click',syncNow);
+document.getElementById('zT').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b)return;
+  document.querySelectorAll('#zT button').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on'); TRACK=b.dataset.t; buildGeometry(); syncNow(); });
+document.getElementById('zW').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b)return;
+  document.querySelectorAll('#zW button').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on'); WXSEL=b.dataset.w; lastKey=''; });
+cv.addEventListener('mousemove',e=>{ const r=cv.getBoundingClientRect();
+  mouse={x:(e.clientX-r.left)*S,y:(e.clientY-r.top)*S}; });
+cv.addEventListener('mouseleave',()=>mouse=null);
+
+/* Parameter aus der URL, damit der Screenshot-Lauf eine Szene exakt ansteuern
+   kann: ?track=spa&min=1140&wx=rain&frame=600&seed=1&hud=off */
+if(Q.get('track')&&CIRCUITS[Q.get('track')]){
+  TRACK=Q.get('track');
+  document.querySelectorAll('#zT button').forEach(x=>x.classList.toggle('on',x.dataset.t===TRACK));
+}
+if(Q.get('wx')){
+  WXSEL=Q.get('wx');
+  document.querySelectorAll('#zW button').forEach(x=>x.classList.toggle('on',x.dataset.w===WXSEL));
+}
+if(!HUD){ zB.style.display='none'; zSun.style.display='none'; }
+
+buildGeometry(); syncNow();
+if(Q.has('min')){ minOfDay=+Q.get('min'); zS.value=minOfDay; zC.textContent=fmt(minOfDay); }
+addEventListener('resize',buildGeometry);
+
+/* ===================== Frame ===================== */
+let FRAMENO=0, t=0;
+function renderFrame(){
+  t=FRAMENO/60;
+  const C=CIRCUITS[TRACK],wx=wxNow();
+  const base=new Date(), off=tzOffset(C.tz,base);
+  const utc=new Date(Math.floor(base.getTime()/86400000)*86400000+(minOfDay-off)*60000);
+  const s=solar(utc,C.lat,C.lon);
+  const L=lighting(s.el,s.az,C.rot,wx);
+
+  const key=`${TRACK}|${wx}|${Math.round(s.el*1.5)}|${Math.round(s.az*10)}`;
+  if(key!==lastKey){ drawStatic(L,t); lastKey=key; }
+  ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,W,H); ctx.drawImage(statics,0,0);
+
+  const anyH=hovered!==null;
+  for(const a of onT){
+    a.s=a.s0+a.v*t;
+    const p=P[Math.floor(((a.s%1)+1)%1*P.length)];
+    const isH=hovered===a.id, blink=a.st==='wait'&&(Math.floor(t*2.2)%2===0||isH);
+    car(p.x,p.y,p.ang,LV[a.lv],{dim:anyH?(isH?1:.16):1,blink,spot:isH,speed:a.v,key:a.key},L);
+    if(isH){
+      const lb=`${a.repo} · ${a.br}   L${a.laps} · ${a.tok}`;
+      ctx.font=`600 ${11.5*S}px system-ui,sans-serif`; ctx.textAlign='center';
+      const tw2=ctx.measureText(lb).width;
+      ctx.fillStyle='rgba(5,8,13,.84)'; rr(p.x-tw2/2-8*S,p.y-42*S,tw2+16*S,20*S,6*S); ctx.fill();
+      ctx.fillStyle='#eaf2ff'; ctx.fillText(lb,p.x,p.y-28*S);
+    }
+    a.hit=p;
+  }
+  inP.forEach((a,i)=>{
+    if(PITP.length<4) return;
+    const k=Math.min(PITP.length-2,2+Math.round((i+.5)*(PITP.length-4)/inP.length));
+    const b=PITP[k],bp=PITP[k-1]||PITP[0];
+    const ang=Math.atan2(b[1]-bp[1],b[0]-bp[0]),isH=hovered===a.id;
+    car(b[0],b[1],ang,LV[a.lv],{dim:anyH?(isH?.95:.08):.30,spot:isH,sc:.9,speed:0},L);
+    a.hit={x:b[0],y:b[1]};
+  });
+
+  if(mouse&&!anyH){ let best=null,bd=26*S;
+    for(const a of AGENTS) if(a.hit){ const d=Math.hypot(a.hit.x-mouse.x,a.hit.y-mouse.y); if(d<bd){bd=d;best=a.id;} }
+    if(best) hovered=best;
+  } else if(!mouse&&anyH&&!zL.matches(':hover')) hovered=null;
+
+  if(wx==='rain'){
+    ctx.strokeStyle='rgba(186,210,238,.28)'; ctx.lineWidth=1.05*S;
+    for(let ri=0;ri<rain.length;ri++){ const d=rain[ri];
+      ctx.beginPath(); ctx.moveTo(d.x,d.y); ctx.lineTo(d.x-2.4*S,d.y+d.l); ctx.stroke();
+      d.y+=d.v; d.x-=d.v*.18; if(d.y>H){d.y=-24*S;d.x=hash01(FRAMENO,ri,3)*W;} }
+  }
+  if(wx==='fog') for(let i=0;i<5;i++){ const y=H*(.10+i*.2)+Math.sin(t*.22+i*1.7)*15*S;
+    const g=ctx.createLinearGradient(0,y-75*S,0,y+75*S);
+    g.addColorStop(0,'rgba(206,216,226,0)'); g.addColorStop(.5,`rgba(206,216,226,${.11+i*.02})`);
+    g.addColorStop(1,'rgba(206,216,226,0)'); ctx.fillStyle=g; ctx.fillRect(0,y-75*S,W,150*S); }
+
+  // Filmkorn und Vignette
+  if(grain){ ctx.save(); ctx.globalAlpha=.030; ctx.globalCompositeOperation='overlay';
+    const pat=ctx.createPattern(grain,'repeat'); ctx.fillStyle=pat;
+    ctx.translate((t*37)%180,(t*23)%180); ctx.fillRect(-180,-180,W+360,H+360); ctx.restore(); }
+  const vg=ctx.createRadialGradient(W*.5,H*.46,H*.20,W*.5,H*.46,H*1.02);
+  vg.addColorStop(0,'rgba(0,0,0,0)'); vg.addColorStop(1,`rgba(0,0,0,${.30+.30*L.night})`);
+  ctx.fillStyle=vg; ctx.fillRect(0,0,W,H);
+
+  if(!HUD) return;
+  const WXN={clear:'KLAR',cloud:'BEWÖLKT',rain:'REGEN',fog:'NEBEL'};
+  zB.innerHTML=`${(C.location||'').toUpperCase()}<b>${C.name}</b>`+
+    `<i>${C.lengthKm.toFixed(3)} km · ${fmt(minOfDay)} Ortszeit · ${WXN[wx]}${WXSEL==='auto'?' (vor Ort)':' (übersteuert)'}</i>`;
+  const scn=SCENERY&&SCENERY[TRACK];
+  const compass=['N','NNO','NO','ONO','O','OSO','SO','SSO','S','SSW','SW','WSW','W','WNW','NW','NNW'][
+    Math.round(s.az/(Math.PI*2)*16)%16];
+  const prof=TER&&TER.profile;
+  const dh=prof?Math.max(...prof)-Math.min(...prof):0;
+  zSun.innerHTML=
+    `${L.night>.5?'MOND':'SONNE'} <b>${s.el>0?'+':''}${s.el.toFixed(1)}°</b> ${compass}<br>`+
+    `SCHATTEN <b>${L.shadowLen>=7.4?'>7':L.shadowLen.toFixed(1)}×</b> Höhe<br>`+
+    `${scn?`<b>${scn.buildings.length}</b> Gebäude · <b>${scn.areas.length}</b> Flächen<br>`:''}`+
+    `${prof?`HÖHENUNTERSCHIED <b>${dh.toFixed(0)} m</b>`:''}`;
+}
+
+/* Ein einziges, exakt bestimmtes Bild für den Screenshot-Lauf — sonst die
+   laufende Animation. Die Simulation ist eine Funktion der Bildnummer, also
+   braucht das Vorspulen keine 600 gezeichneten Bilder. */
+if(FIXED_FRAME!==null){
+  FRAMENO=FIXED_FRAME;
+  renderFrame();
+  window.__READY__=true;
+} else {
+  (function loop(){ FRAMENO++; renderFrame(); requestAnimationFrame(loop); })();
+}
+})();
+</script>
+
+<h3 style="margin-top:26px">Was jetzt gerechnet statt gezeichnet ist</h3>
+<p class="subtitle" style="max-width:830px">
+  Kein Gebäude ist mehr erfunden: jeder Grundriss, jede Höhe, jede Wasser- und Waldfläche kommt
+  aus OpenStreetMap. Die Schatten haben die Länge <code>Höhe / tan(Sonnenhöhe)</code> und die Richtung
+  des Sonnenazimuts — dreh die Zeit auf 06:00 und auf 19:00 und sieh dir an, wie sie durch die Stadt
+  wandern. Wände werden einzeln nach Lambert beleuchtet, ein Dach bekommt den Sinus der Sonnenhöhe.
+  Bei Regen fällt das direkte Licht auf 10 % und das diffuse steigt — deshalb verschwinden die
+  Schatten dort, statt nur dunkler zu werden.
+</p>
