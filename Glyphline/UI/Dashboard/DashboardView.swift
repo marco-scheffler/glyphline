@@ -1,6 +1,8 @@
+import AppKit
 import SwiftUI
 
 struct DashboardView: View {
+    @Environment(\.openWindow) private var openWindow
     @State private var selection: DashboardDestination? = .overview
     @State private var accountSummaries: [AccountUsageSummary] = []
     @State private var loadError: String?
@@ -21,6 +23,12 @@ struct DashboardView: View {
             }
             .navigationTitle("Glyphline")
             .frame(minWidth: 220, idealWidth: 240)
+            // Below the list, not a row in it: the list's selection drives the
+            // detail pane, so a row that opens a window instead would leave the
+            // sidebar highlighting something the detail pane is not showing.
+            // Outside the list it also reads as what it is — an action, not a
+            // sixth page.
+            .safeAreaInset(edge: .bottom, spacing: 0) { agentverseButton }
         } detail: {
             detailView
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -50,6 +58,33 @@ struct DashboardView: View {
         // statistics screen's own appearance: the first scan reads gigabytes
         // across hundreds of project directories.
         .task { await coordinator.scanLocalUsageOnceAtLaunch() }
+    }
+
+    /// The way into the map from the main window.
+    ///
+    /// The Agentverse is a window of its own — at the dashboard's minimum width
+    /// less the sidebar the scene would get about 740 points against the 1690 it
+    /// was designed at — so this opens that window rather than switching the
+    /// detail pane. Same three steps as `MenuBarView`: the app has to become a
+    /// regular one before a window of this kind is any use.
+    private var agentverseButton: some View {
+        VStack(spacing: 0) {
+            Divider()
+            Button {
+                AppActivationController.regulariseForWindow()
+                openWindow(id: AppMode.agentverseWindowID)
+                NSApp.activate(ignoringOtherApps: true)
+            } label: {
+                Label("Agentverse", systemImage: "car.fill")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .help("Open the Agentverse in its own window")
+        }
+        .background(.bar)
     }
 
     @ViewBuilder private var detailView: some View {
