@@ -25,6 +25,16 @@ struct AgentverseWindow: View {
         .frame(minWidth: 900, minHeight: 560)
         .navigationTitle("Agentverse")
         .toolbar {
+            ToolbarItem(placement: .automatic) {
+                // Deliberately not persisted: whether the choice should survive
+                // a reopening is still open, and storing it would settle it.
+                Picker("Circuit", selection: $circuitKey) {
+                    ForEach(catalog?.entriesByName ?? [], id: \.key) { entry in
+                        Text(entry.name).tag(entry.key)
+                    }
+                }
+                .labelsHidden()
+            }
             ToolbarItem(placement: .primaryAction) {
                 Button {
                     Task { await refresh() }

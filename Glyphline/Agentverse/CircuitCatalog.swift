@@ -102,6 +102,15 @@ struct CircuitCatalog: Equatable, Sendable {
 
     func circuit(_ key: String) -> Circuit? { circuits[key] }
 
+    /// Every circuit as the key it is looked up by and the name it is offered
+    /// under, ordered by that name. Dictionary iteration order is unspecified
+    /// and differs between launches, so an unsorted list would rearrange the
+    /// picker on every opening.
+    var entriesByName: [(key: String, name: String)] {
+        circuits.map { (key: $0.key, name: $0.value.name) }
+            .sorted { $0.name < $1.name }
+    }
+
     static func bundled(in bundle: Bundle = .main) throws -> CircuitCatalog {
         var circuits = try decode([String: Circuit].self, named: "circuits", in: bundle)
         let corners = try decode([String: [CircuitCorner]].self, named: "corners", in: bundle)

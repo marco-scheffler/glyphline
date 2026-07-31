@@ -103,6 +103,19 @@ final class CircuitCatalogTests: XCTestCase {
         }
     }
 
+    /// The picker's entries. Sorted by the name it shows, not by key and not in
+    /// dictionary order — the latter differs between launches, so the circuits
+    /// would sit somewhere else in the menu every time the window is opened.
+    func testTheCircuitsAreOfferedByNameInAStableOrder() throws {
+        let entries = try catalog().entriesByName
+
+        XCTAssertEqual(entries.map(\.name), entries.map(\.name).sorted())
+        XCTAssertEqual(entries.count, 5)
+        XCTAssertEqual(
+            entries.first(where: { $0.key == "monaco" })?.name, "Circuit de Monaco"
+        )
+    }
+
     func testAMissingResourceFailsLoudly() throws {
         XCTAssertThrowsError(try CircuitCatalog.bundled(in: Bundle(for: XCTestCase.self))) { error in
             XCTAssertEqual(
