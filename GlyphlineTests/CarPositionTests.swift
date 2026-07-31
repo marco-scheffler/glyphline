@@ -100,6 +100,25 @@ final class CarPositionTests: XCTestCase {
         XCTAssertEqual(CarPosition.pitSlot(index: 0, count: 0), 0.5, accuracy: 0.0001)
     }
 
+    /// Catches a pit index that no longer starts at the entry — an inset added
+    /// here as well as in `pitSlot` would push the first car down the lane twice.
+    func testTheStartOfTheLaneIsItsFirstPoint() {
+        XCTAssertEqual(CarPosition.pitPointIndex(slot: 0, count: 24), 0)
+    }
+
+    /// Catches a dropped clamp: `Int(slot * count)` alone reaches `count` for a
+    /// slot at the very end of the lane, one past the last stored point.
+    func testASlotAtTheEndOfTheLaneStaysOnTheLastPoint() {
+        XCTAssertEqual(CarPosition.pitPointIndex(slot: 0.999, count: 24), 23)
+        XCTAssertEqual(CarPosition.pitPointIndex(slot: 1, count: 24), 23)
+    }
+
+    /// Catches a dropped emptiness guard: with no pit lane stored the clamp
+    /// yields -1, and drawing a car at `pit[-1]` traps.
+    func testACircuitWithoutAPitLaneOffersNoPoint() {
+        XCTAssertNil(CarPosition.pitPointIndex(slot: 0.5, count: 0))
+    }
+
     func testASinglePitSlotSitsInTheMiddle() {
         XCTAssertEqual(CarPosition.pitSlot(index: 0, count: 1), 0.5, accuracy: 0.0001)
     }

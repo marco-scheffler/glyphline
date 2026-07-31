@@ -190,16 +190,15 @@ struct AgentverseScene: View {
 
             // The pit lane first, so a car rejoining never appears to sit
             // on top of the field it is behind.
-            if !circuit.pit.isEmpty {
-                for (index, session) in parked.enumerated() {
-                    let slot = CarPosition.pitSlot(index: index, count: parked.count)
-                    let along = min(circuit.pit.count - 1,
-                                    Int(slot * Double(circuit.pit.count)))
-                    let livery = CarLivery.forSession(session.sessionID)
-                    drawCar(at: fit.point(circuit.pit[along]), livery: livery,
-                            ring: livery.accent, ringWidth: 1.5,
-                            opacity: 0.45 * spotlight(session.sessionID))
-                }
+            for (index, session) in parked.enumerated() {
+                let slot = CarPosition.pitSlot(index: index, count: parked.count)
+                guard let along = CarPosition.pitPointIndex(slot: slot,
+                                                            count: circuit.pit.count)
+                else { continue }
+                let livery = CarLivery.forSession(session.sessionID)
+                drawCar(at: fit.point(circuit.pit[along]), livery: livery,
+                        ring: livery.accent, ringWidth: 1.5,
+                        opacity: 0.45 * spotlight(session.sessionID))
             }
 
             // Half a second on, half a second off at the window's 60 frames a

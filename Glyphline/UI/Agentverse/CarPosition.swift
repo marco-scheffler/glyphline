@@ -47,4 +47,16 @@ enum CarPosition {
         guard count > 0 else { return 0.5 }
         return (Double(index) + 0.5) / Double(count)
     }
+
+    /// Which pit-lane point a car at `slot` of the lane's length stands on.
+    ///
+    /// The centreline's counterpart, and tested for the same reason. Optional
+    /// rather than clamped: a circuit with no stored pit lane has no point to
+    /// offer, and returning 0 there would hand the caller an index into an empty
+    /// array. The lane does not wrap — it has an entry and an exit — so the last
+    /// point is as far as a slot can reach.
+    static func pitPointIndex(slot: Double, count: Int) -> Int? {
+        guard count > 0 else { return nil }
+        return min(count - 1, max(0, Int(slot * Double(count))))
+    }
 }
