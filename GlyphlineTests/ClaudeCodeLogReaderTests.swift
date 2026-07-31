@@ -48,7 +48,7 @@ final class ClaudeCodeLogReaderTests: XCTestCase {
     /// transaction. Returns the rows, so a test can assert on the deltas.
     @discardableResult
     private func apply(_ result: LocalScanResult) throws -> [LocalTokenUsage] {
-        try ledger.applyLocalScan(usage: result.usage, watermarks: result.watermarks)
+        try ledger.applyLocalScan(result)
         return result.usage
     }
 

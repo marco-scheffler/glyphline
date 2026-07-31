@@ -168,7 +168,7 @@ final class SyncCoordinator: ObservableObject {
         let failed = await Task.detached(priority: .utility) { () -> Bool in
             do {
                 let scan = try localScan()
-                try ledger.applyLocalScan(usage: scan.usage, watermarks: scan.watermarks)
+                try ledger.applyLocalScan(scan)
                 return false
             } catch {
                 return true

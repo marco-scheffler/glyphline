@@ -206,8 +206,10 @@ final class LocalTokenUsageStoreTests: XCTestCase {
         let store = try makeStore()
 
         try store.applyLocalScan(
-            usage: [scanUsage(input: 100)],
-            watermarks: [scanWatermark(byteOffset: 512)]
+            LocalScanResult(
+                usage: [scanUsage(input: 100)],
+                watermarks: [scanWatermark(byteOffset: 512)]
+            )
         )
 
         let rows = try store.fetchLocalTokenUsage(since: nil)
@@ -227,8 +229,10 @@ final class LocalTokenUsageStoreTests: XCTestCase {
         let store = LedgerStore(dbQueue: dbQueue)
 
         try store.applyLocalScan(
-            usage: [scanUsage(input: 100)],
-            watermarks: [scanWatermark(byteOffset: 512)]
+            LocalScanResult(
+                usage: [scanUsage(input: 100)],
+                watermarks: [scanWatermark(byteOffset: 512)]
+            )
         )
 
         // Make the watermark half of the next apply fail, after the usage half
@@ -245,8 +249,10 @@ final class LocalTokenUsageStoreTests: XCTestCase {
 
         XCTAssertThrowsError(
             try store.applyLocalScan(
-                usage: [scanUsage(input: 7)],
-                watermarks: [scanWatermark(byteOffset: 1_024)]
+                LocalScanResult(
+                    usage: [scanUsage(input: 7)],
+                    watermarks: [scanWatermark(byteOffset: 1_024)]
+                )
             )
         )
 
@@ -276,12 +282,16 @@ final class LocalTokenUsageStoreTests: XCTestCase {
         let store = try makeStore()
 
         try store.applyLocalScan(
-            usage: [scanUsage(input: 100)],
-            watermarks: [scanWatermark(byteOffset: 512)]
+            LocalScanResult(
+                usage: [scanUsage(input: 100)],
+                watermarks: [scanWatermark(byteOffset: 512)]
+            )
         )
         try store.applyLocalScan(
-            usage: [scanUsage(input: 20)],
-            watermarks: [scanWatermark(byteOffset: 1_024)]
+            LocalScanResult(
+                usage: [scanUsage(input: 20)],
+                watermarks: [scanWatermark(byteOffset: 1_024)]
+            )
         )
 
         let rows = try store.fetchLocalTokenUsage(since: nil)
@@ -290,5 +300,56 @@ final class LocalTokenUsageStoreTests: XCTestCase {
 
         let watermark = try XCTUnwrap(try store.fetchLocalScanWatermark(sourceKey: "/tmp/scan.jsonl"))
         XCTAssertEqual(watermark.byteOffset, 1_024)
+    }
+
+    func testSessionTotalsAccumulateAcrossScans() throws {
+        let store = try makeStore()
+        let first = LocalScanResult(
+            usage: [],
+            sessionUsage: [LocalSessionTokenUsage(sessionID: "S1", model: "sonnet",
+                                                  inputTokens: 10, outputTokens: 5)],
+            watermarks: []
+        )
+        let second = LocalScanResult(
+            usage: [],
+            sessionUsage: [LocalSessionTokenUsage(sessionID: "S1", model: "sonnet",
+                                                  inputTokens: 100, outputTokens: 50)],
+            watermarks: []
+        )
+
+        try store.applyLocalScan(first)
+        try store.applyLocalScan(second)
+
+        XCTAssertEqual(
+            try store.fetchSessionTokens(sessionIDs: ["S1"])["S1"], 165,
+            "the reader emits deltas, so a second scan adds rather than replaces"
+        )
+    }
+
+    func testSessionTotalsSumTheirModels() throws {
+        let store = try makeStore()
+        try store.applyLocalScan(
+            LocalScanResult(
+                usage: [],
+                sessionUsage: [
+                    LocalSessionTokenUsage(sessionID: "S1", model: "sonnet", inputTokens: 10),
+                    LocalSessionTokenUsage(sessionID: "S1", model: "opus", inputTokens: 7),
+                ],
+                watermarks: []
+            )
+        )
+
+        XCTAssertEqual(try store.fetchSessionTokens(sessionIDs: ["S1"])["S1"], 17)
+    }
+
+    func testUnknownSessionsAreAbsentRatherThanZero() throws {
+        let store = try makeStore()
+
+        let totals = try store.fetchSessionTokens(sessionIDs: ["NEVER"])
+
+        XCTAssertNil(
+            totals["NEVER"],
+            "a session with no rows has no total; zero would be a confidently wrong number"
+        )
     }
 }

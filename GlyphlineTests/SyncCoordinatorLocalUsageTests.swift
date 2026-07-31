@@ -199,19 +199,21 @@ final class SyncCoordinatorLocalUsageTests: XCTestCase {
     func testStatisticsAreLimitedToThePeriod() async throws {
         let (_, ledger) = try makeLedger()
         try ledger.applyLocalScan(
-            usage: [
-                LocalTokenUsage(
-                    bucketStart: day("2024-03-15T00:00:00Z"),
-                    model: "priced-model",
-                    inputTokens: 100
-                ),
-                LocalTokenUsage(
-                    bucketStart: day("2024-01-01T00:00:00Z"),
-                    model: "priced-model",
-                    inputTokens: 900
-                ),
-            ],
-            watermarks: []
+            LocalScanResult(
+                usage: [
+                    LocalTokenUsage(
+                        bucketStart: day("2024-03-15T00:00:00Z"),
+                        model: "priced-model",
+                        inputTokens: 100
+                    ),
+                    LocalTokenUsage(
+                        bucketStart: day("2024-01-01T00:00:00Z"),
+                        model: "priced-model",
+                        inputTokens: 900
+                    ),
+                ],
+                watermarks: []
+            )
         )
         let coordinator = makeCoordinator(ledger: ledger, scan: nil)
 
@@ -229,14 +231,16 @@ final class SyncCoordinatorLocalUsageTests: XCTestCase {
     func testAnUnpricedModelHasTokensButNoEstimate() async throws {
         let (_, ledger) = try makeLedger()
         try ledger.applyLocalScan(
-            usage: [
-                LocalTokenUsage(
-                    bucketStart: day("2024-03-15T00:00:00Z"),
-                    model: "model-with-no-price",
-                    inputTokens: 100
-                ),
-            ],
-            watermarks: []
+            LocalScanResult(
+                usage: [
+                    LocalTokenUsage(
+                        bucketStart: day("2024-03-15T00:00:00Z"),
+                        model: "model-with-no-price",
+                        inputTokens: 100
+                    ),
+                ],
+                watermarks: []
+            )
         )
         let coordinator = makeCoordinator(ledger: ledger, scan: nil)
 

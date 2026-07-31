@@ -11,6 +11,7 @@ enum LedgerTable {
     static let rateWindowSamples = "rateWindowSamples"
     static let localTokenUsage = "localTokenUsage"
     static let localScanWatermarks = "localScanWatermarks"
+    static let localSessionTokens = "localSessionTokens"
     static let agentverseParked = "agentverseParked"
 }
 
@@ -405,6 +406,30 @@ enum Migrations {
                 on: LedgerTable.agentverseParked,
                 columns: [LedgerColumn.parkedAt]
             )
+        }
+
+        migrator.registerMigration("v11_local_session_tokens") { db in
+            // What one session spent, per model. The daily table answers what the
+            // machine spent; this answers what one session spent, which is the
+            // figure a lap is counted in.
+            //
+            // The model is part of the key rather than summed away so the totals
+            // stay priceable through the pricing catalog. It costs on the order of
+            // a thousand rows today and twenty thousand after a year — nothing —
+            // and adding it later would mean a migration and a full rescan.
+            //
+            // Account-free like the rest of the local scan: a transcript carries
+            // no marker of which subscription produced it.
+            try db.create(table: LedgerTable.localSessionTokens) { table in
+                table.column(LedgerColumn.sessionID, .text).notNull()
+                table.column(LedgerColumn.modelKey, .text).notNull()
+                table.column(LedgerColumn.model, .text)
+                table.column(LedgerColumn.inputTokens, .integer).notNull().defaults(to: 0)
+                table.column(LedgerColumn.cacheCreationTokens, .integer).notNull().defaults(to: 0)
+                table.column(LedgerColumn.cacheReadTokens, .integer).notNull().defaults(to: 0)
+                table.column(LedgerColumn.outputTokens, .integer).notNull().defaults(to: 0)
+                table.primaryKey([LedgerColumn.sessionID, LedgerColumn.modelKey])
+            }
         }
 
         return migrator

@@ -587,6 +587,29 @@ private struct LocalTokenUsageRecord: Codable, FetchableRecord, PersistableRecor
     }
 }
 
+private struct LocalSessionTokenRecord: Codable, FetchableRecord, PersistableRecord, TableRecord {
+    static let databaseTableName = LedgerTable.localSessionTokens
+
+    var sessionID: String
+    var modelKey: String
+    var model: String?
+    var inputTokens: Int64
+    var cacheCreationTokens: Int64
+    var cacheReadTokens: Int64
+    var outputTokens: Int64
+
+    var usage: LocalSessionTokenUsage {
+        LocalSessionTokenUsage(
+            sessionID: sessionID,
+            model: model,
+            inputTokens: inputTokens,
+            cacheCreationTokens: cacheCreationTokens,
+            cacheReadTokens: cacheReadTokens,
+            outputTokens: outputTokens
+        )
+    }
+}
+
 private struct LocalScanWatermarkRecord: Codable, FetchableRecord, PersistableRecord, TableRecord {
     static let databaseTableName = LedgerTable.localScanWatermarks
 
@@ -997,20 +1020,22 @@ final class LedgerStore {
         }
     }
 
-    /// Persists one local scan: its token deltas and the resume points that
-    /// consume them, in a single transaction.
+    /// Persists one scan: the daily deltas, the per-session deltas, and the
+    /// watermarks that consume both.
     ///
-    /// The scan emits deltas, so the two halves cannot be split. If the tokens
-    /// landed but the watermarks did not, the next scan would read those bytes
-    /// again and double-count them; if the watermarks landed but the tokens did
-    /// not, those bytes are never read again and the totals understate for good.
-    /// One transaction: both, or neither.
-    func applyLocalScan(usage: [LocalTokenUsage], watermarks: [LocalScanWatermark]) throws {
-        guard !usage.isEmpty || !watermarks.isEmpty else { return }
+    /// Takes the whole result rather than its parts. All three come from one
+    /// pass and are meaningless apart: if the tokens land and the watermarks do
+    /// not, the next scan reads those bytes again and double-counts them; if the
+    /// watermarks land and the tokens do not, those bytes are never read again
+    /// and the totals understate for good. One transaction: all of it, or none.
+    func applyLocalScan(_ result: LocalScanResult) throws {
+        guard !result.usage.isEmpty || !result.sessionUsage.isEmpty || !result.watermarks.isEmpty
+        else { return }
 
         try dbQueue.write { db in
-            try Self.addLocalTokenUsage(usage, in: db)
-            for watermark in watermarks {
+            try Self.addLocalTokenUsage(result.usage, in: db)
+            try Self.addLocalSessionTokens(result.sessionUsage, in: db)
+            for watermark in result.watermarks {
                 try Self.saveLocalScanWatermark(watermark, in: db)
             }
         }
@@ -1055,6 +1080,62 @@ final class LedgerStore {
                     row.requests,
                 ]
             )
+        }
+    }
+
+    private static func addLocalSessionTokens(
+        _ rows: [LocalSessionTokenUsage], in db: Database
+    ) throws {
+        for row in rows {
+            try db.execute(
+                sql: """
+                    INSERT INTO \(LedgerTable.localSessionTokens) (
+                        \(LedgerColumn.sessionID),
+                        \(LedgerColumn.modelKey),
+                        \(LedgerColumn.model),
+                        \(LedgerColumn.inputTokens),
+                        \(LedgerColumn.cacheCreationTokens),
+                        \(LedgerColumn.cacheReadTokens),
+                        \(LedgerColumn.outputTokens)
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(\(LedgerColumn.sessionID), \(LedgerColumn.modelKey)) DO UPDATE SET
+                        \(LedgerColumn.model) = excluded.\(LedgerColumn.model),
+                        \(LedgerColumn.inputTokens) =
+                            \(LedgerColumn.inputTokens) + excluded.\(LedgerColumn.inputTokens),
+                        \(LedgerColumn.cacheCreationTokens) =
+                            \(LedgerColumn.cacheCreationTokens) + excluded.\(LedgerColumn.cacheCreationTokens),
+                        \(LedgerColumn.cacheReadTokens) =
+                            \(LedgerColumn.cacheReadTokens) + excluded.\(LedgerColumn.cacheReadTokens),
+                        \(LedgerColumn.outputTokens) =
+                            \(LedgerColumn.outputTokens) + excluded.\(LedgerColumn.outputTokens)
+                    """,
+                arguments: [
+                    row.sessionID,
+                    row.modelKey,
+                    row.model,
+                    row.inputTokens,
+                    row.cacheCreationTokens,
+                    row.cacheReadTokens,
+                    row.outputTokens,
+                ]
+            )
+        }
+    }
+
+    /// Total tokens per session, summed across models. Sessions with no rows are
+    /// absent rather than zero — a session nobody has scanned has no total, and
+    /// zero would be a confidently wrong number.
+    func fetchSessionTokens(sessionIDs: [String]) throws -> [String: Int64] {
+        guard !sessionIDs.isEmpty else { return [:] }
+
+        return try dbQueue.read { db in
+            try LocalSessionTokenRecord
+                .filter(sessionIDs.contains(Column(LedgerColumn.sessionID)))
+                .fetchAll(db)
+                .reduce(into: [String: Int64]()) { totals, record in
+                    totals[record.sessionID, default: 0] += record.usage.totalTokens
+                }
         }
     }
 

@@ -476,4 +476,24 @@ final class MigrationTests: XCTestCase {
         XCTAssertEqual(try store.fetchParkedAgents().count, 1)
         XCTAssertNil(try store.fetchParkedAgents()[0].gitBranch)
     }
+
+    func testV11AddsTheSessionTokenTableToAnExistingLedger() throws {
+        let dbQueue = try DatabaseQueueFactory.makeInMemory()
+        let migrator = Migrations.makeMigrator()
+        try migrator.migrate(dbQueue, upTo: "v10_agentverse_parked")
+
+        try migrator.migrate(dbQueue)
+
+        let store = LedgerStore(dbQueue: dbQueue)
+        try store.applyLocalScan(
+            LocalScanResult(
+                usage: [],
+                sessionUsage: [LocalSessionTokenUsage(sessionID: "S1", model: nil,
+                                                      inputTokens: 3)],
+                watermarks: []
+            )
+        )
+
+        XCTAssertEqual(try store.fetchSessionTokens(sessionIDs: ["S1"])["S1"], 3)
+    }
 }

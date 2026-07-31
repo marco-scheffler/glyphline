@@ -6,7 +6,7 @@ import Foundation
 /// that consume them have to be persisted together or not at all — a save here
 /// would let the reader advance a resume point on its own and lose the tokens
 /// that went with it. Writing is the caller's job, through
-/// `LedgerStore.applyLocalScan(usage:watermarks:)`.
+/// `LedgerStore.applyLocalScan(_:)`.
 ///
 /// Account-free on purpose: the transcripts under `~/.claude/projects` carry no
 /// marker of which subscription was active, so the scan they feed is
