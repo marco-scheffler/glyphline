@@ -53,7 +53,7 @@ final class AgentRowTests: XCTestCase {
     /// dismiss one is to wait out the 96 hours.
     func testAParkedSessionReadsAsParkedRatherThanIdle() {
         XCTAssertEqual(AgentRowModel(parked: parked(), workTokens: 0).stateText, "parked")
-        XCTAssertFalse(AgentRowModel(parked: parked(), workTokens: 0).isWaiting)
+        XCTAssertEqual(AgentRowModel(parked: parked(), workTokens: 0).state, .parked)
     }
 
     func testAParkedRowStillShowsItsProjectAndItsLaps() {

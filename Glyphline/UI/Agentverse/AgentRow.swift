@@ -31,7 +31,6 @@ struct AgentRowModel: Equatable {
     let state: State
 
     var stateText: String { state.text }
-    var isWaiting: Bool { state == .waiting }
 
     init(session: AgentSession, workTokens: Int64) {
         self.init(cwd: session.cwd, branch: session.gitBranch,
