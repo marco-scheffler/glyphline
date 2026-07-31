@@ -163,8 +163,13 @@ struct AgentverseWindow: View {
         // nonisolated, and reaching into the view's state from it would be an
         // actor-isolation violation.
         let hovered = hoveredSessionID
-        let instant = instant(for: circuit)
         let weather = weatherChoice.weather
+        // Solved here and not below: this body runs when the coarse clock ticks
+        // or the user moves something, while the `TimelineView` under it rebuilds
+        // its content sixty times a second. The solve walks a `Calendar`, and the
+        // sun moves an eighth of a degree between two ticks.
+        let sun = SunPosition.at(latitude: circuit.lat, longitude: circuit.lon,
+                                 date: instant(for: circuit))
         TimelineView(.animation) { timeline in
             AgentverseScene(
                 circuit: circuit,
@@ -175,7 +180,7 @@ struct AgentverseWindow: View {
                 // The clock enters here and nowhere below: the scene itself is
                 // a pure function of its inputs, so a test can pin the frame.
                 frame: Int(timeline.date.timeIntervalSinceReferenceDate * 60),
-                instant: instant,
+                sun: sun,
                 weather: weather
             )
         }

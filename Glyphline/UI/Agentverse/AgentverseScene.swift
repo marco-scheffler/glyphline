@@ -17,10 +17,14 @@ struct AgentverseScene: View {
     let workTokens: [String: Int64]
     let hovered: String?
     let frame: Int
-    /// The UTC instant the world is lit at. Handed in rather than read from a
-    /// clock in here for the same reason `frame` is: the picture has to be a pure
-    /// function of its inputs or no two renders can be compared.
-    let instant: Date
+    /// Where the sun stands over the circuit, already solved. Handed in rather
+    /// than read from a clock in here for the same reason `frame` is: the picture
+    /// has to be a pure function of its inputs or no two renders can be compared.
+    ///
+    /// Solved rather than an instant, because this view is rebuilt sixty times a
+    /// second under a `TimelineView` while the answer only changes when the
+    /// window's coarse clock ticks — and the solve walks a `Calendar`.
+    let sun: SolarAngles
     let weather: Weather
 
     @Environment(\.displayScale) private var displayScale
@@ -29,7 +33,7 @@ struct AgentverseScene: View {
     var body: some View {
         GeometryReader { proxy in
             let key = sceneKey(size: proxy.size)
-            canvas(world: world, scale: displayScale)
+            canvas(world: world, scale: displayScale, light: light)
                 .task(id: key) { await buildWorld(key) }
         }
         // The same sky the built picture fills its margin with, for the frames
@@ -39,30 +43,20 @@ struct AgentverseScene: View {
 
     // MARK: - The static world
 
-    /// In degrees, and with no scene rotation applied — that is `SceneLight`'s
-    /// job, and the key wants the unrotated numbers so its buckets mean the same
-    /// thing on every circuit.
-    ///
-    /// `instant` is a UTC instant; the circuit's own zone decided which one, up
-    /// in the window. Latitude and longitude then place the sun over the circuit
-    /// rather than over the viewer.
-    private var sun: (elevation: Double, azimuth: Double) {
-        SunPosition.at(latitude: circuit.lat, longitude: circuit.lon, date: instant)
-    }
-
     /// `SceneLight` wants elevation and azimuth in degrees and `mapRotation` in
-    /// radians, which is what `Circuit.rot` already is.
+    /// radians, which is what `Circuit.rot` already is. `sun` carries no scene
+    /// rotation — that is `SceneLight`'s job, and the cache key wants the
+    /// unrotated numbers so its buckets mean the same thing on every circuit.
     private var light: SceneLight {
         SceneLight.make(elevation: sun.elevation, azimuth: sun.azimuth,
                         mapRotation: circuit.rot, weather: weather)
     }
 
     private func sceneKey(size: CGSize) -> StaticSceneKey {
-        let sun = sun
-        return StaticSceneKey(circuit: circuit.key, size: size,
-                              scale: Int(displayScale.rounded()),
-                              elevation: sun.elevation, azimuth: sun.azimuth,
-                              weather: weather)
+        StaticSceneKey(circuit: circuit.key, size: size,
+                       scale: Int(displayScale.rounded()),
+                       elevation: sun.elevation, azimuth: sun.azimuth,
+                       weather: weather)
     }
 
     private func buildWorld(_ key: StaticSceneKey) async {
@@ -82,14 +76,14 @@ struct AgentverseScene: View {
     /// `world` and the display scale are read out here rather than inside the
     /// drawing closure, which is nonisolated and may not reach into the view's
     /// state or its environment.
-    private func canvas(world: CGImage?, scale: CGFloat) -> some View {
+    private func canvas(world: CGImage?, scale: CGFloat, light: SceneLight) -> some View {
         Canvas { context, size in
             let fit = CircuitFit(circuit: circuit, in: size)
             if let world {
                 context.draw(Image(decorative: world, scale: scale),
                              in: CGRect(origin: .zero, size: size))
             } else {
-                drawBareTrack(in: context, fit: fit)
+                drawBareTrack(in: context, fit: fit, light: light)
             }
 
             // Tied to the road it drives on rather than to a nominal length in
@@ -170,7 +164,8 @@ struct AgentverseScene: View {
     /// What the canvas shows while the first picture is still being built, and
     /// the same strokes the picture itself bakes in — bar the corner names,
     /// which are text and belong to the picture alone.
-    private func drawBareTrack(in context: GraphicsContext, fit: CircuitFit) {
+    private func drawBareTrack(in context: GraphicsContext, fit: CircuitFit,
+                               light: SceneLight) {
         for stroke in TrackStroke.all {
             let width = stroke.points(fit: fit)
             // Verge over surface, and both over the same line: one stroke on top
@@ -181,33 +176,34 @@ struct AgentverseScene: View {
             switch stroke.path {
             case .centreline:
                 context.stroke(CircuitTrackShape.centreline(for: circuit, fit: fit),
-                               with: .color(colour(stroke.paint, red: false, alpha: stroke.alpha)),
+                               with: .color(colour(stroke.paint, red: false, alpha: stroke.alpha, light: light)),
                                style: round)
             case .racingLine:
                 context.stroke(CircuitTrackShape.racingLine(for: circuit, fit: fit),
-                               with: .color(colour(stroke.paint, red: false, alpha: stroke.alpha)),
+                               with: .color(colour(stroke.paint, red: false, alpha: stroke.alpha, light: light)),
                                style: round)
             case .kerbs:
                 // Butt caps: round ones on both ends of every block would close
                 // the gaps the red-and-white alternation is made of.
                 for (block, red) in CircuitTrackShape.kerbs(for: circuit, fit: fit) {
                     context.stroke(block,
-                                   with: .color(colour(stroke.paint, red: red, alpha: stroke.alpha)),
+                                   with: .color(colour(stroke.paint, red: red, alpha: stroke.alpha, light: light)),
                                    style: StrokeStyle(lineWidth: width, lineCap: .butt))
                 }
             case .pitLane:
                 context.stroke(CircuitTrackShape.pitLane(for: circuit, fit: fit),
-                               with: .color(colour(stroke.paint, red: false, alpha: stroke.alpha)),
+                               with: .color(colour(stroke.paint, red: false, alpha: stroke.alpha, light: light)),
                                style: round)
             case .startFinish:
                 context.stroke(CircuitTrackShape.startFinish(for: circuit, fit: fit),
-                               with: .color(colour(stroke.paint, red: false, alpha: stroke.alpha)),
+                               with: .color(colour(stroke.paint, red: false, alpha: stroke.alpha, light: light)),
                                lineWidth: width)
             }
         }
     }
 
-    private func colour(_ paint: TrackStroke.Paint, red: Bool, alpha: Double) -> Color {
+    private func colour(_ paint: TrackStroke.Paint, red: Bool, alpha: Double,
+                        light: SceneLight) -> Color {
         let srgb: SIMD3<Double>
         switch paint {
         case .flat(let flat): srgb = flat

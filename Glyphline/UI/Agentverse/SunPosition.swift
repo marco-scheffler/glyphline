@@ -8,12 +8,25 @@ import Foundation
 /// that separates day from night. The algorithm is accurate to well under a
 /// tenth of a degree for the years this app will ever be asked about, which is
 /// far finer than anything a rendered sky can show.
+/// Where the sun stands, as a value that can be carried around.
+///
+/// A named type rather than a tuple because the scene is handed one of these
+/// instead of an instant: the solve walks a `Calendar`, which is far too much to
+/// repeat at sixty frames a second for a number that moves by an eighth of a
+/// degree in the half minute between the window's clock ticks.
+struct SolarAngles: Equatable, Sendable {
+    /// Above the horizon, in degrees.
+    let elevation: Double
+    /// Clockwise from north, in degrees.
+    let azimuth: Double
+}
+
 enum SunPosition {
     /// Elevation above the horizon and azimuth clockwise from north, both in
     /// degrees. Elevation is *apparent* — corrected for atmospheric refraction —
     /// because the interesting colours all live within a few degrees of the
     /// horizon, which is exactly where an uncorrected elevation is worst.
-    static func at(latitude: Double, longitude: Double, date: Date) -> (elevation: Double, azimuth: Double) {
+    static func at(latitude: Double, longitude: Double, date: Date) -> SolarAngles {
         let julianDay = date.timeIntervalSince1970 / 86_400 + 2_440_587.5
         // Julian centuries since J2000.0, the time argument of every series below.
         let t = (julianDay - 2_451_545.0) / 36_525.0
@@ -82,7 +95,7 @@ enum SunPosition {
         )
 
         let elevation = min(90, max(-90, trueElevation + refraction(trueElevation: trueElevation)))
-        return (elevation, azimuth)
+        return SolarAngles(elevation: elevation, azimuth: azimuth)
     }
 
     private static func azimuthDegrees(

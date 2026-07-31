@@ -55,6 +55,13 @@ final class AgentverseSnapshotTests: XCTestCase {
         try XCTUnwrap(CircuitCatalog.bundled().circuit("monaco"))
     }
 
+    /// The scene is handed a solved sun rather than an instant, so the test
+    /// solves it exactly where the window does.
+    private func sun(at instant: Date) throws -> SolarAngles {
+        let circuit = try monaco()
+        return SunPosition.at(latitude: circuit.lat, longitude: circuit.lon, date: instant)
+    }
+
     /// Every input is fixed but the ones a caller overrides, so each test can
     /// vary exactly one thing and know that nothing else accounts for a
     /// difference in bytes.
@@ -70,7 +77,7 @@ final class AgentverseSnapshotTests: XCTestCase {
             workTokens: ["S1": 2_600_000, "S2": 540_000],
             hovered: hovered,
             frame: frame,
-            instant: instant,
+            sun: try sun(at: instant),
             weather: .clear
         )
     }
@@ -236,7 +243,7 @@ final class AgentverseSnapshotTests: XCTestCase {
         let scene = { (session: AgentSession) in
             AgentverseScene(circuit: try self.monaco(), sessions: [session], parked: [],
                             workTokens: [:], hovered: nil, frame: 600,
-                            instant: self.instant, weather: .clear)
+                            sun: try self.sun(at: self.instant), weather: .clear)
         }
 
         XCTAssertNotEqual(try render(try scene(one)), try render(try scene(other)),
