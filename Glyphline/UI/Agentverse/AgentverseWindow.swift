@@ -63,44 +63,38 @@ struct AgentverseWindow: View {
     @State private var now = Date()
 
     var body: some View {
-        HSplitView {
-            AgentverseSidebar(hovered: $hoveredSessionID)
-                .frame(minWidth: 240, idealWidth: 264, maxWidth: 340)
-            scene
-                .frame(minWidth: 640, maxWidth: .infinity, maxHeight: .infinity)
+        VStack(spacing: 0) {
+            // Above the split view and across the whole window: the strip is
+            // about the scene as a whole, and it is the only place these six
+            // controls all fit on one row.
+            AgentverseControlStrip(
+                // Deliberately not persisted: whether the choice should survive
+                // a reopening is still open, and storing it would settle it.
+                circuits: (try? catalogLoad?.get())?.entriesInPickerOrder ?? [],
+                circuitKey: $circuitKey,
+                weatherChoice: $weatherChoice,
+                localMinutesOverride: $localMinutesOverride,
+                localMinutesNow: selectedCircuit.map {
+                    CircuitClock.minutesOfLocalDay(for: $0, at: now)
+                } ?? 0,
+                clockText: selectedCircuit.map {
+                    CircuitClock.localTimeText(for: $0, at: instant(for: $0))
+                } ?? "",
+                hasCircuit: selectedCircuit != nil
+            )
+            HSplitView {
+                AgentverseSidebar(hovered: $hoveredSessionID)
+                    .frame(minWidth: 240, idealWidth: 264, maxWidth: 340)
+                scene
+                    .frame(minWidth: 640, maxWidth: .infinity, maxHeight: .infinity)
+            }
         }
         .frame(minWidth: 900, minHeight: 560)
         .navigationTitle("Agentverse")
         .toolbar {
-            ToolbarItem(placement: .automatic) {
-                // Deliberately not persisted: whether the choice should survive
-                // a reopening is still open, and storing it would settle it.
-                // Tabs, not a menu: as a menu this collapsed into the toolbar's
-                // overflow chevron and the five circuits became unreachable.
-                // Tabs only fit on the short labels — the formal names run to
-                // "Circuit de Spa-Francorchamps".
-                Picker("Circuit", selection: $circuitKey) {
-                    ForEach((try? catalogLoad?.get())?.entriesInPickerOrder ?? [], id: \.key) { entry in
-                        Text(entry.short).tag(entry.key).help(entry.name)
-                    }
-                }
-                .labelsHidden()
-                .pickerStyle(.segmented)
-            }
-            ToolbarItem(placement: .automatic) {
-                Picker("Weather", selection: $weatherChoice) {
-                    ForEach(WeatherChoice.allCases, id: \.self) { choice in
-                        Text(choice.label).tag(choice)
-                    }
-                }
-                .labelsHidden()
-                .pickerStyle(.segmented)
-                .help("What the sky over the circuit is doing. Auto follows the "
-                      + "weather on location.")
-            }
-            if let circuit = selectedCircuit {
-                ToolbarItem(placement: .automatic) { timeControls(circuit) }
-            }
+            // The one control left in the toolbar. It is a window-level action
+            // rather than a setting for the scene, so it reads as a toolbar
+            // button — and alone it cannot collide with anything.
             ToolbarItem(placement: .primaryAction) {
                 Button {
                     Task { await refresh() }
@@ -145,33 +139,6 @@ struct AgentverseWindow: View {
 
     private var selectedCircuit: Circuit? {
         (try? catalogLoad?.get())?.circuit(circuitKey)
-    }
-
-    /// The slider, the circuit's local time beside it, and the way back to now.
-    ///
-    /// The time is shown because the conversion behind it — slider position to
-    /// local wall clock at the circuit to UTC — is exactly the kind that produces
-    /// a plausibly lit scene when it runs the wrong way round. On screen it is
-    /// obvious that switching to Suzuka moved the clock to Japan.
-    @ViewBuilder private func timeControls(_ circuit: Circuit) -> some View {
-        let minutes = Binding(
-            get: { localMinutesOverride ?? CircuitClock.minutesOfLocalDay(for: circuit, at: now) },
-            set: { localMinutesOverride = $0 }
-        )
-        HStack(spacing: 8) {
-            Slider(value: minutes, in: 0...CircuitClock.minutesPerDay)
-                // Narrower than it was: the circuit tabs have to come from
-                // somewhere, and a day is still a day at 120 points.
-                .frame(width: 120)
-                .help("The time of day at the circuit")
-            Text(CircuitClock.localTimeText(for: circuit, at: instant(for: circuit)))
-                .font(.callout.monospacedDigit())
-                // Wide enough for the longest form the locale can produce, so
-                // the neighbouring button does not shuffle as the clock runs.
-                .frame(minWidth: 62, alignment: .leading)
-            Button("Now") { localMinutesOverride = nil }
-                .disabled(localMinutesOverride == nil)
-        }
     }
 
     /// The UTC instant the scene is lit at: the override read as a wall-clock
