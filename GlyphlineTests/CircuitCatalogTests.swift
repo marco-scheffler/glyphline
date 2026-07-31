@@ -8,7 +8,7 @@ import XCTest
 /// Asserting them is cheaper than finding them a fourth time.
 final class CircuitCatalogTests: XCTestCase {
     private func catalog() throws -> CircuitCatalog {
-        try CircuitCatalog.bundled(in: Bundle(for: CircuitCatalogTests.self))
+        try CircuitCatalog.bundled()
     }
 
     func testAllFiveCircuitsLoadFromTheBundle() throws {
