@@ -118,6 +118,7 @@
 		F731A9E0E7F227918984E8BA /* claude-usage.json in Resources */ = {isa = PBXBuildFile; fileRef = 71F686E68C6AD2A919ECD797 /* claude-usage.json */; };
 		FA0E6D06248BF58C8ECC4787 /* ClaudeOrganizationsDTOs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24490E8A33CB8C3CE1EFFAA3 /* ClaudeOrganizationsDTOs.swift */; };
 		FB25B96A420EF574188F6447 /* ClaudeUsageQuotaDTOsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E78959ED32C99389D71E836A /* ClaudeUsageQuotaDTOsTests.swift */; };
+		FC1B8072CE59DBC7F6532B72 /* AgentverseSnapshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AACCE706FF21FC1CBF54AA72 /* AgentverseSnapshotTests.swift */; };
 		FD2E6B0D841CAF9F824F9BB8 /* LocalUsagePeriodTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D31897CD1062193BF63AE80 /* LocalUsagePeriodTests.swift */; };
 		FE115011C319F621E5E47A5E /* MigrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38CEA8D84FAB5879F7C9B70E /* MigrationTests.swift */; };
 /* End PBXBuildFile section */
@@ -209,6 +210,7 @@
 		A81C1F539EBD6824C59FADB0 /* AddAccountFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddAccountFlow.swift; sourceTree = "<group>"; };
 		A8753659B8C311D8F1103166 /* AgentverseWindowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentverseWindowTests.swift; sourceTree = "<group>"; };
 		A9430FC958CF84944A796120 /* DatabaseQueueFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseQueueFactory.swift; sourceTree = "<group>"; };
+		AACCE706FF21FC1CBF54AA72 /* AgentverseSnapshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentverseSnapshotTests.swift; sourceTree = "<group>"; };
 		AB71829869D2BDC5C53A536A /* SyncCoordinatorLocalUsageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncCoordinatorLocalUsageTests.swift; sourceTree = "<group>"; };
 		ACD9B71050B5FCC82923CDC9 /* DeleteAccountFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeleteAccountFlow.swift; sourceTree = "<group>"; };
 		AF10D82C0BBAB350C0D404AB /* GlyphlineApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlyphlineApp.swift; sourceTree = "<group>"; };
@@ -423,6 +425,7 @@
 				EB6486F570B1DA77ACCB5458 /* AgentverseCoordinatorTests.swift */,
 				C9AD08F137C04548B835D868 /* AgentverseModelTests.swift */,
 				A452BABCF11A72A0A23A41AE /* AgentverseParkedStoreTests.swift */,
+				AACCE706FF21FC1CBF54AA72 /* AgentverseSnapshotTests.swift */,
 				A8753659B8C311D8F1103166 /* AgentverseWindowTests.swift */,
 				347CEC22ED71F6DCC815DB03 /* AppModeTests.swift */,
 				BD5F66FB95D8BBD93EFCBE00 /* AppSettingsStoreTests.swift */,
@@ -701,6 +704,7 @@
 				91A12D7EBAEDB4A0211E86FB /* AgentverseCoordinatorTests.swift in Sources */,
 				DF165E242EA15AA2635A186F /* AgentverseModelTests.swift in Sources */,
 				6C8F31A87FCB44BF844C8E11 /* AgentverseParkedStoreTests.swift in Sources */,
+				FC1B8072CE59DBC7F6532B72 /* AgentverseSnapshotTests.swift in Sources */,
 				017DFB509A44E6251A8B0684 /* AgentverseWindowTests.swift in Sources */,
 				1F057127236C7C74BCADB639 /* AppModeTests.swift in Sources */,
 				29DAC97DF9CC2CB3A0D01784 /* AppSettingsStoreTests.swift in Sources */,
