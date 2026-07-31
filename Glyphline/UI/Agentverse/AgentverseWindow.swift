@@ -45,6 +45,10 @@ struct AgentverseWindow: View {
     }
 
     private func refresh() async {
+        // The toolbar button is disabled while a sweep runs, but the opening
+        // sweep from `.task` is not, so a fast reopen can start a second one
+        // whose completion clears the flag out from under the first.
+        guard !isRefreshing else { return }
         isRefreshing = true
         await coordinator.refresh()
         isRefreshing = false

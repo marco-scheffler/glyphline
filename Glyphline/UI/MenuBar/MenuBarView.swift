@@ -82,6 +82,7 @@ struct MenuBarView: View {
             HStack(spacing: 6) {
                 Button("Open Dashboard", action: openDashboard)
                 Button("Open Agentverse") {
+                    AppActivationController.regulariseForWindow()
                     openWindow(id: AppMode.agentverseWindowID)
                     NSApp.activate(ignoringOtherApps: true)
                 }

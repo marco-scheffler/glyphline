@@ -11,12 +11,17 @@ struct GlyphlineApp: App {
         let settings = AppSettingsStore()
         _settings = StateObject(wrappedValue: settings)
 
+        // One store for both coordinators: `makeDefault()` opens a fresh
+        // `DatabaseQueue` and runs the migrations every time it is called, so a
+        // second call would mean a second connection to the same file.
+        let ledger = LedgerStore.makeDefault()
+
         // Deliberately no in-memory stand-in when the on-disk ledger cannot be
         // opened: the coordinator refuses to collect without a durable ledger and
         // says so, rather than crashing at launch or writing to a scratch file.
         _coordinator = StateObject(
             wrappedValue: SyncCoordinator(
-                ledger: LedgerStore.makeDefault(),
+                ledger: ledger,
                 credentials: KeychainStore(),
                 registry: ProviderAdapterRegistry()
             )
@@ -27,7 +32,7 @@ struct GlyphlineApp: App {
         // created with the window would start every opening having forgotten,
         // and nothing would ever reach the pit lane.
         _agentverse = StateObject(
-            wrappedValue: AgentverseCoordinator(ledger: LedgerStore.makeDefault())
+            wrappedValue: AgentverseCoordinator(ledger: ledger)
         )
     }
 
