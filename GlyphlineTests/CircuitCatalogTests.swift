@@ -116,6 +116,16 @@ final class CircuitCatalogTests: XCTestCase {
         )
     }
 
+    /// The window puts this string in front of the user. `Error`'s default
+    /// description reads "The operation couldn't be completed", which says
+    /// nothing about which file is missing from the bundle.
+    func testTheFailureNamesTheResourceItCouldNotFind() {
+        let error: Error = CircuitCatalogError.missingResource(name: "corners", extension: "json")
+
+        XCTAssertTrue(error.localizedDescription.contains("corners.json"),
+                      "the pane would not say what is missing: \(error.localizedDescription)")
+    }
+
     func testAMissingResourceFailsLoudly() throws {
         XCTAssertThrowsError(try CircuitCatalog.bundled(in: Bundle(for: XCTestCase.self))) { error in
             XCTAssertEqual(

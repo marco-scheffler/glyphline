@@ -141,8 +141,18 @@ struct CircuitCatalog: Equatable, Sendable {
     }
 }
 
-enum CircuitCatalogError: Error, Equatable {
+enum CircuitCatalogError: Error, Equatable, LocalizedError {
     case missingResource(name: String, extension: String)
+
+    /// Reaches the user: the window shows whatever the load threw. Without a
+    /// description of its own the pane would read "The operation couldn't be
+    /// completed", which does not say which file is missing.
+    var errorDescription: String? {
+        switch self {
+        case let .missingResource(name, ext):
+            "\(name).\(ext) is missing from the app bundle."
+        }
+    }
 }
 
 /// Who the bundled circuit data belongs to.

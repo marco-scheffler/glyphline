@@ -9,7 +9,10 @@ import SwiftUI
 struct AgentverseWindow: View {
     @EnvironmentObject private var coordinator: AgentverseCoordinator
     @State private var isRefreshing = false
-    @State private var catalog: CircuitCatalog?
+    /// Three states in one value: nil is still loading, and only `.failure` is a
+    /// failure. A plain optional made the first frames of every opening show the
+    /// pane a corrupt bundle shows.
+    @State private var catalogLoad: Result<CircuitCatalog, Error>?
     @State private var circuitKey = "monaco"
     /// One id for both sections: hovering a parked row must fade the field on
     /// track exactly as hovering an on-track row fades the pit lane.
@@ -29,7 +32,7 @@ struct AgentverseWindow: View {
                 // Deliberately not persisted: whether the choice should survive
                 // a reopening is still open, and storing it would settle it.
                 Picker("Circuit", selection: $circuitKey) {
-                    ForEach(catalog?.entriesByName ?? [], id: \.key) { entry in
+                    ForEach((try? catalogLoad?.get())?.entriesByName ?? [], id: \.key) { entry in
                         Text(entry.name).tag(entry.key)
                     }
                 }
@@ -48,7 +51,7 @@ struct AgentverseWindow: View {
         .task {
             // Decoded once per window rather than at launch: 683 KB of JSON is
             // not worth paying for on a launch that may never open this window.
-            catalog = try? CircuitCatalog.bundled()
+            catalogLoad = Result { try CircuitCatalog.bundled() }
         }
     }
 
@@ -56,39 +59,57 @@ struct AgentverseWindow: View {
         if let message = coordinator.failureMessage {
             ContentUnavailableView("No map", systemImage: "exclamationmark.triangle",
                                    description: Text(message))
-        } else if let circuit = catalog?.circuit(circuitKey) {
-            // Read out here rather than inside the canvas: the drawing closure is
-            // nonisolated, and reaching into the view's state from it would be an
-            // actor-isolation violation.
-            let hovered = hoveredSessionID
-            TimelineView(.animation) { timeline in
-                AgentverseScene(
-                    circuit: circuit,
-                    sessions: coordinator.onTrack,
-                    parked: coordinator.parked,
-                    workTokens: coordinator.workTokens,
-                    hovered: hovered,
-                    // The clock enters here and nowhere below: the scene itself is
-                    // a pure function of its inputs, so a test can pin the frame.
-                    frame: Int(timeline.date.timeIntervalSinceReferenceDate * 60)
-                )
-            }
-            .overlay {
-                // An idle machine is an ordinary Tuesday, not a failure: a pane
-                // that replaces the circuit with this notice reads as the
-                // circuit having failed to draw.
-                if coordinator.onTrack.isEmpty && coordinator.parked.isEmpty {
-                    Text("No agent is running")
-                        .font(.callout)
-                        .foregroundStyle(.white.opacity(0.55))
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                        .background(.black.opacity(0.45), in: Capsule())
+        } else {
+            switch catalogLoad {
+            case nil:
+                // Nothing but the backdrop while the JSON is read: a notice that
+                // appears and vanishes within a frame or two only flickers.
+                Color(white: 0.07)
+            case .failure(let error):
+                ContentUnavailableView("No circuits", systemImage: "map",
+                                       description: Text(error.localizedDescription))
+            case .success(let catalog):
+                if let circuit = catalog.circuit(circuitKey) {
+                    track(circuit)
+                } else {
+                    ContentUnavailableView(
+                        "No circuit", systemImage: "map",
+                        description: Text("The bundle holds no circuit called \(circuitKey).")
+                    )
                 }
             }
-        } else {
-            ContentUnavailableView("No circuits", systemImage: "map",
-                                   description: Text("The bundled circuit data could not be read."))
+        }
+    }
+
+    @ViewBuilder private func track(_ circuit: Circuit) -> some View {
+        // Read out here rather than inside the canvas: the drawing closure is
+        // nonisolated, and reaching into the view's state from it would be an
+        // actor-isolation violation.
+        let hovered = hoveredSessionID
+        TimelineView(.animation) { timeline in
+            AgentverseScene(
+                circuit: circuit,
+                sessions: coordinator.onTrack,
+                parked: coordinator.parked,
+                workTokens: coordinator.workTokens,
+                hovered: hovered,
+                // The clock enters here and nowhere below: the scene itself is
+                // a pure function of its inputs, so a test can pin the frame.
+                frame: Int(timeline.date.timeIntervalSinceReferenceDate * 60)
+            )
+        }
+        .overlay {
+            // An idle machine is an ordinary Tuesday, not a failure: a pane
+            // that replaces the circuit with this notice reads as the
+            // circuit having failed to draw.
+            if coordinator.onTrack.isEmpty && coordinator.parked.isEmpty {
+                Text("No agent is running")
+                    .font(.callout)
+                    .foregroundStyle(.white.opacity(0.55))
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(.black.opacity(0.45), in: Capsule())
+            }
         }
     }
 
