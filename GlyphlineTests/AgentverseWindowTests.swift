@@ -20,4 +20,22 @@ final class AgentverseWindowTests: XCTestCase {
         }
         _ = build
     }
+
+    /// The rule that keeps the app `.regular` and keeps `closeVisibleWindows()`
+    /// from destroying the map. The identifier it matches was read off a built
+    /// app: SwiftUI names the window `agentverse-AppWindow-1`, the scene id plus
+    /// its own counter — hence a prefix and not an equality. A predicate that
+    /// silently matched nothing would look exactly like the bug still being there.
+    func testOnlyTheAgentverseWindowKeepsTheAppRegular() {
+        XCTAssertTrue(
+            AppActivationController.isWindowNeedingRegularApp(identifier: "agentverse-AppWindow-1")
+        )
+        XCTAssertTrue(
+            AppActivationController.isWindowNeedingRegularApp(identifier: AppMode.agentverseWindowID)
+        )
+        XCTAssertFalse(
+            AppActivationController.isWindowNeedingRegularApp(identifier: "dashboard-AppWindow-1")
+        )
+        XCTAssertFalse(AppActivationController.isWindowNeedingRegularApp(identifier: nil))
+    }
 }

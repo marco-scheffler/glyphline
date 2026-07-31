@@ -146,8 +146,16 @@ private struct ModeAwareWindowRoot<Content: View>: View {
         )
     }
 
+    /// Closes the dashboard's windows when the mode says it has none.
+    ///
+    /// The agentverse window is exempt. It is not mode-aware — it opens in either
+    /// mode — so an unfiltered sweep here does not hide it, it destroys it, on
+    /// every switch to menu-bar-only and on every dashboard scene reappearance in
+    /// that mode.
     private func closeVisibleWindows() {
-        for window in NSApp.windows where window.isVisible {
+        for window in NSApp.windows
+        where window.isVisible
+            && !AppActivationController.isWindowNeedingRegularApp(identifier: window.identifier?.rawValue) {
             window.close()
         }
     }
