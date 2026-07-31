@@ -16,21 +16,30 @@ enum AgentverseRefreshSchedule {
     /// every 15 s is a 2.5 % duty cycle on one background thread.
     static let interval: TimeInterval = 15
 
-    /// Sweeping is for the foreground only. `.inactive` is another app in front,
-    /// `.background` is the window closed or hidden — in both cases nobody can
-    /// see the cars move, so the disk walk would buy nothing.
-    static func shouldRun(in phase: ScenePhase) -> Bool { phase == .active }
+    /// Sweeping is for a window that is on screen — not for a window in the
+    /// frontmost app.
+    ///
+    /// This used to be `scenePhase == .active`, which is a claim about keyboard
+    /// focus: on macOS a fully visible window whose app is not frontmost reports
+    /// `.inactive`, so the map froze the moment the user clicked into their
+    /// editor. Leaving it open beside the work is what it is for, so the gate is
+    /// the window's occlusion instead — see `WindowVisibility`.
+    static func shouldRun(onScreen isOnScreen: Bool) -> Bool { isOnScreen }
 }
 
 /// The map's window.
 ///
-/// The window sweeps on a repeating interval, but only while it is on screen in
-/// the frontmost app: the loop lives in a `.task` keyed on the scene phase, so
-/// closing the window or sending the app to the back cancels it and the machine
-/// goes quiet again.
+/// The window sweeps on a repeating interval, but only while it is on screen:
+/// the loop lives in a `.task` keyed on the window's occlusion, so minimising,
+/// hiding or fully covering the window cancels it and the machine goes quiet
+/// again — while a visible window in a background app keeps running, which is
+/// how the map is meant to be used. Closing the window ends the `.task` outright.
 struct AgentverseWindow: View {
     @EnvironmentObject private var coordinator: AgentverseCoordinator
-    @Environment(\.scenePhase) private var scenePhase
+    /// Starts false and is corrected by the probe as soon as the view has a
+    /// window: a true default would run one sweep for a window that turns out to
+    /// be opening behind something else.
+    @State private var isOnScreen = false
     @State private var isRefreshing = false
     /// Three states in one value: nil is still loading, and only `.failure` is a
     /// failure. A plain optional made the first frames of every opening show the
@@ -101,11 +110,14 @@ struct AgentverseWindow: View {
                 .disabled(isRefreshing)
             }
         }
-        // Keyed on the scene phase so that leaving `.active` cancels the loop
-        // outright rather than letting it tick on behind a hidden window; coming
-        // back starts a fresh one, whose first pass is the opening sweep.
-        .task(id: scenePhase) {
-            guard AgentverseRefreshSchedule.shouldRun(in: scenePhase) else { return }
+        // Zero-sized and behind everything: it draws nothing, it is only how the
+        // view reaches the `NSWindow` it lives in.
+        .background(WindowOcclusionReader(isOnScreen: $isOnScreen))
+        // Keyed on the occlusion so that going off screen cancels the loop
+        // outright rather than letting it tick on behind a covered window;
+        // coming back starts a fresh one, whose first pass is the opening sweep.
+        .task(id: isOnScreen) {
+            guard AgentverseRefreshSchedule.shouldRun(onScreen: isOnScreen) else { return }
             while !Task.isCancelled {
                 await refresh()
                 // Nothing is interpolated between two sweeps: a car's place is a

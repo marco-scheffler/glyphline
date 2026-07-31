@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import XCTest
 @testable import Glyphline
@@ -12,12 +13,29 @@ final class AgentverseWindowTests: XCTestCase {
         XCTAssertLessThanOrEqual(AgentverseRefreshSchedule.interval, 30)
     }
 
-    /// The whole point of the loop being gated: a closed, hidden or backgrounded
-    /// window must not walk three thousand transcripts every fifteen seconds.
-    func testOnlyAnActiveSceneSweeps() {
-        XCTAssertTrue(AgentverseRefreshSchedule.shouldRun(in: .active))
-        XCTAssertFalse(AgentverseRefreshSchedule.shouldRun(in: .inactive))
-        XCTAssertFalse(AgentverseRefreshSchedule.shouldRun(in: .background))
+    /// The whole point of the loop being gated: a window nobody can see must not
+    /// walk three thousand transcripts every fifteen seconds.
+    func testOnlyAWindowOnScreenSweeps() {
+        XCTAssertTrue(AgentverseRefreshSchedule.shouldRun(onScreen: true))
+        XCTAssertFalse(AgentverseRefreshSchedule.shouldRun(onScreen: false))
+    }
+
+    /// The fix itself. A visible window in an app that is not frontmost is the
+    /// case the old `scenePhase == .active` gate got wrong — it is the intended
+    /// way to use the map, and `occlusionState` still reports `.visible` there,
+    /// so the rule must say yes to it and no to every way of taking the window
+    /// off screen.
+    func testTheOnScreenRuleFollowsOcclusionAndNotFocus() {
+        // Visible, whatever app happens to be frontmost — occlusion carries no
+        // focus information at all, which is exactly why it is the right input.
+        XCTAssertTrue(WindowVisibility.isOnScreen(isVisible: true, occlusion: .visible))
+        // Fully covered by another window, or on a Space that was switched away
+        // from: AppKit still lists the window, but no pixel of it reaches a
+        // screen.
+        XCTAssertFalse(WindowVisibility.isOnScreen(isVisible: true, occlusion: []))
+        // Minimised, app-hidden, or closed.
+        XCTAssertFalse(WindowVisibility.isOnScreen(isVisible: false, occlusion: .visible))
+        XCTAssertFalse(WindowVisibility.isOnScreen(isVisible: false, occlusion: []))
     }
 
     /// The two windows must not share an id, or `openWindow` raises whichever
