@@ -168,7 +168,8 @@ struct AgentverseScene: View {
     }
 
     /// What the canvas shows while the first picture is still being built, and
-    /// the same four strokes the picture itself bakes in.
+    /// the same strokes the picture itself bakes in — bar the corner names,
+    /// which are text and belong to the picture alone.
     private func drawBareTrack(in context: GraphicsContext, fit: CircuitFit) {
         // Verge first, then surface: one stroke over another is cheaper
         // than building two outlines, and the difference is invisible.
@@ -184,6 +185,23 @@ struct AgentverseScene: View {
             style: StrokeStyle(lineWidth: fit.width(metres: 13, atLeast: 6),
                                lineCap: .round, lineJoin: .round)
         )
+        context.stroke(
+            CircuitTrackShape.racingLine(for: circuit, fit: fit),
+            with: .color(Color(white: 0.13).opacity(0.85)),
+            style: StrokeStyle(lineWidth: fit.width(metres: 6, atLeast: 3),
+                               lineCap: .round, lineJoin: .round)
+        )
+        // Butt caps: round ones on both ends of every block would close the gaps
+        // the red-and-white alternation is made of.
+        for (block, red) in CircuitTrackShape.kerbs(for: circuit, fit: fit) {
+            context.stroke(
+                block,
+                with: .color(red ? Color(red: 0.77, green: 0.19, blue: 0.17)
+                                 : Color(white: 0.89)),
+                style: StrokeStyle(lineWidth: fit.width(metres: 2.5, atLeast: 2),
+                                   lineCap: .butt)
+            )
+        }
         context.stroke(
             CircuitTrackShape.pitLane(for: circuit, fit: fit),
             with: .color(Color(white: 0.16)),

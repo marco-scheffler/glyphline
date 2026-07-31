@@ -1,4 +1,5 @@
 import CoreGraphics
+import CoreText
 import SwiftUI
 
 /// What a built picture depends on, and nothing else.
@@ -201,8 +202,10 @@ enum StaticSceneImage {
 
     // MARK: - Track
 
-    /// The same four strokes `AgentverseScene` draws when no picture is ready
-    /// yet, in the same order and the same colours.
+    /// The same strokes `AgentverseScene` draws when no picture is ready yet, in
+    /// the same order and the same colours, plus the corner names — which only
+    /// ever appear here, because text is the one thing in the scene that would
+    /// have to be laid out again on every frame.
     private static func drawTrack(into context: CGContext, circuit: Circuit, fit: CircuitFit) {
         context.saveGState()
         context.setLineCap(.round)
@@ -213,12 +216,93 @@ enum StaticSceneImage {
                width: fit.width(metres: 19, atLeast: 9))
         stroke(centreline, into: context, white: 0.20, alpha: 1,
                width: fit.width(metres: 13, atLeast: 6))
+        // The rubber sits on the road, so it goes on after the surface and
+        // before anything that crosses it.
+        stroke(CircuitTrackShape.racingLine(for: circuit, fit: fit).cgPath, into: context,
+               white: 0.13, alpha: 0.85, width: fit.width(metres: 6, atLeast: 3))
+        drawKerbs(into: context, circuit: circuit, fit: fit)
         stroke(CircuitTrackShape.pitLane(for: circuit, fit: fit).cgPath, into: context,
                white: 0.16, alpha: 1, width: fit.width(metres: 12, atLeast: 5))
         stroke(CircuitTrackShape.startFinish(for: circuit, fit: fit).cgPath, into: context,
                white: 0.85, alpha: 1, width: 2)
 
         context.restoreGState()
+        drawCornerNames(into: context, circuit: circuit, fit: fit)
+    }
+
+    /// Butt caps, not the round ones the rest of the track uses: a round cap on
+    /// both ends of every block closes the gaps the alternation is made of, and
+    /// the kerb comes out a solid pink line.
+    private static func drawKerbs(into context: CGContext, circuit: Circuit, fit: CircuitFit) {
+        let blocks = CircuitTrackShape.kerbs(for: circuit, fit: fit)
+        guard !blocks.isEmpty else { return }
+
+        context.saveGState()
+        context.setLineCap(.butt)
+        context.setLineWidth(fit.width(metres: 2.5, atLeast: 2))
+        for (block, red) in blocks {
+            let path = block.cgPath
+            guard !path.isEmpty else { continue }
+            context.setStrokeColor(colour(red ? SIMD3(196, 48, 44) : SIMD3(226, 226, 226)))
+            context.addPath(path)
+            context.strokePath()
+        }
+        context.restoreGState()
+    }
+
+    // MARK: - Corner names
+
+    /// Where each named corner's caption sits, already pushed clear of the road.
+    ///
+    /// Empty for Monaco and Las Vegas: OpenStreetMap names no corner on either,
+    /// so the two circuits the picker opens on have nothing to label. Separated
+    /// from the drawing so that can be asserted without rasterising anything.
+    static func cornerLabels(for circuit: Circuit,
+                             fit: CircuitFit) -> [(name: String, at: CGPoint)] {
+        // Far enough out to clear the verge stroke and the kerb standing on it.
+        let offset = fit.width(metres: 19, atLeast: 9) / 2 + fit.width(metres: 8, atLeast: 6)
+
+        return circuit.corners.compactMap { corner in
+            guard circuit.points.indices.contains(corner.idx),
+                  let heading = CarPosition.heading(points: circuit.points, index: corner.idx,
+                                                    closed: true, fit: fit)
+            else { return nil }
+            let normal = CGPoint(x: -sin(heading), y: cos(heading))
+            let centre = fit.point(circuit.points[corner.idx])
+            return (corner.name, CGPoint(x: centre.x + normal.x * offset,
+                                         y: centre.y + normal.y * offset))
+        }
+    }
+
+    private static func drawCornerNames(into context: CGContext, circuit: Circuit,
+                                        fit: CircuitFit) {
+        let labels = cornerLabels(for: circuit, fit: fit)
+        guard !labels.isEmpty else { return }
+
+        // Core Text falls back through the system cascade on its own, which is
+        // what puts Suzuka's 逆バンク on screen rather than a row of boxes.
+        let font = CTFontCreateWithName("Helvetica" as CFString, 9, nil)
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: font,
+            .foregroundColor: colour(SIMD3(232, 228, 216), alpha: 0.72),
+        ]
+
+        for label in labels {
+            let line = CTLineCreateWithAttributedString(
+                NSAttributedString(string: label.name, attributes: attributes))
+            let width = CGFloat(CTLineGetTypographicBounds(line, nil, nil, nil))
+
+            context.saveGState()
+            // The context is flipped so `CircuitFit`'s y-down points land where
+            // they should; text drawn into it would come out mirrored, so it is
+            // flipped back around its own baseline and nowhere else.
+            context.textMatrix = .identity
+            context.translateBy(x: label.at.x, y: label.at.y)
+            context.scaleBy(x: 1, y: -1)
+            context.textPosition = CGPoint(x: -width / 2, y: 0)
+            CTLineDraw(line, context)
+            context.restoreGState()
+        }
     }
 
     private static func stroke(_ path: CGPath, into context: CGContext,

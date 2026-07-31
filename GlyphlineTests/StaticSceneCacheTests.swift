@@ -140,4 +140,49 @@ final class StaticSceneCacheTests: XCTestCase {
         let afterHit = await counter.count
         XCTAssertEqual(afterHit, 4, "a resident entry must still hit after an eviction")
     }
+
+    // MARK: - Corner names
+
+    /// Monaco and Las Vegas are the two circuits the picker opens on and the two
+    /// OpenStreetMap names no corner on. Anything that assumed at least one
+    /// label would fail on exactly the default circuit and nowhere else.
+    func testACircuitWithoutNamedCornersDrawsNoLabelsAndStillBuilds() throws {
+        let catalog = try CircuitCatalog.bundled()
+        let size = CGSize(width: 400, height: 300)
+        let light = SceneLight.make(elevation: 30, azimuth: 250,
+                                    mapRotation: 0, weather: .clear)
+
+        for key in ["monaco", "vegas"] {
+            let circuit = try XCTUnwrap(catalog.circuit(key))
+            XCTAssertTrue(circuit.corners.isEmpty, "\(key) is expected to carry no corners")
+            XCTAssertTrue(
+                StaticSceneImage.cornerLabels(for: circuit,
+                                              fit: CircuitFit(circuit: circuit, in: size)).isEmpty,
+                "\(key): a circuit with no named corners must produce no labels"
+            )
+            XCTAssertNotNil(
+                StaticSceneImage.build(circuit: circuit, size: size, scale: 1, light: light),
+                "\(key): the picture must still build with nothing to label"
+            )
+        }
+    }
+
+    /// The other side of it: a circuit that has names must place them, off the
+    /// road and somewhere finite, or the labels would be drawn at NaN and vanish.
+    func testANamedCornerIsPlacedClearOfItsPoint() throws {
+        let catalog = try CircuitCatalog.bundled()
+        let circuit = try XCTUnwrap(catalog.circuit("spa"))
+        let fit = CircuitFit(circuit: circuit, in: CGSize(width: 800, height: 600))
+        let labels = StaticSceneImage.cornerLabels(for: circuit, fit: fit)
+
+        XCTAssertEqual(labels.count, circuit.corners.count)
+        for (label, corner) in zip(labels, circuit.corners) {
+            XCTAssertEqual(label.name, corner.name)
+            XCTAssertTrue(label.at.x.isFinite && label.at.y.isFinite)
+            let point = fit.point(circuit.points[corner.idx])
+            XCTAssertGreaterThan(hypot(label.at.x - point.x, label.at.y - point.y),
+                                 fit.width(metres: 19, atLeast: 9) / 2,
+                                 "\(corner.name): the caption sits on the road")
+        }
+    }
 }
