@@ -71,6 +71,36 @@ struct LocalTokenUsage: Equatable, Sendable {
     }
 }
 
+/// One session's token total for one model, read from the local Claude Code
+/// transcripts.
+///
+/// The daily totals answer "what did this machine spend"; this answers "what did
+/// this session spend", which is what a lap counts.
+///
+/// The model is kept rather than summed away so the figure stays priceable
+/// through `PricingCatalog` — the alternative buys a smaller table and gives up
+/// cost per session, which is close to the reason this app exists.
+///
+/// A write is a *delta*, exactly as `LocalTokenUsage` is: the reader emits only
+/// the tokens read since the last watermark, and the store adds them to what is
+/// already there.
+struct LocalSessionTokenUsage: Equatable, Sendable {
+    /// The Claude Code `sessionId`. A subagent transcript carries its parent's,
+    /// so a session's total already includes everything it dispatched.
+    var sessionID: String
+    var model: String?
+    var inputTokens: Int64 = 0
+    var cacheCreationTokens: Int64 = 0
+    var cacheReadTokens: Int64 = 0
+    var outputTokens: Int64 = 0
+
+    var modelKey: String { LedgerModelIdentity.makeKey(for: model) }
+
+    var totalTokens: Int64 {
+        inputTokens + cacheCreationTokens + cacheReadTokens + outputTokens
+    }
+}
+
 /// Resume point for the machine-wide transcript scan. `SyncWatermark` minus its
 /// account, because the scan has none.
 struct LocalScanWatermark: Equatable, Sendable {

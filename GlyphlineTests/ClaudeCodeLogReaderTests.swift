@@ -315,4 +315,103 @@ final class ClaudeCodeLogReaderTests: XCTestCase {
 
         XCTAssertTrue(try apply(reader.read()).isEmpty)
     }
+
+    private func makeReader() -> ClaudeCodeLogReader {
+        ClaudeCodeLogReader(directory: directory, watermarkStore: ledger)
+    }
+
+    /// The existing `line` helper omits `sessionId`, and several tests depend on
+    /// exactly the shape it produces. This is the same record with the field the
+    /// session totals are keyed on.
+    private func sessionLine(
+        session: String,
+        model: String,
+        input: Int,
+        output: Int,
+        timestamp: String
+    ) -> String {
+        """
+        {"type":"assistant","sessionId":"\(session)","timestamp":"\(timestamp)",\
+        "message":{"model":"\(model)","usage":{"input_tokens":\(input),\
+        "cache_creation_input_tokens":0,"cache_read_input_tokens":0,\
+        "output_tokens":\(output)}}}
+        """
+    }
+
+    private func sessionTotals(_ result: LocalScanResult) -> [String: Int64] {
+        Dictionary(
+            result.sessionUsage.map { ($0.sessionID, $0.totalTokens) },
+            uniquingKeysWith: +
+        )
+    }
+
+    func testTokensAreTotalledPerSession() throws {
+        try write(
+            sessionLine(session: "S1", model: "sonnet", input: 10, output: 5,
+                        timestamp: "2026-07-30T10:00:00.000Z") + "\n" +
+            sessionLine(session: "S2", model: "sonnet", input: 100, output: 50,
+                        timestamp: "2026-07-30T10:01:00.000Z") + "\n",
+            to: "a.jsonl"
+        )
+
+        let totals = sessionTotals(try makeReader().read())
+
+        XCTAssertEqual(totals["S1"], 15)
+        XCTAssertEqual(totals["S2"], 150)
+    }
+
+    /// A subagent transcript carries its parent's sessionId and lives under a
+    /// different project slug. Its tokens belong to the parent session, which is
+    /// what makes a session's lap count mean what it consumed in total.
+    func testASubagentTranscriptTotalsIntoItsParentSession() throws {
+        try write(
+            sessionLine(session: "S1", model: "sonnet", input: 10, output: 5,
+                        timestamp: "2026-07-30T10:00:00.000Z") + "\n",
+            to: "main.jsonl"
+        )
+        try write(
+            sessionLine(session: "S1", model: "sonnet", input: 200, output: 100,
+                        timestamp: "2026-07-30T10:02:00.000Z") + "\n",
+            to: "agent.jsonl"
+        )
+
+        XCTAssertEqual(sessionTotals(try makeReader().read())["S1"], 315)
+    }
+
+    /// Keyed per model like the daily totals, so the figures stay priceable.
+    func testASessionIsBrokenDownByModel() throws {
+        try write(
+            sessionLine(session: "S1", model: "sonnet", input: 10, output: 0,
+                        timestamp: "2026-07-30T10:00:00.000Z") + "\n" +
+            sessionLine(session: "S1", model: "opus", input: 7, output: 0,
+                        timestamp: "2026-07-30T10:01:00.000Z") + "\n",
+            to: "a.jsonl"
+        )
+
+        let rows = try makeReader().read().sessionUsage
+            .filter { $0.sessionID == "S1" }
+            .sorted { ($0.model ?? "") < ($1.model ?? "") }
+
+        XCTAssertEqual(rows.count, 2)
+        XCTAssertEqual(rows[0].model, "opus")
+        XCTAssertEqual(rows[0].totalTokens, 7)
+        XCTAssertEqual(rows[1].model, "sonnet")
+        XCTAssertEqual(rows[1].totalTokens, 10)
+    }
+
+    /// A record with no session id still counts toward the day. It must not be
+    /// gathered under a placeholder id — a sentinel would be read as a session
+    /// by the next person to look.
+    func testARecordWithoutASessionCountsForTheDayAndNoSession() throws {
+        try write(
+            line(model: "sonnet", input: 10, cacheWrite: 0, cacheRead: 0, output: 5,
+                 timestamp: "2026-07-30T10:00:00.000Z") + "\n",
+            to: "a.jsonl"
+        )
+
+        let result = try makeReader().read()
+
+        XCTAssertEqual(result.usage.first?.totalTokens, 15, "the day still sees it")
+        XCTAssertTrue(result.sessionUsage.isEmpty)
+    }
 }

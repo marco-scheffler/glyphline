@@ -25,6 +25,9 @@ extension LedgerStore: LocalScanWatermarkStoring {}
 /// neither; anything else loses tokens permanently on the next interruption.
 struct LocalScanResult: Equatable, Sendable {
     var usage: [LocalTokenUsage]
+    /// The same tokens, gathered by session instead of by day. Derived in the
+    /// same pass from the same records, so the two can never disagree.
+    var sessionUsage: [LocalSessionTokenUsage] = []
     var watermarks: [LocalScanWatermark]
 }
 
@@ -50,6 +53,7 @@ private struct ClaudeCodeLogRecord: Decodable {
         var usage: Usage?
     }
 
+    var sessionId: String?
     var timestamp: String
     var message: Message?
 }
@@ -110,6 +114,11 @@ final class ClaudeCodeLogReader: @unchecked Sendable {
         var model: String?
     }
 
+    private struct SessionKey: Hashable {
+        var sessionID: String
+        var model: String?
+    }
+
     private struct Totals {
         var input: Int64 = 0
         var cacheCreation: Int64 = 0
@@ -127,13 +136,15 @@ final class ClaudeCodeLogReader: @unchecked Sendable {
     /// old and the new resume point are lost for good.
     func read() throws -> LocalScanResult {
         var totals: [BucketKey: Totals] = [:]
+        var sessionTotals: [SessionKey: Totals] = [:]
         var watermarks: [LocalScanWatermark] = []
         // Built once per sync, not once per line: `ISO8601DateFormatter` is
         // expensive to construct and `read` parses millions of lines on a cold start.
         let dates = TranscriptTimestampParser()
 
         for file in transcriptURLs() {
-            try consume(file, dates: dates, into: &totals, watermarks: &watermarks)
+            try consume(file, dates: dates, into: &totals, sessions: &sessionTotals,
+                        watermarks: &watermarks)
         }
 
         let usage = totals.map { key, value in
@@ -148,7 +159,19 @@ final class ClaudeCodeLogReader: @unchecked Sendable {
         }
         .sorted { $0.bucketStart < $1.bucketStart }
 
-        return LocalScanResult(usage: usage, watermarks: watermarks)
+        let sessionUsage = sessionTotals.map { key, value in
+            LocalSessionTokenUsage(
+                sessionID: key.sessionID,
+                model: key.model,
+                inputTokens: value.input,
+                cacheCreationTokens: value.cacheCreation,
+                cacheReadTokens: value.cacheRead,
+                outputTokens: value.output
+            )
+        }
+        .sorted { ($0.sessionID, $0.modelKey) < ($1.sessionID, $1.modelKey) }
+
+        return LocalScanResult(usage: usage, sessionUsage: sessionUsage, watermarks: watermarks)
     }
 
     private func transcriptURLs() -> [URL] {
@@ -163,6 +186,7 @@ final class ClaudeCodeLogReader: @unchecked Sendable {
         _ file: URL,
         dates: TranscriptTimestampParser,
         into totals: inout [BucketKey: Totals],
+        sessions: inout [SessionKey: Totals],
         watermarks: inout [LocalScanWatermark]
     ) throws {
         let attributes = try? fileManager.attributesOfItem(atPath: file.path)
@@ -227,6 +251,21 @@ final class ClaudeCodeLogReader: @unchecked Sendable {
                 bucket.cacheRead += usage.cacheReadInputTokens ?? 0
                 bucket.output += usage.outputTokens ?? 0
                 totals[key] = bucket
+
+                // Same record, second question. Derived here rather than in a
+                // pass of its own: these transcripts run to 1.86 GB, and two
+                // figures read from the same lines at different times could
+                // disagree — which in an app about token counts is the worst
+                // kind of defect, plausible and wrong.
+                if let sessionID = record.sessionId {
+                    let sessionKey = SessionKey(sessionID: sessionID, model: record.message?.model)
+                    var session = sessions[sessionKey] ?? Totals()
+                    session.input += usage.inputTokens ?? 0
+                    session.cacheCreation += usage.cacheCreationInputTokens ?? 0
+                    session.cacheRead += usage.cacheReadInputTokens ?? 0
+                    session.output += usage.outputTokens ?? 0
+                    sessions[sessionKey] = session
+                }
             }
 
             consumable = lineEnd
