@@ -52,6 +52,14 @@ struct GlyphlineApp: App {
         }
         .defaultSize(width: 1_400, height: 820)
         .windowStyle(.titleBar)
+        // Attached to the window it opens. Without it the map is reachable only
+        // through the menu bar panel, and `.windowOnly` removes the menu bar
+        // extra entirely — leaving that mode with no way in at all.
+        .commands {
+            CommandGroup(after: .newItem) {
+                OpenAgentverseCommand()
+            }
+        }
 
         MenuBarExtra(isInserted: menuBarExtraInsertion) {
             ModeAwareMenuBarRoot(settings: settings) {
@@ -101,6 +109,24 @@ struct GlyphlineApp: App {
                 settings.appMode = isInserted ? .menuBarAndWindow : .windowOnly
             }
         )
+    }
+}
+
+/// The app menu's way into the map.
+///
+/// A view rather than a bare `Button` in the command group: `openWindow` is an
+/// environment value, and a `Scene` has no environment to read it from.
+///
+/// ⌘⇧A is free — the app defines no shortcuts of its own, and the standard menus
+/// SwiftUI supplies take ⌘A for Select All but nothing with Shift.
+private struct OpenAgentverseCommand: View {
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        Button("Open Agentverse") {
+            openWindow(id: AppMode.agentverseWindowID)
+        }
+        .keyboardShortcut("a", modifiers: [.command, .shift])
     }
 }
 
