@@ -7,6 +7,11 @@ import CoreGraphics
 /// separately would stretch Monza — 2 405 m by 1 003 m — into something it is
 /// not, and normalising against a fixed aspect ratio rather than the real canvas
 /// is what once pushed half of Las Vegas outside the frame.
+///
+/// What is framed is the terrain box, not the racing line. Terrain and scenery
+/// reach 500 m past the circuit on every side, so fitting the lap alone
+/// magnified the track into a grey worm and left Monaco's 951 buildings, its
+/// harbour and its hillside outside the frame entirely.
 struct CircuitFit: Equatable {
     /// Points per metre.
     let scale: CGFloat
@@ -17,13 +22,23 @@ struct CircuitFit: Equatable {
     init(circuit: Circuit, in size: CGSize) {
         let usableWidth = max(0, size.width - 2 * Self.margin)
         let usableHeight = max(0, size.height - 2 * Self.margin)
-        let spanX = CGFloat(max(circuit.spanX, 1))
-        let spanY = CGFloat(max(circuit.spanY, 1))
+        // A terrain that failed to build carries a zero box; that circuit must
+        // still render, so it falls back to the lap's own extent rather than
+        // dividing by nothing.
+        let terrain = circuit.terrain
+        let terrainSpanX = terrain.maxX - terrain.minX
+        let terrainSpanY = terrain.maxY - terrain.minY
+        let usableTerrain = terrainSpanX > 0 && terrainSpanY > 0
+
+        let minX = usableTerrain ? terrain.minX : circuit.minX
+        let minY = usableTerrain ? terrain.minY : circuit.minY
+        let spanX = CGFloat(max(usableTerrain ? terrainSpanX : circuit.spanX, 1))
+        let spanY = CGFloat(max(usableTerrain ? terrainSpanY : circuit.spanY, 1))
 
         scale = min(usableWidth / spanX, usableHeight / spanY)
         offset = CGPoint(
-            x: (size.width - spanX * scale) / 2 - CGFloat(circuit.minX) * scale,
-            y: (size.height - spanY * scale) / 2 - CGFloat(circuit.minY) * scale
+            x: (size.width - spanX * scale) / 2 - CGFloat(minX) * scale,
+            y: (size.height - spanY * scale) / 2 - CGFloat(minY) * scale
         )
     }
 
