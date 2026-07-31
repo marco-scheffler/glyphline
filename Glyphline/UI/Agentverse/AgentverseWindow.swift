@@ -43,9 +43,6 @@ struct AgentverseWindow: View {
         if let message = coordinator.failureMessage {
             ContentUnavailableView("No map", systemImage: "exclamationmark.triangle",
                                    description: Text(message))
-        } else if coordinator.onTrack.isEmpty && coordinator.parked.isEmpty {
-            ContentUnavailableView("No agent is running", systemImage: "flag.checkered",
-                                   description: Text("Sessions appear here while they are working."))
         } else if let circuit = catalog?.circuit(circuitKey) {
             Canvas { context, size in
                 let fit = CircuitFit(circuit: circuit, in: size)
@@ -71,6 +68,19 @@ struct AgentverseWindow: View {
                 )
             }
             .background(Color(white: 0.07))
+            .overlay {
+                // An idle machine is an ordinary Tuesday, not a failure: a pane
+                // that replaces the circuit with this notice reads as the
+                // circuit having failed to draw.
+                if coordinator.onTrack.isEmpty && coordinator.parked.isEmpty {
+                    Text("No agent is running")
+                        .font(.callout)
+                        .foregroundStyle(.white.opacity(0.55))
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(.black.opacity(0.45), in: Capsule())
+                }
+            }
         } else {
             ContentUnavailableView("No circuits", systemImage: "map",
                                    description: Text("The bundled circuit data could not be read."))
