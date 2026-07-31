@@ -26,6 +26,11 @@ struct Circuit: Decodable, Equatable, Sendable {
     /// Pit lane, same frame, same direction.
     var pit: [[Double]]
 
+    /// The key this circuit is looked up by. Filled in by the catalog, because a
+    /// circuit handed to a renderer has to be able to say which one it is: the
+    /// static picture is cached by it, and the ground albedo is looked up by it.
+    var key: String = ""
+
     // Filled in from the three neighbouring files, not read from circuits.json —
     // which is why they are absent from the CodingKeys. A default value alone is
     // not enough: the synthesised init(from:) demands every key it lists.
@@ -118,6 +123,7 @@ struct CircuitCatalog: Equatable, Sendable {
         let terrain = try decode([String: CircuitTerrain].self, named: "terrain", in: bundle)
 
         for key in circuits.keys {
+            circuits[key]?.key = key
             circuits[key]?.corners = corners[key] ?? []
             circuits[key]?.scenery = scenery[key] ?? CircuitScenery()
             circuits[key]?.terrain = terrain[key] ?? CircuitTerrain()

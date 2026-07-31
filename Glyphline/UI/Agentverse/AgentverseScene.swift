@@ -5,6 +5,11 @@ import SwiftUI
 /// `frame` replaces the clock: the window passes the running frame number, a test
 /// passes a fixed one. Without that the picture depends on when it was taken and
 /// no two renders could be compared.
+///
+/// The world under the cars — ground, city, shadows, track — is not drawn here
+/// per frame but fetched as one cached bitmap. It costs half a second to build,
+/// which is why the build happens off the main actor and the canvas keeps the
+/// bare vector track to draw until the first picture arrives.
 struct AgentverseScene: View {
     let circuit: Circuit
     let sessions: [AgentSession]
@@ -13,35 +18,79 @@ struct AgentverseScene: View {
     let hovered: String?
     let frame: Int
 
+    @Environment(\.displayScale) private var displayScale
+    @State private var world: CGImage?
+
     var body: some View {
+        GeometryReader { proxy in
+            let key = sceneKey(size: proxy.size)
+            canvas(world: world, scale: displayScale)
+                .task(id: key) { await buildWorld(key) }
+        }
+        .background(Color(white: 0.07))
+    }
+
+    // MARK: - The static world
+
+    /// A fixed instant, until the time and weather controls land: the circuit's
+    /// own afternoon. It follows the circuit rather than the viewer, so switching
+    /// to Suzuka moves the sun to Japan.
+    private static func afternoon(for circuit: Circuit) -> Date {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: circuit.tz) ?? .gmt
+        let components = DateComponents(year: 2026, month: 6, day: 21, hour: 17)
+        return calendar.date(from: components) ?? Date(timeIntervalSince1970: 1_781_888_400)
+    }
+
+    /// In degrees, and with no scene rotation applied — that is `SceneLight`'s
+    /// job, and the key wants the unrotated numbers so its buckets mean the same
+    /// thing on every circuit.
+    private var sun: (elevation: Double, azimuth: Double) {
+        SunPosition.at(latitude: circuit.lat, longitude: circuit.lon,
+                       date: Self.afternoon(for: circuit))
+    }
+
+    /// `SceneLight` wants elevation and azimuth in degrees and `mapRotation` in
+    /// radians, which is what `Circuit.rot` already is.
+    private var light: SceneLight {
+        SceneLight.make(elevation: sun.elevation, azimuth: sun.azimuth,
+                        mapRotation: circuit.rot, weather: .clear)
+    }
+
+    private func sceneKey(size: CGSize) -> StaticSceneKey {
+        let sun = sun
+        return StaticSceneKey(circuit: circuit.key, size: size,
+                              scale: Int(displayScale.rounded()),
+                              elevation: sun.elevation, azimuth: sun.azimuth,
+                              weather: .clear)
+    }
+
+    private func buildWorld(_ key: StaticSceneKey) async {
+        guard key.width > 0, key.height > 0 else { return }
+        // Read out of the view before the closure: everything the build touches
+        // has to be a `Sendable` value, because it runs off this actor.
+        let circuit = circuit
+        let light = light
+        world = await StaticSceneCache.shared.image(for: key) { key in
+            StaticSceneImage.build(circuit: circuit, size: key.size,
+                                   scale: key.scale, light: light)
+        }
+    }
+
+    // MARK: - The frame
+
+    /// `world` and the display scale are read out here rather than inside the
+    /// drawing closure, which is nonisolated and may not reach into the view's
+    /// state or its environment.
+    private func canvas(world: CGImage?, scale: CGFloat) -> some View {
         Canvas { context, size in
             let fit = CircuitFit(circuit: circuit, in: size)
-            // Verge first, then surface: one stroke over another is cheaper
-            // than building two outlines, and the difference is invisible.
-            context.stroke(
-                CircuitTrackShape.centreline(for: circuit, fit: fit),
-                with: .color(.white.opacity(0.18)),
-                style: StrokeStyle(lineWidth: fit.width(metres: 19, atLeast: 9),
-                                   lineCap: .round, lineJoin: .round)
-            )
-            context.stroke(
-                CircuitTrackShape.centreline(for: circuit, fit: fit),
-                with: .color(Color(white: 0.20)),
-                style: StrokeStyle(lineWidth: fit.width(metres: 13, atLeast: 6),
-                                   lineCap: .round, lineJoin: .round)
-            )
-            context.stroke(
-                CircuitTrackShape.pitLane(for: circuit, fit: fit),
-                with: .color(Color(white: 0.16)),
-                style: StrokeStyle(lineWidth: fit.width(metres: 12, atLeast: 5),
-                                   lineCap: .round, lineJoin: .round)
-            )
-
-            context.stroke(
-                CircuitTrackShape.startFinish(for: circuit, fit: fit),
-                with: .color(Color(white: 0.85)),
-                lineWidth: 2
-            )
+            if let world {
+                context.draw(Image(decorative: world, scale: scale),
+                             in: CGRect(origin: .zero, size: size))
+            } else {
+                drawBareTrack(in: context, fit: fit)
+            }
 
             // Tied to the road it drives on rather than to a nominal length in
             // metres: measured against the track surface stroke, a car that
@@ -116,6 +165,35 @@ struct AgentverseScene: View {
                         opacity: spotlight(session.id))
             }
         }
-        .background(Color(white: 0.07))
+    }
+
+    /// What the canvas shows while the first picture is still being built, and
+    /// the same four strokes the picture itself bakes in.
+    private func drawBareTrack(in context: GraphicsContext, fit: CircuitFit) {
+        // Verge first, then surface: one stroke over another is cheaper
+        // than building two outlines, and the difference is invisible.
+        context.stroke(
+            CircuitTrackShape.centreline(for: circuit, fit: fit),
+            with: .color(.white.opacity(0.18)),
+            style: StrokeStyle(lineWidth: fit.width(metres: 19, atLeast: 9),
+                               lineCap: .round, lineJoin: .round)
+        )
+        context.stroke(
+            CircuitTrackShape.centreline(for: circuit, fit: fit),
+            with: .color(Color(white: 0.20)),
+            style: StrokeStyle(lineWidth: fit.width(metres: 13, atLeast: 6),
+                               lineCap: .round, lineJoin: .round)
+        )
+        context.stroke(
+            CircuitTrackShape.pitLane(for: circuit, fit: fit),
+            with: .color(Color(white: 0.16)),
+            style: StrokeStyle(lineWidth: fit.width(metres: 12, atLeast: 5),
+                               lineCap: .round, lineJoin: .round)
+        )
+        context.stroke(
+            CircuitTrackShape.startFinish(for: circuit, fit: fit),
+            with: .color(Color(white: 0.85)),
+            lineWidth: 2
+        )
     }
 }
