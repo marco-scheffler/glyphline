@@ -44,24 +44,38 @@ struct AgentverseScene: View {
             )
 
             let radius = max(3.5, fit.width(metres: 5, atLeast: 7) / 2)
+            // Derived from the radius the circle used, so a car takes roughly
+            // the screen area its predecessor did and a crowded circuit gets no
+            // more crowded.
+            let carLength = radius * 3.4
 
-            func drawCar(at point: CGPoint, livery: CarLivery,
-                         ring: Color, ringWidth: CGFloat, opacity: Double) {
-                let box = CGRect(x: point.x - radius, y: point.y - radius,
-                                 width: radius * 2, height: radius * 2)
-                context.fill(Path(ellipseIn: box),
+            func drawCar(at point: CGPoint, heading: Double, livery: CarLivery,
+                         hazardsOn: Bool, opacity: Double) {
+                let placement = CGAffineTransform(translationX: point.x, y: point.y)
+                    .rotated(by: heading)
+                    .scaledBy(x: carLength, y: carLength)
+
+                context.fill(CarShape.body.applying(placement),
                              with: .color(livery.body.opacity(opacity)))
-                context.stroke(Path(ellipseIn: box),
-                               with: .color(ring.opacity(opacity)),
-                               lineWidth: ringWidth)
+                context.fill(CarShape.stripe.applying(placement),
+                             with: .color(livery.accent.opacity(opacity)))
+                context.fill(CarShape.wing.applying(placement),
+                             with: .color(livery.accent.opacity(opacity)))
+                if hazardsOn {
+                    context.fill(CarShape.hazards.applying(placement),
+                                 with: .color(Color.orange.opacity(opacity)))
+                }
             }
 
             // A function rather than a mutation of `context.opacity`: a
             // reset missed on one path would silently fade everything
             // drawn after it.
+            //
+            // Dimmed rather than nearly gone: the ask was "slightly greyed", and
+            // 0.18 read as switched off.
             func spotlight(_ id: String) -> Double {
                 guard let hovered else { return 1 }
-                return hovered == id ? 1 : 0.18
+                return hovered == id ? 1 : 0.35
             }
 
             // The pit lane first, so a car rejoining never appears to sit
@@ -71,10 +85,13 @@ struct AgentverseScene: View {
                 guard let along = CarPosition.pitPointIndex(slot: slot,
                                                             count: circuit.pit.count)
                 else { continue }
+                // The lane is not a loop: its first point has no predecessor.
+                let heading = CarPosition.heading(points: circuit.pit, index: along,
+                                                  closed: false, fit: fit) ?? 0
                 let livery = CarLivery.forSession(session.sessionID)
-                drawCar(at: fit.point(circuit.pit[along]), livery: livery,
-                        ring: livery.accent, ringWidth: 1.5,
-                        opacity: 0.45 * spotlight(session.sessionID))
+                drawCar(at: fit.point(circuit.pit[along]), heading: heading,
+                        livery: livery, hazardsOn: false,
+                        opacity: 0.55 * spotlight(session.sessionID))
             }
 
             // Half a second on, half a second off at the window's 60 frames a
@@ -86,12 +103,14 @@ struct AgentverseScene: View {
                 let index = CarPosition.pointIndex(fraction: fraction,
                                                    startIdx: circuit.startIdx,
                                                    count: circuit.points.count)
+                guard circuit.points.indices.contains(index) else { continue }
+                let heading = CarPosition.heading(points: circuit.points, index: index,
+                                                  closed: true, fit: fit) ?? 0
                 let livery = CarLivery.forSession(session.id)
                 let waiting = session.activity == .waitingForYou
 
-                drawCar(at: fit.point(circuit.points[index]), livery: livery,
-                        ring: waiting && blinkOn ? .orange : livery.accent,
-                        ringWidth: waiting ? 3 : 1.5,
+                drawCar(at: fit.point(circuit.points[index]), heading: heading,
+                        livery: livery, hazardsOn: waiting && blinkOn,
                         opacity: spotlight(session.id))
             }
         }
