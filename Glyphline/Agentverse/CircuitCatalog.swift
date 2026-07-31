@@ -134,3 +134,16 @@ struct CircuitCatalog: Equatable, Sendable {
 enum CircuitCatalogError: Error, Equatable {
     case missingResource(name: String, extension: String)
 }
+
+/// Who the bundled circuit data belongs to.
+///
+/// Kept beside the catalog rather than inside the view: the obligation follows
+/// the data, and a credit that lives only in a layout disappears the next time
+/// someone rearranges the layout.
+enum CircuitAttribution {
+    static let lines = [
+        "Circuit geometry © Tomislav Bacinger (MIT)",
+        "Surroundings, pit lanes and corner names © OpenStreetMap contributors (ODbL)",
+        "Elevation from Mapzen/AWS terrain tiles",
+    ]
+}

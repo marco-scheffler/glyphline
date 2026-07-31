@@ -32,6 +32,14 @@ struct SettingsView: View {
                 Text("Glyphline also syncs after the Mac wakes from sleep.")
                     .foregroundStyle(.secondary)
             }
+
+            Section("Data Sources") {
+                ForEach(CircuitAttribution.lines, id: \.self) { line in
+                    Text(line)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+            }
         }
         .formStyle(.grouped)
         .padding(24)
