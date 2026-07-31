@@ -59,4 +59,32 @@ enum CarPosition {
         guard count > 0 else { return nil }
         return min(count - 1, max(0, Int(slot * Double(count))))
     }
+
+    /// Which way a car at `index` is travelling, as a screen-space angle.
+    ///
+    /// Measured after the fit rather than on the raw metres, so the car turns
+    /// with whatever `CircuitFit` does to the geometry. `closed` is the
+    /// difference between the centreline, whose first point follows its last,
+    /// and the pit lane, which has an entry and an exit.
+    ///
+    /// The same before-and-after construction `CircuitTrackShape.startFinish`
+    /// uses for its perpendicular. It lives here rather than in the canvas
+    /// because the centreline index lived in the canvas once, was wrong, and
+    /// had to be extracted to be pinned.
+    static func heading(points: [[Double]], index: Int,
+                        closed: Bool, fit: CircuitFit) -> Double? {
+        let count = points.count
+        guard count > 1, points.indices.contains(index) else { return nil }
+
+        let beforeIdx = closed ? (index - 1 + count) % count : max(0, index - 1)
+        let afterIdx = closed ? (index + 1) % count : min(count - 1, index + 1)
+        let before = fit.point(points[beforeIdx])
+        let after = fit.point(points[afterIdx])
+
+        let dx = after.x - before.x
+        let dy = after.y - before.y
+        // Two coincident neighbours leave no direction to point in.
+        guard dx != 0 || dy != 0 else { return nil }
+        return atan2(dy, dx)
+    }
 }

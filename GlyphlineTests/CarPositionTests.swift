@@ -122,4 +122,91 @@ final class CarPositionTests: XCTestCase {
     func testASinglePitSlotSitsInTheMiddle() {
         XCTAssertEqual(CarPosition.pitSlot(index: 0, count: 1), 0.5, accuracy: 0.0001)
     }
+
+    /// A circuit with known geometry, so a heading can be asserted rather than
+    /// eyeballed. `spanX`/`spanY` are what `CircuitFit` scales against.
+    private func testCircuit(points: [[Double]]) -> Circuit {
+        Circuit(name: "Test", location: nil, tz: "UTC", lengthKm: 1,
+                lat: 0, lon: 0, rot: 0,
+                minX: 0, minY: 0, spanX: 100, spanY: 100,
+                startIdx: 0, points: points, pit: [])
+    }
+
+    private func testFit(_ circuit: Circuit) -> CircuitFit {
+        CircuitFit(circuit: circuit, in: CGSize(width: 200, height: 200))
+    }
+
+    func testAHeadingRunsAlongTheDirectionOfTravel() {
+        let circuit = testCircuit(points: [[0, 0], [10, 0], [20, 0]])
+        let heading = CarPosition.heading(points: circuit.points, index: 1,
+                                          closed: false, fit: testFit(circuit))
+
+        XCTAssertEqual(try XCTUnwrap(heading), 0, accuracy: 0.0001)
+    }
+
+    /// Screen space, not metre space: `CircuitFit` is what decides where a point
+    /// lands, and a car computed against the raw metres would point somewhere
+    /// else the day the fit gains a flip.
+    func testAHeadingIsMeasuredInScreenSpace() throws {
+        let circuit = testCircuit(points: [[0, 0], [0, 10], [0, 20]])
+        let heading = try XCTUnwrap(
+            CarPosition.heading(points: circuit.points, index: 1,
+                                closed: false, fit: testFit(circuit))
+        )
+        let a = testFit(circuit).point([0, 0])
+        let b = testFit(circuit).point([0, 20])
+
+        XCTAssertEqual(heading, atan2(b.y - a.y, b.x - a.x), accuracy: 0.0001)
+    }
+
+    /// The centreline is a closed loop; the first point's predecessor is the
+    /// last. Without the wrap a car at the start/finish line — which is where
+    /// every car with no completed lap stands — would have no heading at all.
+    func testAClosedLineWrapsAtBothEnds() throws {
+        let circuit = testCircuit(points: [[0, 0], [10, 0], [10, 10], [0, 10]])
+        let fit = testFit(circuit)
+
+        let first = try XCTUnwrap(CarPosition.heading(points: circuit.points, index: 0,
+                                                      closed: true, fit: fit))
+        let last = try XCTUnwrap(CarPosition.heading(points: circuit.points, index: 3,
+                                                     closed: true, fit: fit))
+
+        // Index 0's neighbours are 3 and 1; index 3's are 2 and 0.
+        XCTAssertEqual(first, atan2(fit.point([10, 0]).y - fit.point([0, 10]).y,
+                                    fit.point([10, 0]).x - fit.point([0, 10]).x),
+                       accuracy: 0.0001)
+        XCTAssertEqual(last, atan2(fit.point([0, 0]).y - fit.point([10, 10]).y,
+                                   fit.point([0, 0]).x - fit.point([10, 10]).x),
+                       accuracy: 0.0001)
+    }
+
+    /// The pit lane has an entry and an exit, so its ends clamp instead.
+    func testAnOpenLineClampsAtBothEnds() throws {
+        let circuit = testCircuit(points: [[0, 0], [10, 0], [20, 0]])
+        let fit = testFit(circuit)
+
+        let first = try XCTUnwrap(CarPosition.heading(points: circuit.points, index: 0,
+                                                      closed: false, fit: fit))
+
+        XCTAssertEqual(first, 0, accuracy: 0.0001)
+    }
+
+    func testTwoCoincidentNeighboursLeaveNoHeading() {
+        let circuit = testCircuit(points: [[5, 5], [0, 0], [5, 5]])
+
+        XCTAssertNil(CarPosition.heading(points: circuit.points, index: 1,
+                                         closed: false, fit: testFit(circuit)))
+    }
+
+    func testAShortOrEmptyLineHasNoHeading() {
+        let empty = testCircuit(points: [])
+        let single = testCircuit(points: [[0, 0]])
+
+        XCTAssertNil(CarPosition.heading(points: empty.points, index: 0,
+                                         closed: true, fit: testFit(empty)))
+        XCTAssertNil(CarPosition.heading(points: single.points, index: 0,
+                                         closed: true, fit: testFit(single)))
+        XCTAssertNil(CarPosition.heading(points: single.points, index: 7,
+                                         closed: true, fit: testFit(single)))
+    }
 }
