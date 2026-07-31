@@ -352,4 +352,43 @@ final class LocalTokenUsageStoreTests: XCTestCase {
             "a session with no rows has no total; zero would be a confidently wrong number"
         )
     }
+
+    /// Cache reads are not work. Every turn re-reads the whole context, so a
+    /// session that sits idle and then answers one question banks millions of
+    /// tokens having produced almost nothing. Measured across 309 real sessions,
+    /// including them multiplies the figures by roughly ten.
+    func testWorkTokensLeaveOutTheCacheReads() {
+        let usage = LocalSessionTokenUsage(
+            sessionID: "S1", model: "sonnet",
+            inputTokens: 10, cacheCreationTokens: 3, cacheReadTokens: 900, outputTokens: 7
+        )
+
+        XCTAssertEqual(usage.workTokens, 20)
+        XCTAssertEqual(usage.totalTokens, 920, "the full figure stays available")
+    }
+
+    func testFetchingWorkTokensSumsModelsAndSkipsCacheReads() throws {
+        let store = try makeStore()
+        try store.applyLocalScan(
+            LocalScanResult(
+                usage: [],
+                sessionUsage: [
+                    LocalSessionTokenUsage(sessionID: "S1", model: "sonnet",
+                                           inputTokens: 10, cacheReadTokens: 500, outputTokens: 5),
+                    LocalSessionTokenUsage(sessionID: "S1", model: "opus",
+                                           inputTokens: 7, cacheReadTokens: 900),
+                ],
+                watermarks: []
+            )
+        )
+
+        XCTAssertEqual(try store.fetchSessionWorkTokens(sessionIDs: ["S1"])["S1"], 22)
+        XCTAssertEqual(try store.fetchSessionTokens(sessionIDs: ["S1"])["S1"], 1_422)
+    }
+
+    func testUnknownSessionsHaveNoWorkTotalRatherThanZero() throws {
+        let store = try makeStore()
+
+        XCTAssertNil(try store.fetchSessionWorkTokens(sessionIDs: ["NEVER"])["NEVER"])
+    }
 }

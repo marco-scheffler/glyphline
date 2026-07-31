@@ -99,6 +99,17 @@ struct LocalSessionTokenUsage: Equatable, Sendable {
     var totalTokens: Int64 {
         inputTokens + cacheCreationTokens + cacheReadTokens + outputTokens
     }
+
+    /// What the session produced, as opposed to what it cost to keep going.
+    ///
+    /// Cache reads are excluded: each turn re-reads the entire context, so they
+    /// accumulate with the length of the conversation rather than with the work
+    /// in it. Across 309 sessions on the reference machine they made up about
+    /// nine tenths of every figure, and a lap counted in them would measure
+    /// mostly how long a session had been open.
+    var workTokens: Int64 {
+        inputTokens + cacheCreationTokens + outputTokens
+    }
 }
 
 /// Resume point for the machine-wide transcript scan. `SyncWatermark` minus its
@@ -1135,6 +1146,23 @@ final class LedgerStore {
                 .fetchAll(db)
                 .reduce(into: [String: Int64]()) { totals, record in
                     totals[record.sessionID, default: 0] += record.usage.totalTokens
+                }
+        }
+    }
+
+    /// Work tokens per session, summed across models. Absent rather than zero for
+    /// a session with no rows, for the same reason `fetchSessionTokens` is: a
+    /// session nobody has scanned has no total, and zero would be a confidently
+    /// wrong number.
+    func fetchSessionWorkTokens(sessionIDs: [String]) throws -> [String: Int64] {
+        guard !sessionIDs.isEmpty else { return [:] }
+
+        return try dbQueue.read { db in
+            try LocalSessionTokenRecord
+                .filter(sessionIDs.contains(Column(LedgerColumn.sessionID)))
+                .fetchAll(db)
+                .reduce(into: [String: Int64]()) { totals, record in
+                    totals[record.sessionID, default: 0] += record.usage.workTokens
                 }
         }
     }
