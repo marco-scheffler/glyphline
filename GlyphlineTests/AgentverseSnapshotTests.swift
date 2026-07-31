@@ -134,9 +134,11 @@ final class AgentverseSnapshotTests: XCTestCase {
     /// tinted, because it went through `SceneLight`. A pixel with three equal
     /// channels at that point is road.
     ///
-    /// The brightness bound is what a black frame cannot clear: the surface grey
-    /// is 51/255 and the racing line over it composites to 36/255, both well below
-    /// the kerbs' 226.
+    /// The brightness bound is what a black frame cannot clear. The track is
+    /// stroked from flat greys but drawn *through* the light as emissive, so the
+    /// numbers move with the time of day: at this afternoon instant the 51/255
+    /// surface grey lands near 44 and the racing line over it composites to 25.
+    /// Both are far off a black frame and far below the kerbs.
     func testTheTrackSurfaceIsDrawnHalfALapFromTheLine() throws {
         let circuit = try monaco()
         let fit = CircuitFit(circuit: circuit, in: size)
@@ -154,10 +156,35 @@ final class AgentverseSnapshotTests: XCTestCase {
                        "the road is a flat grey; anything the sun lit is tinted")
         XCTAssertEqual(green, blue,
                        "the road is a flat grey; anything the sun lit is tinted")
-        XCTAssertTrue((30...60).contains(red),
-                      "the road surface is 51/255 and the racing line over it 36/255; "
-                      + "\(red) is neither, so this pixel is not track — the kerbs "
-                      + "are 226")
+        XCTAssertTrue((18...55).contains(red),
+                      "lit, the road surface is about 44/255 at this instant and the "
+                      + "racing line over it 25/255; \(red) is neither, so this pixel "
+                      + "is not track")
+    }
+
+    /// The road is in the scene, not on top of it. Drawn from raw greys it was
+    /// the one surface that read the same at noon and at midnight, while the
+    /// night exposure lifted everything around it — a road that appeared to glow
+    /// by itself. Through `emissive` it moves with the rest.
+    func testTheTrackSurfaceRespondsToTheLight() throws {
+        let circuit = try monaco()
+        let fit = CircuitFit(circuit: circuit, in: size)
+        let count = circuit.points.count
+        let point = fit.point(circuit.points[(circuit.startIdx + count / 2) % count])
+
+        func road(at instant: Date) throws -> Double {
+            let rep = NSBitmapImageRep(cgImage: try world(instant: instant))
+            let colour = try XCTUnwrap(rep.colorAt(x: Int(point.x.rounded()),
+                                                   y: Int(point.y.rounded())))
+            return Double(colour.redComponent * 255)
+        }
+
+        let noon = try road(at: localNoon)
+        let midnight = try road(at: localMidnight)
+
+        XCTAssertGreaterThan(midnight, noon + 1,
+                             "the night exposure lifts the whole picture, and the road "
+                             + "is part of the picture")
     }
 
     // MARK: - The cars

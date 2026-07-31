@@ -65,8 +65,6 @@ enum Weather: String, CaseIterable, Sendable {
 /// Night is not a gamma lift any more but a change of exposure — what a camera
 /// would do. The tone curve is what stops the window lights burning out.
 struct SceneLight: Sendable {
-    /// Solar elevation in degrees, as handed in.
-    let elevation: Double
     /// The elevation the key light is actually shaded from. Below the horizon
     /// this is the moon's, so the scene does not go flat at dusk.
     let keyElevation: Double
@@ -97,10 +95,6 @@ struct SceneLight: Sendable {
     /// 0 by day, 1 at night, with a smooth crossing around the horizon.
     let night: Double
     let weather: Weather
-    /// Rain leaves the surfaces wet, which later layers reflect off.
-    let wet: Bool
-    /// True once the sun is effectively down and artificial light takes over.
-    let dark: Bool
 
     // MARK: - Construction
 
@@ -149,7 +143,6 @@ struct SceneLight: Sendable {
         )
 
         return SceneLight(
-            elevation: el,
             keyElevation: keyElevation,
             direct: direct,
             diffuse: diffuse,
@@ -165,9 +158,7 @@ struct SceneLight: Sendable {
             shadowAlpha: max(0.13 * night, 0.16 + 0.40 * smooth(0, 22, el)) * weather.shadowFactor,
             shadowBlur: max(weather.shadowBlurFactor, night * 0.5),
             night: night,
-            weather: weather,
-            wet: weather == .rain,
-            dark: el < 0.5
+            weather: weather
         )
     }
 
@@ -204,6 +195,14 @@ struct SceneLight: Sendable {
 
     /// For things already conceived as finished screen colours (HUD, lines):
     /// through the same curve, so they do not sit apart from the scene.
+    ///
+    /// The track and its captions are drawn from flat greys but are still in the
+    /// picture, and a flat grey is the one thing the night exposure never
+    /// reaches — the same mistake the backdrop used to make.
+    func emissiveSRGB(_ srgb: SIMD3<Double>, strength: Double = 1) -> SIMD3<Double> {
+        encodeSRGB(SceneLight.linearFromSRGB(srgb) * strength)
+    }
+
     func emissive(_ srgb: SIMD3<Double>, strength: Double = 1) -> Color {
         encode(SceneLight.linearFromSRGB(srgb) * strength)
     }
@@ -220,20 +219,12 @@ struct SceneLight: Sendable {
         return a * (ambientLinear * kd + sunLinear * ks)
     }
 
-    func shadeWall(normalX: Double, normalY: Double, albedo: SIMD3<Double>) -> Color {
-        encode(shadeWallLinear(normalX: normalX, normalY: normalY, albedo: albedo))
-    }
-
     /// A roof looks up: the full sky, and the sun by its sine.
     func shadeRoofLinear(albedo: SIMD3<Double>) -> SIMD3<Double> {
         let a = SceneLight.linearFromSRGB(albedo)
         let sinElevation = max(0, sin(max(0, keyElevation) * .pi / 180))
         let ks = direct * sinElevation
         return a * (ambientLinear * diffuse + sunLinear * ks)
-    }
-
-    func shadeRoof(albedo: SIMD3<Double>) -> Color {
-        encode(shadeRoofLinear(albedo: albedo))
     }
 
     // MARK: - Colour space

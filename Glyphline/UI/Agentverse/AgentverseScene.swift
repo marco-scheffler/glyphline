@@ -213,7 +213,9 @@ struct AgentverseScene: View {
         case .flat(let flat): srgb = flat
         case .alternating(let kerbRed, let pale): srgb = red ? kerbRed : pale
         }
-        return Color(.sRGB, red: srgb.x / 255, green: srgb.y / 255, blue: srgb.z / 255,
-                     opacity: alpha)
+        // Through the light, not beside it: the track is drawn from finished
+        // screen colours, but it is in the scene, and the scene's exposure is
+        // what tells noon from midnight.
+        return light.emissive(srgb).opacity(alpha)
     }
 }

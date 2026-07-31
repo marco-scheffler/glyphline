@@ -167,7 +167,7 @@ enum StaticSceneImage {
         let fit = CircuitFit(circuit: circuit, in: size)
         drawTerrain(into: context, circuit: circuit, light: light, fit: fit)
         SceneryLayer.draw(into: context, scenery: circuit.scenery, light: light, fit: fit)
-        drawTrack(into: context, circuit: circuit, fit: fit)
+        drawTrack(into: context, circuit: circuit, light: light, fit: fit)
 
         return context.makeImage()
     }
@@ -207,7 +207,8 @@ enum StaticSceneImage {
     /// the same order and the same colours, plus the corner names — which only
     /// ever appear here, because text is the one thing in the scene that would
     /// have to be laid out again on every frame.
-    private static func drawTrack(into context: CGContext, circuit: Circuit, fit: CircuitFit) {
+    private static func drawTrack(into context: CGContext, circuit: Circuit,
+                                 light: SceneLight, fit: CircuitFit) {
         context.saveGState()
         context.setLineCap(.round)
         context.setLineJoin(.round)
@@ -217,31 +218,35 @@ enum StaticSceneImage {
             switch stroke.path {
             case .centreline:
                 self.stroke(CircuitTrackShape.centreline(for: circuit, fit: fit).cgPath,
-                            into: context, paint: stroke.paint, alpha: stroke.alpha, width: width)
+                            into: context, paint: stroke.paint, alpha: stroke.alpha,
+                            width: width, light: light)
             case .racingLine:
                 self.stroke(CircuitTrackShape.racingLine(for: circuit, fit: fit).cgPath,
-                            into: context, paint: stroke.paint, alpha: stroke.alpha, width: width)
+                            into: context, paint: stroke.paint, alpha: stroke.alpha,
+                            width: width, light: light)
             case .kerbs:
                 drawKerbs(into: context, circuit: circuit, fit: fit,
-                          paint: stroke.paint, width: width)
+                          paint: stroke.paint, width: width, light: light)
             case .pitLane:
                 self.stroke(CircuitTrackShape.pitLane(for: circuit, fit: fit).cgPath,
-                            into: context, paint: stroke.paint, alpha: stroke.alpha, width: width)
+                            into: context, paint: stroke.paint, alpha: stroke.alpha,
+                            width: width, light: light)
             case .startFinish:
                 self.stroke(CircuitTrackShape.startFinish(for: circuit, fit: fit).cgPath,
-                            into: context, paint: stroke.paint, alpha: stroke.alpha, width: width)
+                            into: context, paint: stroke.paint, alpha: stroke.alpha,
+                            width: width, light: light)
             }
         }
 
         context.restoreGState()
-        drawCornerNames(into: context, circuit: circuit, fit: fit)
+        drawCornerNames(into: context, circuit: circuit, light: light, fit: fit)
     }
 
     /// Butt caps, not the round ones the rest of the track uses: a round cap on
     /// both ends of every block closes the gaps the alternation is made of, and
     /// the kerb comes out a solid pink line.
     private static func drawKerbs(into context: CGContext, circuit: Circuit, fit: CircuitFit,
-                                  paint: TrackStroke.Paint, width: CGFloat) {
+                                  paint: TrackStroke.Paint, width: CGFloat, light: SceneLight) {
         let blocks = CircuitTrackShape.kerbs(for: circuit, fit: fit)
         guard !blocks.isEmpty else { return }
 
@@ -251,17 +256,23 @@ enum StaticSceneImage {
         for (block, red) in blocks {
             let path = block.cgPath
             guard !path.isEmpty else { continue }
-            context.setStrokeColor(colour(srgb(paint, red: red)))
+            context.setStrokeColor(colour(srgb(paint, red: red, light: light)))
             context.addPath(path)
             context.strokePath()
         }
         context.restoreGState()
     }
 
-    private static func srgb(_ paint: TrackStroke.Paint, red: Bool) -> SIMD3<Double> {
+    /// The stroke's own colour, put through the light as emissive. The track is
+    /// designed as finished screen colours, but it lies in the scene: left raw
+    /// it is the only thing in the picture that does not change between noon and
+    /// midnight, which reads as the road glowing on its own at night.
+    private static func srgb(_ paint: TrackStroke.Paint, red: Bool,
+                             light: SceneLight) -> SIMD3<Double> {
         switch paint {
-        case .flat(let flat): return flat
-        case .alternating(let kerbRed, let pale): return red ? kerbRed : pale
+        case .flat(let flat): return light.emissiveSRGB(flat)
+        case .alternating(let kerbRed, let pale):
+            return light.emissiveSRGB(red ? kerbRed : pale)
         }
     }
 
@@ -290,6 +301,7 @@ enum StaticSceneImage {
     }
 
     private static func drawCornerNames(into context: CGContext, circuit: Circuit,
+                                        light: SceneLight,
                                         fit: CircuitFit) {
         let labels = cornerLabels(for: circuit, fit: fit)
         guard !labels.isEmpty else { return }
@@ -299,7 +311,7 @@ enum StaticSceneImage {
         let font = CTFontCreateWithName("Helvetica" as CFString, 9, nil)
         let attributes: [NSAttributedString.Key: Any] = [
             .font: font,
-            .foregroundColor: colour(SIMD3(232, 228, 216), alpha: 0.72),
+            .foregroundColor: colour(light.emissiveSRGB(SIMD3(232, 228, 216)), alpha: 0.72),
         ]
 
         for label in labels {
@@ -321,9 +333,11 @@ enum StaticSceneImage {
     }
 
     private static func stroke(_ path: CGPath, into context: CGContext,
-                               paint: TrackStroke.Paint, alpha: Double, width: CGFloat) {
+                               paint: TrackStroke.Paint, alpha: Double, width: CGFloat,
+                               light: SceneLight) {
         guard !path.isEmpty else { return }
-        context.setStrokeColor(colour(srgb(paint, red: false), alpha: CGFloat(alpha)))
+        context.setStrokeColor(colour(srgb(paint, red: false, light: light),
+                                      alpha: CGFloat(alpha)))
         context.setLineWidth(width)
         context.addPath(path)
         context.strokePath()
