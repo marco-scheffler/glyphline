@@ -14,23 +14,71 @@ final class CarPositionTests: XCTestCase {
         XCTAssertEqual(CarPosition.lapCount(workTokens: 540_000, tokensPerLap: 1_000_000), 0)
     }
 
-    /// A car with no complete lap still has a place on the circuit. Position is
-    /// the fraction, not the count — a session showing zero laps is early, not
-    /// stationary.
-    func testPositionIsTheFractionOfALap() {
-        XCTAssertEqual(
-            CarPosition.lapFraction(workTokens: 2_600_000, tokensPerLap: 1_000_000),
-            0.6, accuracy: 0.0001
-        )
-        XCTAssertEqual(
-            CarPosition.lapFraction(workTokens: 540_000, tokensPerLap: 1_000_000),
-            0.54, accuracy: 0.0001
-        )
+    func testASessionWithNoTokensHasNoCompletedLap() {
+        XCTAssertEqual(CarPosition.lapCount(workTokens: 0, tokensPerLap: 1_000_000), 0)
     }
 
-    func testASessionWithNoTokensSitsAtTheLine() {
-        XCTAssertEqual(CarPosition.lapFraction(workTokens: 0, tokensPerLap: 1_000_000), 0)
-        XCTAssertEqual(CarPosition.lapCount(workTokens: 0, tokensPerLap: 1_000_000), 0)
+    /// The place on the circuit is the clock, not the odometer. A car that has
+    /// been driving for a whole lap time is back where it started.
+    func testAWorkingCarCoversALapInTheLapTime() {
+        let start = CarPosition.lapFraction(frame: 0, startOffset: 0,
+                                            framesPerSecond: 60, secondsPerLap: 45)
+        let quarter = CarPosition.lapFraction(frame: 675, startOffset: 0,
+                                              framesPerSecond: 60, secondsPerLap: 45)
+        let full = CarPosition.lapFraction(frame: 2700, startOffset: 0,
+                                           framesPerSecond: 60, secondsPerLap: 45)
+
+        XCTAssertEqual(start, 0, accuracy: 0.0001)
+        XCTAssertEqual(quarter, 0.25, accuracy: 0.0001)
+        XCTAssertEqual(full, 0, accuracy: 0.0001)
+    }
+
+    /// A lap in the region of half a minute: fast enough that a glance catches
+    /// movement, slow enough that the field stays readable.
+    func testALapTakesFortyFiveSeconds() {
+        XCTAssertEqual(CarPosition.secondsPerLap, 45)
+        XCTAssertEqual(CarPosition.framesPerSecond, 60)
+    }
+
+    /// The offset moves the car round the lap without changing its speed.
+    func testTheStartOffsetShiftsTheCarRoundTheLap() {
+        XCTAssertEqual(CarPosition.lapFraction(frame: 0, startOffset: 0.3),
+                       0.3, accuracy: 0.0001)
+        XCTAssertEqual(CarPosition.lapFraction(frame: 675, startOffset: 0.9,
+                                               framesPerSecond: 60, secondsPerLap: 45),
+                       0.15, accuracy: 0.0001,
+                       "past the line the lap wraps rather than running past 1")
+    }
+
+    /// Whatever the frame, the fraction has to be one `pointIndex` can use.
+    func testEveryFrameYieldsAFractionInsideTheLap() {
+        for frame in stride(from: 0, to: 20_000, by: 137) {
+            let fraction = CarPosition.lapFraction(frame: frame, startOffset: 0.77)
+            XCTAssertTrue((0 ..< 1).contains(fraction), "frame \(frame) left the lap")
+        }
+    }
+
+    /// A zero lap time is a broken constant, not a division by zero.
+    func testAZeroLapTimeLeavesTheCarAtItsOffset() {
+        XCTAssertEqual(CarPosition.lapFraction(frame: 900, startOffset: 0.4,
+                                               framesPerSecond: 60, secondsPerLap: 0),
+                       0.4, accuracy: 0.0001)
+    }
+
+    /// The same session keeps its place in the field across launches, which
+    /// `hashValue` — seeded per process — could not promise.
+    func testTheStartOffsetIsStableForASession() {
+        XCTAssertEqual(CarPosition.startOffset(sessionID: "019fa0ad-422e-79e0-b0d5-c4605371f1d2"),
+                       CarPosition.startOffset(sessionID: "019fa0ad-422e-79e0-b0d5-c4605371f1d2"))
+    }
+
+    /// The whole point of the offset: cars must not be stacked on one another.
+    func testTheStartOffsetSpreadsTheField() {
+        let offsets = (0 ..< 200).map { CarPosition.startOffset(sessionID: "session-\($0)") }
+
+        XCTAssertTrue(offsets.allSatisfy { $0 >= 0 && $0 < 1 })
+        XCTAssertGreaterThan(Set(offsets).count, 150,
+                             "the hash is collapsing distinct sessions onto one place")
     }
 
     /// The lap begins at the measured start/finish line, not at whatever point

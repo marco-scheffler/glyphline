@@ -191,7 +191,6 @@ struct AgentverseWindow: View {
                 circuit: circuit,
                 sessions: coordinator.onTrack,
                 parked: coordinator.parked,
-                workTokens: coordinator.workTokens,
                 hovered: hovered,
                 // The clock enters here and nowhere below: the scene itself is
                 // a pure function of its inputs, so a test can pin the frame.

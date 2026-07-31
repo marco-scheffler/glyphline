@@ -2,8 +2,12 @@ import Foundation
 
 /// Where a car sits on its lap, and how many it has completed.
 ///
-/// Both come from one number, so the odometer and the place on the circuit can
-/// never tell different stories.
+/// Two different questions with two different answers. The lap *count* is an
+/// odometer: work tokens divided by `tokensPerLap`. The *place on the circuit*
+/// is the clock — a working car drives at a fixed speed, the same for every car.
+/// Position used to be derived from tokens too, which froze every car whose
+/// session was waiting for the user, because a waiting session produces no
+/// tokens at all.
 enum CarPosition {
     /// Measured rather than chosen. Across 309 sessions on the reference machine
     /// the median held 2.46 M work tokens and the largest 413 M; among the nine
@@ -17,12 +21,49 @@ enum CarPosition {
         return max(0, workTokens) / tokensPerLap
     }
 
-    /// 0 at the start/finish line, approaching 1 at the end of the lap. Which
-    /// stored point that is depends on the circuit — see `pointIndex`.
-    static func lapFraction(workTokens: Int64, tokensPerLap: Int64 = tokensPerLap) -> Double {
-        guard tokensPerLap > 0 else { return 0 }
-        let remainder = max(0, workTokens) % tokensPerLap
-        return Double(remainder) / Double(tokensPerLap)
+    /// The window's `TimelineView` hands the scene `Int(time * 60)`, so a frame
+    /// is a sixtieth of a second. Stated here because the lap time below is
+    /// meaningless without it.
+    static let framesPerSecond: Double = 60
+
+    /// Every car drives at this one speed; none of them has a speed of its own.
+    ///
+    /// Chosen for how it reads rather than measured: a few seconds a lap is a
+    /// blur nobody can follow, and ten minutes a lap is a picture that looks
+    /// frozen. Forty-five seconds puts a car past a given corner roughly once a
+    /// minute — fast enough that a glance at the window catches movement, slow
+    /// enough that a car keeps its place in the field long enough to be
+    /// recognised.
+    static let secondsPerLap: Double = 45
+
+    /// Where a car that has been driving since the reference date stands, as a
+    /// fraction of a lap. 0 at the start/finish line, approaching 1 at its end.
+    ///
+    /// `startOffset` spreads the field: without it every car would sit on the
+    /// same square metre of road.
+    static func lapFraction(frame: Int, startOffset: Double,
+                            framesPerSecond: Double = framesPerSecond,
+                            secondsPerLap: Double = secondsPerLap) -> Double {
+        guard framesPerSecond > 0, secondsPerLap > 0 else { return startOffset }
+        let laps = Double(frame) / framesPerSecond / secondsPerLap + startOffset
+        let fraction = laps.truncatingRemainder(dividingBy: 1)
+        return fraction < 0 ? fraction + 1 : fraction
+    }
+
+    /// A session's own place in the field, stable across restarts.
+    ///
+    /// FNV-1a over the id's bytes, the same hash `CarLivery.forSession` uses and
+    /// for the same reason: Swift's `hashValue` is seeded per process, so a car
+    /// would jump to a different part of the circuit on every launch.
+    static func startOffset(sessionID: String) -> Double {
+        var hash: UInt64 = 0xcbf2_9ce4_8422_2325
+        for byte in sessionID.utf8 {
+            hash ^= UInt64(byte)
+            hash &*= 0x0000_0100_0000_01b3
+        }
+        // A thousand distinct places round the lap: finer than any circuit's
+        // stored geometry, so nothing is lost by quantising here.
+        return Double(hash % 1000) / 1000
     }
 
     /// Which centreline point a car at `fraction` of a lap stands on.

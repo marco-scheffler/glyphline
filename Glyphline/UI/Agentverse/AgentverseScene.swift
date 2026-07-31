@@ -14,7 +14,6 @@ struct AgentverseScene: View {
     let circuit: Circuit
     let sessions: [AgentSession]
     let parked: [ParkedAgentSession]
-    let workTokens: [String: Int64]
     let hovered: String?
     let frame: Int
     /// Where the sun stands over the circuit, already solved. Handed in rather
@@ -143,8 +142,14 @@ struct AgentverseScene: View {
             // second — the rate the clock-derived blink had.
             let blinkOn = frame / 30 % 2 == 0
             for session in sessions {
-                let tokens = workTokens[session.id] ?? 0
-                let fraction = CarPosition.lapFraction(workTokens: tokens)
+                let waiting = session.activity == .waitingForYou
+                let offset = CarPosition.startOffset(sessionID: session.id)
+                // A waiting car stands still on the racing line with its hazards
+                // on; only a working one is driving, so only a working one reads
+                // the clock.
+                let fraction = waiting
+                    ? offset
+                    : CarPosition.lapFraction(frame: frame, startOffset: offset)
                 let index = CarPosition.pointIndex(fraction: fraction,
                                                    startIdx: circuit.startIdx,
                                                    count: circuit.points.count)
@@ -152,7 +157,6 @@ struct AgentverseScene: View {
                 let heading = CarPosition.heading(points: circuit.points, index: index,
                                                   closed: true, fit: fit) ?? 0
                 let livery = CarLivery.forSession(session.id)
-                let waiting = session.activity == .waitingForYou
 
                 drawCar(at: fit.point(circuit.points[index]), heading: heading,
                         livery: livery, hazardsOn: waiting && blinkOn,

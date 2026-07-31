@@ -74,7 +74,6 @@ final class AgentverseSnapshotTests: XCTestCase {
             circuit: try monaco(),
             sessions: sessions,
             parked: parked,
-            workTokens: ["S1": 2_600_000, "S2": 540_000],
             hovered: hovered,
             frame: frame,
             sun: try sun(at: instant),
@@ -238,11 +237,12 @@ final class AgentverseSnapshotTests: XCTestCase {
         // test would then be asserting that a car differs from itself.
         XCTAssertNotEqual(CarLivery.forSession(one.id), CarLivery.forSession(other.id))
 
-        // Neither id is in `workTokens`, so both cars stand at lap fraction zero
-        // and the paint is all that is left to differ.
+        // Both cars are working and driving at the same speed, but their ids put
+        // them at different places on the lap as well as in different paint. That
+        // is two reasons for the pictures to differ, and either would do.
         let scene = { (session: AgentSession) in
             AgentverseScene(circuit: try self.monaco(), sessions: [session], parked: [],
-                            workTokens: [:], hovered: nil, frame: 600,
+                            hovered: nil, frame: 600,
                             sun: try self.sun(at: self.instant), weather: .clear)
         }
 
@@ -259,6 +259,29 @@ final class AgentverseSnapshotTests: XCTestCase {
         XCTAssertNotEqual(on, off,
                           "only `frame` differs, and nothing but the hazard blink "
                           + "reads the frame, so a waiting car must flash")
+    }
+
+    /// A working car drives. Frame 600 and frame 660 are a second apart, which is
+    /// a forty-fifth of a lap — several stored centreline points at Monaco.
+    func testAWorkingCarMovesBetweenFrames() throws {
+        let early = try render(scene(sessions: [workingSession], parked: [], frame: 600))
+        let later = try render(scene(sessions: [workingSession], parked: [], frame: 660))
+
+        XCTAssertNotEqual(early, later,
+                          "only `frame` differs, and a working car takes its place "
+                          + "from the clock, so it must have moved")
+    }
+
+    /// A waiting car does not creep. Both frames are in the same blink phase —
+    /// 600/30 is 20 and 660/30 is 22, both even — so the hazards are lit in both
+    /// and the only thing left that could differ is the car's place.
+    func testAWaitingCarStaysWhereItIsBetweenFrames() throws {
+        let early = try render(scene(sessions: [waitingSession], parked: [], frame: 600))
+        let later = try render(scene(sessions: [waitingSession], parked: [], frame: 660))
+
+        XCTAssertEqual(early, later,
+                       "a session waiting for the user is stopped on the racing line; "
+                       + "only its hazards move, and both frames are lit")
     }
 
     // MARK: - The light
