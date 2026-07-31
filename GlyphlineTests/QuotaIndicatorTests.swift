@@ -827,13 +827,14 @@ final class QuotaIndicatorTests: XCTestCase {
             observedAt: now
         )
 
-        XCTAssertEqual(QuotaIndicator.exhaustionText(for: window, now: now), "empty in 9h 20m")
+        XCTAssertEqual(QuotaIndicator.paceText(for: window, now: now), "empty in 9h 20m")
     }
 
-    /// A row that makes it to the reset says nothing extra. The bar already
-    /// reports that it is fine, and a note on every healthy row is noise in a
-    /// panel read at a glance.
-    func testAWindowThatLastsToItsResetSaysNothing() {
+    /// A healthy row says so rather than staying quiet. Silence was the first
+    /// design, and it turned out to be indistinguishable from the prediction not
+    /// running at all — the five-hour rows never showed one, because none of
+    /// them was ever unhealthy, and that read as a missing feature.
+    func testAWindowThatLastsToItsResetSaysSo() {
         let window = RateWindow(
             kind: .weekly,
             usedFraction: 0.1,
@@ -841,7 +842,7 @@ final class QuotaIndicatorTests: XCTestCase {
             observedAt: now
         )
 
-        XCTAssertNil(QuotaIndicator.exhaustionText(for: window, now: now))
+        XCTAssertEqual(QuotaIndicator.paceText(for: window, now: now), "on track")
     }
 
     func testEachWindowIsMeasuredAgainstItsOwnSpan() {
@@ -853,19 +854,34 @@ final class QuotaIndicatorTests: XCTestCase {
             observedAt: now
         )
 
-        XCTAssertEqual(QuotaIndicator.exhaustionText(for: window, now: now), "empty in 26m")
+        XCTAssertEqual(QuotaIndicator.paceText(for: window, now: now), "empty in 26m")
+    }
+
+    /// The five-hour window is judged by the same rule as the weekly one. This
+    /// is the case that looked broken from outside: a healthy five-hour row.
+    func testAHealthyFiveHourWindowIsJudgedTooRatherThanSkipped() {
+        // A twentieth gone in the window's first half hour: at that pace it
+        // outlasts the reset comfortably.
+        let window = RateWindow(
+            kind: .rollingFiveHours,
+            usedFraction: 0.05,
+            resetAt: now.addingTimeInterval(4.5 * 3_600),
+            observedAt: now
+        )
+
+        XCTAssertEqual(QuotaIndicator.paceText(for: window, now: now), "on track")
     }
 
     func testThereIsNoPredictionWithoutSomethingToExtrapolateFrom() {
         XCTAssertNil(
-            QuotaIndicator.exhaustionText(
+            QuotaIndicator.paceText(
                 for: RateWindow(kind: .weekly, usedFraction: 0.5, resetAt: nil, observedAt: now),
                 now: now
             ),
             "no reset instant means no window start, so no pace"
         )
         XCTAssertNil(
-            QuotaIndicator.exhaustionText(
+            QuotaIndicator.paceText(
                 for: RateWindow(
                     kind: .weekly, usedFraction: 0,
                     resetAt: now.addingTimeInterval(86_400), observedAt: now
@@ -875,7 +891,7 @@ final class QuotaIndicatorTests: XCTestCase {
             "nothing consumed is not a pace of zero, it is no pace at all"
         )
         XCTAssertNil(
-            QuotaIndicator.exhaustionText(
+            QuotaIndicator.paceText(
                 for: RateWindow(
                     kind: .weekly, usedFraction: nil,
                     resetAt: now.addingTimeInterval(86_400), observedAt: now
@@ -884,7 +900,7 @@ final class QuotaIndicatorTests: XCTestCase {
             )
         )
         XCTAssertNil(
-            QuotaIndicator.exhaustionText(
+            QuotaIndicator.paceText(
                 for: RateWindow(
                     kind: .billingCycle, usedFraction: 0.9,
                     resetAt: now.addingTimeInterval(86_400), observedAt: now
@@ -908,8 +924,8 @@ final class QuotaIndicatorTests: XCTestCase {
 
         XCTAssertEqual(rows[0].detail, "10% left · resets in 3d 12h · empty in 9h 20m")
         XCTAssertEqual(
-            rows[1].detail, "90% left · resets in 1h",
-            "a window with headroom carries no prediction at all"
+            rows[1].detail, "90% left · resets in 1h · on track",
+            "a window with headroom says so rather than staying silent about it"
         )
     }
 

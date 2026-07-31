@@ -328,21 +328,27 @@ enum QuotaIndicator {
         }
     }
 
-    /// When this window runs dry at the pace it has been consumed so far —
-    /// worded only if that happens before it resets.
+    /// Whether this window survives to its own reset at the pace it has been
+    /// consumed so far — "on track", or when it will not, "empty in …".
     ///
     /// Averaged across the window rather than differentiated between readings.
     /// The provider quantises `usedFraction` to whole percent, so consecutive
     /// samples are usually identical: a derivative would read zero for twenty
     /// minutes and then spike as the figure steps by one. Averaging also means
     /// this needs no sample history at all — the window's start is `resetAt`
-    /// minus its own span, so a prediction exists from the first reading rather
+    /// minus its own span, so a verdict exists from the first reading rather
     /// than after days of collection.
     ///
-    /// Silent when the window lasts. The bar already says a healthy row is
-    /// healthy, and a note on every row would be noise in a panel whose whole
-    /// purpose is being readable at a glance.
-    static func exhaustionText(for window: RateWindow, now: Date) -> String? {
+    /// A healthy window says so rather than staying quiet. Silence was the first
+    /// design, on the grounds that a note on every row is noise; in use it was
+    /// indistinguishable from the feature not running. The five-hour rows never
+    /// showed a prediction — none of them was ever unhealthy — and that read as
+    /// a calculation that only applied to the weekly window.
+    ///
+    /// `nil` remains for the windows there is genuinely nothing to say about:
+    /// no reset instant, no reported fraction, nothing consumed yet, or a
+    /// billing cycle, whose span is whatever the subscription says.
+    static func paceText(for window: RateWindow, now: Date) -> String? {
         guard let resetAt = window.resetAt,
               let span = span(of: window.kind),
               let used = window.usedFraction,
@@ -355,7 +361,7 @@ enum QuotaIndicator {
         guard elapsed > 0 else { return nil }
 
         let remaining = (1 - used) * elapsed / used
-        guard remaining < resetAt.timeIntervalSince(now) else { return nil }
+        guard remaining < resetAt.timeIntervalSince(now) else { return "on track" }
 
         return "empty in \(compactDuration(remaining))"
     }
@@ -513,11 +519,10 @@ enum QuotaIndicator {
                         detail = "usage unknown · \(remaining)"
                     }
 
-                    // Appended rather than replacing anything, and only when the
-                    // window will not survive to its own reset — see
-                    // `exhaustionText`.
-                    if let exhaustion = exhaustionText(for: windowState.window, now: now) {
-                        detail += " · \(exhaustion)"
+                    // Appended rather than replacing anything. Absent only where
+                    // there is nothing to say — see `paceText`.
+                    if let pace = paceText(for: windowState.window, now: now) {
+                        detail += " · \(pace)"
                     }
 
                     return QuotaBarRow(
