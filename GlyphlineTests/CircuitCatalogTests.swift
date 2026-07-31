@@ -44,6 +44,23 @@ final class CircuitCatalogTests: XCTestCase {
         }
     }
 
+    /// A corner name is only ever drawn at `points[idx]`, and the index comes out
+    /// of a separate file built in a separate run. Monaco and Las Vegas have no
+    /// named corners in OpenStreetMap at all, so an empty list is the right
+    /// answer for them and must not be mistaken for a missing one.
+    func testEveryCornerIndexesIntoItsOwnCentreline() throws {
+        let catalog = try catalog()
+        for key in catalog.keys {
+            let circuit = try XCTUnwrap(catalog.circuit(key))
+            for corner in circuit.corners {
+                XCTAssertTrue(
+                    circuit.points.indices.contains(corner.idx),
+                    "\(key): '\(corner.name)' points outside the centreline"
+                )
+            }
+        }
+    }
+
     /// Four are driven clockwise; Las Vegas is the odd one out. Screen space runs
     /// y downwards, so a positive shoelace area reads as clockwise.
     func testRacingDirectionSurvivedTheProjection() throws {

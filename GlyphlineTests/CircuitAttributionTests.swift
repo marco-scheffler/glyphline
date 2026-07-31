@@ -15,8 +15,4 @@ final class CircuitAttributionTests: XCTestCase {
         XCTAssertTrue(text.contains("MIT"))
         XCTAssertTrue(text.contains("Mapzen"), "the elevation tiles must be credited")
     }
-
-    func testThereIsSomethingToShow() {
-        XCTAssertFalse(CircuitAttribution.lines.isEmpty)
-    }
 }

@@ -79,8 +79,9 @@ struct CircuitTerrain: Decodable, Equatable, Sendable {
     var grid: [Int] = []
     /// Elevation along the centreline, one entry per point.
     var profile: [Double] = []
-    /// One flag per grid cell, or `nil` for an inland circuit. Absent rather than
-    /// all-zero, so "no coast" cannot be read as "not computed".
+    /// One flag per grid cell, or `nil` for an inland circuit — where the data
+    /// carries the key explicitly set to null. Null rather than all-zero, so
+    /// "no coast" cannot be read as "not computed".
     var sea: [Int]?
 }
 
