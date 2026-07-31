@@ -399,6 +399,42 @@ final class ClaudeCodeLogReaderTests: XCTestCase {
         XCTAssertEqual(rows[1].totalTokens, 10)
     }
 
+    /// The session analogue of `testSameDayAppendYieldsOnlyTheDeltaAndTheLedgerEndsAtTheFullTotal`.
+    /// The reader emits only what it has newly read and the store adds it, so the
+    /// two halves must meet at the full total. A store that replaced instead of
+    /// added would leave the session showing the second read alone, and every
+    /// other session test does a single read and would stay green through it.
+    func testASecondReadOfTheSameSessionLeavesTheStoredTotalAtTheFullSum() throws {
+        let reader = makeReader()
+
+        try write(
+            sessionLine(session: "S1", model: "sonnet", input: 100, output: 10,
+                        timestamp: "2026-07-30T10:00:00.000Z") + "\n",
+            to: "a.jsonl"
+        )
+        try ledger.applyLocalScan(try reader.read())
+        XCTAssertEqual(try ledger.fetchSessionTokens(sessionIDs: ["S1"])["S1"], 110)
+
+        try append(
+            sessionLine(session: "S1", model: "sonnet", input: 20, output: 2,
+                        timestamp: "2026-07-30T10:05:00.000Z") + "\n",
+            to: "a.jsonl"
+        )
+
+        let second = try reader.read()
+        XCTAssertEqual(
+            second.sessionUsage.first { $0.sessionID == "S1" }?.totalTokens, 22,
+            "the reader hands over the appended lines alone"
+        )
+
+        try ledger.applyLocalScan(second)
+
+        XCTAssertEqual(
+            try ledger.fetchSessionTokens(sessionIDs: ["S1"])["S1"], 132,
+            "both reads, added once each — not the second one on its own"
+        )
+    }
+
     /// A record with no session id still counts toward the day. It must not be
     /// gathered under a placeholder id — a sentinel would be read as a session
     /// by the next person to look.
