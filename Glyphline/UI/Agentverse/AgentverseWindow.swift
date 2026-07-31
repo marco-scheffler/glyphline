@@ -11,10 +11,13 @@ struct AgentverseWindow: View {
     @State private var isRefreshing = false
     @State private var catalog: CircuitCatalog?
     @State private var circuitKey = "monaco"
+    /// One id for both sections: hovering a parked row must fade the field on
+    /// track exactly as hovering an on-track row fades the pit lane.
+    @State private var hoveredSessionID: String?
 
     var body: some View {
         HSplitView {
-            AgentverseSidebar()
+            AgentverseSidebar(hovered: $hoveredSessionID)
                 .frame(minWidth: 240, idealWidth: 264, maxWidth: 340)
             scene
                 .frame(minWidth: 640, maxWidth: .infinity, maxHeight: .infinity)
@@ -44,6 +47,10 @@ struct AgentverseWindow: View {
             ContentUnavailableView("No map", systemImage: "exclamationmark.triangle",
                                    description: Text(message))
         } else if let circuit = catalog?.circuit(circuitKey) {
+            // Read out here rather than inside the canvas: the drawing closure is
+            // nonisolated, and reaching into the view's state from it would be an
+            // actor-isolation violation.
+            let hovered = hoveredSessionID
             TimelineView(.animation) { timeline in
                 Canvas { context, size in
                     let fit = CircuitFit(circuit: circuit, in: size)
@@ -87,6 +94,14 @@ struct AgentverseWindow: View {
                                        lineWidth: ringWidth)
                     }
 
+                    // A function rather than a mutation of `context.opacity`: a
+                    // reset missed on one path would silently fade everything
+                    // drawn after it.
+                    func spotlight(_ id: String) -> Double {
+                        guard let hovered else { return 1 }
+                        return hovered == id ? 1 : 0.18
+                    }
+
                     // The pit lane first, so a car rejoining never appears to sit
                     // on top of the field it is behind.
                     if !circuit.pit.isEmpty {
@@ -97,7 +112,8 @@ struct AgentverseWindow: View {
                                             Int(slot * Double(circuit.pit.count)))
                             let livery = CarLivery.forSession(session.sessionID)
                             drawCar(at: fit.point(circuit.pit[along]), livery: livery,
-                                    ring: livery.accent, ringWidth: 1.5, opacity: 0.45)
+                                    ring: livery.accent, ringWidth: 1.5,
+                                    opacity: 0.45 * spotlight(session.sessionID))
                         }
                     }
 
@@ -113,7 +129,8 @@ struct AgentverseWindow: View {
 
                         drawCar(at: fit.point(circuit.points[index]), livery: livery,
                                 ring: waiting && blinkOn ? .orange : livery.accent,
-                                ringWidth: waiting ? 3 : 1.5, opacity: 1)
+                                ringWidth: waiting ? 3 : 1.5,
+                                opacity: spotlight(session.id))
                     }
                 }
                 .background(Color(white: 0.07))
@@ -148,21 +165,45 @@ struct AgentverseWindow: View {
     }
 }
 
-/// The list beside the scene. Filled in a later task; present now so the window
-/// has its shape.
+/// The list beside the scene: which agent each car on the circuit is, and which
+/// of them is waiting for an answer.
 struct AgentverseSidebar: View {
     @EnvironmentObject private var coordinator: AgentverseCoordinator
+    @Binding var hovered: String?
 
     var body: some View {
         List {
             Section("On track") {
                 ForEach(coordinator.onTrack) { session in
-                    Text(session.cwd)
+                    AgentRow(model: AgentRowModel(session: session,
+                                                  workTokens: coordinator.workTokens[session.id] ?? 0),
+                             livery: CarLivery.forSession(session.id))
+                        .onHover { inside in
+                            hovered = inside ? session.id : (hovered == session.id ? nil : hovered)
+                        }
                 }
             }
             Section("Pit lane") {
                 ForEach(coordinator.parked) { session in
-                    Text(session.cwd)
+                    HStack(spacing: 6) {
+                        AgentRow(model: AgentRowModel(parked: session,
+                                                      workTokens: coordinator.workTokens[session.sessionID] ?? 0),
+                                 livery: CarLivery.forSession(session.sessionID))
+                        // Only while pointed at, so a column of crosses does not
+                        // compete with the rows themselves.
+                        if hovered == session.id {
+                            Button {
+                                coordinator.dismiss(sessionID: session.sessionID)
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                            }
+                            .buttonStyle(.plain)
+                            .help("Remove this session from the Agentverse")
+                        }
+                    }
+                    .onHover { inside in
+                        hovered = inside ? session.id : (hovered == session.id ? nil : hovered)
+                    }
                 }
             }
         }

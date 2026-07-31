@@ -50,6 +50,7 @@
 		54B04C19F46485890B8DC28B /* AgentSessionScannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BD3C2C540C231D67EC5F063 /* AgentSessionScannerTests.swift */; };
 		56B7FB0376CEC3F26127F083 /* AccountCredentialReference.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54DF3B50A77102C6E68EAC4C /* AccountCredentialReference.swift */; };
 		59022EBC301F5B43468F886F /* CostEstimatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10078AD9B1875C460A90C37 /* CostEstimatorTests.swift */; };
+		5D6CC45BF8A924FA46602063 /* AgentRowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6DDC448405B7A5F2656A0419 /* AgentRowTests.swift */; };
 		61A64256A40AD32B70B05AE0 /* ClaudeTranscriptDirectory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3610A69A0253B7E24D442A3C /* ClaudeTranscriptDirectory.swift */; };
 		6297587928848D3008A7EF09 /* CarPositionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 348C48084085DAC1F1799E8E /* CarPositionTests.swift */; };
 		62AEDAC5F7777FF0E4583A84 /* terrain.json in Resources */ = {isa = PBXBuildFile; fileRef = C63CB10E189C22F4388308F9 /* terrain.json */; };
@@ -71,6 +72,7 @@
 		7F9FF4C50F0E04337DB84205 /* CircuitCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB020FBAA15466D46E756174 /* CircuitCatalog.swift */; };
 		81A31CCE7A84A8263856A8DC /* Migrations.swift in Sources */ = {isa = PBXBuildFile; fileRef = 979B2CFA8C52D4A2693A102A /* Migrations.swift */; };
 		84D1A2872C917AC2935AB112 /* CarLivery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171CD6F2FD83D799ACB69C91 /* CarLivery.swift */; };
+		89083040759B4E9DD781F4C4 /* AgentRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6BD6C14C75AEFB9B82A4095 /* AgentRow.swift */; };
 		8A0A7176801705F955EB4B5C /* RateWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 392B5FF66B8772E918631363 /* RateWindow.swift */; };
 		8A3BE7918F84E156A45F3259 /* RateWindowSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = C052559758FF74B410700F49 /* RateWindowSource.swift */; };
 		8A832CA3F523AE02FFE88010 /* ClaudeSignInWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 102E19DF99EBAC8A3C8BDC32 /* ClaudeSignInWindow.swift */; };
@@ -179,6 +181,7 @@
 		68867B1F76ECF4DE1E6FA098 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		69F038C1101F3228D2C607FB /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
 		6AEBD2E5782B6D319CDC7DA2 /* CircuitFitTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CircuitFitTests.swift; sourceTree = "<group>"; };
+		6DDC448405B7A5F2656A0419 /* AgentRowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentRowTests.swift; sourceTree = "<group>"; };
 		71F686E68C6AD2A919ECD797 /* claude-usage.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "claude-usage.json"; sourceTree = "<group>"; };
 		7B39FBF9301271154CF363EE /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		7B784EDCB98F4CFE937F3132 /* ClaudeCodeLogReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeCodeLogReader.swift; sourceTree = "<group>"; };
@@ -236,6 +239,7 @@
 		D10078AD9B1875C460A90C37 /* CostEstimatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CostEstimatorTests.swift; sourceTree = "<group>"; };
 		D2875A21D3F767FBB58928F1 /* FixtureRateWindowSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FixtureRateWindowSource.swift; sourceTree = "<group>"; };
 		D461F567F4AC93CAD78D6410 /* Account.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Account.swift; sourceTree = "<group>"; };
+		D6BD6C14C75AEFB9B82A4095 /* AgentRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentRow.swift; sourceTree = "<group>"; };
 		D968A135D66AE439311BECFE /* ClaudeUsageQuotaDTOs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeUsageQuotaDTOs.swift; sourceTree = "<group>"; };
 		E2ACCDCE077861E9661ECBFF /* LedgerStoreFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LedgerStoreFactory.swift; sourceTree = "<group>"; };
 		E78959ED32C99389D71E836A /* ClaudeUsageQuotaDTOsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeUsageQuotaDTOsTests.swift; sourceTree = "<group>"; };
@@ -279,6 +283,7 @@
 		13A80FAF108D5835B140ED5C /* Agentverse */ = {
 			isa = PBXGroup;
 			children = (
+				D6BD6C14C75AEFB9B82A4095 /* AgentRow.swift */,
 				1AF1829AD2379CF1AA77C13C /* AgentverseWindow.swift */,
 				171CD6F2FD83D799ACB69C91 /* CarLivery.swift */,
 				95C07C54958DB8497140B7F0 /* CarPosition.swift */,
@@ -413,6 +418,7 @@
 				224A62075870B8FAF84E2274 /* AccountDeletionStoreTests.swift */,
 				849077EF726D5E3F756B4805 /* AccountSummaryFormattingTests.swift */,
 				40D313DABDF65EC1DBCADDBD /* AddAccountFlowTests.swift */,
+				6DDC448405B7A5F2656A0419 /* AgentRowTests.swift */,
 				9BD3C2C540C231D67EC5F063 /* AgentSessionScannerTests.swift */,
 				EB6486F570B1DA77ACCB5458 /* AgentverseCoordinatorTests.swift */,
 				C9AD08F137C04548B835D868 /* AgentverseModelTests.swift */,
@@ -690,6 +696,7 @@
 				18FAA7AC1EAAEBCD3D16EC0C /* AccountDeletionStoreTests.swift in Sources */,
 				314BE108752F760302660DC4 /* AccountSummaryFormattingTests.swift in Sources */,
 				72517151B7BCCE3BC2748539 /* AddAccountFlowTests.swift in Sources */,
+				5D6CC45BF8A924FA46602063 /* AgentRowTests.swift in Sources */,
 				54B04C19F46485890B8DC28B /* AgentSessionScannerTests.swift in Sources */,
 				91A12D7EBAEDB4A0211E86FB /* AgentverseCoordinatorTests.swift in Sources */,
 				DF165E242EA15AA2635A186F /* AgentverseModelTests.swift in Sources */,
@@ -743,6 +750,7 @@
 				4A2D3A3FE1C0266B2765FD0F /* AccountsView.swift in Sources */,
 				7EE1E0DD0196D6F33CE6E4CE /* AddAccountFlow.swift in Sources */,
 				B838F331BD89C2B524410914 /* AddAccountView.swift in Sources */,
+				89083040759B4E9DD781F4C4 /* AgentRow.swift in Sources */,
 				36548FF69B18205F3FA28F1D /* AgentSession.swift in Sources */,
 				14D0B598D9BBA709C48BEED0 /* AgentSessionScanner.swift in Sources */,
 				7BB34FDDD9F07754C4B60EF3 /* AgentverseCoordinator.swift in Sources */,
