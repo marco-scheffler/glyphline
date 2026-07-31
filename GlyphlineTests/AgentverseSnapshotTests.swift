@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import XCTest
 @testable import Glyphline
@@ -10,6 +11,14 @@ private let parkedSession = ParkedAgentSession(
     lastActivityAt: Date(timeIntervalSince1970: 1_800_000_000),
     parkedAt: Date(timeIntervalSince1970: 1_800_003_600))
 
+private let workingSession = AgentSession(
+    id: "S1", cwd: "/repo/a", gitBranch: "main", activity: .working,
+    lastActivityAt: Date(timeIntervalSince1970: 1_800_000_000))
+
+private let waitingSession = AgentSession(
+    id: "S2", cwd: "/repo/b", gitBranch: "main", activity: .waitingForYou,
+    lastActivityAt: Date(timeIntervalSince1970: 1_800_000_000))
+
 /// A rendered picture, hashed. The browser mockups needed Playwright and forced
 /// software rasterisation for this; `ImageRenderer` does it in-process.
 ///
@@ -17,6 +26,16 @@ private let parkedSession = ParkedAgentSession(
 /// their first commit. The look was designed blind for hours, and every one of
 /// the four bugs found late was found by looking at output rather than by
 /// reading code.
+///
+/// Two layers are photographed here, because the scene has two.
+///
+/// `ImageRenderer` never runs a `.task`, so an `AgentverseScene` rendered in a
+/// test never receives its cached world image and draws the vector fallback.
+/// That is the right surface for everything the canvas draws per frame — the
+/// cars, the spotlight, the blink — and the wrong one for everything the sun
+/// touches, because the light only ever reaches the built picture. So the
+/// lighting, the terrain and the track surface are photographed through
+/// `StaticSceneImage.build`, which is the very code the window's cache calls.
 @MainActor
 final class AgentverseSnapshotTests: XCTestCase {
     /// The scene is lit at whatever instant it is handed, and the window now
@@ -25,48 +44,64 @@ final class AgentverseSnapshotTests: XCTestCase {
     /// afternoon over Monaco.
     private let instant = Date(timeIntervalSince1970: 1_781_708_400)
 
+    /// 2026-06-21 10:00 UTC — midday over Monaco, which keeps UTC+2 in June.
+    private let localNoon = Date(timeIntervalSince1970: 1_781_690_400)
+    /// Twelve hours after `localNoon`: the same circuit with the sun under it.
+    private let localMidnight = Date(timeIntervalSince1970: 1_781_733_600)
+
+    private let size = CGSize(width: 900, height: 600)
+
+    private func monaco() throws -> Circuit {
+        try XCTUnwrap(CircuitCatalog.bundled().circuit("monaco"))
+    }
+
     /// Every input is fixed but the ones a caller overrides, so each test can
     /// vary exactly one thing and know that nothing else accounts for a
     /// difference in bytes.
-    private func scene(hovered: String? = nil,
-                       parked: [ParkedAgentSession] = [parkedSession])
+    private func scene(sessions: [AgentSession] = [workingSession, waitingSession],
+                       parked: [ParkedAgentSession] = [parkedSession],
+                       hovered: String? = nil,
+                       frame: Int = 600)
     throws -> AgentverseScene {
-        let circuit = try XCTUnwrap(CircuitCatalog.bundled().circuit("monaco"))
-        return AgentverseScene(
-            circuit: circuit,
-            sessions: [
-                AgentSession(id: "S1", cwd: "/repo/a", gitBranch: "main",
-                             activity: .working,
-                             lastActivityAt: Date(timeIntervalSince1970: 1_800_000_000)),
-                AgentSession(id: "S2", cwd: "/repo/b", gitBranch: "main",
-                             activity: .waitingForYou,
-                             lastActivityAt: Date(timeIntervalSince1970: 1_800_000_000)),
-            ],
+        AgentverseScene(
+            circuit: try monaco(),
+            sessions: sessions,
             parked: parked,
             workTokens: ["S1": 2_600_000, "S2": 540_000],
             hovered: hovered,
-            frame: 600,
+            frame: frame,
             instant: instant,
             weather: .clear
         )
     }
 
-    /// Nothing on the circuit and nothing in the pit lane: whatever this draws
-    /// is the track itself.
-    private func emptyScene() throws -> AgentverseScene {
-        AgentverseScene(
-            circuit: try XCTUnwrap(CircuitCatalog.bundled().circuit("monaco")),
-            sessions: [], parked: [], workTokens: [:], hovered: nil, frame: 600,
-            instant: instant, weather: .clear
-        )
-    }
-
     private func render(_ view: some View) throws -> Data {
-        let renderer = ImageRenderer(content: view.frame(width: 900, height: 600))
+        let renderer = ImageRenderer(content: view.frame(width: size.width,
+                                                         height: size.height))
         renderer.scale = 1
         let image = try XCTUnwrap(renderer.nsImage)
         return try XCTUnwrap(image.tiffRepresentation)
     }
+
+    // MARK: - The built world
+
+    /// The same call the window's cache makes, with the sun placed over the
+    /// circuit by the same two functions the scene uses.
+    private func world(instant: Date, weather: Weather = .clear) throws -> CGImage {
+        let circuit = try monaco()
+        let sun = SunPosition.at(latitude: circuit.lat, longitude: circuit.lon,
+                                 date: instant)
+        let light = SceneLight.make(elevation: sun.elevation, azimuth: sun.azimuth,
+                                    mapRotation: circuit.rot, weather: weather)
+        return try XCTUnwrap(StaticSceneImage.build(circuit: circuit, size: size,
+                                                    scale: 1, light: light))
+    }
+
+    private func bytes(_ image: CGImage) throws -> Data {
+        try XCTUnwrap(NSBitmapImageRep(cgImage: image).tiffRepresentation)
+    }
+
+    // MARK: - Purity
 
     func testTheSameSceneRendersTheSamePictureTwice() throws {
         let first = try render(scene())
@@ -77,16 +112,65 @@ final class AgentverseSnapshotTests: XCTestCase {
                        + "stage can tell a change from noise")
     }
 
-    func testHoveringChangesThePicture() throws {
-        XCTAssertNotEqual(try render(scene()), try render(scene(hovered: "S1")))
+    func testTheSameWorldBuildsTheSamePictureTwice() throws {
+        let first = try bytes(try world(instant: instant))
+        let second = try bytes(try world(instant: instant))
+
+        XCTAssertEqual(first, second,
+                       "the built world must be a pure function of its key, or the "
+                       + "cache would be serving a different picture than it drew")
     }
 
-    /// A scene that drew nothing would still hand back a megabyte of black
-    /// pixels, so size proves nothing. With no cars in it, the only thing that
-    /// can separate the scene from its own background colour is the track.
-    func testTheTrackIsDrawn() throws {
-        XCTAssertNotEqual(try render(emptyScene()), try render(Color(white: 0.07)),
-                          "with nothing on it the scene must still draw the circuit")
+    // MARK: - The track surface
+
+    /// Half a lap from the start/finish line, so neither the pit lane nor the
+    /// start/finish stroke reaches it, sampled in the built world — where the
+    /// ground is terrain and buildings rather than the window's backdrop.
+    ///
+    /// "Differs from the background" would therefore prove nothing. What is true
+    /// of the road and of nothing else here is that it is *neutral*: the track is
+    /// stroked in flat greys that the lighting never touches, while every square
+    /// metre around it — Monaco's warm ground albedo, its roofs, its harbour — is
+    /// tinted, because it went through `SceneLight`. A pixel with three equal
+    /// channels at that point is road.
+    ///
+    /// The brightness bound is what a black frame cannot clear: the surface grey
+    /// is 51/255 and the racing line over it composites to 36/255, both far above
+    /// the backdrop's 18 and far below the kerbs' 227.
+    func testTheTrackSurfaceIsDrawnHalfALapFromTheLine() throws {
+        let circuit = try monaco()
+        let fit = CircuitFit(circuit: circuit, in: size)
+        let count = circuit.points.count
+        let point = fit.point(circuit.points[(circuit.startIdx + count / 2) % count])
+
+        let rep = NSBitmapImageRep(cgImage: try world(instant: instant))
+        let colour = try XCTUnwrap(rep.colorAt(x: Int(point.x.rounded()),
+                                               y: Int(point.y.rounded())))
+        let red = Int((colour.redComponent * 255).rounded())
+        let green = Int((colour.greenComponent * 255).rounded())
+        let blue = Int((colour.blueComponent * 255).rounded())
+
+        XCTAssertEqual(red, green,
+                       "the road is a flat grey; anything the sun lit is tinted")
+        XCTAssertEqual(green, blue,
+                       "the road is a flat grey; anything the sun lit is tinted")
+        XCTAssertTrue((30...60).contains(red),
+                      "the road surface is 51/255 and the racing line over it 36/255; "
+                      + "\(red) is neither, so this pixel is not track — the backdrop "
+                      + "is 18 and the kerbs 227")
+    }
+
+    // MARK: - The cars
+
+    /// The on-track loop. An extraction that dropped it would still render a
+    /// perfectly plausible circuit.
+    func testARunningSessionChangesThePicture() throws {
+        let withCar = try render(scene(sessions: [workingSession]))
+        let withoutCar = try render(scene(sessions: []))
+
+        XCTAssertNotEqual(withCar, withoutCar,
+                          "only `sessions` differs, so a car on the circuit is the "
+                          + "only thing that can account for a difference")
     }
 
     /// The pit lane is half the point of the park rule. An extraction that took
@@ -98,5 +182,69 @@ final class AgentverseSnapshotTests: XCTestCase {
         XCTAssertNotEqual(withPit, withoutPit,
                           "only `parked` differs, so a car in the pit lane is the "
                           + "only thing that can account for a difference")
+    }
+
+    func testHoveringChangesThePicture() throws {
+        XCTAssertNotEqual(try render(scene()), try render(scene(hovered: "S1")),
+                          "only `hovered` differs, so the spotlight is the only "
+                          + "thing that can account for a difference")
+    }
+
+    /// Two sessions identical but for their id, which is the only thing that
+    /// decides the paint.
+    func testTwoLiveriesRenderDifferently() throws {
+        let one = AgentSession(id: "S1", cwd: "/repo/a", gitBranch: "main",
+                               activity: .working,
+                               lastActivityAt: Date(timeIntervalSince1970: 1_800_000_000))
+        let other = AgentSession(id: "S4", cwd: "/repo/a", gitBranch: "main",
+                                 activity: .working,
+                                 lastActivityAt: Date(timeIntervalSince1970: 1_800_000_000))
+        // Stated rather than assumed: two ids can hash to the same car, and this
+        // test would then be asserting that a car differs from itself.
+        XCTAssertNotEqual(CarLivery.forSession(one.id), CarLivery.forSession(other.id))
+
+        // Neither id is in `workTokens`, so both cars stand at lap fraction zero
+        // and the paint is all that is left to differ.
+        let scene = { (session: AgentSession) in
+            AgentverseScene(circuit: try self.monaco(), sessions: [session], parked: [],
+                            workTokens: [:], hovered: nil, frame: 600,
+                            instant: self.instant, weather: .clear)
+        }
+
+        XCTAssertNotEqual(try render(try scene(one)), try render(try scene(other)),
+                          "two liveries must be two pictures, or the field is "
+                          + "indistinguishable")
+    }
+
+    /// Frame 600 is 20 half-seconds in and frame 630 is 21: hazards on, then off.
+    func testAWaitingCarDiffersBetweenBlinkPhases() throws {
+        let on = try render(scene(sessions: [waitingSession], parked: [], frame: 600))
+        let off = try render(scene(sessions: [waitingSession], parked: [], frame: 630))
+
+        XCTAssertNotEqual(on, off,
+                          "only `frame` differs, and nothing but the hazard blink "
+                          + "reads the frame, so a waiting car must flash")
+    }
+
+    // MARK: - The light
+
+    /// The whole reason the solar position and the lighting exist. A scene that
+    /// ignored its instant would render the same picture at both.
+    func testNoonAndMidnightRenderDifferently() throws {
+        let noon = try bytes(try world(instant: localNoon))
+        let midnight = try bytes(try world(instant: localMidnight))
+
+        XCTAssertNotEqual(noon, midnight,
+                          "only the instant differs, so the sun's own position is the "
+                          + "only thing that can account for a difference")
+    }
+
+    func testClearAndRainRenderDifferently() throws {
+        let clear = try bytes(try world(instant: instant, weather: .clear))
+        let rain = try bytes(try world(instant: instant, weather: .rain))
+
+        XCTAssertNotEqual(clear, rain,
+                          "only `weather` differs, so the weather is the only thing "
+                          + "that can account for a difference")
     }
 }
