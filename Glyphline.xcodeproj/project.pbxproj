@@ -47,6 +47,7 @@
 		4B7EBD39F79A2025162639DB /* ClaudeUsageQuotaDTOs.swift in Sources */ = {isa = PBXBuildFile; fileRef = D968A135D66AE439311BECFE /* ClaudeUsageQuotaDTOs.swift */; };
 		4B96E1ED4A37D89F3DB7A844 /* ProviderAdapterRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A12C10E9B329DC6D4E86D94 /* ProviderAdapterRegistry.swift */; };
 		50DE389F4361F81A9F3BBAE6 /* AccountSummaryFormatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65C301199FDCC9595DC906A9 /* AccountSummaryFormatting.swift */; };
+		53C027BC1913ED3344EEA4C4 /* CarShape.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E68BA9508B1A2AAE30A246E /* CarShape.swift */; };
 		54B04C19F46485890B8DC28B /* AgentSessionScannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BD3C2C540C231D67EC5F063 /* AgentSessionScannerTests.swift */; };
 		56B7FB0376CEC3F26127F083 /* AccountCredentialReference.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54DF3B50A77102C6E68EAC4C /* AccountCredentialReference.swift */; };
 		59022EBC301F5B43468F886F /* CostEstimatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10078AD9B1875C460A90C37 /* CostEstimatorTests.swift */; };
@@ -87,6 +88,7 @@
 		9FEB70E4EF62958B3969ABFF /* Account.swift in Sources */ = {isa = PBXBuildFile; fileRef = D461F567F4AC93CAD78D6410 /* Account.swift */; };
 		A385281B699E65EE57FD572E /* ClaudeCodeLogReaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 919CF627AF46F1C143EA18B9 /* ClaudeCodeLogReaderTests.swift */; };
 		A578DC0E93318FDA5872EA0B /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA3B73CA5CAB2E184CE9154D /* KeychainStore.swift */; };
+		A695D38DC8CB0AB222EF1748 /* CarShapeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52E22895A9D80B6733CA44E2 /* CarShapeTests.swift */; };
 		AA9559C25108258EBA10DC8A /* SyncCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62C5666D45C5D74DC69F722E /* SyncCoordinatorTests.swift */; };
 		AAC975E9004A4B4FB3B53B08 /* scenery.json in Resources */ = {isa = PBXBuildFile; fileRef = C95A575D97E6A043911BD97F /* scenery.json */; };
 		AC776B32695D0B125B30B305 /* SnapshotSummaryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5287B8477F8EF75ABA938B2 /* SnapshotSummaryTests.swift */; };
@@ -137,6 +139,7 @@
 /* Begin PBXFileReference section */
 		0D31897CD1062193BF63AE80 /* LocalUsagePeriodTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalUsagePeriodTests.swift; sourceTree = "<group>"; };
 		0D5247CB250C44F5D5A195E8 /* ClaudeWebSessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeWebSessionStore.swift; sourceTree = "<group>"; };
+		0E68BA9508B1A2AAE30A246E /* CarShape.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarShape.swift; sourceTree = "<group>"; };
 		102E19DF99EBAC8A3C8BDC32 /* ClaudeSignInWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeSignInWindow.swift; sourceTree = "<group>"; };
 		115EF78DDBF22BE7B267CE5B /* claude-usage-minimal.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "claude-usage-minimal.json"; sourceTree = "<group>"; };
 		11D41DE98E9E03A2433764CC /* RateWindowSourceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RateWindowSourceTests.swift; sourceTree = "<group>"; };
@@ -169,6 +172,7 @@
 		45E769274D7E65D92F394E71 /* LocalUsagePeriod.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalUsagePeriod.swift; sourceTree = "<group>"; };
 		461DE0E81EA86DEF3F3E1A47 /* LedgerStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LedgerStore.swift; sourceTree = "<group>"; };
 		4FF23487330689CD09F72F59 /* ClaudeTranscriptReaderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeTranscriptReaderTests.swift; sourceTree = "<group>"; };
+		52E22895A9D80B6733CA44E2 /* CarShapeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarShapeTests.swift; sourceTree = "<group>"; };
 		54DF3B50A77102C6E68EAC4C /* AccountCredentialReference.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountCredentialReference.swift; sourceTree = "<group>"; };
 		5523C72601D9A9537B6F350E /* CircuitAttributionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CircuitAttributionTests.swift; sourceTree = "<group>"; };
 		55BA8694018F37636CBB9BF7 /* MoneyAmountTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoneyAmountTests.swift; sourceTree = "<group>"; };
@@ -292,6 +296,7 @@
 				1AF1829AD2379CF1AA77C13C /* AgentverseWindow.swift */,
 				171CD6F2FD83D799ACB69C91 /* CarLivery.swift */,
 				95C07C54958DB8497140B7F0 /* CarPosition.swift */,
+				0E68BA9508B1A2AAE30A246E /* CarShape.swift */,
 				2D5625DA73E0742F1158840B /* CircuitFit.swift */,
 				8AB2FF27ACEEEEA42A281F72 /* CircuitTrackShape.swift */,
 			);
@@ -434,6 +439,7 @@
 				BD5F66FB95D8BBD93EFCBE00 /* AppSettingsStoreTests.swift */,
 				64180A9D5C7FC255E4342F45 /* CarLiveryTests.swift */,
 				348C48084085DAC1F1799E8E /* CarPositionTests.swift */,
+				52E22895A9D80B6733CA44E2 /* CarShapeTests.swift */,
 				5523C72601D9A9537B6F350E /* CircuitAttributionTests.swift */,
 				A66572E2AFAC23F6BA0755A0 /* CircuitCatalogTests.swift */,
 				6AEBD2E5782B6D319CDC7DA2 /* CircuitFitTests.swift */,
@@ -713,6 +719,7 @@
 				29DAC97DF9CC2CB3A0D01784 /* AppSettingsStoreTests.swift in Sources */,
 				489B270541D32158C05BC887 /* CarLiveryTests.swift in Sources */,
 				6297587928848D3008A7EF09 /* CarPositionTests.swift in Sources */,
+				A695D38DC8CB0AB222EF1748 /* CarShapeTests.swift in Sources */,
 				C073AC92907B6E043D11E3E1 /* CircuitAttributionTests.swift in Sources */,
 				3F6CA8CD1C92721BB534C569 /* CircuitCatalogTests.swift in Sources */,
 				648F3C2AA3AA78ADD94B126D /* CircuitFitTests.swift in Sources */,
@@ -769,6 +776,7 @@
 				2BDACE3AAE0A202FCB9520BC /* AppSettingsStore.swift in Sources */,
 				84D1A2872C917AC2935AB112 /* CarLivery.swift in Sources */,
 				8F5643F0850F9B3AD364E845 /* CarPosition.swift in Sources */,
+				53C027BC1913ED3344EEA4C4 /* CarShape.swift in Sources */,
 				7F9FF4C50F0E04337DB84205 /* CircuitCatalog.swift in Sources */,
 				70A59BB659E1D4E86C17FB51 /* CircuitFit.swift in Sources */,
 				425FE94025AC6614AC8CD11E /* CircuitTrackShape.swift in Sources */,
