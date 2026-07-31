@@ -200,14 +200,13 @@ enum SceneryLayer {
             }
         }
 
+        // The standard deviation the reference asks for, in device pixels.
         let blurPixels = light.shadowBlur > 0.2
             ? (1.2 + light.shadowBlur * 4) * Double(scaleOf(ctm: ctm, unit: 1))
             : 0
         if blurPixels > 0.5 {
-            let radius = max(1, Int((blurPixels / 2).rounded()))
-            // Two box passes: close enough to a Gaussian for a shadow, and it
-            // needs no framework beyond arithmetic.
-            for _ in 0..<2 {
+            let radius = boxRadius(sigma: blurPixels, passes: blurPasses)
+            for _ in 0..<blurPasses {
                 boxBlur(&mask, width: width, height: height, radius: radius)
             }
         }
@@ -242,6 +241,34 @@ enum SceneryLayer {
     private static func scaleOf(ctm: CGAffineTransform, unit: CGFloat) -> CGFloat {
         let determinant = abs(ctm.a * ctm.d - ctm.b * ctm.c)
         return unit * (determinant > 0 ? determinant.squareRoot() : 1)
+    }
+
+    /// Three, not two. Repeated box passes converge on a Gaussian, and the
+    /// reference asks for a real one: CSS `blur(N)` is a Gaussian. Two passes
+    /// leave a triangular kernel whose straight flanks and hard cut-off are
+    /// visible on the wide shadows rain and fog ask for; three make it
+    /// piecewise-quadratic and the edge stops showing its own shape. It is a
+    /// third more work in a pass that is O(1) per pixel and runs once per built
+    /// picture, not per frame.
+    private static let blurPasses = 3
+
+    /// The box radius whose repeated passes carry the requested standard
+    /// deviation.
+    ///
+    /// `scene.js` asks for `blur(1.2 + shadowBlur * 4)` and CSS states that
+    /// number as the Gaussian's *standard deviation*, not its diameter. One
+    /// discrete box pass of radius r is a uniform window of width 2r+1, whose
+    /// variance is ((2r+1)² − 1) / 12 = (r² + r) / 3. Passes convolve, so n of
+    /// them carry n(r² + r)/3. Setting that equal to σ² and solving the
+    /// quadratic gives r = (√(1 + 12σ²/n) − 1) / 2.
+    ///
+    /// Reading the requested number as a diameter instead — the earlier
+    /// `blurPixels / 2` over two passes — landed on σ ≈ 0.41 × the request,
+    /// roughly two and a half times too tight.
+    static func boxRadius(sigma: Double, passes: Int) -> Int {
+        guard sigma > 0, passes > 0 else { return 1 }
+        let radius = ((1 + 12 * sigma * sigma / Double(passes)).squareRoot() - 1) / 2
+        return max(1, Int(radius.rounded()))
     }
 
     private static func boxBlur(_ buffer: inout [UInt8], width: Int, height: Int, radius: Int) {

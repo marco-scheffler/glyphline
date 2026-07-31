@@ -171,6 +171,31 @@ final class SceneryLayerTests: XCTestCase {
                              low.reach(fromX: left, y: row, step: -1))
     }
 
+    // MARK: - Shadow blur
+
+    /// The reference states its blur as a standard deviation. What the box
+    /// passes actually produce has to come back to that number, or the shadows
+    /// are a different softness than the picture they were ported from — which
+    /// is exactly what reading it as a diameter did.
+    func testBoxRadiusCarriesTheRequestedStandardDeviation() {
+        // sigma = 1.2 + shadowBlur * 4, at a Retina scale of two.
+        for sigma in [6.8, 9.2, 9.6, 3.4, 4.8] {
+            for passes in [2, 3] {
+                let radius = Double(SceneryLayer.boxRadius(sigma: sigma, passes: passes))
+                // n passes of a (2r+1)-wide uniform window: variance n(r²+r)/3.
+                let produced = (Double(passes) * (radius * radius + radius) / 3).squareRoot()
+                XCTAssertEqual(produced, sigma, accuracy: 0.5,
+                               "\(passes) passes at radius \(radius) carry \(produced), "
+                               + "not the \(sigma) the reference asked for")
+            }
+        }
+    }
+
+    /// The bug in one line: a radius of sigma/2 is what the old conversion used.
+    func testBoxRadiusIsWiderThanHalfTheStandardDeviation() {
+        XCTAssertGreaterThan(SceneryLayer.boxRadius(sigma: 9.2, passes: 3), 5)
+    }
+
     // MARK: - Areas
 
     /// Water, wood and green take three different paths through the shader.
