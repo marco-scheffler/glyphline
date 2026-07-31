@@ -5,6 +5,7 @@ import SwiftUI
 struct GlyphlineApp: App {
     @StateObject private var settings: AppSettingsStore
     @StateObject private var coordinator: SyncCoordinator
+    @StateObject private var agentverse: AgentverseCoordinator
 
     init() {
         let settings = AppSettingsStore()
@@ -20,6 +21,14 @@ struct GlyphlineApp: App {
                 registry: ProviderAdapterRegistry()
             )
         )
+
+        // Owned here rather than by the window on purpose. The park rule needs a
+        // sweep to remember whom the previous sweep had on track; a coordinator
+        // created with the window would start every opening having forgotten,
+        // and nothing would ever reach the pit lane.
+        _agentverse = StateObject(
+            wrappedValue: AgentverseCoordinator(ledger: LedgerStore.makeDefault())
+        )
     }
 
     var body: some Scene {
@@ -30,6 +39,13 @@ struct GlyphlineApp: App {
                     .environmentObject(coordinator)
             }
         }
+        .windowStyle(.titleBar)
+
+        WindowGroup(id: AppMode.agentverseWindowID) {
+            AgentverseWindow()
+                .environmentObject(agentverse)
+        }
+        .defaultSize(width: 1_400, height: 820)
         .windowStyle(.titleBar)
 
         MenuBarExtra(isInserted: menuBarExtraInsertion) {

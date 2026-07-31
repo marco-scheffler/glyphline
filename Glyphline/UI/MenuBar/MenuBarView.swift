@@ -81,6 +81,10 @@ struct MenuBarView: View {
             // these are the panel's exits, not its content.
             HStack(spacing: 6) {
                 Button("Open Dashboard", action: openDashboard)
+                Button("Open Agentverse") {
+                    openWindow(id: AppMode.agentverseWindowID)
+                    NSApp.activate(ignoringOtherApps: true)
+                }
                 Button("Refresh") {
                     Task {
                         await coordinator.refreshRateWindowsOnDemand()

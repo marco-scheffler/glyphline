@@ -3,6 +3,11 @@ import Foundation
 enum AppMode: String, CaseIterable, Identifiable {
     static let dashboardWindowID = "dashboard"
 
+    /// The map's own window. Separate from the dashboard because the two are read
+    /// differently: the dashboard is opened, read and closed, while the map is
+    /// left running beside the work.
+    static let agentverseWindowID = "agentverse"
+
     case menuBarOnly
     case windowOnly
     case menuBarAndWindow

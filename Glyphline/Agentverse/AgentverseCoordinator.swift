@@ -20,7 +20,10 @@ final class AgentverseCoordinator: ObservableObject {
     /// arrive in the pit lane.
     private var liveSessionIDs: Set<String> = []
 
-    init(scanner: any AgentSessionScanning = AgentSessionScanner(), ledger: LedgerStore?) {
+    /// `nonisolated` so `GlyphlineApp` can build one as a `@StateObject`. The
+    /// body touches nothing isolated — it assigns two stored properties — and
+    /// without this the App cannot own the coordinator at all.
+    nonisolated init(scanner: any AgentSessionScanning = AgentSessionScanner(), ledger: LedgerStore?) {
         self.scanner = scanner
         self.ledger = ledger
     }
