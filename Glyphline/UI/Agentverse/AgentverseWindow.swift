@@ -271,6 +271,12 @@ struct AgentverseSidebar: View {
                     AgentRow(model: AgentRowModel(session: session,
                                                   workTokens: coordinator.workTokens[session.id] ?? 0),
                              livery: CarLivery.forSession(session.id))
+                        // A `List` row is wider and taller than the content it
+                        // was given, and `onHover` alone only fires over the
+                        // content itself. In a 264 pt sidebar most of the row is
+                        // that surrounding dead space, so the spotlight almost
+                        // never lit and the feature read as broken.
+                        .contentShape(Rectangle())
                         .onHover { inside in
                             hovered = inside ? session.id : (hovered == session.id ? nil : hovered)
                         }
@@ -294,6 +300,10 @@ struct AgentverseSidebar: View {
                             .help("Remove this session from the Agentverse")
                         }
                     }
+                    // The same dead space as on track. The dismiss button keeps
+                    // its own hit test: a container's content shape decides
+                    // where the container itself is hit, not its children.
+                    .contentShape(Rectangle())
                     .onHover { inside in
                         hovered = inside ? session.id : (hovered == session.id ? nil : hovered)
                     }
