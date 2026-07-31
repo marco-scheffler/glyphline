@@ -39,13 +39,33 @@ final class CarShapeTests: XCTestCase {
         XCTAssertGreaterThan(wing.height, 0.9 * body.height)
     }
 
-    /// Four of them: a car with three corners lit is not showing hazards.
+    /// Four of them: a car with three corners lit is not showing hazards, and
+    /// the bounding box alone cannot tell the difference — drop any one marker
+    /// and the remaining three still span both columns and both rows. So the
+    /// markers are counted as well as placed: `addRect` opens each rectangle
+    /// with a `.move`, so the `.move` elements are the markers.
     func testThereAreFourHazardMarkers() {
         let box = CarShape.hazards.boundingRect
+
+        var corners = 0
+        CarShape.hazards.forEach { element in
+            if case .move = element { corners += 1 }
+        }
+        XCTAssertEqual(corners, 4)
 
         XCTAssertFalse(CarShape.hazards.isEmpty)
         XCTAssertGreaterThan(box.width, 0.5)
         XCTAssertGreaterThan(box.height, 0.2)
+    }
+
+    /// A bound, not containment. The markers are meant to sit slightly proud of
+    /// the body — 0.0110 units, 0.13 pt on a 12 pt car — because a light that
+    /// grazes the outline reads as sitting on the corner. Pinning them inside an
+    /// outline they were never meant to respect would be wrong; what this stops
+    /// is a later edit growing them into a halo around the car.
+    func testTheHazardsDoNotGrowIntoAHaloAroundTheCar() {
+        XCTAssertLessThan(CarShape.hazards.boundingRect.height,
+                          1.10 * CarShape.body.boundingRect.height)
     }
 
     func testTheStripeRunsAlongTheCarRatherThanAcrossIt() {
