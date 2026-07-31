@@ -10,22 +10,29 @@ layouts and neighbouring roads carry names too.
 """
 import json
 import math
-import os
+import pathlib
 import re
 import time
 import urllib.parse
 import urllib.request
 
+# Paths resolved from the script rather than from the working directory — see
+# the note in build_circuits.py for why nothing but the JSON may land in DATA.
+HERE = pathlib.Path(__file__).resolve().parent
+DATA = HERE.parent.parent / "Glyphline" / "Resources" / "agentverse"
+CACHE_DIR = HERE / ".cache"
+CACHE_DIR.mkdir(exist_ok=True)
+
 MIRRORS = ["https://overpass-api.de/api/interpreter",
            "https://overpass.kumi.systems/api/interpreter"]
 UA = {"User-Agent": "glyphline-agentverse/0.1 (circuit corner research)"}
 R = 6371000.0
-CACHE = "corners-cache.json"
-cache = json.load(open(CACHE)) if os.path.exists(CACHE) else {}
+CACHE = CACHE_DIR / "corners-cache.json"
+cache = json.load(open(CACHE)) if CACHE.exists() else {}
 SKIP = re.compile(r"pit ?lane|voie des stands|boxengasse|ピットレーン|support|west circuit|"
                   r"east circuit|club|national|kart|ex circuito|anello", re.I)
 
-CIRC = json.load(open("circuits.json"))
+CIRC = json.load(open(DATA / "circuits.json"))
 
 
 def overpass(q, key, tries=5):
@@ -101,5 +108,5 @@ for key, c in CIRC.items():
           + ", ".join(m["name"] for m in merged[:9]) + ("…" if len(merged) > 9 else ""), flush=True)
     time.sleep(4)
 
-json.dump(out, open("corners.json", "w"), ensure_ascii=False, separators=(",", ":"))
-print("\nwrote corners.json")
+json.dump(out, open(DATA / "corners.json", "w"), ensure_ascii=False, separators=(",", ":"))
+print(f"\nwrote {DATA / 'corners.json'}")

@@ -13,11 +13,22 @@ left plain.
 """
 import json
 import math
-import os
+import pathlib
 import re
 import time
 import urllib.parse
 import urllib.request
+
+HERE = pathlib.Path(__file__).resolve().parent
+REPO = HERE.parent.parent
+# Every path is resolved from the script, never from the working directory.
+# XcodeGen expands `resources: Glyphline/Resources` from the filesystem, so
+# anything left lying in the data directory is copied into the app whether or
+# not git tracks it — the caches would ship silently, and `tiles/` is hundreds
+# of megabytes. Only the finished JSON is allowed in there.
+DATA = REPO / "Glyphline" / "Resources" / "agentverse"
+CACHE_DIR = HERE / ".cache"
+CACHE_DIR.mkdir(exist_ok=True)
 
 CIRCUITS = {
     "monaco": ("mc-1929.geojson", "Europe/Monaco"),
@@ -40,8 +51,8 @@ DIRECTION = {"monaco": "cw", "spa": "cw", "suzuka": "cw", "monza": "cw", "vegas"
 # Where OSM marks the start line outright. Only Monaco has one, and it sits 250 m
 # from where projecting the pit lane's midpoint put it — worth the special case.
 START_NODES = {"monaco": (43.7350269, 7.4212652)}
-CACHE = "overpass-cache.json"
-cache = json.load(open(CACHE)) if os.path.exists(CACHE) else {}
+CACHE = CACHE_DIR / "overpass-cache.json"
+cache = json.load(open(CACHE)) if CACHE.exists() else {}
 
 
 def overpass(query, key, tries=6):
@@ -209,5 +220,5 @@ for key, (fname, tz) in CIRCUITS.items():
           f"pit '{best['name'] or '(unnamed)'}' {best['len']:.0f} m\n"
           f"     S/F {sf_lat:.5f},{sf_lon:.5f}  ({how})\n", flush=True)
 
-json.dump(out, open("circuits.json", "w"), separators=(",", ":"))
-print("wrote circuits.json")
+json.dump(out, open(DATA / "circuits.json", "w"), separators=(",", ":"))
+print(f"wrote {DATA / 'circuits.json'}")

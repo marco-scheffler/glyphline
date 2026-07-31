@@ -11,11 +11,20 @@ import io
 import json
 import math
 import os
+import pathlib
 import time
 import urllib.request
 
 import numpy as np
 from PIL import Image
+
+# Paths resolved from the script rather than from the working directory — see
+# the note in build_circuits.py. This one matters most: `tiles/` is hundreds of
+# megabytes of elevation PNG, and it used to be written wherever the script ran.
+HERE = pathlib.Path(__file__).resolve().parent
+DATA = HERE.parent.parent / "Glyphline" / "Resources" / "agentverse"
+CACHE_DIR = HERE / ".cache"
+CACHE_DIR.mkdir(exist_ok=True)
 
 CIRCUITS = {"monaco": "mc-1929.geojson", "spa": "be-1925.geojson",
             "suzuka": "jp-1962.geojson", "monza": "it-1922.geojson",
@@ -27,14 +36,14 @@ R = 6371000.0
 ZOOM = 14
 MARGIN_M = 500
 GW, GH = 150, 105          # Auflösung des ausgegebenen Höhengitters
-TILE_CACHE = "tiles"
-os.makedirs(TILE_CACHE, exist_ok=True)
+TILE_CACHE = CACHE_DIR / "tiles"
+TILE_CACHE.mkdir(exist_ok=True)
 DIRECTION = {"monaco": "cw", "spa": "cw", "suzuka": "cw", "monza": "cw", "vegas": "ccw"}
 
 
 def tile(z, x, y):
-    path = f"{TILE_CACHE}/{z}_{x}_{y}.png"
-    if not os.path.exists(path):
+    path = TILE_CACHE / f"{z}_{x}_{y}.png"
+    if not path.exists():
         for attempt in range(4):
             try:
                 req = urllib.request.Request(TILES.format(z=z, x=x, y=y), headers=UA)
@@ -150,5 +159,6 @@ for key, fname in CIRCUITS.items():
     print(f"  -> Gelände {lo:.0f}–{hi:.0f} m  ({hi-lo:.0f} m Spanne)   "
           f"Strecke {plo:.0f}–{phi:.0f} m  ({phi-plo:.0f} m Höhenunterschied)", flush=True)
 
-json.dump(out, open("terrain.json", "w"), separators=(",", ":"))
-print(f"\nwrote terrain.json ({os.path.getsize('terrain.json')/1024:.0f} KB)")
+dest = DATA / "terrain.json"
+json.dump(out, open(dest, "w"), separators=(",", ":"))
+print(f"\nwrote {dest} ({os.path.getsize(dest)/1024:.0f} KB)")

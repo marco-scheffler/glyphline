@@ -13,9 +13,17 @@ scenery and centreline land in one coordinate frame.
 import json
 import math
 import os
+import pathlib
 import time
 import urllib.parse
 import urllib.request
+
+# Paths resolved from the script rather than from the working directory — see
+# the note in build_circuits.py for why nothing but the JSON may land in DATA.
+HERE = pathlib.Path(__file__).resolve().parent
+DATA = HERE.parent.parent / "Glyphline" / "Resources" / "agentverse"
+CACHE_DIR = HERE / ".cache"
+CACHE_DIR.mkdir(exist_ok=True)
 
 CIRCUITS = {
     "monaco": "mc-1929.geojson", "spa": "be-1925.geojson",
@@ -29,8 +37,8 @@ UA = {"User-Agent": "glyphline-agentverse/0.1 (circuit surroundings research)"}
 R = 6371000.0
 MARGIN_M = 420          # how far beyond the circuit to keep scenery
 KEEP_NEAR_M = 400       # discard anything further than this from the track
-CACHE = "scenery-cache.json"
-cache = json.load(open(CACHE)) if os.path.exists(CACHE) else {}
+CACHE = CACHE_DIR / "scenery-cache.json"
+cache = json.load(open(CACHE)) if CACHE.exists() else {}
 
 
 def overpass(query, key, tries=6):
@@ -202,5 +210,6 @@ for key, fname in CIRCUITS.items():
           f"{sum(1 for a in areas if a['k']=='green')} Grün)", flush=True)
     time.sleep(5)
 
-json.dump(out, open("scenery.json", "w"), separators=(",", ":"))
-print(f"\nwrote scenery.json ({os.path.getsize('scenery.json')/1024:.0f} KB)")
+dest = DATA / "scenery.json"
+json.dump(out, open(dest, "w"), separators=(",", ":"))
+print(f"\nwrote {dest} ({os.path.getsize(dest)/1024:.0f} KB)")

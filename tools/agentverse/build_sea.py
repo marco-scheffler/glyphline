@@ -13,19 +13,27 @@ against a north-running and an east-running coast before being trusted.
 import json
 import math
 import os
+import pathlib
 import time
 import urllib.parse
 import urllib.request
+
+# Paths resolved from the script rather than from the working directory — see
+# the note in build_circuits.py for why nothing but the JSON may land in DATA.
+HERE = pathlib.Path(__file__).resolve().parent
+DATA = HERE.parent.parent / "Glyphline" / "Resources" / "agentverse"
+CACHE_DIR = HERE / ".cache"
+CACHE_DIR.mkdir(exist_ok=True)
 
 MIRRORS = ["https://overpass-api.de/api/interpreter",
            "https://overpass.kumi.systems/api/interpreter"]
 UA = {"User-Agent": "glyphline-agentverse/0.1 (coastline research)"}
 R = 6371000.0
-CACHE = "sea-cache.json"
-cache = json.load(open(CACHE)) if os.path.exists(CACHE) else {}
+CACHE = CACHE_DIR / "sea-cache.json"
+cache = json.load(open(CACHE)) if CACHE.exists() else {}
 
-CIRC = json.load(open("circuits.json"))
-TERR = json.load(open("terrain.json"))
+CIRC = json.load(open(DATA / "circuits.json"))
+TERR = json.load(open(DATA / "terrain.json"))
 
 
 def overpass(q, key, tries=5):
@@ -54,7 +62,7 @@ for key, c in CIRC.items():
     kx = R * math.cos(math.radians(lat0))
     ct, st = math.cos(rot), math.sin(rot)
 
-    # Suchfenster grosszügig: die Küste kann ausserhalb des Bildes weiterlaufen
+    # A generous search window: the coast can run on beyond the frame
     half = max(T["maxX"] - T["minX"], T["maxY"] - T["minY"]) * 0.85
     radius = int(half + 1200)
     q = (f'[out:json][timeout:180];'
@@ -73,12 +81,12 @@ for key, c in CIRC.items():
                 pts.append((wx * ct - wy * st, wx * st + wy * ct))
             ways.append(pts)
     except Exception as exc:
-        print(f"{key:8s} Küstenabfrage fehlgeschlagen: {exc}")
+        print(f"{key:8s} coastline query failed: {exc}")
         ways = []
 
     if not ways:
         T["sea"] = None
-        print(f"{key:8s} keine Küste im Umkreis — reines Binnenland")
+        print(f"{key:8s} no coastline in range — entirely inland")
         time.sleep(3)
         continue
 
@@ -111,9 +119,10 @@ for key, c in CIRC.items():
 
     sea = sum(mask)
     T["sea"] = list(mask)
-    print(f"{key:8s} {len(segs):4d} Küstensegmente  ->  "
-          f"{sea*100//(gw*gh)}% der Fläche ist Wasser")
+    print(f"{key:8s} {len(segs):4d} coastline segments  ->  "
+          f"{sea*100//(gw*gh)}% of the frame is water")
     time.sleep(3)
 
-json.dump(TERR, open("terrain.json", "w"), separators=(",", ":"))
-print(f"\nterrain.json aktualisiert ({os.path.getsize('terrain.json')/1024:.0f} KB)")
+dest = DATA / "terrain.json"
+json.dump(TERR, open(dest, "w"), separators=(",", ":"))
+print(f"\nupdated {dest} ({os.path.getsize(dest)/1024:.0f} KB)")
