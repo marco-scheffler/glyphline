@@ -117,9 +117,6 @@ enum StaticSceneImage {
         groundAlbedo[circuit.key] ?? SIMD3(88, 104, 64)
     }
 
-    /// The backdrop the margin around the terrain keeps.
-    static let backdrop = SIMD3<Double>(18, 18, 18)
-
     /// - Parameters:
     ///   - size: The canvas in points.
     ///   - scale: Backing-store pixels per point.
@@ -160,7 +157,11 @@ enum StaticSceneImage {
         context.translateBy(x: 0, y: CGFloat(pixelHeight))
         context.scaleBy(x: CGFloat(scale), y: -CGFloat(scale))
 
-        context.setFillColor(colour(backdrop))
+        // The margin around the terrain is sky, not a card the scene sits on: it
+        // goes through the same exposure and the same tone curve as everything
+        // else, or it stays flat at the one time of day the rest of the picture
+        // lifts most.
+        context.setFillColor(colour(light.skySRGB))
         context.fill(CGRect(origin: .zero, size: size))
 
         let fit = CircuitFit(circuit: circuit, in: size)

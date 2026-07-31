@@ -32,7 +32,9 @@ struct AgentverseScene: View {
             canvas(world: world, scale: displayScale)
                 .task(id: key) { await buildWorld(key) }
         }
-        .background(Color(white: 0.07))
+        // The same sky the built picture fills its margin with, for the frames
+        // before that picture exists and for whatever the canvas does not cover.
+        .background(light.skyColor)
     }
 
     // MARK: - The static world

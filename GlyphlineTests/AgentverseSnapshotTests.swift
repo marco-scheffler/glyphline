@@ -135,8 +135,8 @@ final class AgentverseSnapshotTests: XCTestCase {
     /// channels at that point is road.
     ///
     /// The brightness bound is what a black frame cannot clear: the surface grey
-    /// is 51/255 and the racing line over it composites to 36/255, both far above
-    /// the backdrop's 18 and far below the kerbs' 227.
+    /// is 51/255 and the racing line over it composites to 36/255, both well below
+    /// the kerbs' 226.
     func testTheTrackSurfaceIsDrawnHalfALapFromTheLine() throws {
         let circuit = try monaco()
         let fit = CircuitFit(circuit: circuit, in: size)
@@ -156,8 +156,8 @@ final class AgentverseSnapshotTests: XCTestCase {
                        "the road is a flat grey; anything the sun lit is tinted")
         XCTAssertTrue((30...60).contains(red),
                       "the road surface is 51/255 and the racing line over it 36/255; "
-                      + "\(red) is neither, so this pixel is not track — the backdrop "
-                      + "is 18 and the kerbs 227")
+                      + "\(red) is neither, so this pixel is not track — the kerbs "
+                      + "are 226")
     }
 
     // MARK: - The cars
@@ -237,6 +237,33 @@ final class AgentverseSnapshotTests: XCTestCase {
         XCTAssertNotEqual(noon, midnight,
                           "only the instant differs, so the sun's own position is the "
                           + "only thing that can account for a difference")
+    }
+
+    /// The margin around the terrain used to be a fixed grey, which made it the
+    /// one surface in the picture the exposure never reached: at night the
+    /// terrain lifted and the frame around it stayed put. `CircuitFit` centres
+    /// the terrain box with at least its own margin on every side, so the canvas
+    /// corner is always outside that box and is nothing but backdrop.
+    func testTheBackdropIsLitAndDiffersBetweenNoonAndMidnight() throws {
+        let corner = { (image: CGImage) throws -> NSColor in
+            try XCTUnwrap(NSBitmapImageRep(cgImage: image).colorAt(x: 2, y: 2))
+        }
+        let noon = try corner(try world(instant: localNoon))
+        let midnight = try corner(try world(instant: localMidnight))
+
+        XCTAssertNotEqual(noon, midnight,
+                          "the backdrop is sky and the sky is a light source, so a "
+                          + "day and a night backdrop cannot be the same colour")
+
+        // And it is the *scene's* sky, not some other grey that happens to move.
+        let circuit = try monaco()
+        let sun = SunPosition.at(latitude: circuit.lat, longitude: circuit.lon,
+                                 date: localNoon)
+        let sky = SceneLight.make(elevation: sun.elevation, azimuth: sun.azimuth,
+                                  mapRotation: circuit.rot, weather: .clear).skySRGB
+        XCTAssertEqual(Double(noon.redComponent * 255), sky.x, accuracy: 1)
+        XCTAssertEqual(Double(noon.greenComponent * 255), sky.y, accuracy: 1)
+        XCTAssertEqual(Double(noon.blueComponent * 255), sky.z, accuracy: 1)
     }
 
     func testClearAndRainRenderDifferently() throws {

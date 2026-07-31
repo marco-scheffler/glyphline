@@ -193,6 +193,13 @@ struct SceneLight: Sendable {
 
     /// The sky is itself a light source and goes through the same curve as
     /// everything else — otherwise it stands next to the scene instead of in it.
+    ///
+    /// As sRGB 0…255 for the Core Graphics side, and as a `Color` for the
+    /// SwiftUI one. Both are the same value; a raw grey in either place is the
+    /// one surface in the picture the exposure never reaches, and it shows the
+    /// moment night lifts everything around it.
+    var skySRGB: SIMD3<Double> { encodeSRGB(skyLinear) }
+
     var skyColor: Color { encode(skyLinear) }
 
     /// For things already conceived as finished screen colours (HUD, lines):
