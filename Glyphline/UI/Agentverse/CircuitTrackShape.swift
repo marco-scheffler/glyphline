@@ -2,8 +2,11 @@ import SwiftUI
 
 /// The circuit's centreline and pit lane as drawable paths.
 ///
-/// Built once per circuit and canvas size rather than per frame: the geometry
-/// does not move, only the cars on it do.
+/// Rebuilt on every frame as things stand: the canvas sits under a
+/// `TimelineView(.animation)` and calls these four times a frame, roughly 160
+/// points each, sixty times a second. The geometry does not move, so that work
+/// is redundant — an accepted cost for now, and a later stage's job to cache. Do
+/// not read this as caching that already exists.
 enum CircuitTrackShape {
     static func centreline(for circuit: Circuit, fit: CircuitFit) -> Path {
         path(through: circuit.points, fit: fit, closed: true)
