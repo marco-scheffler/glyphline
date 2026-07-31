@@ -43,11 +43,13 @@ struct AgentverseScene: View {
                 lineWidth: 2
             )
 
-            let radius = max(3.5, fit.width(metres: 5, atLeast: 7) / 2)
-            // Derived from the radius the circle used, so a car takes roughly
-            // the screen area its predecessor did and a crowded circuit gets no
-            // more crowded.
-            let carLength = radius * 3.4
+            // Tied to the road it drives on rather than to a nominal length in
+            // metres: measured against the track surface stroke, a car that
+            // came out shorter than the road is wide could not read as a car at
+            // all. 1.6 road widths is deliberately over-scaled — to scale a GT3
+            // would be a third of the road's width long, which is a speck — and
+            // the floor keeps it legible on a small window.
+            let carLength = max(14, fit.width(metres: 13, atLeast: 6) * 1.6)
 
             func drawCar(at point: CGPoint, heading: Double, livery: CarLivery,
                          hazardsOn: Bool, opacity: Double) {
