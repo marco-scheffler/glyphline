@@ -9,6 +9,8 @@ import SwiftUI
 struct AgentverseWindow: View {
     @EnvironmentObject private var coordinator: AgentverseCoordinator
     @State private var isRefreshing = false
+    @State private var catalog: CircuitCatalog?
+    @State private var circuitKey = "monaco"
 
     var body: some View {
         HSplitView {
@@ -30,6 +32,11 @@ struct AgentverseWindow: View {
             }
         }
         .task { await refresh() }
+        .task {
+            // Decoded once per window rather than at launch: 683 KB of JSON is
+            // not worth paying for on a launch that may never open this window.
+            catalog = try? CircuitCatalog.bundled()
+        }
     }
 
     @ViewBuilder private var scene: some View {
@@ -39,8 +46,34 @@ struct AgentverseWindow: View {
         } else if coordinator.onTrack.isEmpty && coordinator.parked.isEmpty {
             ContentUnavailableView("No agent is running", systemImage: "flag.checkered",
                                    description: Text("Sessions appear here while they are working."))
+        } else if let circuit = catalog?.circuit(circuitKey) {
+            Canvas { context, size in
+                let fit = CircuitFit(circuit: circuit, in: size)
+                // Verge first, then surface: one stroke over another is cheaper
+                // than building two outlines, and the difference is invisible.
+                context.stroke(
+                    CircuitTrackShape.centreline(for: circuit, fit: fit),
+                    with: .color(.white.opacity(0.18)),
+                    style: StrokeStyle(lineWidth: fit.width(metres: 19, atLeast: 9),
+                                       lineCap: .round, lineJoin: .round)
+                )
+                context.stroke(
+                    CircuitTrackShape.centreline(for: circuit, fit: fit),
+                    with: .color(Color(white: 0.20)),
+                    style: StrokeStyle(lineWidth: fit.width(metres: 13, atLeast: 6),
+                                       lineCap: .round, lineJoin: .round)
+                )
+                context.stroke(
+                    CircuitTrackShape.pitLane(for: circuit, fit: fit),
+                    with: .color(Color(white: 0.16)),
+                    style: StrokeStyle(lineWidth: fit.width(metres: 12, atLeast: 5),
+                                       lineCap: .round, lineJoin: .round)
+                )
+            }
+            .background(Color(white: 0.07))
         } else {
-            Color.clear
+            ContentUnavailableView("No circuits", systemImage: "map",
+                                   description: Text("The bundled circuit data could not be read."))
         }
     }
 
