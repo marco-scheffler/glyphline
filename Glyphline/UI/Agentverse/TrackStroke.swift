@@ -44,17 +44,24 @@ struct TrackStroke {
     /// In draw order: verge, surface, rubber, kerbs, pit lane, line. The rubber
     /// sits on the road, so it goes on after the surface and before anything
     /// that crosses it.
+    ///
+    /// The metre widths are five times the real thing, floors included. The
+    /// picture is about the racing, and at true width the road was a thread over
+    /// a city: the buildings were the subject and the cars were specks on top of
+    /// them. Overscaling in metres rather than in points keeps the strokes'
+    /// proportions to one another — verge to surface to racing line to kerb —
+    /// and leaves the terrain, the buildings and their shadows untouched.
     static let all: [TrackStroke] = [
-        TrackStroke(path: .centreline, width: .metres(19, atLeast: 9),
+        TrackStroke(path: .centreline, width: .metres(95, atLeast: 45),
                     paint: .flat(grey(1)), alpha: 0.18),
-        TrackStroke(path: .centreline, width: .metres(13, atLeast: 6),
+        TrackStroke(path: .centreline, width: .metres(65, atLeast: 30),
                     paint: .flat(grey(0.20)), alpha: 1),
-        TrackStroke(path: .racingLine, width: .metres(6, atLeast: 3),
+        TrackStroke(path: .racingLine, width: .metres(30, atLeast: 15),
                     paint: .flat(grey(0.13)), alpha: 0.85),
-        TrackStroke(path: .kerbs, width: .metres(2.5, atLeast: 2),
+        TrackStroke(path: .kerbs, width: .metres(12.5, atLeast: 10),
                     paint: .alternating(red: SIMD3(196, 48, 44),
                                         pale: SIMD3(226, 226, 226)), alpha: 1),
-        TrackStroke(path: .pitLane, width: .metres(12, atLeast: 5),
+        TrackStroke(path: .pitLane, width: .metres(60, atLeast: 25),
                     paint: .flat(grey(0.16)), alpha: 1),
         TrackStroke(path: .startFinish, width: .points(2),
                     paint: .flat(grey(0.85)), alpha: 1),

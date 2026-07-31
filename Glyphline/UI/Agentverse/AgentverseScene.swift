@@ -86,12 +86,15 @@ struct AgentverseScene: View {
             }
 
             // Tied to the road it drives on rather than to a nominal length in
-            // metres: measured against the track surface stroke, a car that
-            // came out shorter than the road is wide could not read as a car at
-            // all. 1.6 road widths is deliberately over-scaled — to scale a GT3
-            // would be a third of the road's width long, which is a speck — and
-            // the floor keeps it legible on a small window.
-            let carLength = max(14, fit.width(metres: 13, atLeast: 6) * 1.6)
+            // metres: to scale a GT3 would be a third of the road's width long,
+            // which is a speck, and the floor keeps it legible on a small window.
+            //
+            // 0.96 rather than the 1.6 it was, because the surface stroke it
+            // measures against is now five times wider. The car is meant to be
+            // three times its old absolute size, and 3 × 1.6 / 5 = 0.96 — so it
+            // ends up marginally shorter than the road is wide, which reads
+            // correctly at this scale where it would not have at the old one.
+            let carLength = max(42, fit.width(metres: 65, atLeast: 30) * 0.96)
 
             func drawCar(at point: CGPoint, heading: Double, livery: CarLivery,
                          hazardsOn: Bool, opacity: Double) {

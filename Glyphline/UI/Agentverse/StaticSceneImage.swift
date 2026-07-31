@@ -191,7 +191,7 @@ enum StaticSceneImage {
     static func cornerLabels(for circuit: Circuit,
                              fit: CircuitFit) -> [(name: String, at: CGPoint)] {
         // Far enough out to clear the verge stroke and the kerb standing on it.
-        let offset = fit.width(metres: 19, atLeast: 9) / 2 + fit.width(metres: 8, atLeast: 6)
+        let offset = fit.width(metres: 95, atLeast: 45) / 2 + fit.width(metres: 8, atLeast: 6)
 
         return circuit.corners.compactMap { corner in
             guard circuit.points.indices.contains(corner.idx),

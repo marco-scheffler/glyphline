@@ -37,7 +37,8 @@ enum CircuitTrackShape {
         guard length > 0 else { return path }
         let normal = CGPoint(x: -tangent.y / length, y: tangent.x / length)
 
-        let half = fit.width(metres: 13, atLeast: 6) / 2
+        // Spans the road, so it takes the road's overscaled width.
+        let half = fit.width(metres: 65, atLeast: 30) / 2
         path.move(to: CGPoint(x: centre.x - normal.x * half, y: centre.y - normal.y * half))
         path.addLine(to: CGPoint(x: centre.x + normal.x * half, y: centre.y + normal.y * half))
         return path
@@ -82,8 +83,8 @@ enum CircuitTrackShape {
         let turns = (0..<count).map { turn(points: points, index: $0, fit: fit) }
         // Clear of the road surface, not on it: half the surface stroke plus
         // half the kerb's own width puts the band's centre against the edge.
-        let offset = fit.width(metres: 13, atLeast: 6) / 2
-            + fit.width(metres: 2.5, atLeast: 2) / 2
+        let offset = fit.width(metres: 65, atLeast: 30) / 2
+            + fit.width(metres: 12.5, atLeast: 10) / 2
         let blockLength = fit.width(metres: 6, atLeast: 4)
 
         var result: [(Path, Bool)] = []
