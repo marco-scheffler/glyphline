@@ -48,6 +48,7 @@
 		4A2D3A3FE1C0266B2765FD0F /* AccountsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F06FF5203E4C15863CAB3EE3 /* AccountsView.swift */; };
 		4B7EBD39F79A2025162639DB /* ClaudeUsageQuotaDTOs.swift in Sources */ = {isa = PBXBuildFile; fileRef = D968A135D66AE439311BECFE /* ClaudeUsageQuotaDTOs.swift */; };
 		4B96E1ED4A37D89F3DB7A844 /* ProviderAdapterRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A12C10E9B329DC6D4E86D94 /* ProviderAdapterRegistry.swift */; };
+		4C51C60D80CAA779DBEC50C2 /* SceneryLayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE00729E6A7C7D002B0FCCD1 /* SceneryLayer.swift */; };
 		50DE389F4361F81A9F3BBAE6 /* AccountSummaryFormatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65C301199FDCC9595DC906A9 /* AccountSummaryFormatting.swift */; };
 		53C027BC1913ED3344EEA4C4 /* CarShape.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E68BA9508B1A2AAE30A246E /* CarShape.swift */; };
 		54B04C19F46485890B8DC28B /* AgentSessionScannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BD3C2C540C231D67EC5F063 /* AgentSessionScannerTests.swift */; };
@@ -101,6 +102,7 @@
 		B077494A20202025E2ABBE46 /* SnapshotIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = F94F481767914DA33C8B0E8D /* SnapshotIdentity.swift */; };
 		B3F171351A59C208FD3AF3F4 /* claude-usage-minimal.json in Resources */ = {isa = PBXBuildFile; fileRef = 115EF78DDBF22BE7B267CE5B /* claude-usage-minimal.json */; };
 		B478D06C9EC6D212E0D7EE98 /* AgentverseScene.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EC4E85D055A158D0AB6AE19 /* AgentverseScene.swift */; };
+		B55FE60D5EC92B3A6BF704F1 /* SceneryLayerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 903899B21C8B8EF1E1EC95EE /* SceneryLayerTests.swift */; };
 		B61E521F9859F0DA80A53702 /* ClaudeWebQuotaSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15AE8CE25E9DFB53944DBD13 /* ClaudeWebQuotaSource.swift */; };
 		B838F331BD89C2B524410914 /* AddAccountView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A63DE4BE6B1E5DD6EBDEC233 /* AddAccountView.swift */; };
 		B85CA610DA5E8BBC7879D1CD /* LedgerStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 461DE0E81EA86DEF3F3E1A47 /* LedgerStore.swift */; };
@@ -213,6 +215,7 @@
 		8C7EFBFB9C39E2FB8C3A9072 /* GlyphlineTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GlyphlineTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		8E897587F3639B71FA29F250 /* DeleteAccountFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeleteAccountFlowTests.swift; sourceTree = "<group>"; };
 		8EB4CDCE71718F453A076C59 /* ClaudeTranscriptReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeTranscriptReader.swift; sourceTree = "<group>"; };
+		903899B21C8B8EF1E1EC95EE /* SceneryLayerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneryLayerTests.swift; sourceTree = "<group>"; };
 		919CF627AF46F1C143EA18B9 /* ClaudeCodeLogReaderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeCodeLogReaderTests.swift; sourceTree = "<group>"; };
 		93FBE86612C30FFEEC2EE1FD /* AccountDeletionFormatting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountDeletionFormatting.swift; sourceTree = "<group>"; };
 		95C07C54958DB8497140B7F0 /* CarPosition.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarPosition.swift; sourceTree = "<group>"; };
@@ -239,6 +242,7 @@
 		BA3B73CA5CAB2E184CE9154D /* KeychainStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStore.swift; sourceTree = "<group>"; };
 		BB947F271F18142FE2CD64DB /* MenuBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarView.swift; sourceTree = "<group>"; };
 		BD5F66FB95D8BBD93EFCBE00 /* AppSettingsStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettingsStoreTests.swift; sourceTree = "<group>"; };
+		BE00729E6A7C7D002B0FCCD1 /* SceneryLayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneryLayer.swift; sourceTree = "<group>"; };
 		BE8DBF95730F8FD235AFAC47 /* UsageModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageModels.swift; sourceTree = "<group>"; };
 		C052559758FF74B410700F49 /* RateWindowSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RateWindowSource.swift; sourceTree = "<group>"; };
 		C1291754346ED094133AE0E6 /* pricing-v1.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "pricing-v1.json"; sourceTree = "<group>"; };
@@ -312,6 +316,7 @@
 				2D5625DA73E0742F1158840B /* CircuitFit.swift */,
 				8AB2FF27ACEEEEA42A281F72 /* CircuitTrackShape.swift */,
 				590AB7BB7B2B0704E4EF7C23 /* SceneLight.swift */,
+				BE00729E6A7C7D002B0FCCD1 /* SceneryLayer.swift */,
 				5465BF81A3D7F440B3636E5B /* SunPosition.swift */,
 				E9A5BC3D12967C9B99DCC327 /* TerrainLayer.swift */,
 			);
@@ -482,6 +487,7 @@
 				1923CB6870F90CE15FC576F9 /* RateWindowStoreTests.swift */,
 				CA6C8BEB41F3B3EE32D28A76 /* RateWindowTests.swift */,
 				80ED211E069178416163921B /* SceneLightTests.swift */,
+				903899B21C8B8EF1E1EC95EE /* SceneryLayerTests.swift */,
 				B5287B8477F8EF75ABA938B2 /* SnapshotSummaryTests.swift */,
 				F4E1FE1146583F38A8203043 /* SunPositionTests.swift */,
 				AB71829869D2BDC5C53A536A /* SyncCoordinatorLocalUsageTests.swift */,
@@ -765,6 +771,7 @@
 				9442C7847482BDAC9B50C660 /* RateWindowStoreTests.swift in Sources */,
 				F56211A4FDCF96FDAFB59C92 /* RateWindowTests.swift in Sources */,
 				D2B18F77CE6A271F859A2598 /* SceneLightTests.swift in Sources */,
+				B55FE60D5EC92B3A6BF704F1 /* SceneryLayerTests.swift in Sources */,
 				AC776B32695D0B125B30B305 /* SnapshotSummaryTests.swift in Sources */,
 				84A54ADAC7F03FF978AB6A90 /* SunPositionTests.swift in Sources */,
 				383C6EC1087E7FC1D05F6919 /* SyncCoordinatorLocalUsageTests.swift in Sources */,
@@ -834,6 +841,7 @@
 				8A0A7176801705F955EB4B5C /* RateWindow.swift in Sources */,
 				8A3BE7918F84E156A45F3259 /* RateWindowSource.swift in Sources */,
 				2F9FA3A87CCE4D32C5E562FB /* SceneLight.swift in Sources */,
+				4C51C60D80CAA779DBEC50C2 /* SceneryLayer.swift in Sources */,
 				C188981DAC4E75CE72DC3B58 /* SettingsView.swift in Sources */,
 				B077494A20202025E2ABBE46 /* SnapshotIdentity.swift in Sources */,
 				BE564013C16C892F7848C0AA /* StatisticsView.swift in Sources */,
