@@ -144,10 +144,17 @@ final class CarPositionTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(heading), 0, accuracy: 0.0001)
     }
 
-    /// Screen space, not metre space: `CircuitFit` is what decides where a point
-    /// lands, and a car computed against the raw metres would point somewhere
-    /// else the day the fit gains a flip.
-    func testAHeadingIsMeasuredInScreenSpace() throws {
+    /// The heading agrees with where `CircuitFit` actually puts the points.
+    ///
+    /// It does not, today, tell screen space from metre space: `CircuitFit` is a
+    /// uniform positive similarity transform — one `min()` scale for both axes,
+    /// plus a translation — and `atan2` is invariant under that, so a metre-space
+    /// implementation returns the identical angle and passes this. The axes
+    /// cannot be forced apart either; keeping the aspect ratio is the whole point
+    /// of that `min()`. This test becomes load-bearing the day the fit gains a
+    /// flip or a per-axis scale, which is exactly when the guarantee starts to
+    /// matter.
+    func testAHeadingAgreesWithTheFittedPoints() throws {
         let circuit = testCircuit(points: [[0, 0], [0, 10], [0, 20]])
         let heading = try XCTUnwrap(
             CarPosition.heading(points: circuit.points, index: 1,
@@ -180,8 +187,11 @@ final class CarPositionTests: XCTestCase {
                        accuracy: 0.0001)
     }
 
-    /// The pit lane has an entry and an exit, so its ends clamp instead.
-    func testAnOpenLineClampsAtBothEnds() throws {
+    /// The pit lane has an entry and an exit, so its ends clamp rather than wrap.
+    ///
+    /// Its two ends fail differently, so they are pinned separately. Without the
+    /// clamp the entry reads `points[-1]` — a trap on the way in.
+    func testAnOpenLineClampsAtItsEntry() throws {
         let circuit = testCircuit(points: [[0, 0], [10, 0], [20, 0]])
         let fit = testFit(circuit)
 
@@ -189,6 +199,20 @@ final class CarPositionTests: XCTestCase {
                                                       closed: false, fit: fit))
 
         XCTAssertEqual(first, 0, accuracy: 0.0001)
+    }
+
+    /// The other end, and the one that matters most: without the clamp the exit
+    /// subscripts one past the last point and traps — verified by deleting the
+    /// clamp, which turns this into `Fatal error: Index out of range`. A parked
+    /// car stands at the exit, so this is a live path rather than a corner case.
+    func testAnOpenLineClampsAtItsExit() throws {
+        let circuit = testCircuit(points: [[0, 0], [10, 0], [20, 0]])
+        let fit = testFit(circuit)
+
+        let last = try XCTUnwrap(CarPosition.heading(points: circuit.points, index: 2,
+                                                     closed: false, fit: fit))
+
+        XCTAssertEqual(last, 0, accuracy: 0.0001)
     }
 
     func testTwoCoincidentNeighboursLeaveNoHeading() {
