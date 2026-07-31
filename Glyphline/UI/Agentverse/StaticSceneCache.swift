@@ -212,20 +212,26 @@ enum StaticSceneImage {
         context.setLineCap(.round)
         context.setLineJoin(.round)
 
-        let centreline = CircuitTrackShape.centreline(for: circuit, fit: fit).cgPath
-        stroke(centreline, into: context, white: 1, alpha: 0.18,
-               width: fit.width(metres: 19, atLeast: 9))
-        stroke(centreline, into: context, white: 0.20, alpha: 1,
-               width: fit.width(metres: 13, atLeast: 6))
-        // The rubber sits on the road, so it goes on after the surface and
-        // before anything that crosses it.
-        stroke(CircuitTrackShape.racingLine(for: circuit, fit: fit).cgPath, into: context,
-               white: 0.13, alpha: 0.85, width: fit.width(metres: 6, atLeast: 3))
-        drawKerbs(into: context, circuit: circuit, fit: fit)
-        stroke(CircuitTrackShape.pitLane(for: circuit, fit: fit).cgPath, into: context,
-               white: 0.16, alpha: 1, width: fit.width(metres: 12, atLeast: 5))
-        stroke(CircuitTrackShape.startFinish(for: circuit, fit: fit).cgPath, into: context,
-               white: 0.85, alpha: 1, width: 2)
+        for stroke in TrackStroke.all {
+            let width = stroke.points(fit: fit)
+            switch stroke.path {
+            case .centreline:
+                self.stroke(CircuitTrackShape.centreline(for: circuit, fit: fit).cgPath,
+                            into: context, paint: stroke.paint, alpha: stroke.alpha, width: width)
+            case .racingLine:
+                self.stroke(CircuitTrackShape.racingLine(for: circuit, fit: fit).cgPath,
+                            into: context, paint: stroke.paint, alpha: stroke.alpha, width: width)
+            case .kerbs:
+                drawKerbs(into: context, circuit: circuit, fit: fit,
+                          paint: stroke.paint, width: width)
+            case .pitLane:
+                self.stroke(CircuitTrackShape.pitLane(for: circuit, fit: fit).cgPath,
+                            into: context, paint: stroke.paint, alpha: stroke.alpha, width: width)
+            case .startFinish:
+                self.stroke(CircuitTrackShape.startFinish(for: circuit, fit: fit).cgPath,
+                            into: context, paint: stroke.paint, alpha: stroke.alpha, width: width)
+            }
+        }
 
         context.restoreGState()
         drawCornerNames(into: context, circuit: circuit, fit: fit)
@@ -234,21 +240,29 @@ enum StaticSceneImage {
     /// Butt caps, not the round ones the rest of the track uses: a round cap on
     /// both ends of every block closes the gaps the alternation is made of, and
     /// the kerb comes out a solid pink line.
-    private static func drawKerbs(into context: CGContext, circuit: Circuit, fit: CircuitFit) {
+    private static func drawKerbs(into context: CGContext, circuit: Circuit, fit: CircuitFit,
+                                  paint: TrackStroke.Paint, width: CGFloat) {
         let blocks = CircuitTrackShape.kerbs(for: circuit, fit: fit)
         guard !blocks.isEmpty else { return }
 
         context.saveGState()
         context.setLineCap(.butt)
-        context.setLineWidth(fit.width(metres: 2.5, atLeast: 2))
+        context.setLineWidth(width)
         for (block, red) in blocks {
             let path = block.cgPath
             guard !path.isEmpty else { continue }
-            context.setStrokeColor(colour(red ? SIMD3(196, 48, 44) : SIMD3(226, 226, 226)))
+            context.setStrokeColor(colour(srgb(paint, red: red)))
             context.addPath(path)
             context.strokePath()
         }
         context.restoreGState()
+    }
+
+    private static func srgb(_ paint: TrackStroke.Paint, red: Bool) -> SIMD3<Double> {
+        switch paint {
+        case .flat(let flat): return flat
+        case .alternating(let kerbRed, let pale): return red ? kerbRed : pale
+        }
     }
 
     // MARK: - Corner names
@@ -307,11 +321,9 @@ enum StaticSceneImage {
     }
 
     private static func stroke(_ path: CGPath, into context: CGContext,
-                               white: CGFloat, alpha: CGFloat, width: CGFloat) {
+                               paint: TrackStroke.Paint, alpha: Double, width: CGFloat) {
         guard !path.isEmpty else { return }
-        context.setStrokeColor(colour(SIMD3(Double(white) * 255,
-                                            Double(white) * 255,
-                                            Double(white) * 255), alpha: alpha))
+        context.setStrokeColor(colour(srgb(paint, red: false), alpha: CGFloat(alpha)))
         context.setLineWidth(width)
         context.addPath(path)
         context.strokePath()

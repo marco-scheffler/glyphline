@@ -171,47 +171,49 @@ struct AgentverseScene: View {
     /// the same strokes the picture itself bakes in — bar the corner names,
     /// which are text and belong to the picture alone.
     private func drawBareTrack(in context: GraphicsContext, fit: CircuitFit) {
-        // Verge first, then surface: one stroke over another is cheaper
-        // than building two outlines, and the difference is invisible.
-        context.stroke(
-            CircuitTrackShape.centreline(for: circuit, fit: fit),
-            with: .color(.white.opacity(0.18)),
-            style: StrokeStyle(lineWidth: fit.width(metres: 19, atLeast: 9),
-                               lineCap: .round, lineJoin: .round)
-        )
-        context.stroke(
-            CircuitTrackShape.centreline(for: circuit, fit: fit),
-            with: .color(Color(white: 0.20)),
-            style: StrokeStyle(lineWidth: fit.width(metres: 13, atLeast: 6),
-                               lineCap: .round, lineJoin: .round)
-        )
-        context.stroke(
-            CircuitTrackShape.racingLine(for: circuit, fit: fit),
-            with: .color(Color(white: 0.13).opacity(0.85)),
-            style: StrokeStyle(lineWidth: fit.width(metres: 6, atLeast: 3),
-                               lineCap: .round, lineJoin: .round)
-        )
-        // Butt caps: round ones on both ends of every block would close the gaps
-        // the red-and-white alternation is made of.
-        for (block, red) in CircuitTrackShape.kerbs(for: circuit, fit: fit) {
-            context.stroke(
-                block,
-                with: .color(red ? Color(red: 0.77, green: 0.19, blue: 0.17)
-                                 : Color(white: 0.89)),
-                style: StrokeStyle(lineWidth: fit.width(metres: 2.5, atLeast: 2),
-                                   lineCap: .butt)
-            )
+        for stroke in TrackStroke.all {
+            let width = stroke.points(fit: fit)
+            // Verge over surface, and both over the same line: one stroke on top
+            // of another is cheaper than building two outlines, and the
+            // difference is invisible.
+            let round = StrokeStyle(lineWidth: width, lineCap: .round, lineJoin: .round)
+
+            switch stroke.path {
+            case .centreline:
+                context.stroke(CircuitTrackShape.centreline(for: circuit, fit: fit),
+                               with: .color(colour(stroke.paint, red: false, alpha: stroke.alpha)),
+                               style: round)
+            case .racingLine:
+                context.stroke(CircuitTrackShape.racingLine(for: circuit, fit: fit),
+                               with: .color(colour(stroke.paint, red: false, alpha: stroke.alpha)),
+                               style: round)
+            case .kerbs:
+                // Butt caps: round ones on both ends of every block would close
+                // the gaps the red-and-white alternation is made of.
+                for (block, red) in CircuitTrackShape.kerbs(for: circuit, fit: fit) {
+                    context.stroke(block,
+                                   with: .color(colour(stroke.paint, red: red, alpha: stroke.alpha)),
+                                   style: StrokeStyle(lineWidth: width, lineCap: .butt))
+                }
+            case .pitLane:
+                context.stroke(CircuitTrackShape.pitLane(for: circuit, fit: fit),
+                               with: .color(colour(stroke.paint, red: false, alpha: stroke.alpha)),
+                               style: round)
+            case .startFinish:
+                context.stroke(CircuitTrackShape.startFinish(for: circuit, fit: fit),
+                               with: .color(colour(stroke.paint, red: false, alpha: stroke.alpha)),
+                               lineWidth: width)
+            }
         }
-        context.stroke(
-            CircuitTrackShape.pitLane(for: circuit, fit: fit),
-            with: .color(Color(white: 0.16)),
-            style: StrokeStyle(lineWidth: fit.width(metres: 12, atLeast: 5),
-                               lineCap: .round, lineJoin: .round)
-        )
-        context.stroke(
-            CircuitTrackShape.startFinish(for: circuit, fit: fit),
-            with: .color(Color(white: 0.85)),
-            lineWidth: 2
-        )
+    }
+
+    private func colour(_ paint: TrackStroke.Paint, red: Bool, alpha: Double) -> Color {
+        let srgb: SIMD3<Double>
+        switch paint {
+        case .flat(let flat): srgb = flat
+        case .alternating(let kerbRed, let pale): srgb = red ? kerbRed : pale
+        }
+        return Color(.sRGB, red: srgb.x / 255, green: srgb.y / 255, blue: srgb.z / 255,
+                     opacity: alpha)
     }
 }
