@@ -123,6 +123,41 @@ final class AgentverseCoordinatorTests: XCTestCase {
         XCTAssertEqual(coordinator.workTokens["S1"], 2_600_000)
     }
 
+    /// What the repeating sweep is for: the odometer a later sweep publishes is
+    /// the one on disk at that moment, not the one the opening sweep saw. Without
+    /// this the cars are pinned to whatever the window found when it appeared.
+    func testASecondSweepPublishesTokensWrittenSinceTheFirst() async throws {
+        let ledger = try makeLedger()
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let coordinator = AgentverseCoordinator(
+            scanner: StubScanner(sessions: [session("S1", at: now)]),
+            ledger: ledger
+        )
+        try ledger.applyLocalScan(scan(sessionID: "S1", outputTokens: 500_000))
+
+        await coordinator.refresh(now: now)
+        XCTAssertEqual(coordinator.workTokens["S1"], 500_000)
+
+        // The store accumulates per session and model, so this is the million
+        // tokens the session produced between the two sweeps.
+        try ledger.applyLocalScan(scan(sessionID: "S1", outputTokens: 1_000_000))
+        await coordinator.refresh(now: now.addingTimeInterval(AgentverseRefreshSchedule.interval))
+
+        XCTAssertEqual(coordinator.workTokens["S1"], 1_500_000)
+    }
+
+    private func scan(sessionID: String, outputTokens: Int64) -> LocalScanResult {
+        LocalScanResult(
+            usage: [],
+            sessionUsage: [
+                LocalSessionTokenUsage(sessionID: sessionID, model: "sonnet",
+                                       inputTokens: 0, cacheCreationTokens: 0,
+                                       cacheReadTokens: 0, outputTokens: outputTokens),
+            ],
+            watermarks: []
+        )
+    }
+
     private struct StubScanner: AgentSessionScanning {
         var sessions: [AgentSession]
         func scan(now: Date) throws -> [AgentSession] { sessions }

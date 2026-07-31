@@ -1,13 +1,36 @@
 import SwiftUI
 
+/// When the map sweeps again on its own.
+///
+/// A sweep is not free — a 374 ms directory walk over roughly three thousand
+/// transcripts — so the map only sweeps while someone is actually looking at it.
+/// Both halves of that live here so a test can pin them.
+enum AgentverseRefreshSchedule {
+    /// Fifteen seconds between sweeps.
+    ///
+    /// The floor: a session working hard writes on the order of 50 000 tokens a
+    /// minute, and a lap is a million, so a car moves about 1.25 % of a lap in
+    /// fifteen seconds — visible, where a five-second tick would redraw the same
+    /// position. The ceiling: half a minute of a car standing still on a screen
+    /// the user is watching reads as the old bug. In between, 374 ms of work
+    /// every 15 s is a 2.5 % duty cycle on one background thread.
+    static let interval: TimeInterval = 15
+
+    /// Sweeping is for the foreground only. `.inactive` is another app in front,
+    /// `.background` is the window closed or hidden — in both cases nobody can
+    /// see the cars move, so the disk walk would buy nothing.
+    static func shouldRun(in phase: ScenePhase) -> Bool { phase == .active }
+}
+
 /// The map's window.
 ///
-/// Everything happens on opening: one sweep when the view appears, and a toolbar
-/// button to run another. No timer, no filesystem watch, nothing in the
-/// background — a full sweep costs a 374 ms directory walk over roughly three
-/// thousand transcripts, which is cheap once per opening and wasteful on a tick.
+/// The window sweeps on a repeating interval, but only while it is on screen in
+/// the frontmost app: the loop lives in a `.task` keyed on the scene phase, so
+/// closing the window or sending the app to the back cancels it and the machine
+/// goes quiet again.
 struct AgentverseWindow: View {
     @EnvironmentObject private var coordinator: AgentverseCoordinator
+    @Environment(\.scenePhase) private var scenePhase
     @State private var isRefreshing = false
     /// Three states in one value: nil is still loading, and only `.failure` is a
     /// failure. A plain optional made the first frames of every opening show the
@@ -78,7 +101,21 @@ struct AgentverseWindow: View {
                 .disabled(isRefreshing)
             }
         }
-        .task { await refresh() }
+        // Keyed on the scene phase so that leaving `.active` cancels the loop
+        // outright rather than letting it tick on behind a hidden window; coming
+        // back starts a fresh one, whose first pass is the opening sweep.
+        .task(id: scenePhase) {
+            guard AgentverseRefreshSchedule.shouldRun(in: scenePhase) else { return }
+            while !Task.isCancelled {
+                await refresh()
+                // Nothing is interpolated between two sweeps: a car's place is a
+                // claim about tokens read from the ledger, and gliding it along
+                // between readings would make that claim up.
+                try? await Task.sleep(
+                    nanoseconds: UInt64(AgentverseRefreshSchedule.interval * Double(NSEC_PER_SEC))
+                )
+            }
+        }
         .task {
             // Ticks for as long as the window is open and stops with it.
             while !Task.isCancelled {

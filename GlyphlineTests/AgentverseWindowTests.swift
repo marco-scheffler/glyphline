@@ -1,7 +1,25 @@
+import SwiftUI
 import XCTest
 @testable import Glyphline
 
 final class AgentverseWindowTests: XCTestCase {
+    /// The interval is a judgement call, but not a free one: below ten seconds a
+    /// hard-working session has not moved a car far enough to see and the sweep
+    /// is a pure disk cost, and above thirty a watched car stands still long
+    /// enough to look like the bug this replaced.
+    func testTheRefreshIntervalStaysInTheRangeThatBuysVisibleMotion() {
+        XCTAssertGreaterThanOrEqual(AgentverseRefreshSchedule.interval, 10)
+        XCTAssertLessThanOrEqual(AgentverseRefreshSchedule.interval, 30)
+    }
+
+    /// The whole point of the loop being gated: a closed, hidden or backgrounded
+    /// window must not walk three thousand transcripts every fifteen seconds.
+    func testOnlyAnActiveSceneSweeps() {
+        XCTAssertTrue(AgentverseRefreshSchedule.shouldRun(in: .active))
+        XCTAssertFalse(AgentverseRefreshSchedule.shouldRun(in: .inactive))
+        XCTAssertFalse(AgentverseRefreshSchedule.shouldRun(in: .background))
+    }
+
     /// The two windows must not share an id, or `openWindow` raises whichever
     /// SwiftUI happens to have registered first and the map opens the dashboard.
     func testTheWindowIdsAreDistinct() {
