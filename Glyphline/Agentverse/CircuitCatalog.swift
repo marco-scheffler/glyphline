@@ -42,6 +42,20 @@ struct Circuit: Decodable, Equatable, Sendable {
         case name, location, tz, lengthKm, lat, lon, rot
         case minX, minY, spanX, spanY, startIdx, points, pit
     }
+
+    /// The venue rather than the formal name, for a control that has room for a
+    /// word: "Circuit de Spa-Francorchamps" cannot be a tab beside four others.
+    /// A circuit the table does not know falls back to its location and then to
+    /// its full name, so adding one to the data never leaves a blank tab.
+    var shortName: String { Circuit.shortNames[key] ?? location ?? name }
+
+    static let shortNames: [String: String] = [
+        "monaco": "Monaco",
+        "spa": "Spa",
+        "suzuka": "Suzuka",
+        "monza": "Monza",
+        "vegas": "Las Vegas",
+    ]
 }
 
 struct CircuitCorner: Decodable, Equatable, Sendable {
@@ -107,13 +121,14 @@ struct CircuitCatalog: Equatable, Sendable {
 
     func circuit(_ key: String) -> Circuit? { circuits[key] }
 
-    /// Every circuit as the key it is looked up by and the name it is offered
-    /// under, ordered by that name. Dictionary iteration order is unspecified
-    /// and differs between launches, so an unsorted list would rearrange the
-    /// picker on every opening.
-    var entriesByName: [(key: String, name: String)] {
-        circuits.map { (key: $0.key, name: $0.value.name) }
-            .sorted { $0.name < $1.name }
+    /// Every circuit as the key it is looked up by, its full name, and the short
+    /// label the toolbar shows — ordered by that label, because that is the
+    /// order the user reads. Dictionary iteration order is unspecified and
+    /// differs between launches, so an unsorted list would rearrange the picker
+    /// on every opening.
+    var entriesInPickerOrder: [(key: String, name: String, short: String)] {
+        circuits.map { (key: $0.key, name: $0.value.name, short: $0.value.shortName) }
+            .sorted { $0.short < $1.short }
     }
 
     static func bundled(in bundle: Bundle = .main) throws -> CircuitCatalog {

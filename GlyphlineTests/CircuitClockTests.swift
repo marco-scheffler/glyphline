@@ -42,7 +42,7 @@ final class CircuitClockTests: XCTestCase {
     /// The direction check on its own: noon at the circuit reads back as noon at
     /// the circuit, not as noon anywhere else.
     func testAnInstantReadsBackAsTheLocalTimeItWasBuiltFrom() throws {
-        for key in try CircuitCatalog.bundled().entriesByName.map(\.key) {
+        for key in try CircuitCatalog.bundled().entriesInPickerOrder.map(\.key) {
             let circuit = try self.circuit(key)
             for minutes: Double in [0, 360, 720, 1_080, 1_410] {
                 let instant = CircuitClock.instant(for: circuit, minutesOfLocalDay: minutes,
@@ -58,7 +58,7 @@ final class CircuitClockTests: XCTestCase {
     /// the wrong side of the planet, so the sun itself is asked: at local noon it
     /// must be near its highest for that day, at every circuit.
     func testTheSunIsNearItsDailyPeakAtLocalNoonOnEveryCircuit() throws {
-        for key in try CircuitCatalog.bundled().entriesByName.map(\.key) {
+        for key in try CircuitCatalog.bundled().entriesInPickerOrder.map(\.key) {
             let circuit = try self.circuit(key)
             func elevation(atLocalMinutes minutes: Double) -> Double {
                 SunPosition.at(latitude: circuit.lat, longitude: circuit.lon,
@@ -88,7 +88,7 @@ final class CircuitClockTests: XCTestCase {
     /// so the fallback below takes over silently, and this is the only thing
     /// that would say why the clock moved.
     func testEveryBundledCircuitNamesARecognisedTimeZone() throws {
-        for key in try CircuitCatalog.bundled().entriesByName.map(\.key) {
+        for key in try CircuitCatalog.bundled().entriesInPickerOrder.map(\.key) {
             let circuit = try self.circuit(key)
             XCTAssertNotNil(CircuitClock.timeZone(for: circuit),
                             "\(key) carries the unusable identifier \(circuit.tz)")

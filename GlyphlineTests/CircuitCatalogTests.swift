@@ -103,17 +103,30 @@ final class CircuitCatalogTests: XCTestCase {
         }
     }
 
-    /// The picker's entries. Sorted by the name it shows, not by key and not in
+    /// The picker's entries. Sorted by the label it shows, not by key and not in
     /// dictionary order — the latter differs between launches, so the circuits
-    /// would sit somewhere else in the menu every time the window is opened.
-    func testTheCircuitsAreOfferedByNameInAStableOrder() throws {
-        let entries = try catalog().entriesByName
+    /// would sit somewhere else in the control every time the window is opened.
+    func testTheCircuitsAreOfferedByLabelInAStableOrder() throws {
+        let entries = try catalog().entriesInPickerOrder
 
-        XCTAssertEqual(entries.map(\.name), entries.map(\.name).sorted())
+        XCTAssertEqual(entries.map(\.short), entries.map(\.short).sorted())
         XCTAssertEqual(entries.count, 5)
         XCTAssertEqual(
             entries.first(where: { $0.key == "monaco" })?.name, "Circuit de Monaco"
         )
+    }
+
+    /// A tab has room for a venue, not for "Circuit de Spa-Francorchamps". Every
+    /// circuit in the bundle needs one, or a tab comes out blank.
+    func testEveryCircuitHasAShortLabel() throws {
+        let entries = try catalog().entriesInPickerOrder
+
+        XCTAssertEqual(entries.map(\.short),
+                       ["Las Vegas", "Monaco", "Monza", "Spa", "Suzuka"])
+        for entry in entries {
+            XCTAssertFalse(entry.short.isEmpty)
+            XCTAssertLessThanOrEqual(entry.short.count, entry.name.count)
+        }
     }
 
     /// The window puts this string in front of the user. `Error`'s default

@@ -43,12 +43,17 @@ struct AgentverseWindow: View {
             ToolbarItem(placement: .automatic) {
                 // Deliberately not persisted: whether the choice should survive
                 // a reopening is still open, and storing it would settle it.
+                // Tabs, not a menu: as a menu this collapsed into the toolbar's
+                // overflow chevron and the five circuits became unreachable.
+                // Tabs only fit on the short labels — the formal names run to
+                // "Circuit de Spa-Francorchamps".
                 Picker("Circuit", selection: $circuitKey) {
-                    ForEach((try? catalogLoad?.get())?.entriesByName ?? [], id: \.key) { entry in
-                        Text(entry.name).tag(entry.key)
+                    ForEach((try? catalogLoad?.get())?.entriesInPickerOrder ?? [], id: \.key) { entry in
+                        Text(entry.short).tag(entry.key).help(entry.name)
                     }
                 }
                 .labelsHidden()
+                .pickerStyle(.segmented)
             }
             ToolbarItem(placement: .automatic) {
                 Picker("Weather", selection: $weatherChoice) {
@@ -58,7 +63,8 @@ struct AgentverseWindow: View {
                 }
                 .labelsHidden()
                 .pickerStyle(.segmented)
-                .help("What the sky over the circuit is doing")
+                .help("What the sky over the circuit is doing. Auto follows the "
+                      + "weather on location.")
             }
             if let circuit = selectedCircuit {
                 ToolbarItem(placement: .automatic) { timeControls(circuit) }
@@ -105,7 +111,9 @@ struct AgentverseWindow: View {
         )
         HStack(spacing: 8) {
             Slider(value: minutes, in: 0...CircuitClock.minutesPerDay)
-                .frame(width: 150)
+                // Narrower than it was: the circuit tabs have to come from
+                // somewhere, and a day is still a day at 120 points.
+                .frame(width: 120)
                 .help("The time of day at the circuit")
             Text(CircuitClock.localTimeText(for: circuit, at: instant(for: circuit)))
                 .font(.callout.monospacedDigit())
@@ -219,7 +227,9 @@ enum WeatherChoice: Hashable, CaseIterable {
 
     var label: String {
         switch self {
-        case .onLocation: return "On location"
+        // One word: five circuit tabs now share the toolbar with these five, and
+        // "On location" was the widest segment in either control.
+        case .onLocation: return "Auto"
         case .fixed(.clear): return "Clear"
         case .fixed(.cloud): return "Cloud"
         case .fixed(.rain): return "Rain"
