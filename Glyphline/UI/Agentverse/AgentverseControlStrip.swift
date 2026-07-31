@@ -28,7 +28,7 @@ struct AgentverseControlStrip: View {
 
     /// One row where there is room for one, two where there is not.
     ///
-    /// Measured: the three groups side by side want 998 points and the window's
+    /// Measured: the three groups side by side want 1118 points and the window's
     /// minimum is 900, so at the minimum they cannot share a row — the mockup
     /// wraps for the same reason (`.zx-ctl` is `flex-wrap: wrap`). The first
     /// candidate is therefore rigid down to the slider's width, so that

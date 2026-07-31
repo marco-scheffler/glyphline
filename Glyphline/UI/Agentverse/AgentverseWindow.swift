@@ -248,8 +248,8 @@ enum WeatherChoice: Hashable, CaseIterable {
 
     var label: String {
         switch self {
-        // One word: five circuit tabs now share the toolbar with these five, and
-        // "On location" was the widest segment in either control.
+        // One word: five circuit tabs share the control strip's row with these
+        // five, and "On location" was the widest segment in either control.
         case .onLocation: return "Auto"
         case .fixed(.clear): return "Clear"
         case .fixed(.cloud): return "Cloud"
