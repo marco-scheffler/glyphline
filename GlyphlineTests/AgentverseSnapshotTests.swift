@@ -19,6 +19,12 @@ private let parkedSession = ParkedAgentSession(
 /// reading code.
 @MainActor
 final class AgentverseSnapshotTests: XCTestCase {
+    /// The scene is lit at whatever instant it is handed, and the window now
+    /// hands it the real clock. A snapshot taken at "now" would be a different
+    /// picture every run, so these fix the instant — 2026-06-21 15:00 UTC, an
+    /// afternoon over Monaco.
+    private let instant = Date(timeIntervalSince1970: 1_781_708_400)
+
     /// Every input is fixed but the ones a caller overrides, so each test can
     /// vary exactly one thing and know that nothing else accounts for a
     /// difference in bytes.
@@ -39,7 +45,9 @@ final class AgentverseSnapshotTests: XCTestCase {
             parked: parked,
             workTokens: ["S1": 2_600_000, "S2": 540_000],
             hovered: hovered,
-            frame: 600
+            frame: 600,
+            instant: instant,
+            weather: .clear
         )
     }
 
@@ -48,7 +56,8 @@ final class AgentverseSnapshotTests: XCTestCase {
     private func emptyScene() throws -> AgentverseScene {
         AgentverseScene(
             circuit: try XCTUnwrap(CircuitCatalog.bundled().circuit("monaco")),
-            sessions: [], parked: [], workTokens: [:], hovered: nil, frame: 600
+            sessions: [], parked: [], workTokens: [:], hovered: nil, frame: 600,
+            instant: instant, weather: .clear
         )
     }
 

@@ -36,6 +36,7 @@
 		37DA720261DE39D9C11784AA /* CircuitTrackShapeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C90FF657C8CEED342B466D73 /* CircuitTrackShapeTests.swift */; };
 		380A032B21975B0786C28EB0 /* QuotaBarRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBDCA09F2919D27BE31E10C4 /* QuotaBarRowView.swift */; };
 		383C6EC1087E7FC1D05F6919 /* SyncCoordinatorLocalUsageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB71829869D2BDC5C53A536A /* SyncCoordinatorLocalUsageTests.swift */; };
+		3ABC4D0A60166DD16D7F8C54 /* CircuitClock.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFDA73E525DFCA30D4070EB3 /* CircuitClock.swift */; };
 		3B32AAF07D8E919F7FEC6852 /* QuotaIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B520B6C053C48D490AB06E62 /* QuotaIndicator.swift */; };
 		3F6CA8CD1C92721BB534C569 /* CircuitCatalogTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A66572E2AFAC23F6BA0755A0 /* CircuitCatalogTests.swift */; };
 		4116A5BE773935FFD1910B9F /* QuotaNotifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = B16B2551C7AF4DA8A614935E /* QuotaNotifier.swift */; };
@@ -129,6 +130,7 @@
 		F56211A4FDCF96FDAFB59C92 /* RateWindowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA6C8BEB41F3B3EE32D28A76 /* RateWindowTests.swift */; };
 		F731A9E0E7F227918984E8BA /* claude-usage.json in Resources */ = {isa = PBXBuildFile; fileRef = 71F686E68C6AD2A919ECD797 /* claude-usage.json */; };
 		FA0E6D06248BF58C8ECC4787 /* ClaudeOrganizationsDTOs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24490E8A33CB8C3CE1EFFAA3 /* ClaudeOrganizationsDTOs.swift */; };
+		FA45CC8C4F5976DB70806A81 /* CircuitClockTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A548A25CA6EA99923B773F1A /* CircuitClockTests.swift */; };
 		FAA1191F3F4D4E61138C664B /* StaticSceneCacheTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56142FCF2E242294C9C8AAD7 /* StaticSceneCacheTests.swift */; };
 		FB25B96A420EF574188F6447 /* ClaudeUsageQuotaDTOsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E78959ED32C99389D71E836A /* ClaudeUsageQuotaDTOsTests.swift */; };
 		FC1B8072CE59DBC7F6532B72 /* AgentverseSnapshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AACCE706FF21FC1CBF54AA72 /* AgentverseSnapshotTests.swift */; };
@@ -228,6 +230,7 @@
 		9BD3C2C540C231D67EC5F063 /* AgentSessionScannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentSessionScannerTests.swift; sourceTree = "<group>"; };
 		A452BABCF11A72A0A23A41AE /* AgentverseParkedStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentverseParkedStoreTests.swift; sourceTree = "<group>"; };
 		A4E90AE35CAB8BF805E71E5C /* StatisticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatisticsView.swift; sourceTree = "<group>"; };
+		A548A25CA6EA99923B773F1A /* CircuitClockTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CircuitClockTests.swift; sourceTree = "<group>"; };
 		A63DE4BE6B1E5DD6EBDEC233 /* AddAccountView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddAccountView.swift; sourceTree = "<group>"; };
 		A66572E2AFAC23F6BA0755A0 /* CircuitCatalogTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CircuitCatalogTests.swift; sourceTree = "<group>"; };
 		A81C1F539EBD6824C59FADB0 /* AddAccountFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddAccountFlow.swift; sourceTree = "<group>"; };
@@ -248,6 +251,7 @@
 		BD5F66FB95D8BBD93EFCBE00 /* AppSettingsStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettingsStoreTests.swift; sourceTree = "<group>"; };
 		BE00729E6A7C7D002B0FCCD1 /* SceneryLayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneryLayer.swift; sourceTree = "<group>"; };
 		BE8DBF95730F8FD235AFAC47 /* UsageModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageModels.swift; sourceTree = "<group>"; };
+		BFDA73E525DFCA30D4070EB3 /* CircuitClock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CircuitClock.swift; sourceTree = "<group>"; };
 		C052559758FF74B410700F49 /* RateWindowSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RateWindowSource.swift; sourceTree = "<group>"; };
 		C1291754346ED094133AE0E6 /* pricing-v1.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "pricing-v1.json"; sourceTree = "<group>"; };
 		C15E082BDAB475C5EB9759CE /* ClaudeWebPageLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeWebPageLoader.swift; sourceTree = "<group>"; };
@@ -317,6 +321,7 @@
 				171CD6F2FD83D799ACB69C91 /* CarLivery.swift */,
 				95C07C54958DB8497140B7F0 /* CarPosition.swift */,
 				0E68BA9508B1A2AAE30A246E /* CarShape.swift */,
+				BFDA73E525DFCA30D4070EB3 /* CircuitClock.swift */,
 				2D5625DA73E0742F1158840B /* CircuitFit.swift */,
 				8AB2FF27ACEEEEA42A281F72 /* CircuitTrackShape.swift */,
 				590AB7BB7B2B0704E4EF7C23 /* SceneLight.swift */,
@@ -467,6 +472,7 @@
 				52E22895A9D80B6733CA44E2 /* CarShapeTests.swift */,
 				5523C72601D9A9537B6F350E /* CircuitAttributionTests.swift */,
 				A66572E2AFAC23F6BA0755A0 /* CircuitCatalogTests.swift */,
+				A548A25CA6EA99923B773F1A /* CircuitClockTests.swift */,
 				6AEBD2E5782B6D319CDC7DA2 /* CircuitFitTests.swift */,
 				C90FF657C8CEED342B466D73 /* CircuitTrackShapeTests.swift */,
 				919CF627AF46F1C143EA18B9 /* ClaudeCodeLogReaderTests.swift */,
@@ -752,6 +758,7 @@
 				A695D38DC8CB0AB222EF1748 /* CarShapeTests.swift in Sources */,
 				C073AC92907B6E043D11E3E1 /* CircuitAttributionTests.swift in Sources */,
 				3F6CA8CD1C92721BB534C569 /* CircuitCatalogTests.swift in Sources */,
+				FA45CC8C4F5976DB70806A81 /* CircuitClockTests.swift in Sources */,
 				648F3C2AA3AA78ADD94B126D /* CircuitFitTests.swift in Sources */,
 				37DA720261DE39D9C11784AA /* CircuitTrackShapeTests.swift in Sources */,
 				A385281B699E65EE57FD572E /* ClaudeCodeLogReaderTests.swift in Sources */,
@@ -813,6 +820,7 @@
 				8F5643F0850F9B3AD364E845 /* CarPosition.swift in Sources */,
 				53C027BC1913ED3344EEA4C4 /* CarShape.swift in Sources */,
 				7F9FF4C50F0E04337DB84205 /* CircuitCatalog.swift in Sources */,
+				3ABC4D0A60166DD16D7F8C54 /* CircuitClock.swift in Sources */,
 				70A59BB659E1D4E86C17FB51 /* CircuitFit.swift in Sources */,
 				425FE94025AC6614AC8CD11E /* CircuitTrackShape.swift in Sources */,
 				0909C91D5EE4CE808530935F /* ClaudeCodeLogReader.swift in Sources */,

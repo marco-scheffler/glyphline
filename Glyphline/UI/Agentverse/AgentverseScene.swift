@@ -17,6 +17,11 @@ struct AgentverseScene: View {
     let workTokens: [String: Int64]
     let hovered: String?
     let frame: Int
+    /// The UTC instant the world is lit at. Handed in rather than read from a
+    /// clock in here for the same reason `frame` is: the picture has to be a pure
+    /// function of its inputs or no two renders can be compared.
+    let instant: Date
+    let weather: Weather
 
     @Environment(\.displayScale) private var displayScale
     @State private var world: CGImage?
@@ -32,29 +37,22 @@ struct AgentverseScene: View {
 
     // MARK: - The static world
 
-    /// A fixed instant, until the time and weather controls land: the circuit's
-    /// own afternoon. It follows the circuit rather than the viewer, so switching
-    /// to Suzuka moves the sun to Japan.
-    private static func afternoon(for circuit: Circuit) -> Date {
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = TimeZone(identifier: circuit.tz) ?? .gmt
-        let components = DateComponents(year: 2026, month: 6, day: 21, hour: 17)
-        return calendar.date(from: components) ?? Date(timeIntervalSince1970: 1_781_888_400)
-    }
-
     /// In degrees, and with no scene rotation applied — that is `SceneLight`'s
     /// job, and the key wants the unrotated numbers so its buckets mean the same
     /// thing on every circuit.
+    ///
+    /// `instant` is a UTC instant; the circuit's own zone decided which one, up
+    /// in the window. Latitude and longitude then place the sun over the circuit
+    /// rather than over the viewer.
     private var sun: (elevation: Double, azimuth: Double) {
-        SunPosition.at(latitude: circuit.lat, longitude: circuit.lon,
-                       date: Self.afternoon(for: circuit))
+        SunPosition.at(latitude: circuit.lat, longitude: circuit.lon, date: instant)
     }
 
     /// `SceneLight` wants elevation and azimuth in degrees and `mapRotation` in
     /// radians, which is what `Circuit.rot` already is.
     private var light: SceneLight {
         SceneLight.make(elevation: sun.elevation, azimuth: sun.azimuth,
-                        mapRotation: circuit.rot, weather: .clear)
+                        mapRotation: circuit.rot, weather: weather)
     }
 
     private func sceneKey(size: CGSize) -> StaticSceneKey {
@@ -62,7 +60,7 @@ struct AgentverseScene: View {
         return StaticSceneKey(circuit: circuit.key, size: size,
                               scale: Int(displayScale.rounded()),
                               elevation: sun.elevation, azimuth: sun.azimuth,
-                              weather: .clear)
+                              weather: weather)
     }
 
     private func buildWorld(_ key: StaticSceneKey) async {

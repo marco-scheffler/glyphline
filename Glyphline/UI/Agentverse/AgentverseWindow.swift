@@ -17,6 +17,18 @@ struct AgentverseWindow: View {
     /// One id for both sections: hovering a parked row must fade the field on
     /// track exactly as hovering an on-track row fades the pit lane.
     @State private var hoveredSessionID: String?
+    /// Both overrides are plain `@State` and nothing else: the ask was that they
+    /// reset when the window closes, and anything persisted would outlive it.
+    @State private var weatherChoice: WeatherChoice = .onLocation
+    /// Minutes past local midnight *at the circuit*, or nil while the scene is
+    /// simply following the clock there. Nil rather than a flag beside a value:
+    /// with a value there is always a second copy of "now" to keep current.
+    @State private var localMinutesOverride: Double?
+    /// The window's own coarse clock, so the toolbar's time and an un-overridden
+    /// scene keep up without a per-frame date. Half a minute of sun is an eighth
+    /// of a degree — far below the two degrees the static picture buckets by, so
+    /// this costs no extra rebuilds.
+    @State private var now = Date()
 
     var body: some View {
         HSplitView {
@@ -38,6 +50,19 @@ struct AgentverseWindow: View {
                 }
                 .labelsHidden()
             }
+            ToolbarItem(placement: .automatic) {
+                Picker("Weather", selection: $weatherChoice) {
+                    ForEach(WeatherChoice.allCases, id: \.self) { choice in
+                        Text(choice.label).tag(choice)
+                    }
+                }
+                .labelsHidden()
+                .pickerStyle(.segmented)
+                .help("What the sky over the circuit is doing")
+            }
+            if let circuit = selectedCircuit {
+                ToolbarItem(placement: .automatic) { timeControls(circuit) }
+            }
             ToolbarItem(placement: .primaryAction) {
                 Button {
                     Task { await refresh() }
@@ -49,10 +74,54 @@ struct AgentverseWindow: View {
         }
         .task { await refresh() }
         .task {
+            // Ticks for as long as the window is open and stops with it.
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 30 * NSEC_PER_SEC)
+                guard !Task.isCancelled else { return }
+                now = Date()
+            }
+        }
+        .task {
             // Decoded once per window rather than at launch: 683 KB of JSON is
             // not worth paying for on a launch that may never open this window.
             catalogLoad = Result { try CircuitCatalog.bundled() }
         }
+    }
+
+    private var selectedCircuit: Circuit? {
+        (try? catalogLoad?.get())?.circuit(circuitKey)
+    }
+
+    /// The slider, the circuit's local time beside it, and the way back to now.
+    ///
+    /// The time is shown because the conversion behind it — slider position to
+    /// local wall clock at the circuit to UTC — is exactly the kind that produces
+    /// a plausibly lit scene when it runs the wrong way round. On screen it is
+    /// obvious that switching to Suzuka moved the clock to Japan.
+    @ViewBuilder private func timeControls(_ circuit: Circuit) -> some View {
+        let minutes = Binding(
+            get: { localMinutesOverride ?? CircuitClock.minutesOfLocalDay(for: circuit, at: now) },
+            set: { localMinutesOverride = $0 }
+        )
+        HStack(spacing: 8) {
+            Slider(value: minutes, in: 0...CircuitClock.minutesPerDay)
+                .frame(width: 150)
+                .help("The time of day at the circuit")
+            Text(CircuitClock.localTimeText(for: circuit, at: instant(for: circuit)))
+                .font(.callout.monospacedDigit())
+                // Wide enough for the longest form the locale can produce, so
+                // the neighbouring button does not shuffle as the clock runs.
+                .frame(minWidth: 62, alignment: .leading)
+            Button("Now") { localMinutesOverride = nil }
+                .disabled(localMinutesOverride == nil)
+        }
+    }
+
+    /// The UTC instant the scene is lit at: the override read as a wall-clock
+    /// time at the circuit, or simply now.
+    private func instant(for circuit: Circuit) -> Date {
+        guard let localMinutesOverride else { return now }
+        return CircuitClock.instant(for: circuit, minutesOfLocalDay: localMinutesOverride, on: now)
     }
 
     @ViewBuilder private var scene: some View {
@@ -86,6 +155,8 @@ struct AgentverseWindow: View {
         // nonisolated, and reaching into the view's state from it would be an
         // actor-isolation violation.
         let hovered = hoveredSessionID
+        let instant = instant(for: circuit)
+        let weather = weatherChoice.weather
         TimelineView(.animation) { timeline in
             AgentverseScene(
                 circuit: circuit,
@@ -95,7 +166,9 @@ struct AgentverseWindow: View {
                 hovered: hovered,
                 // The clock enters here and nowhere below: the scene itself is
                 // a pure function of its inputs, so a test can pin the frame.
-                frame: Int(timeline.date.timeIntervalSinceReferenceDate * 60)
+                frame: Int(timeline.date.timeIntervalSinceReferenceDate * 60),
+                instant: instant,
+                weather: weather
             )
         }
         .overlay {
@@ -121,6 +194,37 @@ struct AgentverseWindow: View {
         isRefreshing = true
         await coordinator.refresh()
         isRefreshing = false
+    }
+}
+
+/// What the weather control offers: the four skies `SceneLight` models, plus the
+/// one that is not an override at all.
+///
+/// `onLocation` means "whatever it is actually doing over the circuit". Nothing
+/// reports that yet, so today it resolves to clear — but it is a named case
+/// rather than a fifth spelling of clear, so that wiring a real report in later
+/// changes one line here and nothing the user has to relearn.
+enum WeatherChoice: Hashable, CaseIterable {
+    case onLocation
+    case fixed(Weather)
+
+    static var allCases: [WeatherChoice] { [.onLocation] + Weather.allCases.map(WeatherChoice.fixed) }
+
+    var weather: Weather {
+        switch self {
+        case .onLocation: return .clear
+        case .fixed(let weather): return weather
+        }
+    }
+
+    var label: String {
+        switch self {
+        case .onLocation: return "On location"
+        case .fixed(.clear): return "Clear"
+        case .fixed(.cloud): return "Cloud"
+        case .fixed(.rain): return "Rain"
+        case .fixed(.fog): return "Fog"
+        }
     }
 }
 
