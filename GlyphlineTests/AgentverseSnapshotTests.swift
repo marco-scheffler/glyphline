@@ -87,14 +87,15 @@ final class AgentverseSnapshotTests: XCTestCase {
 
     /// The same call the window's cache makes, with the sun placed over the
     /// circuit by the same two functions the scene uses.
-    private func world(instant: Date, weather: Weather = .clear) throws -> CGImage {
+    private func world(instant: Date, weather: Weather = .clear,
+                       scale: Int = 1) throws -> CGImage {
         let circuit = try monaco()
         let sun = SunPosition.at(latitude: circuit.lat, longitude: circuit.lon,
                                  date: instant)
         let light = SceneLight.make(elevation: sun.elevation, azimuth: sun.azimuth,
                                     mapRotation: circuit.rot, weather: weather)
         return try XCTUnwrap(StaticSceneImage.build(circuit: circuit, size: size,
-                                                    scale: 1, light: light))
+                                                    scale: scale, light: light))
     }
 
     private func bytes(_ image: CGImage) throws -> Data {
@@ -271,12 +272,16 @@ final class AgentverseSnapshotTests: XCTestCase {
     /// terrain lifted and the frame around it stayed put. `CircuitFit` centres
     /// the terrain box with at least its own margin on every side, so the canvas
     /// corner is always outside that box and is nothing but backdrop.
+    ///
+    /// At a backing store scale of two, not one: a picture that filled only a
+    /// quarter of its own bitmap would leave the rest unpainted, and a test that
+    /// only ever samples a 1x bitmap would never notice.
     func testTheBackdropIsLitAndDiffersBetweenNoonAndMidnight() throws {
         let corner = { (image: CGImage) throws -> NSColor in
             try XCTUnwrap(NSBitmapImageRep(cgImage: image).colorAt(x: 2, y: 2))
         }
-        let noon = try corner(try world(instant: localNoon))
-        let midnight = try corner(try world(instant: localMidnight))
+        let noon = try corner(try world(instant: localNoon, scale: 2))
+        let midnight = try corner(try world(instant: localMidnight, scale: 2))
 
         XCTAssertNotEqual(noon, midnight,
                           "the backdrop is sky and the sky is a light source, so a "
