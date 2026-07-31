@@ -92,6 +92,37 @@ final class AgentverseCoordinatorTests: XCTestCase {
         XCTAssertNotNil(coordinator.failureMessage)
     }
 
+    /// The odometers come from the coordinator, not from the view: it already
+    /// holds the ledger, so the laps and the places on the circuit are read from
+    /// one connection and can never disagree.
+    func testASweepPublishesTheWorkTokensForTheSessionsItPutOnTrack() async throws {
+        let ledger = try makeLedger()
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        try ledger.applyLocalScan(
+            LocalScanResult(
+                usage: [],
+                sessionUsage: [
+                    LocalSessionTokenUsage(sessionID: "S1", model: "sonnet",
+                                           inputTokens: 600_000,
+                                           cacheCreationTokens: 1_000_000,
+                                           // Cache reads are not work tokens, so
+                                           // this must not reach the odometer.
+                                           cacheReadTokens: 9_000_000,
+                                           outputTokens: 1_000_000),
+                ],
+                watermarks: []
+            )
+        )
+        let coordinator = AgentverseCoordinator(
+            scanner: StubScanner(sessions: [session("S1", at: now)]),
+            ledger: ledger
+        )
+
+        await coordinator.refresh(now: now)
+
+        XCTAssertEqual(coordinator.workTokens["S1"], 2_600_000)
+    }
+
     private struct StubScanner: AgentSessionScanning {
         var sessions: [AgentSession]
         func scan(now: Date) throws -> [AgentSession] { sessions }

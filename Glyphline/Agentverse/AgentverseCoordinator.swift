@@ -12,6 +12,9 @@ final class AgentverseCoordinator: ObservableObject {
     /// Set when the sweep could not run at all — no `~/.claude/projects`, for
     /// instance, which is an ordinary state on a machine without Claude Code.
     @Published private(set) var failureMessage: String?
+    /// Work tokens per session — the laps. Read once per sweep rather than per
+    /// frame: the figure only changes when the transcripts do.
+    @Published private(set) var workTokens: [String: Int64] = [:]
 
     private let scanner: any AgentSessionScanning
     private let ledger: LedgerStore?
@@ -82,6 +85,11 @@ final class AgentverseCoordinator: ObservableObject {
         parked = snapshot.parked
         liveSessionIDs = Set(snapshot.onTrack.map(\.id))
         failureMessage = nil
+
+        let ids = snapshot.onTrack.map(\.id) + snapshot.parked.map(\.sessionID)
+        // A failure here costs the odometers, not the map; the cars still have
+        // their places, so this does not set `failureMessage`.
+        workTokens = (try? ledger.fetchSessionWorkTokens(sessionIDs: ids)) ?? [:]
     }
 
     /// Throwing a session out of the pit lane. It comes back on its own if it
