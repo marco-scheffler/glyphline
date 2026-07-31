@@ -11,9 +11,23 @@ after one run; the app never fetches anything.
 | `build_sea.py` | patches `terrain.json` | coastlines from OpenStreetMap (ODbL) |
 | `build_corners.py` | `corners.json` | named corners from OpenStreetMap (ODbL) |
 
-Run in that order; each caches its network responses beside itself, so a rerun
-after a failure is cheap. Overpass is slow and rate-limits — a full run took over
-an hour and hit repeated 504s.
+Run in that order, and run them from the data directory rather than from here —
+every script opens its inputs, outputs and caches by bare filename, so they all
+land in the working directory:
+
+```bash
+cd Glyphline/Resources/agentverse
+python3 ../../../tools/agentverse/build_circuits.py
+```
+
+Each caches its network responses in that same directory
+(`overpass-cache.json`, `scenery-cache.json`, `corners-cache.json`,
+`sea-cache.json`, and `tiles/` for the elevation PNGs), so a rerun after a
+failure is cheap. Overpass is slow and rate-limits — a full run took over an hour
+and hit repeated 504s.
+
+That directory is bundled into the app, so the caches are gitignored and worth
+deleting once a run is finished; otherwise they are dead weight in the build.
 
 ## Two rules that are not obvious
 

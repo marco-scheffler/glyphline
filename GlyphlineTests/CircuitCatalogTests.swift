@@ -65,6 +65,10 @@ final class CircuitCatalogTests: XCTestCase {
         let catalog = try catalog()
         for key in catalog.keys {
             let terrain = try XCTUnwrap(catalog.circuit(key)).terrain
+            // Without this the check below is satisfied by the empty default
+            // that a missing terrain key falls back to, and 0 == 0 * 0 would
+            // keep passing while the terrain quietly disappeared.
+            XCTAssertGreaterThan(terrain.gw, 0, "\(key): no terrain at all")
             XCTAssertEqual(
                 terrain.grid.count, terrain.gw * terrain.gh,
                 "\(key): elevation grid does not match its stated dimensions"

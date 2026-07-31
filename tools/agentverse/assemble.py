@@ -8,11 +8,11 @@ import sys
 
 HERE = pathlib.Path(__file__).resolve().parent
 REPO = HERE.parent.parent
-# Die Daten liegen seit dem Bundling nicht mehr neben den Skripten.
+# Since the bundling the data no longer sits beside the scripts.
 DATA = REPO / "Glyphline" / "Resources" / "agentverse"
-# Der Mockup ist ein Wegwerfartefakt und landet neben dem Skript, sofern nichts
-# anderes gesagt wird — vorher stand hier ein fester Pfad in ein bestimmtes
-# Home-Verzeichnis, was das Skript auf jedem anderen Rechner scheitern ließ.
+# The mockup is a throwaway artifact and lands beside the script unless told
+# otherwise — this used to be a fixed path into one particular home directory,
+# which made the script fail on every other machine.
 DEST = pathlib.Path(os.environ.get("AGENTVERSE_OUT", HERE))
 
 name = sys.argv[1] if len(sys.argv) > 1 else "agentverse-v4.html"

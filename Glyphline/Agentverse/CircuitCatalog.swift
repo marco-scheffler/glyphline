@@ -26,9 +26,9 @@ struct Circuit: Decodable, Equatable, Sendable {
     /// Pit lane, same frame, same direction.
     var pit: [[Double]]
 
-    // Aus den drei Nachbardateien nachgetragen, nicht aus circuits.json gelesen —
-    // deshalb stehen sie nicht in den CodingKeys. Ein Default allein genügt
-    // nicht: das synthetisierte init(from:) verlangt jeden gelisteten Schlüssel.
+    // Filled in from the three neighbouring files, not read from circuits.json —
+    // which is why they are absent from the CodingKeys. A default value alone is
+    // not enough: the synthesised init(from:) demands every key it lists.
     var corners: [CircuitCorner] = []
     var scenery: CircuitScenery = CircuitScenery()
     var terrain: CircuitTerrain = CircuitTerrain()
