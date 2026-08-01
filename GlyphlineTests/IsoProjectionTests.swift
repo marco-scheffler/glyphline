@@ -15,6 +15,51 @@ final class IsoProjectionTests: XCTestCase {
         CGSize(width: 640, height: 420)
     ]
 
+    /// A spread of real window shapes, crossing the aspect ratio: wide and
+    /// short, the old reference canvas, the user's window, and taller than wide.
+    private let panes: [CGSize] = [
+        CGSize(width: 800, height: 500),
+        CGSize(width: 1300, height: 740),
+        CGSize(width: 1720, height: 1020),
+        CGSize(width: 900, height: 1200)
+    ]
+
+    /// Fitting is not enough — a scene occupying a quarter of the pane fits too,
+    /// and that is exactly the bug this replaced. So the box must also fill one
+    /// axis nearly completely and sit centred on both.
+    func testTheSceneFillsAndCentresInEveryPaneShape() throws {
+        for pane in panes {
+            for count in [4, 12, 20] {
+                let b = IsoLayout.fit(sessionCount: count, canvas: pane).bounds
+                let what = "count \(count) pane \(pane)"
+
+                XCTAssertGreaterThanOrEqual(b.minX, -0.5, "\(what): left edge")
+                XCTAssertLessThanOrEqual(b.maxX, pane.width + 0.5, "\(what): right edge")
+                XCTAssertGreaterThanOrEqual(b.minY, -0.5, "\(what): top edge")
+                XCTAssertLessThanOrEqual(b.maxY, pane.height + 0.5, "\(what): bottom edge")
+
+                let fill = max(b.width / pane.width, b.height / pane.height)
+                XCTAssertGreaterThanOrEqual(fill, 0.85, "\(what): fills only \(fill)")
+
+                XCTAssertEqual(b.midX, pane.width / 2, accuracy: 2, "\(what): centre x")
+                XCTAssertEqual(b.midY, pane.height / 2, accuracy: 2, "\(what): centre y")
+            }
+        }
+    }
+
+    /// The scale is not capped: a bigger window makes a bigger scene, which the
+    /// old `min(1.0, …)` clamp prevented and is why the scene floated in a
+    /// corner of a large pane.
+    func testALargerPaneYieldsALargerScene() throws {
+        let small = IsoLayout.fit(sessionCount: 12, canvas: CGSize(width: 860, height: 510))
+        let large = IsoLayout.fit(sessionCount: 12, canvas: CGSize(width: 1720, height: 1020))
+        XCTAssertEqual(large.zoom, small.zoom * 2, accuracy: 1e-9)
+        // A small room on the user's window passes the scale the old clamp
+        // stopped at.
+        let roomy = IsoLayout.fit(sessionCount: 4, canvas: CGSize(width: 1720, height: 1020))
+        XCTAssertGreaterThan(roomy.zoom, 1.0)
+    }
+
     func testEverySessionCountFitsInsideTheCanvasOnBothAxes() throws {
         for canvas in canvases {
             for count in 4...20 {
@@ -96,7 +141,6 @@ final class IsoProjectionTests: XCTestCase {
         let small = IsoLayout.fit(sessionCount: 4, canvas: canvases[0])
         let large = IsoLayout.fit(sessionCount: 20, canvas: canvases[0])
         XCTAssertLessThan(large.zoom, small.zoom)
-        XCTAssertLessThanOrEqual(small.zoom, 1.0)
     }
 
     private func distance(_ a: CGPoint, _ b: CGPoint) -> Double {

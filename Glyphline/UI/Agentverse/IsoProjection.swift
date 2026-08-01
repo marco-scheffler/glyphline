@@ -74,6 +74,9 @@ struct IsoLayout: Equatable, Sendable {
     /// How far the floor extends past the first desk row, towards the walls.
     static let floorMargin: Double = 0.8
     static let defaultTilt: Double = 0.52
+    /// How much of the pane the projected bounding box is allowed to take on
+    /// its tighter axis. Just short of 1 so the scene never touches the edges.
+    static let fillFactor: Double = 0.95
 
     static func fit(sessionCount: Int,
                     canvas: CGSize,
@@ -87,57 +90,51 @@ struct IsoLayout: Equatable, Sendable {
         // The break room sits to the right of the office, past its wall.
         let breakRoom = RoomRect(u0: span + 1.4, u1: span + 6.6, v0: -0.4, v1: 4.2)
 
-        let uMin = -floorMargin
-        let uMax = breakRoom.u1 + 0.4
-        let vMin = -floorMargin
-        let vMax = span
-
-        // The extent of the scene in screen units, before scaling: the u axis
-        // runs right-and-down, the v axis left-and-down, so the horizontal
-        // extent is the sum of both spans and the vertical extent is the range
-        // of `u + v`.
-        let spanU = (uMax - uMin) + (vMax - vMin)
-        let spanV = (uMax + vMax) - (uMin + vMin)
-
         let width = max(0, canvas.width)
         let height = max(0, canvas.height)
         let safeTilt = max(tilt, 0.01)
-        let fitX = (width - 70) / (spanU * baseTileWidth)
-        let fitY = (height - 170) / (spanV * baseTileWidth * safeTilt)
-        var zoom = min(fitX, fitY)
-        // A canvas of zero — or of any size small enough to make the margins
-        // exceed it — must not put a NaN or a negative scale into the
+
+        // The scale comes from the projected bounding box of everything that
+        // gets drawn, measured once at zoom 1. The projection is a similarity,
+        // so that box scales with the zoom and nothing else does — which is why
+        // the ratio below is the exact scale that makes the box fill the pane.
+        // Deriving it from `spanU`/`spanV` plus fixed pixel margins is what
+        // pinned the scene to one canvas size and left half the pane empty.
+        let unit = IsoProjection(tileWidth: baseTileWidth, tilt: safeTilt, origin: .zero)
+        let unitCorners = sceneCorners(span: span, breakRoom: breakRoom, wallHeight: 54)
+            .map { unit.point(u: $0.u, v: $0.v, h: $0.h) }
+        let unitWidth = (unitCorners.map(\.x).max() ?? 0) - (unitCorners.map(\.x).min() ?? 0)
+        let unitHeight = (unitCorners.map(\.y).max() ?? 0) - (unitCorners.map(\.y).min() ?? 0)
+
+        // Not flush with the edges: the labels and the shadows the corner
+        // sampling does not model need a little air around the box.
+        var zoom = min(width / unitWidth, height / unitHeight) * fillFactor
+        // A canvas of zero must not put a NaN or a negative scale into the
         // projection, because from there it would reach every drawn point.
+        // There is no upper clamp: on a large window the scene grows with it.
         if !zoom.isFinite { zoom = 0 }
-        zoom = min(1.0, max(0, zoom))
+        zoom = max(0, zoom)
 
         let tileWidth = baseTileWidth * zoom
         let wallHeight = 54 * zoom
 
-        // Centred horizontally on the mid-point of the `u - v` range.
-        let originX = width / 2 - ((uMin - vMax) + (uMax - vMin)) / 2 * tileWidth
-
-        // The bounding box is measured off a trial projection at y = 0 and off
-        // the corners of the things that actually get drawn — not off the
-        // `uMin`/`uMax` the scale was derived from. If those two ever disagree,
-        // this is what says so instead of the picture quietly getting cropped.
-        let trial = IsoProjection(tileWidth: tileWidth, tilt: safeTilt,
-                                  origin: CGPoint(x: originX, y: 0))
+        // The bounding box is measured off a trial projection at the origin and
+        // off the corners of the things that actually get drawn, so it is what
+        // says so instead of the picture quietly getting cropped should the
+        // drawn scene ever outgrow what `sceneCorners` reports.
+        let trial = IsoProjection(tileWidth: tileWidth, tilt: safeTilt, origin: .zero)
         let corners = sceneCorners(span: span, breakRoom: breakRoom, wallHeight: wallHeight)
             .map { trial.point(u: $0.u, v: $0.v, h: $0.h) }
-        let minX = corners.map(\.x).min() ?? 0
-        let maxX = corners.map(\.x).max() ?? 0
+        let rawMinX = corners.map(\.x).min() ?? 0
+        let rawMaxX = corners.map(\.x).max() ?? 0
         let rawMinY = corners.map(\.y).min() ?? 0
         let rawMaxY = corners.map(\.y).max() ?? 0
 
-        // Vertically the room hangs from near the top, higher when the grid is
-        // deeper. Clamped so that neither the wall tops nor the front corner
-        // can leave the canvas — the reference relies on one fixed canvas size
-        // for that, and a resizable window does not have one.
-        let desiredY = max(72, 132 - Double(grid) * 7)
-        let lowerY = -rawMinY
-        let upperY = height - rawMaxY
-        let originY = upperY < lowerY ? lowerY : min(max(desiredY, lowerY), upperY)
+        // Centre the box in the pane on both axes. The vertical offset used to
+        // be a clamped constant, which pinned the scene near the top whatever
+        // the window did.
+        let originX = width / 2 - (rawMinX + rawMaxX) / 2
+        let originY = height / 2 - (rawMinY + rawMaxY) / 2
 
         let origin = CGPoint(x: originX, y: originY)
         let projection = IsoProjection(tileWidth: tileWidth, tilt: safeTilt, origin: origin)
@@ -148,6 +145,8 @@ struct IsoLayout: Equatable, Sendable {
                      v: 1.0 + Double(i / grid) * deskStep)
         }
 
+        let minX = rawMinX + originX
+        let maxX = rawMaxX + originX
         let minY = rawMinY + originY
         let maxY = rawMaxY + originY
 
