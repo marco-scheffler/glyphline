@@ -18,12 +18,16 @@ struct AgentverseScene: View {
     let workTokens: [String: Int64]
     let hovered: String?
     let frame: Int
+    /// The sun and the sky, resolved by the window on its own slow clock. Like
+    /// `frame`, it enters here rather than being read inside the drawing.
+    let lighting: OfficeLighting
 
     var body: some View {
         OfficeScene(sessions: sessions,
                     parked: parked,
                     workTokens: workTokens,
                     hovered: hovered,
-                    frame: frame)
+                    frame: frame,
+                    lighting: lighting)
     }
 }

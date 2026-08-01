@@ -25,6 +25,21 @@ enum AgentverseRefreshSchedule {
     /// editor. Leaving it open beside the work is what it is for, so the gate is
     /// the window's occlusion instead — see `WindowVisibility`.
     static func shouldRun(onScreen isOnScreen: Bool) -> Bool { isOnScreen }
+
+    /// How often the sun is re-solved. It moves a quarter of a degree a minute,
+    /// so a minute is under the resolution of anything the windows can show —
+    /// and the solve walks a `Calendar`, which has no business running per frame.
+    static let sunInterval: TimeInterval = 60
+
+    /// How often the weather is asked for.
+    ///
+    /// `WeatherService` throttles to one request an hour, but a *failed* request
+    /// deliberately does not advance its stored timestamp, so it will try again
+    /// on every call. That is right for an offline machine that comes back — and
+    /// it is why this interval, and not the sweep's fifteen seconds, is what the
+    /// call sits on. Anything faster would hammer the network from a machine
+    /// that has none.
+    static let weatherInterval: TimeInterval = WeatherService.minimumInterval
 }
 
 /// The map's window.
@@ -36,6 +51,9 @@ enum AgentverseRefreshSchedule {
 /// how the map is meant to be used. Closing the window ends the `.task` outright.
 struct AgentverseWindow: View {
     @EnvironmentObject private var coordinator: AgentverseCoordinator
+    /// Where the last weather reading lives, and its timestamp — the throttle
+    /// has to survive a window being closed and reopened.
+    @EnvironmentObject private var settings: AppSettingsStore
     /// Starts false and is corrected by the probe as soon as the view has a
     /// window: a true default would run one sweep for a window that turns out to
     /// be opening behind something else.
@@ -44,6 +62,11 @@ struct AgentverseWindow: View {
     /// One id for both sections: hovering a parked row must fade the field on
     /// track exactly as hovering an on-track row fades the pit lane.
     @State private var hoveredSessionID: String?
+    /// The office's daylight. Held as state and refreshed on a slow clock of its
+    /// own, so that the drawing is handed a sun rather than an instant.
+    @State private var lighting = OfficeLighting.at(date: Date(),
+                                                    place: UserPlace.current(),
+                                                    weather: .clear)
 
     var body: some View {
         HSplitView {
@@ -85,6 +108,38 @@ struct AgentverseWindow: View {
                 )
             }
         }
+        // The weather lives on the window's lifetime, gated by the same
+        // occlusion as the sweep — never on the draw loop. A closed or hidden
+        // window asks for nothing at all.
+        .task(id: isOnScreen) {
+            guard AgentverseRefreshSchedule.shouldRun(onScreen: isOnScreen) else { return }
+            let place = UserPlace.current()
+            let service = WeatherService()
+            while !Task.isCancelled {
+                _ = await service.refreshIfNeeded(settings: settings,
+                                                  latitude: place.latitude,
+                                                  longitude: place.longitude)
+                try? await Task.sleep(
+                    nanoseconds: UInt64(AgentverseRefreshSchedule.weatherInterval
+                                        * Double(NSEC_PER_SEC))
+                )
+            }
+        }
+        // The sun, on its own clock and touching no network: it only reads the
+        // weather the loop above has already stored.
+        .task(id: isOnScreen) {
+            guard AgentverseRefreshSchedule.shouldRun(onScreen: isOnScreen) else { return }
+            let place = UserPlace.current()
+            while !Task.isCancelled {
+                lighting = OfficeLighting.at(date: Date(),
+                                             place: place,
+                                             weather: settings.currentWeather)
+                try? await Task.sleep(
+                    nanoseconds: UInt64(AgentverseRefreshSchedule.sunInterval
+                                        * Double(NSEC_PER_SEC))
+                )
+            }
+        }
     }
 
     @ViewBuilder private var scene: some View {
@@ -101,6 +156,7 @@ struct AgentverseWindow: View {
         // is rebuilt per frame, and pulling the view's state into it each time
         // would tie the picture to when it was drawn.
         let hovered = hoveredSessionID
+        let lighting = lighting
         TimelineView(.animation) { timeline in
             AgentverseScene(
                 sessions: coordinator.onTrack,
@@ -109,7 +165,8 @@ struct AgentverseWindow: View {
                 hovered: hovered,
                 // The clock enters here and nowhere below: the scene itself is
                 // a pure function of its inputs, so a test can pin the frame.
-                frame: Int(timeline.date.timeIntervalSinceReferenceDate * 60)
+                frame: Int(timeline.date.timeIntervalSinceReferenceDate * 60),
+                lighting: lighting
             )
         }
         .overlay {

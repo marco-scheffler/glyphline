@@ -1,10 +1,83 @@
 import SwiftUI
 
+/// The daylight the office is drawn under: where the sun really stands over the
+/// user's own place at this instant, and what the sky over it is doing.
+///
+/// It is resolved *outside* the `Canvas` and handed in, exactly as the frame
+/// number is. `ImageRenderer` never runs a `.task`, so a snapshot has to be able
+/// to render any instant without a clock and without a network; and the solve
+/// walks a `Calendar`, which is far too much to repeat sixty times a second for
+/// a number that moves by a quarter of a degree a minute.
+struct OfficeLighting: Sendable {
+    let sun: SolarAngles
+    let weather: Weather
+    let light: SceneLight
+
+    /// How far the room is turned against the world, in radians — the unit
+    /// `SceneLight.make` wants, where the two angles beside it are degrees.
+    ///
+    /// Zero, and that is a decision rather than an omission: with no rotation
+    /// world south maps onto -v, so in the northern hemisphere the noon sun
+    /// comes in through the long back wall and the morning sun through the left
+    /// one. Both walls carry windows, so the pools on the floor swing from one
+    /// to the other across the day.
+    static let mapRotation: Double = 0
+
+    static func at(date: Date,
+                   place: UserPlace.Coordinates,
+                   weather: Weather) -> OfficeLighting {
+        // Latitude and longitude in that order and with their own signs: a
+        // hemisphere flipped here produces a completely plausible sun that is
+        // completely wrong.
+        let sun = SunPosition.at(latitude: place.latitude,
+                                 longitude: place.longitude,
+                                 date: date)
+        return OfficeLighting(
+            sun: sun,
+            weather: weather,
+            light: SceneLight.make(elevation: sun.elevation,
+                                   azimuth: sun.azimuth,
+                                   mapRotation: mapRotation,
+                                   weather: weather)
+        )
+    }
+
+    /// What the windows show: the sky, through the same exposure and tone curve
+    /// as everything else in the picture, as sRGB 0…255.
+    var windowSkySRGB: SIMD3<Double> { light.skySRGB }
+
+    var windowSkyColor: Color { light.skyColor }
+
+    /// A brighter band of the same sky, for the top of a pane — a window filled
+    /// with one flat colour reads as a hole in the wall.
+    var windowSkyHighlight: Color { light.encode(light.skyLinear * 1.5) }
+
+    /// How much of the room the desk lamps and monitors are carrying.
+    ///
+    /// Never zero: the monitors are on at noon too, they are simply overwhelmed.
+    /// At night they are the room.
+    var interiorLampStrength: Double { 0.16 + 0.84 * light.night }
+
+    /// The break room's own ceiling light, which does not follow the sun at all.
+    /// That contrast — a cosy room against a cooling office — is the point.
+    var breakRoomLampStrength: Double { 1 }
+
+    /// The direction *towards* the key light in scene space, unit length.
+    /// `SceneLight` carries the direction the light travels, which is the
+    /// opposite, and its elevation in degrees.
+    var sunDirection: (x: Double, y: Double, z: Double) {
+        let elevation = max(0, light.keyElevation) * .pi / 180
+        let horizontal = cos(elevation)
+        return (-light.sunX * horizontal, -light.sunY * horizontal, sin(elevation))
+    }
+}
+
 /// The office seen from above: floor, walls, desks and the break room.
 ///
-/// A port of the approved reference sketch, not a redesign of it. Everything is
-/// drawn from the fixed directional light below — the sun model that lives
-/// elsewhere in this folder is deliberately not consulted here.
+/// A port of the approved reference sketch, but no longer lit by the sketch's
+/// fixed lamp: the key light's angle and colour, the sky in the windows and the
+/// pools on the floor all come from `OfficeLighting` — the real sun over the
+/// user's own place, under the real weather there.
 ///
 /// The people are here too: whoever is working sits at a desk with a green
 /// crystal over its head, whoever is waiting on you has got up and gone to the
@@ -17,6 +90,9 @@ struct OfficeScene: View {
     let workTokens: [String: Int64]
     let hovered: String?
     let frame: Int
+    /// The sun and the sky, resolved by the window and passed in like the frame
+    /// number, so the scene stays a pure function of its inputs.
+    let lighting: OfficeLighting
 
     var body: some View {
         // Pulled out of the closure: `Canvas`'s renderer is `@Sendable`, so it
@@ -37,11 +113,13 @@ struct OfficeScene: View {
         }
         let hovered = hovered
         let frame = frame
+        let lighting = lighting
 
         Canvas(opaque: true) { context, size in
             OfficeRenderer(layout: IsoLayout.fit(sessionCount: desks.count, canvas: size),
                            frame: frame,
-                           hovered: hovered)
+                           hovered: hovered,
+                           lighting: lighting)
                 .draw(in: context, size: size, desks: desks, offClock: offClock)
         }
     }
@@ -108,12 +186,10 @@ struct OfficeRenderer {
     /// callers disagree about where a figure is.
     let frame: Int
     let hovered: String?
+    /// The sun over the user's own place, and the weather there.
+    let lighting: OfficeLighting
 
     var time: Double { Double(frame) / 60 }
-
-    /// Fixed directional light from the upper left. Not the sun's real
-    /// position — every surface here is lit by its orientation alone.
-    private static let sun = (x: -0.52, y: -0.58, z: 0.63)
 
     private var proj: IsoProjection { layout.projection }
     private var tw: Double { proj.tileWidth }
@@ -125,9 +201,25 @@ struct OfficeRenderer {
         proj.point(u: u, v: v, h: h)
     }
 
+    /// How brightly a surface facing this way comes out, as a multiplier on its
+    /// own colour. Three terms, and each of them is somebody in the room:
+    /// the sky through the windows, the sun itself, and the lamps and monitors
+    /// inside. By day the sun dominates and the pools swing round with it; at
+    /// night it is down to the moon and the interior takes over.
     private func lit(_ nx: Double, _ ny: Double, _ nz: Double) -> Double {
-        0.34 + 0.66 * max(0, nx * Self.sun.x + ny * Self.sun.y + nz * Self.sun.z)
+        let s = lighting.sunDirection
+        let sky = 0.20 + 0.26 * min(1.3, lighting.light.diffuse)
+        let key = 0.85 * lighting.light.direct * max(0, nx * s.x + ny * s.y + nz * s.z)
+        // The lamps hang from the ceiling, so an upward face gets more of them
+        // than a wall does.
+        let interior = 0.32 * lighting.interiorLampStrength * (0.55 + 0.45 * max(0, nz))
+        return min(1.25, sky + key + interior)
     }
+
+    /// The warm the interior lighting adds, as a colour to wash over the room.
+    /// Deliberately not applied to the windows: the whole picture at night is a
+    /// warm room against a cold sky.
+    private static let lampWarm = SceneRGB(255, 186, 118)
 
     // MARK: - Primitives
 
@@ -673,6 +765,97 @@ struct OfficeRenderer {
                        with: .color(.white.opacity(0.045)), lineWidth: 1)
             k += 1.0
         }
+
+        // The lamps' own colour on the floor. By day it is a rounding error; at
+        // night it is what makes the room read warm against the cold windows.
+        ctx.fill(path(f), with: .color(
+            Self.lampWarm.alpha(0.30 * lighting.interiorLampStrength)))
+
+        // The pools the windows throw. Drawn after the joints so the sunlight
+        // lies over the tiles rather than under them.
+        drawSunPools(ctx, lo: lo, hi: hi)
+    }
+
+    // MARK: - Windows
+
+    /// Where the panes sit in a back wall, as fractions of its length.
+    private static let windowBands: [(a: Double, b: Double)] = [
+        (0.08, 0.30), (0.39, 0.61), (0.70, 0.92)
+    ]
+    /// Sill and head, as fractions of the wall height.
+    private static let windowSill = 0.30
+    private static let windowHead = 0.88
+
+    /// The centre of each pane on the floor plan, together with the direction
+    /// the room lies in from it. The back wall runs along `v = lo` and looks
+    /// towards `+v`; the left wall runs along `u = lo` and looks towards `+u`.
+    private func windowCentres(lo: Double, hi: Double)
+        -> [(u: Double, v: Double, inwardU: Double, inwardV: Double)] {
+        Self.windowBands.flatMap { band -> [(u: Double, v: Double, inwardU: Double, inwardV: Double)] in
+            let mid = (band.a + band.b) / 2
+            let along = lo + (hi - lo) * mid
+            return [(along, lo, 0, 1), (lo, along, 1, 0)]
+        }
+    }
+
+    /// Daylight lying on the floor where a window let it in.
+    ///
+    /// The offset is the sun's own direction and the shadow length it already
+    /// implies, so the pools stretch out and swing round through the day rather
+    /// than sitting under the windows all afternoon. A pane the sun is behind
+    /// throws nothing, which is what `inward` decides.
+    private func drawSunPools(_ context: GraphicsContext, lo: Double, hi: Double) {
+        let light = lighting.light
+        let reach = min(3.4, light.shadowLength * 0.5)
+        let colour = light.encode(light.sunLinear)
+        for window in windowCentres(lo: lo, hi: hi) {
+            let entering = max(0, light.sunX * window.inwardU + light.sunY * window.inwardV)
+            let strength = light.direct * entering
+            guard strength > 0.01 else { continue }
+            let centre = p(window.u + light.sunX * reach, window.v + light.sunY * reach, 0)
+            let rx = 1.5 * tw, ry = 1.5 * th
+            context.fill(ellipse(at: centre, rx: rx, ry: ry),
+                         with: .radialGradient(
+                            Gradient(stops: [
+                                .init(color: colour.opacity(0.30 * strength), location: 0),
+                                .init(color: colour.opacity(0.14 * strength), location: 0.5),
+                                .init(color: colour.opacity(0), location: 1)
+                            ]),
+                            center: centre, startRadius: 0, endRadius: max(rx, 0.001)))
+        }
+    }
+
+    /// The panes themselves. This is where the sky gets into the room: the fill
+    /// is `SceneLight`'s sky, so the windows run the dawn/day/dusk/night curve
+    /// without the office knowing anything about it.
+    private func drawWindows(_ context: GraphicsContext,
+                             lo: Double, hi: Double, wall: Double) {
+        let sill = wall * Self.windowSill, head = wall * Self.windowHead
+        let sky = lighting.windowSkyColor
+        let highlight = lighting.windowSkyHighlight
+        for band in Self.windowBands {
+            let a = lo + (hi - lo) * band.a, b = lo + (hi - lo) * band.b
+            // The back wall, then the left one. Same pane, two axes.
+            pane(context,
+                 corners: [p(a, lo, sill), p(b, lo, sill), p(b, lo, head), p(a, lo, head)],
+                 sky: sky, highlight: highlight)
+            pane(context,
+                 corners: [p(lo, a, sill), p(lo, b, sill), p(lo, b, head), p(lo, a, head)],
+                 sky: sky, highlight: highlight)
+        }
+    }
+
+    private func pane(_ context: GraphicsContext,
+                      corners: [CGPoint], sky: Color, highlight: Color) {
+        poly(context, corners, fill: .linearGradient(
+            Gradient(colors: [highlight, sky]),
+            startPoint: corners[3], endPoint: corners[0]))
+        // A reveal, so the pane sits in the wall rather than on it, and a
+        // glancing highlight off the glass.
+        poly(context, corners, fill: nil, stroke: .black.opacity(0.35))
+        var ctx = context
+        ctx.opacity = 0.18
+        ctx.stroke(line(corners[3], corners[2]), with: .color(.white), lineWidth: 1.4)
     }
 
     private func line(_ a: CGPoint, _ b: CGPoint) -> Path {
@@ -684,10 +867,19 @@ struct OfficeRenderer {
 
     private func drawWalls(_ context: GraphicsContext) {
         let lo = floorLow, hi = layout.span, wall = layout.wallHeight
+        // Seen from inside, the back wall's face looks towards +v and the left
+        // wall's towards +u, so `lit` shades them by where the sun really is and
+        // the two stop being two fixed greys. They are brighter than the
+        // reference's values because they are albedos now rather than finished
+        // colours: a fully lit wall lands back on the reference, a wall the sun
+        // has left goes well below it.
+        let back = SceneRGB(64, 76, 96)
+        let left = SceneRGB(54, 66, 86)
         poly(context, [p(lo, lo, 0), p(hi, lo, 0), p(hi, lo, wall), p(lo, lo, wall)],
-             fill: .color(Color(red: 0.145, green: 0.173, blue: 0.220)))
+             fill: .color(back.shaded(lit(0, 1, 0))))
         poly(context, [p(lo, lo, 0), p(lo, hi, 0), p(lo, hi, wall), p(lo, lo, wall)],
-             fill: .color(Color(red: 0.114, green: 0.141, blue: 0.188)))
+             fill: .color(left.shaded(lit(1, 0, 0))))
+        drawWindows(context, lo: lo, hi: hi, wall: wall)
     }
 
     // MARK: - Desks
@@ -715,6 +907,20 @@ struct OfficeRenderer {
                             .init(color: wash.alpha(0), location: 1)
                         ]),
                         center: wp, startRadius: 0, endRadius: max(1.9 * tw, 0.001)))
+
+        // The desk lamp. Always on, and by day invisible under the daylight —
+        // as the sun goes it becomes the only thing holding this corner of the
+        // room together.
+        let lamp = lighting.interiorLampStrength
+        let lp = p(u - 0.2, v - 0.55, 0)
+        context.fill(ellipse(at: lp, rx: 1.5 * tw, ry: 1.5 * th),
+                     with: .radialGradient(
+                        Gradient(stops: [
+                            .init(color: Self.lampWarm.alpha(0.34 * lamp * al), location: 0),
+                            .init(color: Self.lampWarm.alpha(0.13 * lamp * al), location: 0.5),
+                            .init(color: Self.lampWarm.alpha(0), location: 1)
+                        ]),
+                        center: lp, startRadius: 0, endRadius: max(1.5 * tw, 0.001)))
 
         // Rug
         poly(context, [p(u - 1.05, v - 1.0, 0), p(u + 1.05, v - 1.0, 0),
@@ -777,12 +983,14 @@ struct OfficeRenderer {
             return
         }
         // The screen throws light onto the table — the cheapest cue that it is
-        // switched on at all.
+        // switched on at all. It throws further once the daylight has gone,
+        // which is half of what "the interior takes over at night" means.
+        let spill = 0.55 + 0.75 * lighting.light.night
         let spillCentre = CGPoint(x: mp.x, y: mp.y + 16 * s)
         ctx.fill(ellipse(at: spillCentre, rx: 44 * s, ry: 20 * s),
                  with: .radialGradient(
                     Gradient(colors: [Color(red: 60 / 255, green: 1, blue: 205 / 255)
-                        .opacity(0.28),
+                        .opacity(0.28 * spill),
                                       Color(red: 60 / 255, green: 1, blue: 205 / 255)
                         .opacity(0)]),
                     center: CGPoint(x: mp.x, y: mp.y + 14 * s),
@@ -859,12 +1067,16 @@ struct OfficeRenderer {
                               Color(red: 0.165, green: 0.137, blue: 0.106)]),
             startPoint: f[0], endPoint: f[2]))
 
-        // Warm ceiling light: the break room is not lit like the office.
+        // Warm ceiling light: the break room is not lit like the office, and it
+        // is not lit by the sun either. Its strength is deliberately flat
+        // through the day, so that as the office cools towards its windows this
+        // room stays exactly as cosy as it was at noon.
+        let ceiling = lighting.breakRoomLampStrength
         let cp = p(b.midU, b.midV, 0)
         context.fill(ellipse(at: cp, rx: 3.6 * tw, ry: 3.6 * th),
                      with: .radialGradient(
                         Gradient(colors: [Color(red: 1, green: 190 / 255, blue: 110 / 255)
-                            .opacity(0.16),
+                            .opacity(0.16 * ceiling),
                                           Color(red: 1, green: 190 / 255, blue: 110 / 255)
                             .opacity(0)]),
                         center: cp, startRadius: 0, endRadius: max(3.6 * tw, 0.001)))

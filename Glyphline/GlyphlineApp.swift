@@ -49,6 +49,9 @@ struct GlyphlineApp: App {
         WindowGroup(id: AppMode.agentverseWindowID) {
             AgentverseWindow()
                 .environmentObject(agentverse)
+                // The office's windows need the stored weather reading and the
+                // timestamp that throttles asking for a new one.
+                .environmentObject(settings)
         }
         .defaultSize(width: 1_400, height: 820)
         .windowStyle(.titleBar)
