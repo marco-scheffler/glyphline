@@ -30,7 +30,8 @@ final class IsoProjectionTests: XCTestCase {
     func testTheSceneFillsAndCentresInEveryPaneShape() throws {
         for pane in panes {
             for count in [4, 12, 20] {
-                let b = IsoLayout.fit(sessionCount: count, canvas: pane).bounds
+                let layout = IsoLayout.fit(sessionCount: count, canvas: pane)
+                let b = layout.bounds
                 let what = "count \(count) pane \(pane)"
 
                 XCTAssertGreaterThanOrEqual(b.minX, -0.5, "\(what): left edge")
@@ -38,7 +39,15 @@ final class IsoProjectionTests: XCTestCase {
                 XCTAssertGreaterThanOrEqual(b.minY, -0.5, "\(what): top edge")
                 XCTAssertLessThanOrEqual(b.maxY, pane.height + 0.5, "\(what): bottom edge")
 
-                let fill = max(b.width / pane.width, b.height / pane.height)
+                // The room now gets the space *between* the two label columns,
+                // and it has to fill that — a room that fits the strip while
+                // occupying a quarter of it is the bug this assertion replaced,
+                // and reserving a margin must not quietly reintroduce it.
+                let area = layout.roomArea
+                XCTAssertGreaterThanOrEqual(b.minX, area.minX - 0.5, "\(what): left column")
+                XCTAssertLessThanOrEqual(b.maxX, area.maxX + 0.5, "\(what): right column")
+
+                let fill = max(b.width / area.width, b.height / area.height)
                 XCTAssertGreaterThanOrEqual(fill, 0.85, "\(what): fills only \(fill)")
 
                 XCTAssertEqual(b.midX, pane.width / 2, accuracy: 2, "\(what): centre x")
@@ -53,10 +62,15 @@ final class IsoProjectionTests: XCTestCase {
     func testALargerPaneYieldsALargerScene() throws {
         let small = IsoLayout.fit(sessionCount: 12, canvas: CGSize(width: 860, height: 510))
         let large = IsoLayout.fit(sessionCount: 12, canvas: CGSize(width: 1720, height: 1020))
-        XCTAssertEqual(large.zoom, small.zoom * 2, accuracy: 1e-9)
-        // A small room on the user's window passes the scale the old clamp
-        // stopped at.
-        let roomy = IsoLayout.fit(sessionCount: 4, canvas: CGSize(width: 1720, height: 1020))
+        // At least double, no longer exactly double: the label columns stop
+        // growing at `labelColumnMax`, so a pane twice the size hands the room
+        // more than twice the width. The clamp this guards against — the old
+        // `min(1.0, …)` — would still show up as less than double.
+        XCTAssertGreaterThanOrEqual(large.zoom, small.zoom * 2)
+        // A small room on a large window passes the scale the old clamp stopped
+        // at. The window is bigger than it was: the two label columns are paid
+        // for out of the room's width, so the same scale needs more pane.
+        let roomy = IsoLayout.fit(sessionCount: 4, canvas: CGSize(width: 2000, height: 1200))
         XCTAssertGreaterThan(roomy.zoom, 1.0)
     }
 
