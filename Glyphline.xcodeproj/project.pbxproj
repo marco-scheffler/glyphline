@@ -19,6 +19,7 @@
 		16167AD4341FB1BA1C1D551E /* ClaudeWebPageLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = C15E082BDAB475C5EB9759CE /* ClaudeWebPageLoader.swift */; };
 		17A602A14DA23148EB4494DC /* LocalUsageStatistics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 297662193FBB25AD8305E87D /* LocalUsageStatistics.swift */; };
 		18FAA7AC1EAAEBCD3D16EC0C /* AccountDeletionStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 224A62075870B8FAF84E2274 /* AccountDeletionStoreTests.swift */; };
+		193C10317F32019C598DEDB8 /* OfficeScene.swift in Sources */ = {isa = PBXBuildFile; fileRef = 829EAE4011C2F92553460131 /* OfficeScene.swift */; };
 		1D1137DB62EEA16A172F4F1D /* MoneyAmount.swift in Sources */ = {isa = PBXBuildFile; fileRef = 675ADA919D8753AAAEFAB44F /* MoneyAmount.swift */; };
 		1F057127236C7C74BCADB639 /* AppModeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 347CEC22ED71F6DCC815DB03 /* AppModeTests.swift */; };
 		23BFBC7149C0F420E8F4C6AE /* ClaudeWebResponseClassifierTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28A51A602B459C74D5B7B379 /* ClaudeWebResponseClassifierTests.swift */; };
@@ -92,6 +93,7 @@
 		B838F331BD89C2B524410914 /* AddAccountView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A63DE4BE6B1E5DD6EBDEC233 /* AddAccountView.swift */; };
 		B85CA610DA5E8BBC7879D1CD /* LedgerStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 461DE0E81EA86DEF3F3E1A47 /* LedgerStore.swift */; };
 		B8B5DF46E5F52175C3B0C9F8 /* UsageModelsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6038A4E395A2847039481F0D /* UsageModelsTests.swift */; };
+		B8E39029882A58F26CE7CD43 /* IsoProjection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CB2DAC06F09669AD3D864A7 /* IsoProjection.swift */; };
 		BE2B9EEEA941F5F4FDD5FDEA /* AppMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12E48ACC872A23A3B329B354 /* AppMode.swift */; };
 		BE564013C16C892F7848C0AA /* StatisticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4E90AE35CAB8BF805E71E5C /* StatisticsView.swift */; };
 		C0976190599A88D6F50D380D /* AgentverseModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC85C589F9485DF64325D43E /* AgentverseModel.swift */; };
@@ -112,6 +114,7 @@
 		F1C14BF4C9F663FD03819DAA /* pricing-v1.json in Resources */ = {isa = PBXBuildFile; fileRef = C1291754346ED094133AE0E6 /* pricing-v1.json */; };
 		F56211A4FDCF96FDAFB59C92 /* RateWindowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA6C8BEB41F3B3EE32D28A76 /* RateWindowTests.swift */; };
 		F731A9E0E7F227918984E8BA /* claude-usage.json in Resources */ = {isa = PBXBuildFile; fileRef = 71F686E68C6AD2A919ECD797 /* claude-usage.json */; };
+		F8F8163B0CC89AA5FA267BFA /* IsoProjectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CABF3285E03EB09C5D9394E3 /* IsoProjectionTests.swift */; };
 		FA0E6D06248BF58C8ECC4787 /* ClaudeOrganizationsDTOs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24490E8A33CB8C3CE1EFFAA3 /* ClaudeOrganizationsDTOs.swift */; };
 		FB25B96A420EF574188F6447 /* ClaudeUsageQuotaDTOsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E78959ED32C99389D71E836A /* ClaudeUsageQuotaDTOsTests.swift */; };
 		FD2E6B0D841CAF9F824F9BB8 /* LocalUsagePeriodTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D31897CD1062193BF63AE80 /* LocalUsagePeriodTests.swift */; };
@@ -129,6 +132,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		0CB2DAC06F09669AD3D864A7 /* IsoProjection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IsoProjection.swift; sourceTree = "<group>"; };
 		0D31897CD1062193BF63AE80 /* LocalUsagePeriodTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalUsagePeriodTests.swift; sourceTree = "<group>"; };
 		0D5247CB250C44F5D5A195E8 /* ClaudeWebSessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeWebSessionStore.swift; sourceTree = "<group>"; };
 		102E19DF99EBAC8A3C8BDC32 /* ClaudeSignInWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeSignInWindow.swift; sourceTree = "<group>"; };
@@ -181,6 +185,7 @@
 		7E78F87ED03A83F2D193EF8B /* AppSettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettingsStore.swift; sourceTree = "<group>"; };
 		7EC4E85D055A158D0AB6AE19 /* AgentverseScene.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentverseScene.swift; sourceTree = "<group>"; };
 		80ED211E069178416163921B /* SceneLightTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneLightTests.swift; sourceTree = "<group>"; };
+		829EAE4011C2F92553460131 /* OfficeScene.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfficeScene.swift; sourceTree = "<group>"; };
 		8436B59B839E014CC6FDD206 /* UserPlaceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserPlaceTests.swift; sourceTree = "<group>"; };
 		849077EF726D5E3F756B4805 /* AccountSummaryFormattingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountSummaryFormattingTests.swift; sourceTree = "<group>"; };
 		86370203C13C77899EEB6DA7 /* TranscriptTimestampParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptTimestampParser.swift; sourceTree = "<group>"; };
@@ -224,6 +229,7 @@
 		C9AD08F137C04548B835D868 /* AgentverseModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentverseModelTests.swift; sourceTree = "<group>"; };
 		CA6C8BEB41F3B3EE32D28A76 /* RateWindowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RateWindowTests.swift; sourceTree = "<group>"; };
 		CAB6B58FFD4950C915812BC0 /* ClaudeWebSessionStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeWebSessionStoreTests.swift; sourceTree = "<group>"; };
+		CABF3285E03EB09C5D9394E3 /* IsoProjectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IsoProjectionTests.swift; sourceTree = "<group>"; };
 		CBDCA09F2919D27BE31E10C4 /* QuotaBarRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuotaBarRowView.swift; sourceTree = "<group>"; };
 		CC85C589F9485DF64325D43E /* AgentverseModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentverseModel.swift; sourceTree = "<group>"; };
 		D10078AD9B1875C460A90C37 /* CostEstimatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CostEstimatorTests.swift; sourceTree = "<group>"; };
@@ -278,6 +284,8 @@
 				D6BD6C14C75AEFB9B82A4095 /* AgentRow.swift */,
 				7EC4E85D055A158D0AB6AE19 /* AgentverseScene.swift */,
 				1AF1829AD2379CF1AA77C13C /* AgentverseWindow.swift */,
+				0CB2DAC06F09669AD3D864A7 /* IsoProjection.swift */,
+				829EAE4011C2F92553460131 /* OfficeScene.swift */,
 				590AB7BB7B2B0704E4EF7C23 /* SceneLight.swift */,
 				5465BF81A3D7F440B3636E5B /* SunPosition.swift */,
 				3B3D3ECA1152729E0516F4B8 /* UserPlace.swift */,
@@ -418,6 +426,7 @@
 				FF76F68273B2AD4088C657D5 /* DatabaseQueueFactoryTests.swift */,
 				8E897587F3639B71FA29F250 /* DeleteAccountFlowTests.swift */,
 				412F5489EA0C8B4EE160128C /* GlyphlineSmokeTests.swift */,
+				CABF3285E03EB09C5D9394E3 /* IsoProjectionTests.swift */,
 				89EEFE279720CAF7CA13AEB0 /* KeychainStoreTests.swift */,
 				FA3C1D8E770A657CE4E29EF0 /* LedgerStoreTests.swift */,
 				2D061EE64EFE518EB86B8570 /* LocalTokenUsageStoreTests.swift */,
@@ -691,6 +700,7 @@
 				15BF5AF96B128FB27308844A /* DatabaseQueueFactoryTests.swift in Sources */,
 				C7D043D534497E4E92F09CF5 /* DeleteAccountFlowTests.swift in Sources */,
 				68A1F885C4A8FF2F2D947648 /* GlyphlineSmokeTests.swift in Sources */,
+				F8F8163B0CC89AA5FA267BFA /* IsoProjectionTests.swift in Sources */,
 				6F6854805AD8B45E9AB095BA /* KeychainStoreTests.swift in Sources */,
 				94709AE6F65A1DC6E85EADAE /* LedgerStoreTests.swift in Sources */,
 				315AA4ACC25D2F08B4DA83CA /* LocalTokenUsageStoreTests.swift in Sources */,
@@ -751,6 +761,7 @@
 				4A04C9AD097C14F72D139441 /* DeleteAccountFlow.swift in Sources */,
 				6B55AE689CFB20F2FC81320A /* FixtureRateWindowSource.swift in Sources */,
 				6D737C47EC2A7E6325625A55 /* GlyphlineApp.swift in Sources */,
+				B8E39029882A58F26CE7CD43 /* IsoProjection.swift in Sources */,
 				A578DC0E93318FDA5872EA0B /* KeychainStore.swift in Sources */,
 				B85CA610DA5E8BBC7879D1CD /* LedgerStore.swift in Sources */,
 				CAE25CBB5FB46C3D44E6BD64 /* LedgerStoreFactory.swift in Sources */,
@@ -759,6 +770,7 @@
 				2A7289DD211158D42C26C9DE /* MenuBarView.swift in Sources */,
 				81A31CCE7A84A8263856A8DC /* Migrations.swift in Sources */,
 				1D1137DB62EEA16A172F4F1D /* MoneyAmount.swift in Sources */,
+				193C10317F32019C598DEDB8 /* OfficeScene.swift in Sources */,
 				28C11321FB7E815ECD239AE1 /* PricingCatalog.swift in Sources */,
 				4B96E1ED4A37D89F3DB7A844 /* ProviderAdapterRegistry.swift in Sources */,
 				42DA56777FC9BBAD2671DB97 /* ProviderID.swift in Sources */,

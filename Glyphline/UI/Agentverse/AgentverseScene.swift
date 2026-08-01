@@ -2,9 +2,9 @@ import SwiftUI
 
 /// The drawing, separated from where its inputs come from.
 ///
-/// A placeholder for now: the circuit it used to draw has been removed, and the
-/// two stylised views that replace it are not built yet. What survives is the
-/// shape of the contract, because that is the part the window depends on.
+/// The circuit it used to draw has been removed; what it draws now is the
+/// isometric office. This type survives as the contract the window depends on,
+/// so which view is on screen stays a change to one file.
 ///
 /// `frame` replaces the clock: the window passes the running frame number, a
 /// test passes a fixed one. Without that the picture would depend on when it was
@@ -20,9 +20,10 @@ struct AgentverseScene: View {
     let frame: Int
 
     var body: some View {
-        // A flat fill and nothing else. Deliberately not an empty view: the
-        // window puts an overlay on top of this, and a zero-sized scene would
-        // collapse the split view's right-hand pane.
-        Color(white: 0.07)
+        OfficeScene(sessions: sessions,
+                    parked: parked,
+                    workTokens: workTokens,
+                    hovered: hovered,
+                    frame: frame)
     }
 }
