@@ -363,8 +363,9 @@ struct DatastreamScene: View {
                            workTokens: workTokens[session.id] ?? 0)
         } + parked.map { session in
             DatastreamLane(id: session.sessionID,
-                           name: SessionLabel.repositoryName(cwd: session.cwd),
-                           repository: SessionLabel.repositoryName(cwd: session.cwd),
+                           name: SessionLabel.truncated(session.displayTitle,
+                                                        to: SessionLabel.laneLimit),
+                           repository: session.repositoryName,
                            state: .parked,
                            subagentCount: session.subagentCount,
                            workTokens: workTokens[session.sessionID] ?? 0)

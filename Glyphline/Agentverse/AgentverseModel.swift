@@ -62,7 +62,9 @@ enum AgentverseRules {
                     gitBranch: session.gitBranch,
                     subagentCount: session.subagentCount,
                     lastActivityAt: session.lastActivityAt,
-                    parkedAt: now
+                    parkedAt: now,
+                    aiTitle: session.aiTitle,
+                    slug: session.slug
                 )
                 snapshot.newlyParked.append(row)
                 stillParked[session.id] = row

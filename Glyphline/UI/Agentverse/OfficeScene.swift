@@ -108,8 +108,9 @@ struct OfficeScene: View {
         }
         let offClock = parked.map { session in
             OfficeDesk(id: session.sessionID,
-                       name: SessionLabel.repositoryName(cwd: session.cwd),
-                       repository: SessionLabel.repositoryName(cwd: session.cwd),
+                       name: SessionLabel.truncated(session.displayTitle,
+                                                    to: SessionLabel.marginLimit),
+                       repository: session.repositoryName,
                        waiting: false,
                        subagentCount: session.subagentCount,
                        workTokens: workTokens[session.sessionID] ?? 0)

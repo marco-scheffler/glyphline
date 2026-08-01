@@ -96,4 +96,22 @@ final class AgentverseModelTests: XCTestCase {
 
         XCTAssertEqual(out.onTrack.map(\.id), ["A", "B", "C"])
     }
+
+    /// Parking is the only moment the title can be captured: the row is the
+    /// durable record of what was known then, so it has to be copied across here
+    /// rather than looked up later.
+    func testParkingCarriesTheTitleAndSlugOntoTheRow() throws {
+        var cold = session("S1", ago: 5400)
+        cold.aiTitle = "Issue 558 auf Umsetzbarkeit prüfen"
+        cold.slug = "tidy-toasting-pelican"
+
+        let out = AgentverseRules.reconcile(scanned: [cold], parked: [],
+                                            liveSessionIDs: ["S1"], now: now)
+
+        XCTAssertEqual(out.newlyParked.map(\.aiTitle),
+                       ["Issue 558 auf Umsetzbarkeit prüfen"])
+        XCTAssertEqual(out.newlyParked.map(\.slug), ["tidy-toasting-pelican"])
+        XCTAssertEqual(out.parked.first?.displayTitle,
+                       "Issue 558 auf Umsetzbarkeit prüfen")
+    }
 }

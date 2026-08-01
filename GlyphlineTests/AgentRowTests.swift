@@ -88,10 +88,15 @@ final class AgentRowTests: XCTestCase {
     }
 
     private func parked(cwd: String = "/Users/x/coding/Acme-Suite",
-                        branch: String? = "main") -> ParkedAgentSession {
-        ParkedAgentSession(sessionID: "S2", cwd: cwd, gitBranch: branch, subagentCount: 0,
+                        branch: String? = "main",
+                        aiTitle: String? = nil,
+                        slug: String? = nil,
+                        sessionID: String = "S2") -> ParkedAgentSession {
+        ParkedAgentSession(sessionID: sessionID, cwd: cwd, gitBranch: branch,
+                           subagentCount: 0,
                            lastActivityAt: Date(timeIntervalSince1970: 1_800_000_000),
-                           parkedAt: Date(timeIntervalSince1970: 1_800_003_600))
+                           parkedAt: Date(timeIntervalSince1970: 1_800_003_600),
+                           aiTitle: aiTitle, slug: slug)
     }
 
     /// A session in the pit lane needs a row of its own, or the only way to
@@ -143,5 +148,37 @@ final class AgentRowTests: XCTestCase {
 
         XCTAssertEqual(row.title, "Acme-Suite")
         XCTAssertEqual(row.subtitle, "main")
+    }
+
+    /// A parked row runs the same fallback chain as a running one: title, then
+    /// slug, then repository.
+    func testAParkedRowFollowsTheSameFallbackChainAsARunningOne() {
+        let titled = AgentRowModel(
+            parked: parked(aiTitle: "Issue 558 auf Umsetzbarkeit prüfen",
+                           slug: "tidy-toasting-pelican"),
+            workTokens: 0)
+        XCTAssertEqual(titled.title, "Issue 558 auf Umsetzbarkeit prüfen")
+        XCTAssertEqual(titled.subtitle, "Acme-Suite · main",
+                       "the repository moves to the second line once the first names the work")
+
+        let slugged = AgentRowModel(parked: parked(slug: "tidy-toasting-pelican"),
+                                    workTokens: 0)
+        XCTAssertEqual(slugged.title, "tidy-toasting-pelican")
+
+        let bare = AgentRowModel(parked: parked(), workTokens: 0)
+        XCTAssertEqual(bare.title, "Acme-Suite")
+    }
+
+    /// The complaint, on the row itself: two parked sessions out of one checkout
+    /// must not read the same.
+    func testTwoParkedRowsFromOneRepositoryReadDifferently() {
+        let first = AgentRowModel(parked: parked(aiTitle: "Issue 558 auf Umsetzbarkeit prüfen",
+                                                 sessionID: "S1"),
+                                  workTokens: 0)
+        let second = AgentRowModel(parked: parked(aiTitle: "Release 2.4 vorbereiten",
+                                                  sessionID: "S2"),
+                                   workTokens: 0)
+
+        XCTAssertNotEqual(first.title, second.title)
     }
 }

@@ -49,11 +49,8 @@ struct AgentRowModel: Equatable {
     /// A session in the pit lane. It reads the same as one on track apart from
     /// its state — it is the same session, standing still.
     init(parked: ParkedAgentSession, workTokens: Int64) {
-        // The pit lane keeps only what the ledger stores, and that has no title
-        // in it, so a parked row is still named after its repository.
-        let repository = SessionLabel.repositoryName(cwd: parked.cwd)
-        self.init(sessionID: parked.sessionID, label: repository,
-                  repository: repository, branch: parked.gitBranch,
+        self.init(sessionID: parked.sessionID, label: parked.displayTitle,
+                  repository: parked.repositoryName, branch: parked.gitBranch,
                   subagentCount: parked.subagentCount, workTokens: workTokens,
                   state: .parked)
     }

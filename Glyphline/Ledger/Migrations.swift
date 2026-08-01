@@ -65,6 +65,8 @@ enum LedgerColumn {
     static let subagentCount = "subagentCount"
     static let lastActivityAt = "lastActivityAt"
     static let parkedAt = "parkedAt"
+    static let aiTitle = "aiTitle"
+    static let slug = "slug"
 }
 
 enum Migrations {
@@ -429,6 +431,25 @@ enum Migrations {
                 table.column(LedgerColumn.cacheReadTokens, .integer).notNull().defaults(to: 0)
                 table.column(LedgerColumn.outputTokens, .integer).notNull().defaults(to: 0)
                 table.primaryKey([LedgerColumn.sessionID, LedgerColumn.modelKey])
+            }
+        }
+
+        migrator.registerMigration("v12_parked_session_title") { db in
+            // What a parked session was doing, kept alongside the row.
+            //
+            // Both nullable: rows written before this migration have neither, and
+            // a session can genuinely be parked before a title was ever formed —
+            // a NOT NULL default would only mean inventing an empty string and
+            // then having to tell it apart from a real one.
+            //
+            // Stored rather than looked up in the current scan. The scan window
+            // (96 hours) and the parked expiry (96 hours) are close but not the
+            // same, so a lookup would resolve for most rows and silently fail for
+            // the rest; the row is the durable record of what was known when the
+            // session parked.
+            try db.alter(table: LedgerTable.agentverseParked) { table in
+                table.add(column: LedgerColumn.aiTitle, .text)
+                table.add(column: LedgerColumn.slug, .text)
             }
         }
 
