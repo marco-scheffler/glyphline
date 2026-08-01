@@ -135,8 +135,20 @@ struct ParkedAgentSession: Identifiable, Equatable, Sendable {
     var subagentCount: Int
     var lastActivityAt: Date
     var parkedAt: Date
+    /// What the session was doing when it parked, as its transcript reported it.
+    /// Stored because two parked sessions from one checkout are otherwise the
+    /// same word twice.
+    var aiTitle: String? = nil
+    var slug: String? = nil
 
     var id: String { sessionID }
+
+    /// The same fallback chain a running session uses — see `SessionLabel`.
+    var displayTitle: String {
+        SessionLabel.displayTitle(aiTitle: aiTitle, slug: slug, cwd: cwd)
+    }
+
+    var repositoryName: String { SessionLabel.repositoryName(cwd: cwd) }
 }
 
 struct DailyUsageSummary: Identifiable, Equatable, Sendable {
@@ -658,6 +670,8 @@ private struct ParkedAgentRecord: Codable, FetchableRecord, PersistableRecord, T
     var subagentCount: Int
     var lastActivityAt: Date
     var parkedAt: Date
+    var aiTitle: String?
+    var slug: String?
 
     init(_ session: ParkedAgentSession) {
         sessionID = session.sessionID
@@ -666,6 +680,8 @@ private struct ParkedAgentRecord: Codable, FetchableRecord, PersistableRecord, T
         subagentCount = session.subagentCount
         lastActivityAt = session.lastActivityAt
         parkedAt = session.parkedAt
+        aiTitle = session.aiTitle
+        slug = session.slug
     }
 
     var session: ParkedAgentSession {
@@ -675,7 +691,9 @@ private struct ParkedAgentRecord: Codable, FetchableRecord, PersistableRecord, T
             gitBranch: gitBranch,
             subagentCount: subagentCount,
             lastActivityAt: lastActivityAt,
-            parkedAt: parkedAt
+            parkedAt: parkedAt,
+            aiTitle: aiTitle,
+            slug: slug
         )
     }
 }

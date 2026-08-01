@@ -496,4 +496,68 @@ final class MigrationTests: XCTestCase {
 
         XCTAssertEqual(try store.fetchSessionTokens(sessionIDs: ["S1"])["S1"], 3)
     }
+
+    /// The table already exists and already holds rows, so this is the case a
+    /// naive migration test misses: v12 has to add its two columns to a
+    /// *populated* `agentverseParked` and leave every row where it was.
+    func testV12AddsTheTitleColumnsWithoutDisturbingExistingParkedRows() throws {
+        let dbQueue = try DatabaseQueueFactory.makeInMemory()
+        let migrator = Migrations.makeMigrator()
+        try migrator.migrate(dbQueue, upTo: "v11_local_session_tokens")
+
+        let lastActivityAt = Date(timeIntervalSince1970: 1_800_000_000)
+        let parkedAt = Date(timeIntervalSince1970: 1_800_003_600)
+        try dbQueue.write { db in
+            try db.execute(
+                sql: """
+                    INSERT INTO agentverseParked
+                        (sessionID, cwd, gitBranch, subagentCount, lastActivityAt, parkedAt)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                arguments: ["S1", "/Users/x/coding/Acme-Suite", "main", 2,
+                            lastActivityAt, parkedAt]
+            )
+        }
+
+        try migrator.migrate(dbQueue)
+
+        let store = LedgerStore(dbQueue: dbQueue)
+        let rows = try store.fetchParkedAgents()
+        XCTAssertEqual(rows.count, 1, "the pre-migration row must survive")
+        XCTAssertEqual(rows[0].sessionID, "S1")
+        XCTAssertEqual(rows[0].cwd, "/Users/x/coding/Acme-Suite")
+        XCTAssertEqual(rows[0].gitBranch, "main")
+        XCTAssertEqual(rows[0].subagentCount, 2)
+        XCTAssertEqual(rows[0].lastActivityAt, lastActivityAt)
+        XCTAssertEqual(rows[0].parkedAt, parkedAt)
+        XCTAssertNil(rows[0].aiTitle, "a row written before v12 has no title")
+        XCTAssertNil(rows[0].slug)
+    }
+
+    /// A row that predates v12 has nothing to name itself with but its checkout,
+    /// and an empty label would be worse than a repeated one.
+    func testAPreMigrationParkedRowStillLabelsItselfWithItsRepository() throws {
+        let dbQueue = try DatabaseQueueFactory.makeInMemory()
+        let migrator = Migrations.makeMigrator()
+        try migrator.migrate(dbQueue, upTo: "v11_local_session_tokens")
+
+        try dbQueue.write { db in
+            try db.execute(
+                sql: """
+                    INSERT INTO agentverseParked
+                        (sessionID, cwd, gitBranch, subagentCount, lastActivityAt, parkedAt)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                arguments: ["S1", "/Users/x/coding/Acme-Suite", nil, 0,
+                            Date(timeIntervalSince1970: 1_800_000_000),
+                            Date(timeIntervalSince1970: 1_800_003_600)]
+            )
+        }
+
+        try migrator.migrate(dbQueue)
+
+        let row = try XCTUnwrap(LedgerStore(dbQueue: dbQueue).fetchParkedAgents().first)
+        XCTAssertEqual(row.displayTitle, "Acme-Suite")
+        XCTAssertEqual(AgentRowModel(parked: row, workTokens: 0).title, "Acme-Suite")
+    }
 }

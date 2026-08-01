@@ -74,4 +74,41 @@ final class AgentverseParkedStoreTests: XCTestCase {
 
         XCTAssertEqual(try store.fetchParkedAgents().map(\.sessionID), ["NEW", "OLD"])
     }
+
+    /// The title is the whole point of the v12 columns: it has to reach the
+    /// database and come back, not merely exist on the struct.
+    func testAParkedSessionCarriesItsTitleThroughTheDatabase() throws {
+        let store = try makeStore()
+        var row = parked("S1", parkedAt: Date(timeIntervalSince1970: 1_800_000_000))
+        row.aiTitle = "Issue 558 auf Umsetzbarkeit prüfen"
+        row.slug = "tidy-toasting-pelican"
+        try store.saveParkedAgent(row)
+
+        let stored = try XCTUnwrap(try store.fetchParkedAgents().first)
+
+        XCTAssertEqual(stored.aiTitle, "Issue 558 auf Umsetzbarkeit prüfen")
+        XCTAssertEqual(stored.slug, "tidy-toasting-pelican")
+        XCTAssertEqual(stored.displayTitle, "Issue 558 auf Umsetzbarkeit prüfen")
+    }
+
+    /// The bug this task exists for: one checkout, two parked sessions, and
+    /// before v12 both read "repo".
+    func testTwoParkedSessionsFromOneRepositoryReadDifferently() throws {
+        let store = try makeStore()
+        let at = Date(timeIntervalSince1970: 1_800_000_000)
+        var first = parked("S1", parkedAt: at)
+        first.cwd = "/Users/x/coding/Acme-Suite"
+        first.aiTitle = "Issue 558 auf Umsetzbarkeit prüfen"
+        var second = parked("S2", parkedAt: at)
+        second.cwd = "/Users/x/coding/Acme-Suite"
+        second.aiTitle = "Release 2.4 vorbereiten"
+        try store.saveParkedAgent(first)
+        try store.saveParkedAgent(second)
+
+        let labels = try store.fetchParkedAgents().map(\.displayTitle)
+
+        XCTAssertEqual(Set(labels),
+                       ["Issue 558 auf Umsetzbarkeit prüfen", "Release 2.4 vorbereiten"])
+        XCTAssertEqual(Set(labels).count, 2, "same checkout, two different labels")
+    }
 }
