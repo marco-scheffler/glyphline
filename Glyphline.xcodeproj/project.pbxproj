@@ -62,6 +62,7 @@
 		766ABBB2FCCB0CD85F4280B9 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8C06666F9B94E7FE09B8E8E5 /* Assets.xcassets */; };
 		7689725CCEE34D9A6EC7ACE1 /* ProviderAdapterRegistryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65F46725420D301A64582EF6 /* ProviderAdapterRegistryTests.swift */; };
 		771EDD480CF8D227507CB099 /* SyncCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C65F3F058519D3D6E8B2C8CE /* SyncCoordinator.swift */; };
+		798F27EB96BD8D11CAF2AEE8 /* WeatherServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E098575A9DAE4BCF0C1DB381 /* WeatherServiceTests.swift */; };
 		7A236834E440289A3C2FB2CD /* AgentverseWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AF1829AD2379CF1AA77C13C /* AgentverseWindow.swift */; };
 		7BB34FDDD9F07754C4B60EF3 /* AgentverseCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DA33CFDBB20825AB71AEEC4 /* AgentverseCoordinator.swift */; };
 		7EE1E0DD0196D6F33CE6E4CE /* AddAccountFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A81C1F539EBD6824C59FADB0 /* AddAccountFlow.swift */; };
@@ -102,6 +103,7 @@
 		DB6A9090D4D818A7DA838E14 /* LocalUsageStatisticsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8ACB43E390F384515433FB04 /* LocalUsageStatisticsTests.swift */; };
 		DD2396AD5BE685E977AB9FAD /* UserPlaceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8436B59B839E014CC6FDD206 /* UserPlaceTests.swift */; };
 		DF165E242EA15AA2635A186F /* AgentverseModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9AD08F137C04548B835D868 /* AgentverseModelTests.swift */; };
+		E070D0F406645BA4C9DDA77A /* WeatherService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93998924B14DDD73F3240DEA /* WeatherService.swift */; };
 		E26E4CED2DF7349EFDE10AEA /* AccountDeletionFormatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93FBE86612C30FFEEC2EE1FD /* AccountDeletionFormatting.swift */; };
 		E87053D134E5E5BCF23BD177 /* ClaudeWebSessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D5247CB250C44F5D5A195E8 /* ClaudeWebSessionStore.swift */; };
 		E911DAA860CC70539901ED44 /* TranscriptTimestampParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86370203C13C77899EEB6DA7 /* TranscriptTimestampParser.swift */; };
@@ -190,6 +192,7 @@
 		8E897587F3639B71FA29F250 /* DeleteAccountFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeleteAccountFlowTests.swift; sourceTree = "<group>"; };
 		8EB4CDCE71718F453A076C59 /* ClaudeTranscriptReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeTranscriptReader.swift; sourceTree = "<group>"; };
 		919CF627AF46F1C143EA18B9 /* ClaudeCodeLogReaderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeCodeLogReaderTests.swift; sourceTree = "<group>"; };
+		93998924B14DDD73F3240DEA /* WeatherService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeatherService.swift; sourceTree = "<group>"; };
 		93FBE86612C30FFEEC2EE1FD /* AccountDeletionFormatting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountDeletionFormatting.swift; sourceTree = "<group>"; };
 		979B2CFA8C52D4A2693A102A /* Migrations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Migrations.swift; sourceTree = "<group>"; };
 		97C425B4A5612D534BA5FECC /* AccountCredentialReferenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountCredentialReferenceTests.swift; sourceTree = "<group>"; };
@@ -228,6 +231,7 @@
 		D461F567F4AC93CAD78D6410 /* Account.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Account.swift; sourceTree = "<group>"; };
 		D6BD6C14C75AEFB9B82A4095 /* AgentRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentRow.swift; sourceTree = "<group>"; };
 		D968A135D66AE439311BECFE /* ClaudeUsageQuotaDTOs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeUsageQuotaDTOs.swift; sourceTree = "<group>"; };
+		E098575A9DAE4BCF0C1DB381 /* WeatherServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeatherServiceTests.swift; sourceTree = "<group>"; };
 		E2ACCDCE077861E9661ECBFF /* LedgerStoreFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LedgerStoreFactory.swift; sourceTree = "<group>"; };
 		E78959ED32C99389D71E836A /* ClaudeUsageQuotaDTOsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeUsageQuotaDTOsTests.swift; sourceTree = "<group>"; };
 		EB6486F570B1DA77ACCB5458 /* AgentverseCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentverseCoordinatorTests.swift; sourceTree = "<group>"; };
@@ -277,6 +281,7 @@
 				590AB7BB7B2B0704E4EF7C23 /* SceneLight.swift */,
 				5465BF81A3D7F440B3636E5B /* SunPosition.swift */,
 				3B3D3ECA1152729E0516F4B8 /* UserPlace.swift */,
+				93998924B14DDD73F3240DEA /* WeatherService.swift */,
 				3529DEF033DF359EF2652FD4 /* WindowOcclusionReader.swift */,
 			);
 			path = Agentverse;
@@ -432,6 +437,7 @@
 				62C5666D45C5D74DC69F722E /* SyncCoordinatorTests.swift */,
 				6038A4E395A2847039481F0D /* UsageModelsTests.swift */,
 				8436B59B839E014CC6FDD206 /* UserPlaceTests.swift */,
+				E098575A9DAE4BCF0C1DB381 /* WeatherServiceTests.swift */,
 				95CD64829F4A19BE7CB0CACB /* Fixtures */,
 			);
 			path = GlyphlineTests;
@@ -704,6 +710,7 @@
 				AA9559C25108258EBA10DC8A /* SyncCoordinatorTests.swift in Sources */,
 				B8B5DF46E5F52175C3B0C9F8 /* UsageModelsTests.swift in Sources */,
 				DD2396AD5BE685E977AB9FAD /* UserPlaceTests.swift in Sources */,
+				798F27EB96BD8D11CAF2AEE8 /* WeatherServiceTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -769,6 +776,7 @@
 				E911DAA860CC70539901ED44 /* TranscriptTimestampParser.swift in Sources */,
 				D8B77926E2F0A8CA8B0916E2 /* UsageModels.swift in Sources */,
 				5B80D237FF5A7B0A61F4AFCA /* UserPlace.swift in Sources */,
+				E070D0F406645BA4C9DDA77A /* WeatherService.swift in Sources */,
 				8D9EA1487B3C0A416574EBBC /* WindowOcclusionReader.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
