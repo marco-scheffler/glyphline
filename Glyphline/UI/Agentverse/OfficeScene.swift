@@ -97,10 +97,12 @@ struct OfficeScene: View {
     var body: some View {
         // Pulled out of the closure: `Canvas`'s renderer is `@Sendable`, so it
         // may only capture values, never the view.
+        // The full title, not a character-clipped one: the renderer cuts it to
+        // the measured width of the column it will actually be drawn in, and a
+        // count clipped here would only ever be right at one window size.
         let desks = sessions.map { session in
             OfficeDesk(id: session.id,
-                       name: SessionLabel.truncated(session.displayTitle,
-                                                    to: SessionLabel.marginLimit),
+                       name: session.displayTitle,
                        repository: session.repositoryName,
                        waiting: session.activity == .waitingForYou,
                        subagentCount: session.subagentCount,
@@ -108,8 +110,7 @@ struct OfficeScene: View {
         }
         let offClock = parked.map { session in
             OfficeDesk(id: session.sessionID,
-                       name: SessionLabel.truncated(session.displayTitle,
-                                                    to: SessionLabel.marginLimit),
+                       name: session.displayTitle,
                        repository: session.repositoryName,
                        waiting: false,
                        subagentCount: session.subagentCount,
@@ -132,8 +133,8 @@ struct OfficeScene: View {
 /// What the room needs to know about one session to give it a desk.
 struct OfficeDesk: Equatable, Sendable {
     let id: String
-    /// What the plate leads with: what this session is doing, already clipped to
-    /// `SessionLabel.marginLimit`.
+    /// What the plate leads with: what this session is doing, in full. The
+    /// renderer cuts it to the measured width of its label column.
     let name: String
     /// The second line's first field. Every desk in one checkout repeats it,
     /// which is exactly why it is no longer the name.
@@ -530,14 +531,17 @@ struct OfficeRenderer {
         // outside the room, in the two columns the fit reserved for them. On the
         // desks they hid the very agents they named.
         let anchors = workerAnchors(desks: desks)
+        let fitted = fittedText(context, desks: desks)
         let placed = MarginLabelLayout.place(
-            labelRequests(context, desks: desks, anchors: anchors),
+            labelRequests(context, desks: desks, anchors: anchors, fitted: fitted),
             canvas: size,
             columnWidth: layout.labelColumnWidth,
             roomCentreX: layout.roomArea.midX)
         var texts: [String: LabelText] = [:]
         for desk in desks {
-            texts[desk.id] = LabelText(name: desk.name, caption: desk.caption,
+            let text = fitted[desk.id]
+                ?? FittedLabelText(name: desk.name, caption: desk.caption)
+            texts[desk.id] = LabelText(name: text.name, caption: text.caption,
                                       waiting: desk.waiting,
                                       dim: hovered != nil && hovered != desk.id,
                                       fontSize: 12.5 * labelZoom)
@@ -630,22 +634,70 @@ struct OfficeRenderer {
         CGPoint(x: base.x, y: base.y - (sitting ? 22 : 32) * scale)
     }
 
+    /// The two lines of one plate, already cut to what the column can show.
+    struct FittedLabelText: Equatable, Sendable {
+        let name: String
+        let caption: String
+    }
+
+    /// The air a plate keeps around its text: `drawLabels` sets the first
+    /// character 9 pt in from the left edge, and the right side gets the same
+    /// plus a little, which is where the 22 the plate's width adds comes from.
+    static let plateTextInset: Double = 22
+
+    /// How wide a line of text may measure before it would push the plate past
+    /// its column. The column is `IsoLayout.labelColumnWidth`, the layout keeps
+    /// `MarginLabelLayout.padding` on each side of the plate, and the plate keeps
+    /// `plateTextInset` around the text — this is what is left.
+    var labelTextWidth: Double {
+        max(0, layout.labelColumnWidth - 2 * MarginLabelLayout.padding - Self.plateTextInset)
+    }
+
+    /// The width of a resolved string, measured against an unbounded proposal so
+    /// a long title gives its true length rather than being wrapped into it.
+    private func measure(_ context: GraphicsContext, _ text: Text) -> Double {
+        let free = CGSize(width: CGFloat.greatestFiniteMagnitude,
+                          height: CGFloat.greatestFiniteMagnitude)
+        return context.resolve(text).measure(in: free).width
+    }
+
+    private func nameText(_ string: String) -> Text {
+        Text(string).font(.system(size: 12.5 * labelZoom, weight: .medium))
+    }
+
+    private func captionText(_ string: String) -> Text {
+        Text(string).font(.system(size: 10 * labelZoom).monospaced())
+    }
+
+    /// Cut every plate's two lines to the column, by the same measurement that
+    /// then sizes the plate. A character count could not do this: the column is
+    /// a fraction of the pane and the count is not.
+    func fittedText(_ context: GraphicsContext,
+                    desks: [OfficeDesk]) -> [String: FittedLabelText] {
+        let limit = labelTextWidth
+        var fitted: [String: FittedLabelText] = [:]
+        for desk in desks {
+            fitted[desk.id] = FittedLabelText(
+                name: LabelFit.truncated(desk.name, to: limit) {
+                    self.measure(context, self.nameText($0))
+                },
+                caption: LabelFit.truncated(desk.caption, to: limit) {
+                    self.measure(context, self.captionText($0))
+                })
+        }
+        return fitted
+    }
+
     func labelRequests(_ context: GraphicsContext,
                        desks: [OfficeDesk],
-                       anchors: [WorkerAnchor]) -> [MarginLabelRequest] {
+                       anchors: [WorkerAnchor],
+                       fitted: [String: FittedLabelText]) -> [MarginLabelRequest] {
         zip(desks, anchors).map { desk, anchor in
-            let fontSize = 12.5 * labelZoom
-            let name = context.resolve(Text(desk.name)
-                .font(.system(size: fontSize, weight: .medium)))
-            let caption = context.resolve(Text(desk.caption)
-                .font(.system(size: 10 * labelZoom).monospaced()))
-            // Measured against an unbounded width, so a long title gives its true
-            // length rather than being wrapped into the proposal. The layout
-            // clips it to the column; it never has to fit the room.
-            let free = CGSize(width: CGFloat.greatestFiniteMagnitude,
-                              height: CGFloat.greatestFiniteMagnitude)
-            let width = max(name.measure(in: free).width,
-                            caption.measure(in: free).width) + 22
+            let text = fitted[desk.id]
+                ?? FittedLabelText(name: desk.name, caption: desk.caption)
+            let width = max(measure(context, nameText(text.name)),
+                            measure(context, captionText(text.caption)))
+                + Self.plateTextInset
             return MarginLabelRequest(id: desk.id, worker: anchor.point,
                                       width: width, height: 34 * labelZoom)
         }
