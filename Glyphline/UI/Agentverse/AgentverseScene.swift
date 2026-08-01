@@ -1,5 +1,24 @@
 import SwiftUI
 
+/// Which of the two pictures the Agentverse shows.
+///
+/// Unlike the circuit choice this one is kept across launches: it is which of
+/// two tools the user prefers, not which of five equivalent tracks they feel
+/// like today, and asking again every launch would nag.
+enum AgentverseView: String, CaseIterable, Identifiable {
+    case office
+    case datastream
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .office: "Office"
+        case .datastream: "Datastream"
+        }
+    }
+}
+
 /// The drawing, separated from where its inputs come from.
 ///
 /// The circuit it used to draw has been removed; what it draws now is the
@@ -21,13 +40,25 @@ struct AgentverseScene: View {
     /// The sun and the sky, resolved by the window on its own slow clock. Like
     /// `frame`, it enters here rather than being read inside the drawing.
     let lighting: OfficeLighting
+    /// Which picture to draw. Enters as a value for the same reason the frame
+    /// does: the scene stays a pure function of its inputs.
+    let view: AgentverseView
 
     var body: some View {
-        OfficeScene(sessions: sessions,
-                    parked: parked,
-                    workTokens: workTokens,
-                    hovered: hovered,
-                    frame: frame,
-                    lighting: lighting)
+        switch view {
+        case .office:
+            OfficeScene(sessions: sessions,
+                        parked: parked,
+                        workTokens: workTokens,
+                        hovered: hovered,
+                        frame: frame,
+                        lighting: lighting)
+        case .datastream:
+            DatastreamScene(sessions: sessions,
+                            parked: parked,
+                            workTokens: workTokens,
+                            hovered: hovered,
+                            frame: frame)
+        }
     }
 }

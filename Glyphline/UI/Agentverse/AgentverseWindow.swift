@@ -42,6 +42,13 @@ enum AgentverseRefreshSchedule {
     static let weatherInterval: TimeInterval = WeatherService.minimumInterval
 }
 
+/// What the sun and weather loops are keyed on: they have to restart both when
+/// the window comes back on screen and when the user changes where they are.
+private struct PlaceTask: Equatable {
+    let isOnScreen: Bool
+    let override: UserPlace.Coordinates?
+}
+
 /// The map's window.
 ///
 /// The window sweeps on a repeating interval, but only while it is on screen:
@@ -78,9 +85,23 @@ struct AgentverseWindow: View {
         .frame(minWidth: 900, minHeight: 560)
         .navigationTitle("Agentverse")
         .toolbar {
-            // The one control left in the toolbar. It is a window-level action
-            // rather than a setting for the scene, so it reads as a toolbar
-            // button — and alone it cannot collide with anything.
+            // Two segments, measured rather than assumed: the control fits in
+            // 155 pt, the title "Agentverse" in 72 pt and the refresh button in
+            // 27 pt, so with the traffic lights and the usual gaps the titlebar
+            // row needs about 370 pt of a window that cannot go below 900. The
+            // earlier version drew on top of itself because it put eleven
+            // controls up here, not because two do not fit.
+            ToolbarItem(placement: .principal) {
+                Picker("View", selection: $settings.agentverseView) {
+                    ForEach(AgentverseView.allCases) { view in
+                        Text(view.displayName).tag(view)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+            }
+            // It is a window-level action rather than a setting for the scene,
+            // so it reads as a toolbar button.
             ToolbarItem(placement: .primaryAction) {
                 Button {
                     Task { await refresh() }
@@ -111,9 +132,11 @@ struct AgentverseWindow: View {
         // The weather lives on the window's lifetime, gated by the same
         // occlusion as the sweep — never on the draw loop. A closed or hidden
         // window asks for nothing at all.
-        .task(id: isOnScreen) {
+        // Keyed on the place as well as the occlusion: typing a manual location
+        // in Settings has to move the sun now, not on the next window open.
+        .task(id: PlaceTask(isOnScreen: isOnScreen, override: settings.placeOverride)) {
             guard AgentverseRefreshSchedule.shouldRun(onScreen: isOnScreen) else { return }
-            let place = UserPlace.current()
+            let place = UserPlace.current(override: settings.placeOverride)
             let service = WeatherService()
             while !Task.isCancelled {
                 _ = await service.refreshIfNeeded(settings: settings,
@@ -127,9 +150,9 @@ struct AgentverseWindow: View {
         }
         // The sun, on its own clock and touching no network: it only reads the
         // weather the loop above has already stored.
-        .task(id: isOnScreen) {
+        .task(id: PlaceTask(isOnScreen: isOnScreen, override: settings.placeOverride)) {
             guard AgentverseRefreshSchedule.shouldRun(onScreen: isOnScreen) else { return }
-            let place = UserPlace.current()
+            let place = UserPlace.current(override: settings.placeOverride)
             while !Task.isCancelled {
                 lighting = OfficeLighting.at(date: Date(),
                                              place: place,
@@ -166,7 +189,8 @@ struct AgentverseWindow: View {
                 // The clock enters here and nowhere below: the scene itself is
                 // a pure function of its inputs, so a test can pin the frame.
                 frame: Int(timeline.date.timeIntervalSinceReferenceDate * 60),
-                lighting: lighting
+                lighting: lighting,
+                view: settings.agentverseView
             )
         }
         .overlay {
