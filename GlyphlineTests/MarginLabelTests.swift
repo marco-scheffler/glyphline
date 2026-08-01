@@ -226,6 +226,121 @@ final class MarginLabelTests: XCTestCase {
         }
     }
 
+    // MARK: - Nothing leaves the pane
+
+    /// Panes the user actually drags the window to, including two narrow enough
+    /// that the columns are a fraction rather than the 240 pt ceiling.
+    private let allPanes: [CGSize] = [
+        CGSize(width: 380, height: 300),
+        CGSize(width: 520, height: 420),
+        CGSize(width: 800, height: 500),
+        CGSize(width: 1300, height: 740),
+        CGSize(width: 1720, height: 1020),
+        CGSize(width: 900, height: 1200)
+    ]
+
+    /// The user's own bug: plates ran off both edges of the canvas. Asserted
+    /// directly, on all four sides. Caught by dropping the `min(request.width,
+    /// inner)` clip in `stack` — a 400 pt plate then hangs out of a 380 pt pane
+    /// and both the clamp and this assertion go red.
+    func testNoPlateEverExtendsBeyondThePane() throws {
+        for pane in allPanes {
+            for count in 4...20 {
+                let layout = IsoLayout.fit(sessionCount: count, canvas: pane)
+                let labels = MarginLabelLayout.place(
+                    requests(count: count, layout: layout, pane: pane),
+                    canvas: pane,
+                    columnWidth: layout.labelColumnWidth,
+                    roomCentreX: layout.roomArea.midX)
+                for label in labels {
+                    let what = "count \(count) pane \(pane): \(label.id) at \(label.rect)"
+                    XCTAssertGreaterThanOrEqual(label.rect.minX, 0, what)
+                    XCTAssertLessThanOrEqual(label.rect.maxX, pane.width, what)
+                    XCTAssertGreaterThanOrEqual(label.rect.minY, 0, what)
+                    XCTAssertLessThanOrEqual(label.rect.maxY, pane.height, what)
+                }
+            }
+        }
+    }
+
+    /// And no plate is wider than the column that was reserved for it — the room
+    /// was fitted against that reservation, so a plate wider than it is a plate
+    /// over the room. Caught by the same mutation.
+    func testNoPlateIsWiderThanItsColumn() throws {
+        for pane in allPanes {
+            for count in 4...20 {
+                let layout = IsoLayout.fit(sessionCount: count, canvas: pane)
+                let labels = MarginLabelLayout.place(
+                    requests(count: count, layout: layout, pane: pane),
+                    canvas: pane,
+                    columnWidth: layout.labelColumnWidth,
+                    roomCentreX: layout.roomArea.midX)
+                for label in labels {
+                    XCTAssertLessThanOrEqual(
+                        label.rect.width, layout.labelColumnWidth,
+                        "count \(count) pane \(pane): \(label.id) is \(label.rect.width) "
+                            + "in a \(layout.labelColumnWidth) column")
+                }
+            }
+        }
+    }
+
+    // MARK: - Cutting to a width rather than to a character count
+
+    /// A stand-in for the text metrics, monotone in the prefix length exactly as
+    /// the real one is. The rule under test is the fitting, not the font.
+    private func measure(_ text: String) -> Double { Double(text.count) * 7 }
+
+    /// A title far longer than the column comes back fitting it, and says so with
+    /// an ellipsis. Caught by returning the text unchanged when it is too wide:
+    /// the width assertion and the ellipsis assertion both go red.
+    func testATitleLongerThanTheColumnIsCutToFitAndEndsInAnEllipsis() throws {
+        let title = "Issue 558 auf Umstellung des Agentsverse in die zweite Ansicht "
+            + "und weiteres"
+        for limit in [40.0, 90.0, 202.0, 260.0] {
+            let cut = LabelFit.truncated(title, to: limit, measure: measure)
+            XCTAssertLessThanOrEqual(measure(cut), limit, "limit \(limit)")
+            XCTAssertTrue(cut.hasSuffix("…"), "limit \(limit): \(cut)")
+            XCTAssertTrue(title.hasPrefix(String(cut.dropLast())), "limit \(limit): \(cut)")
+            // And it uses the room it has: one character more would not fit.
+            XCTAssertGreaterThan(measure(cut + "x"), limit, "limit \(limit): \(cut)")
+        }
+    }
+
+    /// A rule that truncates everything is as wrong as one that truncates
+    /// nothing. Caught by cutting unconditionally instead of measuring first.
+    func testAShortTitleIsLeftAlone() throws {
+        for title in ["glyphline", "Issue 558", "a"] {
+            XCTAssertEqual(LabelFit.truncated(title, to: 202, measure: measure), title)
+        }
+    }
+
+    /// A hairline column takes no plate rather than an overflowing one.
+    func testAColumnTooNarrowForEvenTheEllipsisTakesNoText() throws {
+        XCTAssertEqual(LabelFit.truncated("glyphline", to: 4, measure: measure), "")
+        XCTAssertEqual(LabelFit.truncated("glyphline", to: 0, measure: measure), "")
+    }
+
+    /// The end-to-end shape of the fix: a plate sized off a line cut to
+    /// `labelTextWidth` fits its column at every pane size. This is the arithmetic
+    /// that ties the fitter's limit to the layout's clip, and it is asserted
+    /// rather than assumed because the two live in different files.
+    func testAPlateSizedOffTheFittedWidthNeedsNoClipping() throws {
+        for pane in allPanes {
+            let layout = IsoLayout.fit(sessionCount: 8, canvas: pane)
+            let renderer = OfficeRenderer(
+                layout: layout, frame: 0, hovered: nil,
+                lighting: OfficeLighting.at(
+                    date: Date(timeIntervalSince1970: 1_800_000_000),
+                    place: UserPlace.Coordinates(latitude: 52.52, longitude: 13.405,
+                                                 source: .table),
+                    weather: .clear))
+            let widest = renderer.labelTextWidth + OfficeRenderer.plateTextInset
+            let inner = layout.labelColumnWidth - 2 * MarginLabelLayout.padding
+            XCTAssertLessThanOrEqual(widest, inner, "pane \(pane)")
+        }
+    }
+
     func testAnEmptyOrDegenerateInputPlacesNothingRatherThanCrashing() throws {
         XCTAssertTrue(MarginLabelLayout.place([], canvas: CGSize(width: 900, height: 600),
                                               columnWidth: 170, roomCentreX: 450).isEmpty)

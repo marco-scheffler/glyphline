@@ -45,6 +45,45 @@ struct MarginLabel: Equatable, Sendable {
     }
 }
 
+/// Cutting a string to a *width* rather than to a character count.
+///
+/// The column is a fraction of the pane, so its width is a variable; a character
+/// limit is a constant in a different unit and can only ever be right at one
+/// window size. Thirty-eight characters of a proportional 12.5 pt title measure
+/// well past the 240 pt the column ever offers, which is how plates ended up
+/// wider than the space reserved for them.
+///
+/// The measurement is injected rather than done here: production hands in the
+/// same `GraphicsContext.resolve(_:).measure(in:)` that sizes the plate, so the
+/// string is cut against exactly the metrics it will be drawn with.
+enum LabelFit {
+    /// The longest prefix of `text` that measures within `maxWidth`, with an
+    /// ellipsis in place of what was dropped. Cut at the *end*: a title's
+    /// distinguishing words are usually its first ones.
+    static func truncated(_ text: String,
+                          to maxWidth: Double,
+                          measure: (String) -> Double) -> String {
+        guard maxWidth > 0 else { return "" }
+        guard measure(text) > maxWidth else { return text }
+        let characters = Array(text)
+        // Binary search on the prefix length. The measure is monotone in it, so
+        // this lands on the same answer a linear walk would, in log steps.
+        var low = 0, high = max(0, characters.count - 1)
+        while low < high {
+            let mid = (low + high + 1) / 2
+            if measure(String(characters.prefix(mid)) + "…") <= maxWidth {
+                low = mid
+            } else {
+                high = mid - 1
+            }
+        }
+        let candidate = String(characters.prefix(low)) + "…"
+        // Even the ellipsis alone can be too wide for a hairline column; an
+        // empty plate is better than one that overflows it.
+        return measure(candidate) <= maxWidth ? candidate : ""
+    }
+}
+
 /// Callouts in the margin with leader lines — the cartographer's answer to a map
 /// whose labels cover the terrain they name.
 ///
@@ -133,10 +172,23 @@ enum MarginLabelLayout {
                 ? padding
                 : canvas.width - padding - width
             return MarginLabel(id: request.id,
-                               rect: CGRect(x: x, y: ys[i],
-                                            width: width, height: request.height),
+                               rect: clamped(CGRect(x: x, y: ys[i],
+                                                    width: width, height: request.height),
+                                             in: canvas),
                                column: column,
                                worker: request.worker)
         }
+    }
+
+    /// The structural backstop: whatever the text measured to and wherever the
+    /// relaxation put it, a plate cannot leave the pane. Correct truncation
+    /// should already make this a no-op — but "should" is not a property, and a
+    /// plate hanging off the edge is the one failure a reader cannot work around.
+    private static func clamped(_ rect: CGRect, in canvas: CGSize) -> CGRect {
+        let width = min(rect.width, canvas.width)
+        let height = min(rect.height, canvas.height)
+        return CGRect(x: min(max(rect.minX, 0), canvas.width - width),
+                      y: min(max(rect.minY, 0), canvas.height - height),
+                      width: width, height: height)
     }
 }
