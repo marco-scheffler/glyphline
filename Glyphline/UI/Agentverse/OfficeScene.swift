@@ -6,7 +6,10 @@ import SwiftUI
 /// drawn from the fixed directional light below — the sun model that lives
 /// elsewhere in this folder is deliberately not consulted here.
 ///
-/// No people yet: the figures, their crystals and the desk labels come later.
+/// The people are here too: whoever is working sits at a desk with a green
+/// crystal over its head, whoever is waiting on you has got up and gone to the
+/// break room under an amber one, and whoever is off the clock is on the sofa
+/// strip along the bottom under a grey one.
 struct OfficeScene: View {
     let sessions: [AgentSession]
     let parked: [ParkedAgentSession]
@@ -20,17 +23,26 @@ struct OfficeScene: View {
         // may only capture values, never the view.
         let desks = sessions.map { session in
             OfficeDesk(id: session.id,
+                       name: URL(fileURLWithPath: session.cwd).lastPathComponent,
                        waiting: session.activity == .waitingForYou,
-                       subagentCount: session.subagentCount)
+                       subagentCount: session.subagentCount,
+                       workTokens: workTokens[session.id] ?? 0)
+        }
+        let offClock = parked.map { session in
+            OfficeDesk(id: session.sessionID,
+                       name: URL(fileURLWithPath: session.cwd).lastPathComponent,
+                       waiting: false,
+                       subagentCount: session.subagentCount,
+                       workTokens: workTokens[session.sessionID] ?? 0)
         }
         let hovered = hovered
-        let time = Double(frame) / 60
+        let frame = frame
 
         Canvas(opaque: true) { context, size in
             OfficeRenderer(layout: IsoLayout.fit(sessionCount: desks.count, canvas: size),
-                           time: time,
+                           frame: frame,
                            hovered: hovered)
-                .draw(in: context, size: size, desks: desks)
+                .draw(in: context, size: size, desks: desks, offClock: offClock)
         }
     }
 }
@@ -38,8 +50,27 @@ struct OfficeScene: View {
 /// What the room needs to know about one session to give it a desk.
 struct OfficeDesk: Equatable, Sendable {
     let id: String
+    /// What the label says: the project, not the path.
+    let name: String
     let waiting: Bool
     let subagentCount: Int
+    let workTokens: Int64
+
+    /// The shirt this session wears. Derived from the id and from nothing else,
+    /// so it survives a restart and matches the sidebar's swatch.
+    var shirt: SceneRGB { SessionPalette.forSession(id).shirt }
+
+    /// A per-session offset into every wobble the figure has, so a room full of
+    /// people does not breathe in unison.
+    var seed: Double {
+        Double(SessionPalette.fnv1a(id) % 6_283) / 1_000
+    }
+
+    /// "36.1M · +54" — what the reference writes under each name.
+    var caption: String {
+        let tokens = AgentRowModel.millions(workTokens)
+        return subagentCount > 0 ? "\(tokens) · +\(subagentCount)" : tokens
+    }
 }
 
 /// A colour the way the reference keeps them: 0–255 components that get shaded
@@ -54,6 +85,8 @@ struct SceneRGB: Equatable, Sendable {
         self.g = g
         self.b = b
     }
+
+    var color: Color { shaded(1) }
 
     func shaded(_ f: Double) -> Color {
         Color(red: min(1, max(0, r * f / 255)),
@@ -70,8 +103,13 @@ struct SceneRGB: Equatable, Sendable {
 /// layout and a time, and of nothing else.
 struct OfficeRenderer {
     let layout: IsoLayout
-    let time: Double
+    /// The frame number, kept whole rather than reduced to seconds: the break
+    /// room's wander is a function of it, and rounding it first would make two
+    /// callers disagree about where a figure is.
+    let frame: Int
     let hovered: String?
+
+    var time: Double { Double(frame) / 60 }
 
     /// Fixed directional light from the upper left. Not the sun's real
     /// position — every surface here is lit by its orientation alone.
@@ -198,9 +236,169 @@ struct OfficeRenderer {
         poly(context, top, fill: .color(colour.shaded(lit(0, 0, 1))), alpha: alpha)
     }
 
+    // MARK: - People
+
+    /// One figure: legs, body, arms, head. Returns the top of its head in canvas
+    /// coordinates, which is where the crystal is hung from.
+    @discardableResult
+    private func person(_ context: GraphicsContext,
+                        u: Double, v: Double, h: Double,
+                        shirt: SceneRGB, facing: Bool, sitting: Bool,
+                        seed: Double, alpha: Double) -> Double {
+        let s = scale
+        let centre = p(u, v, h)
+        let cx = centre.x, cy = centre.y
+        let breathe = sin(time * 1.6 + seed) * 0.9 * s
+        let legH = (sitting ? 11.0 : 19.0) * s
+        let bodyH = (sitting ? 23.0 : 26.0) * s + breathe
+        let shW = 13.0 * s
+
+        contact(context, u: u, v: v, rx: 0.34, ry: 0.34, alpha: alpha * 0.9)
+
+        var ctx = context
+        ctx.opacity = alpha
+
+        let legTop = cy - legH
+        ctx.fill(Path(roundedRect: CGRect(x: cx - 6.4 * s, y: legTop,
+                                          width: 12.8 * s, height: legH + 1),
+                      cornerRadius: 4.4 * s),
+                 with: .linearGradient(
+                    Gradient(colors: [SceneRGB(58, 66, 80).color, SceneRGB(38, 44, 55).color]),
+                    startPoint: CGPoint(x: cx - 6 * s, y: legTop),
+                    endPoint: CGPoint(x: cx + 6 * s, y: cy)))
+
+        let bodyTop = legTop - bodyH
+        ctx.fill(Path(roundedRect: CGRect(x: cx - shW / 2, y: bodyTop,
+                                          width: shW, height: bodyH + 4 * s),
+                      cornerRadius: 6.2 * s),
+                 with: .linearGradient(
+                    Gradient(stops: [.init(color: shirt.shaded(1.14), location: 0),
+                                     .init(color: shirt.shaded(0.98), location: 0.55),
+                                     .init(color: shirt.shaded(0.76), location: 1)]),
+                    startPoint: CGPoint(x: cx - shW / 2, y: bodyTop),
+                    endPoint: CGPoint(x: cx + shW / 2, y: legTop)))
+        // A highlight down one shoulder. Without it the torso is a flat lozenge
+        // and the figure stops reading as a body.
+        ctx.fill(Path(roundedRect: CGRect(x: cx - shW / 2 + 1.4 * s, y: bodyTop + 1.4 * s,
+                                          width: shW * 0.36, height: bodyH * 0.55),
+                      cornerRadius: 4 * s),
+                 with: .color(.white.opacity(0.13)))
+
+        // The one bit of acting: someone seated and turned away is typing.
+        let tap = sitting && !facing ? sin(time * 7 + seed) * 1.6 * s : 0
+        for (dx, dy) in [(-shW / 2 - 3.4 * s, tap), (shW / 2 - 1 * s, -tap)] {
+            ctx.fill(Path(roundedRect: CGRect(x: cx + dx, y: bodyTop + 7 * s + dy,
+                                              width: 4.4 * s, height: bodyH * 0.52),
+                          cornerRadius: 2.4 * s),
+                     with: .color(shirt.shaded(0.86)))
+        }
+
+        let headR = 8.6 * s
+        let headY = bodyTop - headR * 0.85
+        ctx.fill(ellipse(at: CGPoint(x: cx, y: headY), rx: headR, ry: headR),
+                 with: .radialGradient(
+                    Gradient(colors: [SceneRGB(246, 209, 175).color,
+                                      SceneRGB(206, 161, 124).color]),
+                    center: CGPoint(x: cx - headR * 0.4, y: headY - headR * 0.4),
+                    startRadius: headR * 0.15, endRadius: max(headR * 1.2, 0.001)))
+
+        var hair = Path()
+        hair.addArc(center: CGPoint(x: cx, y: headY - 1.4 * s), radius: max(headR, 0.001),
+                    startAngle: .radians(.pi * 1.02), endAngle: .radians(.pi * 1.98),
+                    clockwise: false)
+        hair.closeSubpath()
+        ctx.fill(hair, with: .color(SceneRGB(58, 42, 32).color))
+        ctx.fill(ellipse(at: CGPoint(x: cx, y: headY - headR * 0.42),
+                         rx: headR * 0.98, ry: headR * 0.62),
+                 with: .color(SceneRGB(58, 42, 32).color))
+
+        // Eyes only when the figure is turned towards you — which is what a
+        // waiting agent does, and the whole reason it stands up at all.
+        if facing {
+            for dx in [-3.1 * s, 3.1 * s] {
+                ctx.fill(ellipse(at: CGPoint(x: cx + dx, y: headY + 1.4 * s),
+                                 rx: 1.35 * s, ry: 1.35 * s),
+                         with: .color(Color(red: 40 / 255, green: 28 / 255, blue: 20 / 255)
+                            .opacity(0.9)))
+            }
+        }
+        return headY - headR
+    }
+
+    /// The three states, as three colours. Nothing else in the picture says
+    /// which state a session is in as directly as this does.
+    static let workingCrystal = SceneRGB(37, 255, 157)
+    static let waitingCrystal = SceneRGB(255, 144, 18)
+    static let parkedCrystal = SceneRGB(107, 123, 136)
+
+    /// The crystal over a figure's head. It turns, it bobs, and when the session
+    /// is waiting on you it pulses.
+    private func plumbob(_ context: GraphicsContext,
+                         cx: Double, topY: Double, colour: SceneRGB,
+                         pulsing: Bool, alpha: Double, seed: Double) {
+        let s = scale
+        let cy = topY - 16 * s + sin(time * 1.7 + seed) * 2.2 * s
+        let spin = abs(cos(time * 1.5 + seed))
+        let hw = (4.6 + 5.2 * spin) * s
+        let hh = 12.0 * s
+        let pulse = pulsing ? (0.5 + 0.5 * abs(sin(time * 3.2))) : 1
+
+        // Two glows: a tight core and a wide halo. One alone reads as a blob;
+        // the pair is what makes it look lit from inside.
+        var glow = context
+        glow.opacity = alpha * pulse * 0.85
+        let centre = CGPoint(x: cx, y: cy)
+        glow.fill(ellipse(at: centre, rx: 52 * s, ry: 52 * s),
+                  with: .radialGradient(
+                    Gradient(stops: [.init(color: colour.alpha(0.80), location: 0),
+                                     .init(color: colour.alpha(0.33), location: 0.35),
+                                     .init(color: colour.alpha(0), location: 1)]),
+                    center: centre, startRadius: 0, endRadius: max(52 * s, 0.001)))
+        glow.fill(ellipse(at: centre, rx: 17 * s, ry: 17 * s),
+                  with: .radialGradient(
+                    Gradient(colors: [.white.opacity(0.75), colour.alpha(0)]),
+                    center: centre, startRadius: 0, endRadius: max(17 * s, 0.001)))
+
+        var ctx = context
+        ctx.opacity = alpha * pulse
+        ctx.fill(path([CGPoint(x: cx, y: cy - hh), CGPoint(x: cx, y: cy + hh),
+                       CGPoint(x: cx - hw, y: cy)]),
+                 with: .linearGradient(
+                    Gradient(colors: [colour.shaded(0.55), colour.shaded(1.0)]),
+                    startPoint: CGPoint(x: cx - hw, y: cy), endPoint: centre))
+        ctx.fill(path([CGPoint(x: cx, y: cy - hh), CGPoint(x: cx, y: cy + hh),
+                       CGPoint(x: cx + hw, y: cy)]),
+                 with: .linearGradient(
+                    Gradient(colors: [colour.shaded(1.18), colour.shaded(0.72)]),
+                    startPoint: centre, endPoint: CGPoint(x: cx + hw, y: cy)))
+        ctx.stroke(line(CGPoint(x: cx, y: cy - hh),
+                        CGPoint(x: cx - hw * 0.5, y: cy - hh * 0.15)),
+                   with: .color(.white.opacity(0.55)), lineWidth: 1.1)
+    }
+
+    /// The cup a figure carries when it is somewhere a cup comes from.
+    private func coffee(_ context: GraphicsContext,
+                        at anchor: CGPoint, alpha: Double) {
+        let s = scale
+        var ctx = context
+        ctx.opacity = alpha
+        ctx.fill(Path(roundedRect: CGRect(x: anchor.x + 7 * s, y: anchor.y - 3 * s,
+                                          width: 5.5 * s, height: 6 * s),
+                      cornerRadius: 1.5 * s),
+                 with: .color(SceneRGB(238, 242, 246).color))
+        var steam = Path()
+        steam.move(to: CGPoint(x: anchor.x + 9.5 * s, y: anchor.y - 5 * s))
+        steam.addQuadCurve(to: CGPoint(x: anchor.x + 9 * s, y: anchor.y - 12 * s),
+                           control: CGPoint(x: anchor.x + 12 * s, y: anchor.y - 9 * s))
+        ctx.opacity = alpha * 0.5
+        ctx.stroke(steam, with: .color(Color(red: 230 / 255, green: 220 / 255,
+                                             blue: 205 / 255).opacity(0.8)), lineWidth: 1)
+    }
+
     // MARK: - The room
 
-    func draw(in context: GraphicsContext, size: CGSize, desks: [OfficeDesk]) {
+    func draw(in context: GraphicsContext, size: CGSize,
+              desks: [OfficeDesk], offClock: [OfficeDesk]) {
         context.fill(Path(CGRect(origin: .zero, size: size)),
                      with: .linearGradient(
                         Gradient(colors: [Color(red: 0.051, green: 0.071, blue: 0.110),
@@ -212,15 +410,245 @@ struct OfficeRenderer {
         drawWalls(context)
         drawBreakFloor(context)
 
-        // One depth order over everything on the floor, so a desk in front
-        // covers the one behind it and the break room furniture interleaves
-        // with both.
+        // One depth order over everything on the floor: desks, break room
+        // furniture and the people walking about, in a single list sorted by
+        // `u + v`. Sorting the three groups separately is the bug this avoids —
+        // an agent crossing behind the counter has to be hidden by it.
         var items: [(d: Double, draw: (GraphicsContext) -> Void)] = []
         for (slot, desk) in zip(layout.desks, desks) {
             items.append((slot.u + slot.v, { self.drawDesk($0, slot: slot, desk: desk) }))
         }
         items.append(contentsOf: breakFurniture())
+        items.append(contentsOf: walkers(desks: desks))
         for item in items.sorted(by: { $0.d < $1.d }) { item.draw(context) }
+
+        // The labels go on afterwards, in one pass over the whole set. Drawn
+        // inline they were painted over by whichever desk stood in front.
+        drawLabels(context, size: size,
+                   labels: placed(labels(context, desks: desks), in: size))
+
+        drawOffClock(context, size: size, offClock: offClock)
+    }
+
+    // MARK: - The break room's people
+
+    /// Everyone who is waiting on you, wherever the wander has put them.
+    private func walkers(desks: [OfficeDesk])
+        -> [(d: Double, draw: (GraphicsContext) -> Void)] {
+        let room = BreakRoom(room: layout.breakRoom)
+        let waiting = desks.filter(\.waiting)
+        return waiting.enumerated().map { order, desk in
+            let walker = room.walker(for: order, seed: desk.id, frame: frame)
+            let pos = walker.position
+            return (pos.u + pos.v, { context in
+                let dim = self.hovered != nil && self.hovered != desk.id
+                let al = dim ? 0.24 : 1.0
+                let s = self.scale
+                let moving = walker.isMoving
+                let sitting = !moving && walker.slot.sitting
+                // Whoever is walking bobs; whoever has arrived sits still.
+                let bob = moving ? abs(sin(self.time * 9)) * 2.2 * s : 0
+                let h = (sitting ? 9 * s : 0) + bob
+                let topY = self.person(context, u: pos.u, v: pos.v, h: h,
+                                       shirt: desk.shirt, facing: !moving,
+                                       sitting: sitting, seed: desk.seed, alpha: al)
+                self.plumbob(context, cx: self.p(pos.u, pos.v, h).x, topY: topY,
+                             colour: Self.waitingCrystal, pulsing: true,
+                             alpha: al, seed: desk.seed)
+                if !moving && walker.slot.activity.holdsCoffee {
+                    self.coffee(context, at: self.p(pos.u, pos.v, h + 26 * s), alpha: al)
+                }
+            })
+        }
+    }
+
+    // MARK: - Labels
+
+    /// One name plate, before it has been pushed anywhere.
+    private struct SceneLabel {
+        var left: Double
+        var y: Double
+        let width: Double
+        let height: Double
+        let anchor: CGPoint
+        let name: String
+        let caption: String
+        let waiting: Bool
+        let dim: Bool
+        let fontSize: Double
+    }
+
+    private var labelZoom: Double { max(0.86, scale) }
+
+    private func labels(_ context: GraphicsContext, desks: [OfficeDesk]) -> [SceneLabel] {
+        zip(layout.desks, desks).map { slot, desk in
+            // Anchored just off the desk's lower right — that is gangway, not
+            // furniture, so the leader line does not cross the table.
+            let anchor = p(slot.u + 0.58, slot.v + 0.28, 0)
+            let fontSize = 12.5 * labelZoom
+            let name = context.resolve(Text(desk.name)
+                .font(.system(size: fontSize, weight: .medium)))
+            let caption = context.resolve(Text(desk.caption)
+                .font(.system(size: 10 * labelZoom).monospaced()))
+            // Measured against an unbounded width, so a long project name gives
+            // its true length rather than being wrapped into the proposal.
+            let free = CGSize(width: CGFloat.greatestFiniteMagnitude,
+                              height: CGFloat.greatestFiniteMagnitude)
+            let width = max(name.measure(in: free).width,
+                            caption.measure(in: free).width) + 22
+            return SceneLabel(left: anchor.x, y: anchor.y,
+                              width: width, height: 34 * labelZoom,
+                              anchor: anchor, name: desk.name, caption: desk.caption,
+                              waiting: desk.waiting,
+                              dim: hovered != nil && hovered != desk.id,
+                              fontSize: fontSize)
+        }
+    }
+
+    /// Push overlapping plates apart and keep them on the canvas. Thirty passes
+    /// is the reference's number and is a cap, not a target: it stops the moment
+    /// nothing moved.
+    private func placed(_ labels: [SceneLabel], in size: CGSize) -> [SceneLabel] {
+        var labels = labels
+        let pad = 10.0
+        for i in labels.indices {
+            // A plate that would run off the right edge flips to the other side
+            // of its anchor.
+            if labels[i].left + labels[i].width > size.width - pad {
+                labels[i].left = labels[i].anchor.x - labels[i].width - 14
+            }
+            if labels[i].left < pad { labels[i].left = pad }
+        }
+        labels.sort { $0.y < $1.y }
+        for _ in 0..<30 {
+            var moved = false
+            for i in labels.indices {
+                for j in (i + 1)..<labels.count {
+                    let a = labels[i], b = labels[j]
+                    let ox = min(a.left + a.width, b.left + b.width) - max(a.left, b.left) + 8
+                    let oy = min(a.y + a.height, b.y + b.height) - max(a.y, b.y) + 5
+                    guard ox > 0, oy > 0 else { continue }
+                    let push = min(oy, 5)
+                    if a.y <= b.y { labels[j].y += push } else { labels[i].y += push }
+                    moved = true
+                }
+            }
+            if !moved { break }
+        }
+        for i in labels.indices {
+            if labels[i].y + labels[i].height > size.height - pad {
+                labels[i].y = size.height - pad - labels[i].height
+            }
+            if labels[i].y < pad { labels[i].y = pad }
+        }
+        return labels
+    }
+
+    private func drawLabels(_ context: GraphicsContext, size: CGSize, labels: [SceneLabel]) {
+        for label in labels {
+            var ctx = context
+            ctx.opacity = label.dim ? 0.32 : 1
+
+            // A leader line, but only for a plate that had to be nudged off its
+            // desk — drawn always, it would be a stub on every label.
+            let tx = label.left < label.anchor.x ? label.left + label.width : label.left
+            let ty = label.y + label.height / 2
+            if abs(tx - label.anchor.x) > 4 || abs(ty - label.anchor.y) > 4 {
+                let tint = label.waiting
+                    ? Color(red: 1, green: 174 / 255, blue: 60 / 255)
+                    : Color.white
+                ctx.stroke(line(label.anchor, CGPoint(x: tx, y: ty)),
+                           with: .color(tint.opacity(label.waiting ? 0.40 : 0.16)),
+                           lineWidth: 1)
+                ctx.fill(ellipse(at: label.anchor, rx: 2, ry: 2),
+                         with: .color(tint.opacity(label.waiting ? 0.65 : 0.28)))
+            }
+
+            let plate = Path(roundedRect: CGRect(x: label.left, y: label.y,
+                                                 width: label.width, height: label.height),
+                             cornerRadius: 7)
+            ctx.fill(plate, with: .color(Color(red: 10 / 255, green: 14 / 255,
+                                               blue: 20 / 255).opacity(0.84)))
+            ctx.stroke(plate,
+                       with: .color(label.waiting
+                                    ? Color(red: 1, green: 174 / 255, blue: 60 / 255)
+                                        .opacity(0.55)
+                                    : Color.white.opacity(0.09)),
+                       lineWidth: 1)
+            ctx.draw(ctx.resolve(Text(label.name)
+                        .font(.system(size: label.fontSize, weight: .medium))
+                        .foregroundStyle(label.waiting
+                                         ? Color(red: 1, green: 174 / 255, blue: 60 / 255)
+                                         : Color(red: 221 / 255, green: 230 / 255,
+                                                 blue: 240 / 255))),
+                     at: CGPoint(x: label.left + 11, y: label.y + label.fontSize + 2),
+                     anchor: .bottomLeading)
+            ctx.draw(ctx.resolve(Text(label.caption)
+                        .font(.system(size: 10 * labelZoom).monospaced())
+                        .foregroundStyle(Color(red: 158 / 255, green: 174 / 255,
+                                               blue: 194 / 255).opacity(0.80))),
+                     at: CGPoint(x: label.left + 11, y: label.y + label.height - 6),
+                     anchor: .bottomLeading)
+        }
+    }
+
+    // MARK: - Off the clock
+
+    /// The sofa strip along the bottom: sessions that are done for the day, five
+    /// at a time, asleep under a grey crystal.
+    private func drawOffClock(_ context: GraphicsContext, size: CGSize,
+                              offClock: [OfficeDesk]) {
+        guard !offClock.isEmpty else { return }
+        context.draw(context.resolve(Text("OFF THE CLOCK")
+            .font(.system(size: 10))
+            .foregroundStyle(Color(red: 107 / 255, green: 123 / 255, blue: 136 / 255)
+                .opacity(0.75))),
+                     at: CGPoint(x: 20, y: size.height - 58), anchor: .bottomLeading)
+
+        for (i, session) in offClock.prefix(5).enumerated() {
+            let dim = hovered != nil && hovered != session.id
+            let al = dim ? 0.22 : 0.6
+            let sx = 104 + Double(i) * 116, sy = size.height - 34
+            var ctx = context
+            ctx.opacity = al
+            ctx.fill(Path(roundedRect: CGRect(x: sx - 30, y: sy - 14, width: 60, height: 22),
+                          cornerRadius: 7),
+                     with: .color(SceneRGB(51, 59, 71).color))
+            ctx.fill(Path(roundedRect: CGRect(x: sx - 20, y: sy - 22, width: 34, height: 16),
+                          cornerRadius: 6),
+                     with: .color(session.shirt.shaded(0.8)))
+            ctx.fill(ellipse(at: CGPoint(x: sx + 18, y: sy - 20), rx: 7, ry: 7),
+                     with: .color(SceneRGB(226, 186, 150).color))
+
+            // The crystal is smaller and flatter down here: a strip of sleepers
+            // must not out-shout the room above it.
+            let cy = sy - 44 + sin(time * 1.2 + Double(i)) * 2
+            let hw = 3 + 3.4 * abs(cos(time * 1.2 + Double(i)))
+            ctx.fill(path([CGPoint(x: sx, y: cy - 8), CGPoint(x: sx, y: cy + 8),
+                           CGPoint(x: sx - hw, y: cy)]),
+                     with: .color(Self.parkedCrystal.shaded(0.6)))
+            ctx.fill(path([CGPoint(x: sx, y: cy - 8), CGPoint(x: sx, y: cy + 8),
+                           CGPoint(x: sx + hw, y: cy)]),
+                     with: .color(Self.parkedCrystal.shaded(1.05)))
+
+            let zs = Int(time * 1.6) % 3
+            for k in 0...zs {
+                context.draw(context.resolve(Text("z")
+                    .font(.system(size: 11).monospaced())
+                    .foregroundStyle(Color(red: 150 / 255, green: 164 / 255, blue: 180 / 255)
+                        .opacity(0.85))),
+                             at: CGPoint(x: sx + 30 + Double(k) * 7,
+                                         y: sy - 24 - Double(k) * 8),
+                             anchor: .bottomLeading)
+            }
+            let name = session.name.count > 14
+                ? String(session.name.prefix(13)) + "…"
+                : session.name
+            context.draw(context.resolve(Text(name)
+                .font(.system(size: 10))
+                .foregroundStyle(Color(red: 139 / 255, green: 155 / 255, blue: 176 / 255))),
+                         at: CGPoint(x: sx, y: sy + 22), anchor: .center)
+        }
     }
 
     private var floorLow: Double { -IsoLayout.floorMargin }
@@ -318,6 +746,16 @@ struct OfficeRenderer {
             colour: SceneRGB(52, 60, 72), alpha: al, seg: 16)
         box(context, u: u, v: chairV + 0.26, su: 0.30, sv: 0.06,
             h0: 10 * s, h1: 30 * s, colour: SceneRGB(58, 66, 80), alpha: al, bevel: true)
+
+        // A waiting session's chair is empty: it is in the break room. That
+        // absence is half of what makes the state readable from across a room.
+        if !waiting {
+            let topY = person(context, u: u, v: chairV, h: 10 * s,
+                              shirt: desk.shirt, facing: false, sitting: true,
+                              seed: desk.seed, alpha: al)
+            plumbob(context, cx: p(u, chairV, 10 * s).x, topY: topY,
+                    colour: Self.workingCrystal, pulsing: false, alpha: al, seed: desk.seed)
+        }
 
         drawSubagentSparks(context, u: u, v: v, count: desk.subagentCount,
                            waiting: waiting, al: al, s: s)
