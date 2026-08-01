@@ -198,11 +198,51 @@ final class DatastreamSceneTests: XCTestCase {
         XCTAssertGreaterThan(workingFlashes, 0, "a working collector must flare")
     }
 
-    /// Would catch: bursts fired from a rate the lane does not have. Injecting a
-    /// constant burst speed makes the busy lane no quicker than the quiet one.
-    func testABusierLaneFiresFasterBursts() {
-        let busy = stream(lane("rate-seed", tokens: 40_000_000))
-        let quiet = stream(lane("rate-seed", tokens: 1_000_000))
-        XCTAssertGreaterThan(busy.burstSpeed, quiet.burstSpeed)
+    // MARK: - One fixed flow rate
+
+    /// The point of the fixed flow rate, asserted so the old inference cannot
+    /// creep back: cumulative worked tokens say how long a session has been
+    /// around, not how hard it is going, so they must not reach the motion at
+    /// all. Two working lanes with the same id and wildly different totals must
+    /// fall, churn and fire identically.
+    ///
+    /// Would catch: any of the three downstream uses of the removed `rate`
+    /// coming back. Injecting `speed * stateFactor * (0.55 + tokenRate)` fails
+    /// the columns, `5.5 + tokenRate * 5` fails the burst speed and travel, and
+    /// `(0.15 + tokenRate * 0.6)` fails the glyphs — each on its own.
+    func testTwoWorkingLanesWithVeryDifferentTokenTotalsAdvanceIdentically() {
+        let frame = 4_800_000_053
+        let busy = stream(lane("flow-seed", tokens: 400_000_000))
+        let quiet = stream(lane("flow-seed", tokens: 12_000))
+
+        XCTAssertEqual(busy.columns(at: frame), quiet.columns(at: frame),
+                       "token totals must not reach the fall")
+        XCTAssertEqual(busy.columns(at: frame + 1).map(\.y),
+                       quiet.columns(at: frame + 1).map(\.y),
+                       "nor the step between two frames")
+        XCTAssertEqual(busy.burstSpeed, quiet.burstSpeed, accuracy: 1e-12,
+                       "nor the burst speed")
+        XCTAssertEqual(busy.burst(at: frame)?.y, quiet.burst(at: frame)?.y,
+                       "nor where the block is on its run")
+        for row in 0..<24 {
+            XCTAssertEqual(busy.glyph(column: 0, row: row, frame: frame),
+                           quiet.glyph(column: 0, row: row, frame: frame),
+                           "nor the glyph churn at row \(row)")
+        }
+    }
+
+    /// Would catch: a flow rate that is no longer one constant — a lane that
+    /// reads it from anywhere at all. The three lanes below differ in every
+    /// input the old `rate` was derived from.
+    func testEveryWorkingLaneRunsAtTheSameFlowRate() {
+        let frame = 4_800_000_000
+        let speeds = [Int64(0), 5_000_000, 40_000_000, 900_000_000].map { tokens in
+            let a = stream(lane("uniform-seed", tokens: tokens))
+            return a.columns(at: frame + 1)[0].y - a.columns(at: frame)[0].y
+        }
+        for speed in speeds {
+            XCTAssertEqual(speed, speeds[0], accuracy: 1e-12,
+                           "every working lane falls at the one fixed rate")
+        }
     }
 }

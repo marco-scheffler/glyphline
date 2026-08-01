@@ -16,15 +16,6 @@ struct DatastreamLane: Equatable, Sendable {
     let subagentCount: Int
     let workTokens: Int64
 
-    /// The reference sketch's per-agent `rate`, 0…1 — how hard the session is
-    /// going. The sketch had it as a hand-written number per row; here the only
-    /// honest measure of "hard" the app has is how many tokens the session has
-    /// worked, so the busiest lanes on a real machine (tens of millions) reach
-    /// the top of the range and a lane that has barely started sits near zero.
-    var rate: Double {
-        min(1, max(0, Double(workTokens) / 40_000_000))
-    }
-
     /// The colour of the lane's state, from the reference's `COL` table.
     var tint: SceneRGB {
         switch state {
@@ -73,8 +64,8 @@ struct DatastreamColumn: Equatable, Sendable {
     /// speeds and are drawn at different strengths.
     let layer: Int
     let length: Int
-    /// How far this column moves in one frame, already carrying the lane's state
-    /// and rate. Zero for a waiting lane, which is frozen.
+    /// How far this column moves in one frame, already carrying the lane's
+    /// state. Zero for a waiting lane, which is frozen.
     let speed: Double
 }
 
@@ -148,6 +139,22 @@ struct DatastreamStream: Equatable, Sendable {
     /// on the same frame.
     private let burstOffset: Double
 
+    /// The one flow rate every lane runs at, standing where the reference
+    /// sketch had a hand-written per-agent `rate`. It is fixed, and deliberately.
+    ///
+    /// The app's only candidate for "how hard is this session going" is its
+    /// cumulative worked tokens, and that is not the same quantity: a lane that
+    /// has been open all day outranks one that is hammering away right now, so
+    /// the fastest-looking lane would not be the one doing the most work. The
+    /// speed was never the signal — the state is. Working flows, waiting freezes,
+    /// parked crawls, and those three are unmistakable without a rate.
+    ///
+    /// The value is the midpoint of the sketch's 0…1 range, so the picture sits
+    /// where the approved reference sat. What still varies per lane is the
+    /// tributary count, which tracks `subagentCount` — real parallelism, and a
+    /// proxy for nothing.
+    static let flowRate: Double = 0.5
+
     static let glyphs = Array(
         "アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホabcdef0123456789{}[]()<>/\\|=+-*&%$#@!?"
     )
@@ -187,7 +194,7 @@ struct DatastreamStream: Equatable, Sendable {
                 x: laneX + 10 + Double(k) * ((laneWidth - 20) / Double(max(1, columnCount - 1))),
                 layer: layer,
                 length: length,
-                speed: speed * stateFactor * (0.55 + lane.rate),
+                speed: speed * stateFactor * (0.55 + Self.flowRate),
                 respawn: respawn,
                 offset: offset,
                 glyphs: glyphs
@@ -208,7 +215,7 @@ struct DatastreamStream: Equatable, Sendable {
         }
         self.tributaries = tributaries
 
-        burstSpeed = 5.5 + lane.rate * 5
+        burstSpeed = 5.5 + Self.flowRate * 5
         // The reference starts the block 30 points above the canvas and calls it
         // arrived eight points short of the rail.
         burstTravel = ((layout.floorY - 8) + 30) / burstSpeed
@@ -240,14 +247,14 @@ struct DatastreamStream: Equatable, Sendable {
     ///
     /// The reference swapped a random character now and then; the swap here is a
     /// function of the frame instead, so it replays the same way twice. How
-    /// often it turns over scales with the lane's rate — a busy lane churns.
+    /// often it turns over is the same fixed flow rate everything else runs at.
     func glyph(column: Int, row: Int, frame: Int) -> Character {
         guard seeds.indices.contains(column) else { return " " }
         let seed = seeds[column]
         guard lane.state == .working else {
             return seed.glyphs[row % seed.glyphs.count]
         }
-        let tick = Int(Double(frame) * (0.15 + lane.rate * 0.6) / 4)
+        let tick = Int(Double(frame) * (0.15 + Self.flowRate * 0.6) / 4)
         let mixed = Self.mix(UInt64(bitPattern: Int64(tick &* 31 &+ row &* 7 &+ column)))
         // Only some rows turn over on any given tick; the rest hold, or the
         // whole column would boil rather than churn.
