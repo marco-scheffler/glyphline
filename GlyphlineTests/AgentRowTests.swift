@@ -3,23 +3,73 @@ import XCTest
 
 final class AgentRowTests: XCTestCase {
     private func session(
+        id: String = "S1",
         cwd: String = "/Users/x/coding/Acme-Suite",
         branch: String? = "main",
         activity: AgentActivity = .working,
-        subagents: Int = 0
+        subagents: Int = 0,
+        aiTitle: String? = nil,
+        slug: String? = nil
     ) -> AgentSession {
-        AgentSession(id: "S1", cwd: cwd, gitBranch: branch, activity: activity,
+        AgentSession(id: id, cwd: cwd, gitBranch: branch, activity: activity,
                      lastActivityAt: Date(timeIntervalSince1970: 1_800_000_000),
-                     subagentCount: subagents)
+                     subagentCount: subagents, aiTitle: aiTitle, slug: slug)
     }
 
-    /// The last path component, not the whole path. A column 264 px wide cannot
-    /// show "/Users/someone/coding/Private/glyphline" and the leading part is
-    /// the same for every row anyway.
-    func testTheTitleIsTheProjectRatherThanThePath() {
+    /// With neither a title nor a slug there is nothing left but the repository,
+    /// and the last path component of it — a column 264 px wide cannot show
+    /// "/Users/someone/coding/Acme-Suite".
+    func testTheTitleFallsBackToTheProjectRatherThanThePath() {
         XCTAssertEqual(AgentRowModel(session: session(), workTokens: 0).title, "Acme-Suite")
     }
 
+    /// The complaint this whole change answers: every session in one checkout
+    /// read "Acme-Suite" and nothing said which was which.
+    func testTwoSessionsInOneRepositoryGetDifferentLabels() {
+        let first = AgentRowModel(
+            session: session(id: "S1", aiTitle: "Loga-AD-Sync-Schnittstelle bewerten"),
+            workTokens: 0)
+        let second = AgentRowModel(
+            session: session(id: "S2", aiTitle: "Issue 558 auf Umsetzbarkeit prüfen"),
+            workTokens: 0)
+
+        XCTAssertEqual(first.title, "Loga-AD-Sync-Schnittstelle bewerten")
+        XCTAssertEqual(second.title, "Issue 558 auf Umsetzbarkeit prüfen")
+        XCTAssertNotEqual(first.title, second.title)
+    }
+
+    /// The slug carries a session that has not been given a title yet, and it
+    /// still differs per session, which is the whole point of the fallback.
+    func testASessionWithoutATitleIsNamedByItsSlug() {
+        XCTAssertEqual(
+            AgentRowModel(session: session(slug: "tidy-toasting-pelican"), workTokens: 0).title,
+            "tidy-toasting-pelican")
+    }
+
+    /// Titles run past 50 characters where a repository name runs to about 10.
+    /// End-truncated, never middle-truncated: two sessions in one PR series
+    /// differ in their last words far less often than in their first.
+    func testALongTitleIsClippedAtTheEnd() {
+        let long = String(repeating: "x", count: 80)
+        let title = AgentRowModel(session: session(aiTitle: long), workTokens: 0).title
+
+        XCTAssertEqual(title.count, SessionLabel.sidebarLimit)
+        XCTAssertTrue(title.hasSuffix("…"))
+        XCTAssertTrue(title.hasPrefix("xxxx"))
+    }
+
+    /// The repository has not vanished, it has moved down a line — with the
+    /// branch, as the second line always had.
+    func testTheSubtitleCarriesTheRepositoryTheBranchAndTheSubagents() {
+        let row = AgentRowModel(
+            session: session(branch: "feat/x", subagents: 2, aiTitle: "Do the thing"),
+            workTokens: 0)
+
+        XCTAssertEqual(row.subtitle, "Acme-Suite · feat/x · +2")
+    }
+
+    /// Without a title the first line is already the repository, and repeating
+    /// it underneath would say the same word twice.
     func testTheSubtitleCarriesTheBranchAndTheSubagents() {
         let row = AgentRowModel(session: session(branch: "feat/x", subagents: 2), workTokens: 0)
 
@@ -70,6 +120,22 @@ final class AgentRowTests: XCTestCase {
 
         XCTAssertEqual(first.swatch, again.swatch)
         XCTAssertEqual(first.swatch, SessionPalette.forSession("S1").color)
+    }
+
+    /// A blank label is worse than a wrong one: the row becomes a diamond and a
+    /// number with nothing to click on. Every combination that can reach the
+    /// label has to produce something as long as there is a `cwd`.
+    func testALabelIsNeverEmptyForASessionThatHasACwd() {
+        let titles: [String?] = [nil, "", "   ", "Adminrechte einrichten"]
+        let slugs: [String?] = [nil, "", "   ", "wise-questing-axolotl"]
+
+        for title in titles {
+            for slug in slugs {
+                let row = AgentRowModel(session: session(aiTitle: title, slug: slug),
+                                        workTokens: 0)
+                XCTAssertFalse(row.title.isEmpty, "title=\(title ?? "nil") slug=\(slug ?? "nil")")
+            }
+        }
     }
 
     func testAParkedRowStillShowsItsProject() {

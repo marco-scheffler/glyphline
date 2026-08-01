@@ -98,7 +98,9 @@ struct AgentSessionScanner {
                     cwd: tail.cwd ?? "",
                     gitBranch: tail.gitBranch,
                     activity: tail.activity,
-                    lastActivityAt: tail.timestamp
+                    lastActivityAt: tail.timestamp,
+                    aiTitle: tail.aiTitle,
+                    slug: tail.slug
                 )
             }
         }

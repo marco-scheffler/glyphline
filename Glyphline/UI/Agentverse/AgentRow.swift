@@ -40,7 +40,8 @@ struct AgentRowModel: Equatable {
     var stateText: String { state.text }
 
     init(session: AgentSession, workTokens: Int64) {
-        self.init(sessionID: session.id, cwd: session.cwd, branch: session.gitBranch,
+        self.init(sessionID: session.id, label: session.displayTitle,
+                  repository: session.repositoryName, branch: session.gitBranch,
                   subagentCount: session.subagentCount, workTokens: workTokens,
                   state: session.activity == .waitingForYou ? .waiting : .working)
     }
@@ -48,17 +49,24 @@ struct AgentRowModel: Equatable {
     /// A session in the pit lane. It reads the same as one on track apart from
     /// its state — it is the same session, standing still.
     init(parked: ParkedAgentSession, workTokens: Int64) {
-        self.init(sessionID: parked.sessionID, cwd: parked.cwd, branch: parked.gitBranch,
+        // The pit lane keeps only what the ledger stores, and that has no title
+        // in it, so a parked row is still named after its repository.
+        let repository = SessionLabel.repositoryName(cwd: parked.cwd)
+        self.init(sessionID: parked.sessionID, label: repository,
+                  repository: repository, branch: parked.gitBranch,
                   subagentCount: parked.subagentCount, workTokens: workTokens,
                   state: .parked)
     }
 
-    private init(sessionID: String, cwd: String, branch: String?, subagentCount: Int,
-                 workTokens: Int64, state: State) {
-        // The last component only: the column is 264 px wide, and the leading
-        // part of the path is the same on every row.
-        title = URL(fileURLWithPath: cwd).lastPathComponent
+    private init(sessionID: String, label: String, repository: String, branch: String?,
+                 subagentCount: Int, workTokens: Int64, state: State) {
+        title = SessionLabel.truncated(label, to: SessionLabel.sidebarLimit)
+        // The repository leads the second line now that the first one names the
+        // work: it is what every session in a checkout shares, so it is context
+        // rather than identity. Suppressed when it is already the title, which is
+        // what a session with neither a title nor a slug falls back to.
         var parts: [String] = []
+        if !repository.isEmpty, repository != label { parts.append(repository) }
         if let branch, !branch.isEmpty { parts.append(branch) }
         if subagentCount > 0 { parts.append("+\(subagentCount)") }
         subtitle = parts.joined(separator: " · ")
