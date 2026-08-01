@@ -203,7 +203,7 @@ struct AgentverseSidebar: View {
 
     var body: some View {
         List {
-            Section("On track") {
+            Section("In the office") {
                 ForEach(coordinator.onTrack) { session in
                     AgentRow(model: AgentRowModel(session: session,
                                                   workTokens: coordinator.workTokens[session.id] ?? 0))
@@ -218,7 +218,7 @@ struct AgentverseSidebar: View {
                         }
                 }
             }
-            Section("Pit lane") {
+            Section("Off the clock") {
                 ForEach(coordinator.parked) { session in
                     HStack(spacing: 6) {
                         AgentRow(model: AgentRowModel(parked: session,
