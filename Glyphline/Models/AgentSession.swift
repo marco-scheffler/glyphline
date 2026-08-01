@@ -66,9 +66,12 @@ enum SessionLabel {
     /// A datastream lane is roughly 150 pt at 11 pt monospaced, about 6.6 pt per
     /// character.
     static let laneLimit = 22
-    /// An office name plate grows to fit its text and then gets pushed around the
-    /// canvas, so an unbounded one would shove its neighbours off the room.
-    static let deskLimit = 26
+    /// An office name plate is a callout in the pane's margin now, not a plate
+    /// lying on a desk, so it is no longer fighting the furniture for room: it
+    /// gets a column of its own, and with it far more of the title. The number is
+    /// what a 240 pt column holds at 12.5 pt — past it the plate would be clipped
+    /// to the column and the tail lost without an ellipsis to say so.
+    static let marginLimit = 38
 
     /// The last path component, and the whole path when there is no component to
     /// take — `URL(fileURLWithPath:)` answers "/" and "." for the degenerate

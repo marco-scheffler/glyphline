@@ -30,6 +30,7 @@
 		2BDACE3AAE0A202FCB9520BC /* AppSettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E78F87ED03A83F2D193EF8B /* AppSettingsStore.swift */; };
 		2DF42C50602C384C26283736 /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = C1D17CF7506CDB47E08BD82A /* GRDB */; };
 		2F9FA3A87CCE4D32C5E562FB /* SceneLight.swift in Sources */ = {isa = PBXBuildFile; fileRef = 590AB7BB7B2B0704E4EF7C23 /* SceneLight.swift */; };
+		31494C08A9507E7C43F21F0D /* MarginLabels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64901478B67C2791458CE994 /* MarginLabels.swift */; };
 		314BE108752F760302660DC4 /* AccountSummaryFormattingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 849077EF726D5E3F756B4805 /* AccountSummaryFormattingTests.swift */; };
 		315AA4ACC25D2F08B4DA83CA /* LocalTokenUsageStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D061EE64EFE518EB86B8570 /* LocalTokenUsageStoreTests.swift */; };
 		36548FF69B18205F3FA28F1D /* AgentSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25763F9DE4C82450A3834BDC /* AgentSession.swift */; };
@@ -84,6 +85,7 @@
 		94709AE6F65A1DC6E85EADAE /* LedgerStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA3C1D8E770A657CE4E29EF0 /* LedgerStoreTests.swift */; };
 		9781D3AFE9D9ED610186CCBB /* AccountDeletionFormattingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 346DE5E32009926B52DF6DC4 /* AccountDeletionFormattingTests.swift */; };
 		98A65AA989758D13E3FA0152 /* SessionPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CEE811175655E96A48209E0 /* SessionPalette.swift */; };
+		997A00516E02E7218B94A6E1 /* MarginLabelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0134DD4D833802DA52513B15 /* MarginLabelTests.swift */; };
 		9FEB70E4EF62958B3969ABFF /* Account.swift in Sources */ = {isa = PBXBuildFile; fileRef = D461F567F4AC93CAD78D6410 /* Account.swift */; };
 		A385281B699E65EE57FD572E /* ClaudeCodeLogReaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 919CF627AF46F1C143EA18B9 /* ClaudeCodeLogReaderTests.swift */; };
 		A578DC0E93318FDA5872EA0B /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA3B73CA5CAB2E184CE9154D /* KeychainStore.swift */; };
@@ -139,6 +141,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		0134DD4D833802DA52513B15 /* MarginLabelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarginLabelTests.swift; sourceTree = "<group>"; };
 		0CB2DAC06F09669AD3D864A7 /* IsoProjection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IsoProjection.swift; sourceTree = "<group>"; };
 		0D31897CD1062193BF63AE80 /* LocalUsagePeriodTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalUsagePeriodTests.swift; sourceTree = "<group>"; };
 		0D5247CB250C44F5D5A195E8 /* ClaudeWebSessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeWebSessionStore.swift; sourceTree = "<group>"; };
@@ -182,6 +185,7 @@
 		62C5666D45C5D74DC69F722E /* SyncCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncCoordinatorTests.swift; sourceTree = "<group>"; };
 		638A38B8627A7BD8E24BA8C6 /* DatastreamSceneTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatastreamSceneTests.swift; sourceTree = "<group>"; };
 		64891BE57A59E15EEFF1CD5F /* AppActivationController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppActivationController.swift; sourceTree = "<group>"; };
+		64901478B67C2791458CE994 /* MarginLabels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarginLabels.swift; sourceTree = "<group>"; };
 		65C301199FDCC9595DC906A9 /* AccountSummaryFormatting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountSummaryFormatting.swift; sourceTree = "<group>"; };
 		65F46725420D301A64582EF6 /* ProviderAdapterRegistryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderAdapterRegistryTests.swift; sourceTree = "<group>"; };
 		675ADA919D8753AAAEFAB44F /* MoneyAmount.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoneyAmount.swift; sourceTree = "<group>"; };
@@ -301,6 +305,7 @@
 				E3CEC45B8BEB8CB7E837BC96 /* BreakRoom.swift */,
 				D77D1A5B95F10AFA61A5E3DB /* DatastreamScene.swift */,
 				0CB2DAC06F09669AD3D864A7 /* IsoProjection.swift */,
+				64901478B67C2791458CE994 /* MarginLabels.swift */,
 				829EAE4011C2F92553460131 /* OfficeScene.swift */,
 				590AB7BB7B2B0704E4EF7C23 /* SceneLight.swift */,
 				2CEE811175655E96A48209E0 /* SessionPalette.swift */,
@@ -452,6 +457,7 @@
 				2D061EE64EFE518EB86B8570 /* LocalTokenUsageStoreTests.swift */,
 				0D31897CD1062193BF63AE80 /* LocalUsagePeriodTests.swift */,
 				8ACB43E390F384515433FB04 /* LocalUsageStatisticsTests.swift */,
+				0134DD4D833802DA52513B15 /* MarginLabelTests.swift */,
 				38CEA8D84FAB5879F7C9B70E /* MigrationTests.swift */,
 				55BA8694018F37636CBB9BF7 /* MoneyAmountTests.swift */,
 				9D3C73941B3DC3E54BAB1EB4 /* OfficeLightingTests.swift */,
@@ -730,6 +736,7 @@
 				315AA4ACC25D2F08B4DA83CA /* LocalTokenUsageStoreTests.swift in Sources */,
 				FD2E6B0D841CAF9F824F9BB8 /* LocalUsagePeriodTests.swift in Sources */,
 				DB6A9090D4D818A7DA838E14 /* LocalUsageStatisticsTests.swift in Sources */,
+				997A00516E02E7218B94A6E1 /* MarginLabelTests.swift in Sources */,
 				FE115011C319F621E5E47A5E /* MigrationTests.swift in Sources */,
 				E9F07FC2418C6707018C3666 /* MoneyAmountTests.swift in Sources */,
 				93E608E9C5CFD027119E0E62 /* OfficeLightingTests.swift in Sources */,
@@ -794,6 +801,7 @@
 				CAE25CBB5FB46C3D44E6BD64 /* LedgerStoreFactory.swift in Sources */,
 				8AC1E001A95AA9B2390855B8 /* LocalUsagePeriod.swift in Sources */,
 				17A602A14DA23148EB4494DC /* LocalUsageStatistics.swift in Sources */,
+				31494C08A9507E7C43F21F0D /* MarginLabels.swift in Sources */,
 				2A7289DD211158D42C26C9DE /* MenuBarView.swift in Sources */,
 				81A31CCE7A84A8263856A8DC /* Migrations.swift in Sources */,
 				1D1137DB62EEA16A172F4F1D /* MoneyAmount.swift in Sources */,

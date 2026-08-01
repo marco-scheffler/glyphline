@@ -62,6 +62,12 @@ struct IsoLayout: Equatable, Sendable {
     let wallHeight: Double
     /// Everything drawn, in canvas coordinates. What the fit is asserted on.
     let bounds: CGRect
+    /// How much of the pane is reserved for one column of margin labels. The
+    /// room is fitted into what is left between the two columns.
+    let labelColumnWidth: Double
+    /// The strip the room is allowed to occupy: the pane minus both label
+    /// columns. What the fill is measured against now.
+    let roomArea: CGRect
 
     /// The tile width at zoom 1. Every hard-coded size in the scene is
     /// expressed against this, so one number changes the whole room's scale.
@@ -77,6 +83,22 @@ struct IsoLayout: Equatable, Sendable {
     /// How much of the pane the projected bounding box is allowed to take on
     /// its tighter axis. Just short of 1 so the scene never touches the edges.
     static let fillFactor: Double = 0.95
+    /// How much of the pane's width one label column takes. The plates used to
+    /// sit on the desks and hid the very agents they named; they are callouts in
+    /// the margin now, and the margin has to be paid for out of the room's
+    /// width.
+    static let labelColumnFraction: Double = 0.19
+    /// A ceiling in points: past roughly this width a plate is all air, and on a
+    /// wide window the room should get the rest.
+    static let labelColumnMax: Double = 240
+
+    /// The width reserved on *each* side of the pane for label callouts.
+    ///
+    /// A fraction rather than a constant, so that a narrow pane keeps a room
+    /// worth looking at: the columns shrink with the window instead of eating it.
+    static func labelColumnWidth(for canvas: CGSize) -> Double {
+        min(labelColumnMax, max(0, canvas.width) * labelColumnFraction)
+    }
 
     static func fit(sessionCount: Int,
                     canvas: CGSize,
@@ -92,6 +114,11 @@ struct IsoLayout: Equatable, Sendable {
 
         let width = max(0, canvas.width)
         let height = max(0, canvas.height)
+        // The room is laid out between the two label columns, not across the
+        // whole pane. Everything below the reservation is unchanged — the fit
+        // simply has a narrower area to fill.
+        let column = labelColumnWidth(for: canvas)
+        let roomWidth = max(0, width - 2 * column)
         let safeTilt = max(tilt, 0.01)
 
         // The scale comes from the projected bounding box of everything that
@@ -106,9 +133,10 @@ struct IsoLayout: Equatable, Sendable {
         let unitWidth = (unitCorners.map(\.x).max() ?? 0) - (unitCorners.map(\.x).min() ?? 0)
         let unitHeight = (unitCorners.map(\.y).max() ?? 0) - (unitCorners.map(\.y).min() ?? 0)
 
-        // Not flush with the edges: the labels and the shadows the corner
-        // sampling does not model need a little air around the box.
-        var zoom = min(width / unitWidth, height / unitHeight) * fillFactor
+        // Not flush with the edges: the shadows the corner sampling does not
+        // model need a little air around the box. The labels no longer do —
+        // they have a column of their own.
+        var zoom = min(roomWidth / unitWidth, height / unitHeight) * fillFactor
         // A canvas of zero must not put a NaN or a negative scale into the
         // projection, because from there it would reach every drawn point.
         // There is no upper clamp: on a large window the scene grows with it.
@@ -158,7 +186,10 @@ struct IsoLayout: Equatable, Sendable {
                          zoom: zoom,
                          wallHeight: wallHeight,
                          bounds: CGRect(x: minX, y: minY,
-                                        width: maxX - minX, height: maxY - minY))
+                                        width: maxX - minX, height: maxY - minY),
+                         labelColumnWidth: column,
+                         roomArea: CGRect(x: column, y: 0,
+                                          width: roomWidth, height: height))
     }
 
     /// The extreme points of everything the scene draws: the office floor and

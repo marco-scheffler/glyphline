@@ -100,7 +100,7 @@ struct OfficeScene: View {
         let desks = sessions.map { session in
             OfficeDesk(id: session.id,
                        name: SessionLabel.truncated(session.displayTitle,
-                                                    to: SessionLabel.deskLimit),
+                                                    to: SessionLabel.marginLimit),
                        repository: session.repositoryName,
                        waiting: session.activity == .waitingForYou,
                        subagentCount: session.subagentCount,
@@ -132,7 +132,7 @@ struct OfficeScene: View {
 struct OfficeDesk: Equatable, Sendable {
     let id: String
     /// What the plate leads with: what this session is doing, already clipped to
-    /// `SessionLabel.deskLimit`.
+    /// `SessionLabel.marginLimit`.
     let name: String
     /// The second line's first field. Every desk in one checkout repeats it,
     /// which is exactly why it is no longer the name.
@@ -525,10 +525,23 @@ struct OfficeRenderer {
         items.append(contentsOf: walkers(desks: desks))
         for item in items.sorted(by: { $0.d < $1.d }) { item.draw(context) }
 
-        // The labels go on afterwards, in one pass over the whole set. Drawn
-        // inline they were painted over by whichever desk stood in front.
-        drawLabels(context, size: size,
-                   labels: placed(labels(context, desks: desks), in: size))
+        // The labels go on afterwards, in one pass over the whole set — and
+        // outside the room, in the two columns the fit reserved for them. On the
+        // desks they hid the very agents they named.
+        let anchors = workerAnchors(desks: desks)
+        let placed = MarginLabelLayout.place(
+            labelRequests(context, desks: desks, anchors: anchors),
+            canvas: size,
+            columnWidth: layout.labelColumnWidth,
+            roomCentreX: layout.roomArea.midX)
+        var texts: [String: LabelText] = [:]
+        for desk in desks {
+            texts[desk.id] = LabelText(name: desk.name, caption: desk.caption,
+                                      waiting: desk.waiting,
+                                      dim: hovered != nil && hovered != desk.id,
+                                      fontSize: 12.5 * labelZoom)
+        }
+        drawLabels(context, labels: placed, texts: texts)
 
         drawOffClock(context, size: size, offClock: offClock)
     }
@@ -567,13 +580,9 @@ struct OfficeRenderer {
 
     // MARK: - Labels
 
-    /// One name plate, before it has been pushed anywhere.
-    private struct SceneLabel {
-        var left: Double
-        var y: Double
-        let width: Double
-        let height: Double
-        let anchor: CGPoint
+    /// What the plate says, kept beside the placement rather than inside it:
+    /// `MarginLabelLayout` decides geometry and knows nothing about text.
+    private struct LabelText {
         let name: String
         let caption: String
         let waiting: Bool
@@ -583,114 +592,109 @@ struct OfficeRenderer {
 
     private var labelZoom: Double { max(0.86, scale) }
 
-    private func labels(_ context: GraphicsContext, desks: [OfficeDesk]) -> [SceneLabel] {
-        zip(layout.desks, desks).map { slot, desk in
-            // Anchored just off the desk's lower right — that is gangway, not
-            // furniture, so the leader line does not cross the table.
-            let anchor = p(slot.u + 0.58, slot.v + 0.28, 0)
+    /// Where the *person* is, in canvas coordinates — roughly chest height on the
+    /// figure, so the leader line lands on the body rather than at its feet.
+    ///
+    /// A waiting session is not at its desk at all: it has got up and gone to the
+    /// break room, and the line follows it there. Pointing at the empty chair
+    /// would name the one thing the reader cannot see.
+    func workerAnchors(desks: [OfficeDesk]) -> [WorkerAnchor] {
+        let room = BreakRoom(room: layout.breakRoom)
+        var order = 0
+        var anchors: [WorkerAnchor] = []
+        for (slot, desk) in zip(layout.desks, desks) {
+            if desk.waiting {
+                // The same order the walkers are drawn in — an index taken over
+                // all desks instead of over the waiting ones would put the line
+                // on somebody else's figure.
+                let walker = room.walker(for: order, seed: desk.id, frame: frame)
+                order += 1
+                let pos = walker.position
+                let sitting = !walker.isMoving && walker.slot.sitting
+                anchors.append(WorkerAnchor(
+                    id: desk.id,
+                    point: chest(p(pos.u, pos.v, sitting ? 9 * scale : 0), sitting: sitting)))
+            } else {
+                anchors.append(WorkerAnchor(
+                    id: desk.id,
+                    point: chest(p(slot.u, slot.v + 0.42, 10 * scale), sitting: true)))
+            }
+        }
+        return anchors
+    }
+
+    /// The figure's torso, measured off the point its feet stand on. The two
+    /// numbers are half of `person`'s own leg-plus-body heights.
+    private func chest(_ base: CGPoint, sitting: Bool) -> CGPoint {
+        CGPoint(x: base.x, y: base.y - (sitting ? 22 : 32) * scale)
+    }
+
+    func labelRequests(_ context: GraphicsContext,
+                       desks: [OfficeDesk],
+                       anchors: [WorkerAnchor]) -> [MarginLabelRequest] {
+        zip(desks, anchors).map { desk, anchor in
             let fontSize = 12.5 * labelZoom
             let name = context.resolve(Text(desk.name)
                 .font(.system(size: fontSize, weight: .medium)))
             let caption = context.resolve(Text(desk.caption)
                 .font(.system(size: 10 * labelZoom).monospaced()))
-            // Measured against an unbounded width, so a long project name gives
-            // its true length rather than being wrapped into the proposal.
+            // Measured against an unbounded width, so a long title gives its true
+            // length rather than being wrapped into the proposal. The layout
+            // clips it to the column; it never has to fit the room.
             let free = CGSize(width: CGFloat.greatestFiniteMagnitude,
                               height: CGFloat.greatestFiniteMagnitude)
             let width = max(name.measure(in: free).width,
                             caption.measure(in: free).width) + 22
-            return SceneLabel(left: anchor.x, y: anchor.y,
-                              width: width, height: 34 * labelZoom,
-                              anchor: anchor, name: desk.name, caption: desk.caption,
-                              waiting: desk.waiting,
-                              dim: hovered != nil && hovered != desk.id,
-                              fontSize: fontSize)
+            return MarginLabelRequest(id: desk.id, worker: anchor.point,
+                                      width: width, height: 34 * labelZoom)
         }
     }
 
-    /// Push overlapping plates apart and keep them on the canvas. Thirty passes
-    /// is the reference's number and is a cap, not a target: it stops the moment
-    /// nothing moved.
-    private func placed(_ labels: [SceneLabel], in size: CGSize) -> [SceneLabel] {
-        var labels = labels
-        let pad = 10.0
-        for i in labels.indices {
-            // A plate that would run off the right edge flips to the other side
-            // of its anchor.
-            if labels[i].left + labels[i].width > size.width - pad {
-                labels[i].left = labels[i].anchor.x - labels[i].width - 14
-            }
-            if labels[i].left < pad { labels[i].left = pad }
-        }
-        labels.sort { $0.y < $1.y }
-        for _ in 0..<30 {
-            var moved = false
-            for i in labels.indices {
-                for j in (i + 1)..<labels.count {
-                    let a = labels[i], b = labels[j]
-                    let ox = min(a.left + a.width, b.left + b.width) - max(a.left, b.left) + 8
-                    let oy = min(a.y + a.height, b.y + b.height) - max(a.y, b.y) + 5
-                    guard ox > 0, oy > 0 else { continue }
-                    let push = min(oy, 5)
-                    if a.y <= b.y { labels[j].y += push } else { labels[i].y += push }
-                    moved = true
-                }
-            }
-            if !moved { break }
-        }
-        for i in labels.indices {
-            if labels[i].y + labels[i].height > size.height - pad {
-                labels[i].y = size.height - pad - labels[i].height
-            }
-            if labels[i].y < pad { labels[i].y = pad }
-        }
-        return labels
-    }
-
-    private func drawLabels(_ context: GraphicsContext, size: CGSize, labels: [SceneLabel]) {
+    private func drawLabels(_ context: GraphicsContext,
+                            labels: [MarginLabel],
+                            texts: [String: LabelText]) {
         for label in labels {
+            guard let text = texts[label.id] else { continue }
             var ctx = context
-            ctx.opacity = label.dim ? 0.32 : 1
+            ctx.opacity = text.dim ? 0.32 : 1
 
-            // A leader line, but only for a plate that had to be nudged off its
-            // desk — drawn always, it would be a stub on every label.
-            let tx = label.left < label.anchor.x ? label.left + label.width : label.left
-            let ty = label.y + label.height / 2
-            if abs(tx - label.anchor.x) > 4 || abs(ty - label.anchor.y) > 4 {
-                let tint = label.waiting
-                    ? Color(red: 1, green: 174 / 255, blue: 60 / 255)
-                    : Color.white
-                ctx.stroke(line(label.anchor, CGPoint(x: tx, y: ty)),
-                           with: .color(tint.opacity(label.waiting ? 0.40 : 0.16)),
-                           lineWidth: 1)
-                ctx.fill(ellipse(at: label.anchor, rx: 2, ry: 2),
-                         with: .color(tint.opacity(label.waiting ? 0.65 : 0.28)))
-            }
+            // The leader line: margin to figure, always drawn, because a callout
+            // in the margin says nothing at all without it.
+            let tint = text.waiting
+                ? Color(red: 1, green: 174 / 255, blue: 60 / 255)
+                : Color.white
+            ctx.stroke(line(label.leaderStart, label.worker),
+                       with: .color(tint.opacity(text.waiting ? 0.40 : 0.16)),
+                       lineWidth: 1)
+            // A dot at the far end, so which figure is meant is unambiguous.
+            ctx.fill(ellipse(at: label.worker, rx: 2.5, ry: 2.5),
+                     with: .color(tint.opacity(text.waiting ? 0.75 : 0.38)))
 
-            let plate = Path(roundedRect: CGRect(x: label.left, y: label.y,
-                                                 width: label.width, height: label.height),
-                             cornerRadius: 7)
+            let plate = Path(roundedRect: label.rect, cornerRadius: 7)
             ctx.fill(plate, with: .color(Color(red: 10 / 255, green: 14 / 255,
                                                blue: 20 / 255).opacity(0.84)))
             ctx.stroke(plate,
-                       with: .color(label.waiting
+                       with: .color(text.waiting
                                     ? Color(red: 1, green: 174 / 255, blue: 60 / 255)
                                         .opacity(0.55)
                                     : Color.white.opacity(0.09)),
                        lineWidth: 1)
-            ctx.draw(ctx.resolve(Text(label.name)
-                        .font(.system(size: label.fontSize, weight: .medium))
-                        .foregroundStyle(label.waiting
+            // Clipped to the plate: the layout may have narrowed it to the
+            // column, and text running out of a callout would land on the room.
+            ctx.clip(to: plate)
+            ctx.draw(ctx.resolve(Text(text.name)
+                        .font(.system(size: text.fontSize, weight: .medium))
+                        .foregroundStyle(text.waiting
                                          ? Color(red: 1, green: 174 / 255, blue: 60 / 255)
                                          : Color(red: 221 / 255, green: 230 / 255,
                                                  blue: 240 / 255))),
-                     at: CGPoint(x: label.left + 11, y: label.y + label.fontSize + 2),
+                     at: CGPoint(x: label.rect.minX + 9, y: label.rect.minY + text.fontSize + 2),
                      anchor: .bottomLeading)
-            ctx.draw(ctx.resolve(Text(label.caption)
+            ctx.draw(ctx.resolve(Text(text.caption)
                         .font(.system(size: 10 * labelZoom).monospaced())
                         .foregroundStyle(Color(red: 158 / 255, green: 174 / 255,
                                                blue: 194 / 255).opacity(0.80))),
-                     at: CGPoint(x: label.left + 11, y: label.y + label.height - 6),
+                     at: CGPoint(x: label.rect.minX + 9, y: label.rect.maxY - 6),
                      anchor: .bottomLeading)
         }
     }
