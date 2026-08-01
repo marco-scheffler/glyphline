@@ -34,7 +34,16 @@ struct ClaudeTranscriptReader: Sendable {
         var gitBranch: String?
         var timestamp: String?
         var message: Message?
+        var aiTitle: String?
+        var slug: String?
     }
+
+    /// Byte markers used to skip lines that cannot carry what is still missing.
+    /// Without them the reader would have to JSON-decode every line of the tail
+    /// instead of stopping at the last conversational record, and the sweep opens
+    /// hundreds of files.
+    private static let titleMarker = Array(#""ai-title""#.utf8)
+    private static let slugMarker = Array(#""slug""#.utf8)
 
     func readTail(at url: URL) throws -> TranscriptTail? {
         let handle = try FileHandle(forReadingFrom: url)
@@ -48,29 +57,65 @@ struct ClaudeTranscriptReader: Sendable {
         let decoder = JSONDecoder()
         let dates = TranscriptTimestampParser()
 
-        // Backwards: the answer is the *last* conversational record, and walking
-        // from the end stops at the first hit instead of parsing the whole tail.
+        // Backwards, because every answer here is the *last* one written: the
+        // last conversational record says what the session is doing, and the last
+        // `ai-title` record is the current title — a session's title is refined
+        // as it runs, and earlier ones are stale. Walking from the end therefore
+        // means "first hit wins" for all three.
+        //
+        // `ai-title` is its own record type and can sit anywhere in the file, so
+        // it cannot be read off the conversational record and the walk cannot
+        // stop there. It stops when all three are in hand, and otherwise runs out
+        // the tail.
         let lines = data.split(separator: UInt8(ascii: "\n"), omittingEmptySubsequences: true)
-        for line in lines.reversed() {
-            guard let record = try? decoder.decode(Record.self, from: Data(line)),
-                  let type = record.type,
-                  Self.conversational.contains(type),
-                  let sessionID = record.sessionId,
-                  let stamp = record.timestamp,
-                  let timestamp = dates.date(from: stamp)
-            else { continue }
+        var found: Record?
+        var timestamp: Date?
+        var aiTitle: String?
+        var slug: String?
 
-            return TranscriptTail(
-                sessionID: sessionID,
-                isSidechain: record.isSidechain ?? false,
-                cwd: record.cwd,
-                gitBranch: record.gitBranch,
-                timestamp: timestamp,
-                activity: Self.activity(for: record)
-            )
+        for line in lines.reversed() {
+            if found != nil {
+                // Past the conversational record only a title or a slug is still
+                // worth the cost of a decode.
+                let mayHaveTitle = aiTitle == nil && line.firstRange(of: Self.titleMarker) != nil
+                let mayHaveSlug = slug == nil && line.firstRange(of: Self.slugMarker) != nil
+                if !mayHaveTitle && !mayHaveSlug { continue }
+            }
+            guard let record = try? decoder.decode(Record.self, from: Data(line)) else { continue }
+
+            if aiTitle == nil, record.type == "ai-title",
+               let title = record.aiTitle, !title.isEmpty {
+                aiTitle = title
+            }
+            if slug == nil, let value = record.slug, !value.isEmpty {
+                slug = value
+            }
+            if found == nil,
+               let type = record.type,
+               Self.conversational.contains(type),
+               record.sessionId != nil,
+               let stamp = record.timestamp,
+               let date = dates.date(from: stamp) {
+                found = record
+                timestamp = date
+            }
+            if found != nil && aiTitle != nil && slug != nil { break }
         }
 
-        return nil
+        guard let record = found, let sessionID = record.sessionId, let timestamp else {
+            return nil
+        }
+
+        return TranscriptTail(
+            sessionID: sessionID,
+            isSidechain: record.isSidechain ?? false,
+            cwd: record.cwd,
+            gitBranch: record.gitBranch,
+            timestamp: timestamp,
+            activity: Self.activity(for: record),
+            aiTitle: aiTitle,
+            slug: slug
+        )
     }
 
     /// The one judgement in this file.

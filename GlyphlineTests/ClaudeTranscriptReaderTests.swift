@@ -22,6 +22,73 @@ final class ClaudeTranscriptReaderTests: XCTestCase {
         """
     }
 
+    private func aiTitle(_ title: String, ts: String = "2026-07-30T11:59:00.000Z") -> String {
+        """
+        {"type":"ai-title","aiTitle":"\(title)","sessionId":"S1","timestamp":"\(ts)"}
+        """
+    }
+
+    /// 56 of the 60 most recent transcripts on the reference machine carry one of
+    /// these, and its value is what the editor extension shows for that session.
+    func testAnAiTitleRecordNamesTheSession() throws {
+        let file = try write([
+            aiTitle("Teilweise Adminrechte für Patrick einrichten"),
+            assistant(stopReason: "end_turn"),
+        ])
+
+        XCTAssertEqual(try ClaudeTranscriptReader().readTail(at: file)?.aiTitle,
+                       "Teilweise Adminrechte für Patrick einrichten")
+    }
+
+    /// A title is refined as the session runs, so the file holds several and only
+    /// the last one is current. The reader walks backwards; taking the first hit
+    /// in file order would show a stale name for the rest of the session.
+    func testTheLastAiTitleWins() throws {
+        let file = try write([
+            aiTitle("Erste Vermutung"),
+            assistant(stopReason: "tool_use"),
+            aiTitle("Zweite Vermutung", ts: "2026-07-30T12:00:01.000Z"),
+            aiTitle("Endgültiger Titel", ts: "2026-07-30T12:00:02.000Z"),
+        ])
+
+        XCTAssertEqual(try ClaudeTranscriptReader().readTail(at: file)?.aiTitle,
+                       "Endgültiger Titel")
+    }
+
+    /// The record is its own type and sits wherever the session happened to name
+    /// itself — often long before the last turn. A reader that stopped at the
+    /// conversational record would never see it.
+    func testAnAiTitleFarAboveTheLastTurnIsStillFound() throws {
+        let filler = (0..<40).map { i in
+            #"{"type":"last-prompt","sessionId":"S1","n":\#(i)}"#
+        }
+        let file = try write([aiTitle("Weit oben")] + filler + [assistant(stopReason: "end_turn")])
+
+        XCTAssertEqual(try ClaudeTranscriptReader().readTail(at: file)?.aiTitle, "Weit oben")
+    }
+
+    /// Always present, which is what makes it the fallback.
+    func testTheSlugIsReadFromWhicheverRecordCarriesIt() throws {
+        let file = try write([
+            #"{"type":"summary","slug":"tidy-toasting-pelican","sessionId":"S1"}"#,
+            assistant(stopReason: "end_turn"),
+        ])
+
+        let tail = try ClaudeTranscriptReader().readTail(at: file)
+
+        XCTAssertEqual(tail?.slug, "tidy-toasting-pelican")
+        XCTAssertNil(tail?.aiTitle)
+    }
+
+    func testATranscriptWithNeitherReportsNeither() throws {
+        let file = try write([assistant(stopReason: "end_turn")])
+
+        let tail = try ClaudeTranscriptReader().readTail(at: file)
+
+        XCTAssertNil(tail?.aiTitle)
+        XCTAssertNil(tail?.slug)
+    }
+
     func testAssistantEndingItsTurnIsWaitingForYou() throws {
         let file = try write([assistant(stopReason: "end_turn")])
 

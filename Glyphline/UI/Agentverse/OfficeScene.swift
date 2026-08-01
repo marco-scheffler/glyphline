@@ -99,14 +99,17 @@ struct OfficeScene: View {
         // may only capture values, never the view.
         let desks = sessions.map { session in
             OfficeDesk(id: session.id,
-                       name: URL(fileURLWithPath: session.cwd).lastPathComponent,
+                       name: SessionLabel.truncated(session.displayTitle,
+                                                    to: SessionLabel.deskLimit),
+                       repository: session.repositoryName,
                        waiting: session.activity == .waitingForYou,
                        subagentCount: session.subagentCount,
                        workTokens: workTokens[session.id] ?? 0)
         }
         let offClock = parked.map { session in
             OfficeDesk(id: session.sessionID,
-                       name: URL(fileURLWithPath: session.cwd).lastPathComponent,
+                       name: SessionLabel.repositoryName(cwd: session.cwd),
+                       repository: SessionLabel.repositoryName(cwd: session.cwd),
                        waiting: false,
                        subagentCount: session.subagentCount,
                        workTokens: workTokens[session.sessionID] ?? 0)
@@ -128,8 +131,12 @@ struct OfficeScene: View {
 /// What the room needs to know about one session to give it a desk.
 struct OfficeDesk: Equatable, Sendable {
     let id: String
-    /// What the label says: the project, not the path.
+    /// What the plate leads with: what this session is doing, already clipped to
+    /// `SessionLabel.deskLimit`.
     let name: String
+    /// The second line's first field. Every desk in one checkout repeats it,
+    /// which is exactly why it is no longer the name.
+    let repository: String
     let waiting: Bool
     let subagentCount: Int
     let workTokens: Int64
@@ -144,10 +151,14 @@ struct OfficeDesk: Equatable, Sendable {
         Double(SessionPalette.fnv1a(id) % 6_283) / 1_000
     }
 
-    /// "36.1M · +54" — what the reference writes under each name.
+    /// "glyphline · 36.1M · +54" — the reference's numbers, with the repository
+    /// in front of them now that the plate's first line is the title.
     var caption: String {
-        let tokens = AgentRowModel.millions(workTokens)
-        return subagentCount > 0 ? "\(tokens) · +\(subagentCount)" : tokens
+        var parts: [String] = []
+        if !repository.isEmpty, repository != name { parts.append(repository) }
+        parts.append(AgentRowModel.millions(workTokens))
+        if subagentCount > 0 { parts.append("+\(subagentCount)") }
+        return parts.joined(separator: " · ")
     }
 }
 

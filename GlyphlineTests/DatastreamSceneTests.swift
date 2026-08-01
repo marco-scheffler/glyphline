@@ -15,7 +15,7 @@ final class DatastreamSceneTests: XCTestCase {
                       state: DatastreamState = .working,
                       subagents: Int = 12,
                       tokens: Int64 = 20_000_000) -> DatastreamLane {
-        DatastreamLane(id: id, name: "project", state: state,
+        DatastreamLane(id: id, name: "project", repository: "project", state: state,
                        subagentCount: subagents, workTokens: tokens)
     }
 

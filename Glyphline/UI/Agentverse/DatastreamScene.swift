@@ -10,8 +10,12 @@ enum DatastreamState: Equatable, Sendable {
 /// One session as the datastream shows it: a lane.
 struct DatastreamLane: Equatable, Sendable {
     let id: String
-    /// What the header says: the project, not the path.
+    /// What the header leads with: what this session is doing, already clipped to
+    /// `SessionLabel.laneLimit`.
     let name: String
+    /// The second line's first field, and no longer the name: every lane in one
+    /// checkout would otherwise read the same.
+    let repository: String
     let state: DatastreamState
     let subagentCount: Int
     let workTokens: Int64
@@ -25,10 +29,14 @@ struct DatastreamLane: Equatable, Sendable {
         }
     }
 
-    /// "36.1M  +54" — what the reference writes under each lane's name.
+    /// "glyphline  36.1M  +54" — the reference's numbers, with the repository in
+    /// front of them now that the header's first line is the title.
     var caption: String {
-        let tokens = AgentRowModel.millions(workTokens)
-        return subagentCount > 0 ? "\(tokens)  +\(subagentCount)" : tokens
+        var parts: [String] = []
+        if !repository.isEmpty, repository != name { parts.append(repository) }
+        parts.append(AgentRowModel.millions(workTokens))
+        if subagentCount > 0 { parts.append("+\(subagentCount)") }
+        return parts.joined(separator: "  ")
     }
 }
 
@@ -347,13 +355,16 @@ struct DatastreamScene: View {
         // may only capture values, never the view.
         let lanes = sessions.map { session in
             DatastreamLane(id: session.id,
-                           name: URL(fileURLWithPath: session.cwd).lastPathComponent,
+                           name: SessionLabel.truncated(session.displayTitle,
+                                                        to: SessionLabel.laneLimit),
+                           repository: session.repositoryName,
                            state: session.activity == .waitingForYou ? .waiting : .working,
                            subagentCount: session.subagentCount,
                            workTokens: workTokens[session.id] ?? 0)
         } + parked.map { session in
             DatastreamLane(id: session.sessionID,
-                           name: URL(fileURLWithPath: session.cwd).lastPathComponent,
+                           name: SessionLabel.repositoryName(cwd: session.cwd),
+                           repository: SessionLabel.repositoryName(cwd: session.cwd),
                            state: .parked,
                            subagentCount: session.subagentCount,
                            workTokens: workTokens[session.sessionID] ?? 0)
@@ -445,7 +456,10 @@ struct DatastreamRenderer {
                      with: .color(.white.opacity(0.04 * dim)))
         context.fill(Path(CGRect(x: laneX + 1, y: 0, width: laneWidth - 1, height: 36)),
                      with: .color(Self.background.opacity(0.76)))
-        let name = lane.name.count > 17 ? String(lane.name.prefix(16)) + "…" : lane.name
+        // Clipped once, where the lane is built. A second, tighter limit here
+        // would silently override `SessionLabel.laneLimit` and put the two
+        // numbers out of step.
+        let name = SessionLabel.truncated(lane.name, to: SessionLabel.laneLimit)
         context.draw(Text(name)
             .font(.system(size: 11, design: .monospaced))
             .foregroundColor(lane.tint.alpha(dim)),

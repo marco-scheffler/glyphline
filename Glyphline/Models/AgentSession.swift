@@ -22,6 +22,13 @@ struct TranscriptTail: Equatable, Sendable {
     var gitBranch: String?
     var timestamp: Date
     var activity: AgentActivity
+    /// The `ai-title` record's `aiTitle`, if the transcript carries one. This is
+    /// the same string the editor extension shows, and the only field that tells
+    /// two sessions in one repository apart.
+    var aiTitle: String?
+    /// The generated three-word name — "tidy-toasting-pelican". Always present,
+    /// which is what makes it the fallback while a title is still being formed.
+    var slug: String?
 }
 
 /// One main session as the map shows it, with its subagents folded in.
@@ -36,4 +43,58 @@ struct AgentSession: Identifiable, Equatable, Sendable {
     /// cars of their own: the reference machine had 130 of them against 32 main
     /// sessions in a day.
     var subagentCount: Int = 0
+    /// What this session is actually doing, in words. See `TranscriptTail`.
+    var aiTitle: String? = nil
+    var slug: String? = nil
+
+    /// The label every surface leads with.
+    var displayTitle: String {
+        SessionLabel.displayTitle(aiTitle: aiTitle, slug: slug, cwd: cwd)
+    }
+
+    /// The repository, now the *secondary* line: every session in one checkout
+    /// shares it, so on its own it cannot tell them apart.
+    var repositoryName: String { SessionLabel.repositoryName(cwd: cwd) }
+}
+
+/// How a session is named on screen, in one place, because three surfaces have
+/// to agree on it and each one truncates to its own width.
+enum SessionLabel {
+    /// The sidebar's column is 264 pt of proportional text — the widest of the
+    /// three, so it gets the most characters.
+    static let sidebarLimit = 42
+    /// A datastream lane is roughly 150 pt at 11 pt monospaced, about 6.6 pt per
+    /// character.
+    static let laneLimit = 22
+    /// An office name plate grows to fit its text and then gets pushed around the
+    /// canvas, so an unbounded one would shove its neighbours off the room.
+    static let deskLimit = 26
+
+    /// The last path component, and the whole path when there is no component to
+    /// take — `URL(fileURLWithPath:)` answers "/" and "." for the degenerate
+    /// cases, neither of which names anything.
+    static func repositoryName(cwd: String) -> String {
+        guard !cwd.isEmpty else { return "" }
+        let component = URL(fileURLWithPath: cwd).lastPathComponent
+        return component == "/" || component == "." ? cwd : component
+    }
+
+    /// Title, then slug, then repository. Never empty for a session that has a
+    /// `cwd`, because the last step always has something to say.
+    static func displayTitle(aiTitle: String?, slug: String?, cwd: String) -> String {
+        for candidate in [aiTitle, slug, repositoryName(cwd: cwd)] {
+            if let candidate, !candidate.trimmingCharacters(in: .whitespaces).isEmpty {
+                return candidate
+            }
+        }
+        return ""
+    }
+
+    /// Clipped at the *end*: a title's distinguishing words are usually its
+    /// first ones, and cutting the middle out of "PR 3 fortsetzen: …Task 6"
+    /// would take exactly the part that differs from its neighbour.
+    static func truncated(_ text: String, to limit: Int) -> String {
+        guard text.count > limit else { return text }
+        return String(text.prefix(limit - 1)) + "…"
+    }
 }

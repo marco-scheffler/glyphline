@@ -24,6 +24,7 @@ final class AgentSessionScannerTests: XCTestCase {
         cwd: String,
         branch: String? = "main",
         stopReason: String = "end_turn",
+        aiTitle: String? = nil,
         at date: Date
     ) throws -> URL {
         let dir = root.appendingPathComponent(slug, isDirectory: true)
@@ -36,9 +37,31 @@ final class AgentSessionScannerTests: XCTestCase {
         "cwd":"\(cwd)",\(branchField)"timestamp":"\(stamp)",\
         "message":{"role":"assistant","stop_reason":"\(stopReason)","content":[]}}
         """
-        try (line + "\n").write(to: file, atomically: true, encoding: .utf8)
+        let title = aiTitle.map {
+            "{\"type\":\"ai-title\",\"aiTitle\":\"\($0)\",\"sessionId\":\"\(sessionID)\"}\n"
+        } ?? ""
+        try (title + line + "\n").write(to: file, atomically: true, encoding: .utf8)
         try FileManager.default.setAttributes([.modificationDate: date], ofItemAtPath: file.path)
         return file
+    }
+
+    /// The title has to survive the whole path from the file to the model, and
+    /// two sessions sharing a `cwd` — the normal case — have to come out apart.
+    func testTheScannerCarriesEachSessionsOwnTitle() throws {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        try transcript(slug: "-repo-a", name: "S1", sessionID: "S1", isSidechain: false,
+                       cwd: "/repo/a", aiTitle: "Issue 558 auf Umsetzbarkeit prüfen",
+                       at: now.addingTimeInterval(-30))
+        try transcript(slug: "-repo-a", name: "S2", sessionID: "S2", isSidechain: false,
+                       cwd: "/repo/a", aiTitle: "PR 3 fortsetzen",
+                       at: now.addingTimeInterval(-20))
+
+        let byID = Dictionary(uniqueKeysWithValues:
+            try AgentSessionScanner(directory: root).scan(now: now).map { ($0.id, $0) })
+
+        XCTAssertEqual(byID["S1"]?.aiTitle, "Issue 558 auf Umsetzbarkeit prüfen")
+        XCTAssertEqual(byID["S2"]?.aiTitle, "PR 3 fortsetzen")
+        XCTAssertNotEqual(byID["S1"]?.displayTitle, byID["S2"]?.displayTitle)
     }
 
     /// Subagent transcripts carry the parent's sessionId but live under a
