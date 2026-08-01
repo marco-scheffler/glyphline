@@ -202,7 +202,10 @@ struct BreakRoom: Equatable, Sendable {
 
 /// The reference's generator: a linear congruential sequence, seeded from the
 /// session id rather than from the clock or from `hashValue`.
-private struct LinearGenerator {
+///
+/// Not private, because the datastream needs the same sequence and a second copy
+/// of it would be a second thing to keep in step.
+struct LinearGenerator {
     private var state: UInt32
 
     init(seed: String) {
