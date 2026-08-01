@@ -30,11 +30,6 @@ final class AgentRowTests: XCTestCase {
         XCTAssertEqual(AgentRowModel(session: session(branch: nil), workTokens: 0).subtitle, "")
     }
 
-    func testTheLapTextCountsWholeLaps() {
-        XCTAssertEqual(AgentRowModel(session: session(), workTokens: 2_600_000).lapText, "L2")
-        XCTAssertEqual(AgentRowModel(session: session(), workTokens: 540_000).lapText, "L0")
-    }
-
     func testTheStateSaysWhichOfTheTwoItIs() {
         XCTAssertEqual(AgentRowModel(session: session(activity: .working), workTokens: 0).stateText,
                        "working")
@@ -56,11 +51,10 @@ final class AgentRowTests: XCTestCase {
         XCTAssertEqual(AgentRowModel(parked: parked(), workTokens: 0).state, .parked)
     }
 
-    func testAParkedRowStillShowsItsProjectAndItsLaps() {
+    func testAParkedRowStillShowsItsProject() {
         let row = AgentRowModel(parked: parked(), workTokens: 2_600_000)
 
         XCTAssertEqual(row.title, "Acme-Suite")
         XCTAssertEqual(row.subtitle, "main")
-        XCTAssertEqual(row.lapText, "L2")
     }
 }

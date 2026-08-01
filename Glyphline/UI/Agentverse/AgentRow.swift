@@ -27,7 +27,6 @@ struct AgentRowModel: Equatable {
 
     let title: String
     let subtitle: String
-    let lapText: String
     let state: State
 
     var stateText: String { state.text }
@@ -46,6 +45,10 @@ struct AgentRowModel: Equatable {
                   state: .parked)
     }
 
+    /// `workTokens` is still taken and still ignored. It was the lap counter,
+    /// which was circuit vocabulary and went with the circuit; the views that
+    /// replace it will say something else about the same number, and threading
+    /// it back through every caller later would be churn for no gain.
     private init(cwd: String, branch: String?, subagentCount: Int, workTokens: Int64,
                  state: State) {
         // The last component only: the column is 264 px wide, and the leading
@@ -55,21 +58,15 @@ struct AgentRowModel: Equatable {
         if let branch, !branch.isEmpty { parts.append(branch) }
         if subagentCount > 0 { parts.append("+\(subagentCount)") }
         subtitle = parts.joined(separator: " · ")
-        lapText = "L\(CarPosition.lapCount(workTokens: workTokens))"
         self.state = state
     }
 }
 
 struct AgentRow: View {
     let model: AgentRowModel
-    let livery: CarLivery
 
     var body: some View {
         HStack(spacing: 9) {
-            RoundedRectangle(cornerRadius: 2)
-                .fill(livery.body)
-                .overlay(RoundedRectangle(cornerRadius: 2).stroke(livery.accent, lineWidth: 2))
-                .frame(width: 20, height: 11)
             VStack(alignment: .leading, spacing: 1) {
                 Text(model.title).font(.callout)
                 if !model.subtitle.isEmpty {
@@ -77,7 +74,6 @@ struct AgentRow: View {
                 }
             }
             Spacer(minLength: 4)
-            Text(model.lapText).font(.caption.monospacedDigit())
             Text(model.stateText)
                 .font(.caption2)
                 .padding(.horizontal, 5).padding(.vertical, 2)
