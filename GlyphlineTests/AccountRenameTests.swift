@@ -57,7 +57,7 @@ final class AccountRenameTests: XCTestCase {
     /// rename writing an empty string instead of NULL.
     func testClearingTheNameFallsBackToTheDerivedOne() throws {
         let store = try makeStore()
-        let account = makeAccount("Claude gpt_personal")
+        let account = makeAccount("Claude work")
         try store.saveAccount(account)
         try store.renameAccount(accountID: account.id, to: "Personal")
 
@@ -65,7 +65,7 @@ final class AccountRenameTests: XCTestCase {
 
         let reloaded = try fetched(store, account.id)
         XCTAssertNil(reloaded.customName)
-        XCTAssertEqual(reloaded.resolvedName, "Claude gpt_personal")
+        XCTAssertEqual(reloaded.resolvedName, "Claude work")
     }
 
     /// Whitespace is not a name. Catches a `renameAccount` that stores the raw
