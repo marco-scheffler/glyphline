@@ -179,6 +179,55 @@ enum DashboardPresentation {
     static let unknownModelLabel = "Unknown model"
     static let otherModelsLabel = "Other"
 
+    // MARK: - Naming a model
+
+    /// Display names for the identifiers the pricing catalog carries.
+    ///
+    /// Keyed on the undated identifier only: the dated variants are handled by
+    /// stripping the suffix, not by listing them (see `modelDisplayName`).
+    private static let modelDisplayNames: [String: String] = [
+        "claude-fable-5": "Fable 5",
+        "claude-opus-5": "Opus 5",
+        "claude-opus-4-8": "Opus 4.8",
+        "claude-sonnet-5": "Sonnet 5",
+        "claude-sonnet-4-6": "Sonnet 4.6",
+        "claude-haiku-4-5": "Haiku 4.5",
+        "gpt-5.4": "GPT-5.4",
+    ]
+
+    /// What a model identifier is called on screen.
+    ///
+    /// Transcripts carry both the bare identifier and a dated build of the same
+    /// model — `claude-haiku-4-5-20251001` is Haiku 4.5. Listing every dated
+    /// variant would need editing on every model release, so the date is
+    /// stripped and the remainder looked up instead.
+    ///
+    /// An identifier nobody has a name for is returned verbatim. A model this
+    /// app has never seen is exactly the one worth noticing, and a raw
+    /// `claude-something-9` tells more than a blank or a dropped row would.
+    static func modelDisplayName(_ identifier: String) -> String {
+        // Nothing to name. Falls back to the same words an absent model gets,
+        // because an empty label draws an empty row.
+        guard !identifier.isEmpty else { return unknownModelLabel }
+        if let name = modelDisplayNames[identifier] { return name }
+        if let undated = identifierWithoutDateSuffix(identifier),
+           let name = modelDisplayNames[undated] {
+            return name
+        }
+        return identifier
+    }
+
+    /// The identifier without a trailing `-YYYYMMDD`, or nil when it has none.
+    private static func identifierWithoutDateSuffix(_ identifier: String) -> String? {
+        let suffixLength = 9 // one hyphen plus eight digits
+        guard identifier.count > suffixLength else { return nil }
+        let suffix = identifier.suffix(suffixLength)
+        guard suffix.first == "-",
+              suffix.dropFirst().allSatisfy({ $0.isASCII && $0.isNumber })
+        else { return nil }
+        return String(identifier.dropLast(suffixLength))
+    }
+
     /// The models a legend can carry, ranked as `ModelMix` ranks them — by cost.
     ///
     /// Beyond `limit` the legend stops being a legend, so the tail is folded into

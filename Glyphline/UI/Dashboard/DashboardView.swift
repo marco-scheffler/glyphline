@@ -524,7 +524,8 @@ private struct DashboardOverview: View {
             if let mix = breakdown?.mix, !mix.isEmpty {
                 ForEach(mix.entries.prefix(Self.legendLimit)) { entry in
                     HStack(spacing: 8) {
-                        Text(entry.model ?? DashboardPresentation.unknownModelLabel)
+                        Text(entry.model.map(DashboardPresentation.modelDisplayName)
+                            ?? DashboardPresentation.unknownModelLabel)
                             .lineLimit(1)
                             .truncationMode(.middle)
                         Spacer(minLength: 8)
