@@ -165,6 +165,71 @@ enum DashboardPresentation {
         )
     }
 
+    // MARK: - Accounts that need the user
+
+    /// An account something is wrong with, and what.
+    struct AccountAttention: Identifiable, Equatable, Sendable {
+        var id: UUID
+        var accountName: String
+        var reason: String
+    }
+
+    /// What a failed sync run says when it did not say anything itself.
+    static let syncFailedReason = "The last sync failed."
+
+    /// The accounts the user has to act on.
+    ///
+    /// Both inputs are state the app already keeps; there is no new per-account
+    /// failure mechanism here. `QuotaBarGroup.message` is the reason the sync
+    /// coordinator stores per account when a quota fetch fails — the same string
+    /// the menu bar panel and the accounts list already show — and only the two
+    /// of those the user can actually fix count as attention. The other input is
+    /// the account's own last sync run, which carries the provider's message.
+    ///
+    /// A quota reason wins over a failed run for the same account: an expired
+    /// sign-in is why the run failed, and naming the cause beats naming the
+    /// symptom.
+    ///
+    /// Disabled accounts are skipped. Nothing is syncing them, so an old failure
+    /// on one is not a task.
+    static func accountsNeedingAttention(
+        summaries: [AccountUsageSummary],
+        quotaGroups: [QuotaBarGroup]
+    ) -> [AccountAttention] {
+        let quotaReasons = Dictionary(
+            quotaGroups.map { ($0.id, $0.message) },
+            uniquingKeysWith: { first, _ in first }
+        )
+
+        return summaries.compactMap { summary in
+            guard summary.account.isEnabled else { return nil }
+
+            if let reason = quotaReasons[summary.account.id] ?? nil,
+               RateWindowSourceError.userActionableMessages.contains(reason) {
+                return AccountAttention(
+                    id: summary.account.id,
+                    accountName: summary.account.displayName,
+                    reason: reason
+                )
+            }
+
+            if let run = summary.latestSyncRun, run.status == .failed {
+                return AccountAttention(
+                    id: summary.account.id,
+                    accountName: summary.account.displayName,
+                    reason: run.message ?? syncFailedReason
+                )
+            }
+
+            return nil
+        }
+    }
+
+    /// The banner's headline. A count, because the reasons are listed under it.
+    static func attentionHeadline(count: Int) -> String {
+        count == 1 ? "1 account needs attention" : "\(count) accounts need attention"
+    }
+
     // MARK: - Chart slices
 
     /// One model's contribution to one day, flattened for a stacked bar chart.

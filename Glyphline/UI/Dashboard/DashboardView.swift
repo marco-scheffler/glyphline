@@ -92,6 +92,52 @@ enum AgentverseLauncher {
     }
 }
 
+/// What the dashboard says when an account is failing or signed out.
+///
+/// The condition for moving Accounts into settings at all. Accounts is where you
+/// go when something is broken — an expired token, a failing sync — and burying
+/// that a level deeper without saying anything here would have made the app
+/// worse, not tidier.
+///
+/// `SettingsLink` opens the settings window; it cannot pre-select the Accounts
+/// tab, so the user still picks it. That is one click, against no signal at all.
+private struct AccountAttentionBanner: View {
+    let items: [DashboardPresentation.AccountAttention]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                Label(
+                    DashboardPresentation.attentionHeadline(count: items.count),
+                    systemImage: "exclamationmark.triangle.fill"
+                )
+                .font(.headline)
+                .foregroundStyle(.orange)
+
+                Spacer(minLength: 12)
+
+                SettingsLink {
+                    Text("Open Settings")
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+            }
+
+            // Every account named, not just a count. Two subscriptions and one
+            // expired sign-in is a different situation from two expired ones,
+            // and a headline alone cannot tell them apart.
+            ForEach(items) { item in
+                Text("\(item.accountName) — \(item.reason)")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .glassCard()
+    }
+}
+
 // MARK: - The overview
 
 private struct DashboardOverview: View {
@@ -130,6 +176,14 @@ private struct DashboardOverview: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 header
+
+                // Above the sync failure and above everything else. Accounts is
+                // a level deeper now that it is a settings tab, and the reason
+                // to go there is urgent and rare — the worst combination to
+                // bury. So the dashboard says it, and offers the way.
+                if !attention.isEmpty {
+                    AccountAttentionBanner(items: attention)
+                }
 
                 if let syncFailureMessage {
                     Label(syncFailureMessage, systemImage: "exclamationmark.triangle")
@@ -183,6 +237,15 @@ private struct DashboardOverview: View {
 
             AgentverseCallToActionButton(model: callToAction, action: openAgentverse)
         }
+    }
+
+    /// Built from the coordinator's per-account quota reasons and each account's
+    /// own last sync run — no new state, and no threshold decided in the view.
+    private var attention: [DashboardPresentation.AccountAttention] {
+        DashboardPresentation.accountsNeedingAttention(
+            summaries: accountSummaries,
+            quotaGroups: coordinator.quotaBars
+        )
     }
 
     private var callToAction: DashboardPresentation.AgentverseCallToAction {
