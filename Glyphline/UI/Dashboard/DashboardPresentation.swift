@@ -117,22 +117,24 @@ enum DashboardPresentation {
 
     // MARK: - The Agentverse call to action
 
-    /// How the header's Agentverse button reads and whether it is allowed to
+    /// How the dashboard's Agents tile reads and whether it is allowed to
     /// shout.
     ///
-    /// `isUrgent` drives amber and a slow pulse, matching the plumbob over a
-    /// waiting agent's head so both surfaces speak one language. With nobody
-    /// waiting it goes quiet: a dashboard that always looks urgent stops meaning
-    /// anything.
+    /// `isUrgent` drives amber, matching the plumbob over a waiting agent's
+    /// head so both surfaces speak one language. With nobody waiting it goes
+    /// quiet: a dashboard that always looks urgent stops meaning anything.
+    ///
+    /// The counts are boxed up by the tile; `headline` says the same thing in
+    /// plain language, which reads at a glance in a way three numbered boxes do
+    /// not quite manage.
     struct AgentverseCallToAction: Equatable, Sendable {
         var waiting: Int
         var working: Int
         var resting: Int
         var headline: String
-        var detail: String
         var isUrgent: Bool
         /// No sessions at all — neither waiting nor working nor parked. The
-        /// button still opens the map, it simply says there is nobody in it.
+        /// tile still opens the map, it simply says there is nobody in it.
         var isEmpty: Bool
     }
 
@@ -150,16 +152,11 @@ enum DashboardPresentation {
             headline = "\(waiting) agents are waiting on you"
         }
 
-        let detail = isEmpty
-            ? "Open the Agentverse"
-            : "\(working) working · \(resting) resting — open the Agentverse"
-
         return AgentverseCallToAction(
             waiting: waiting,
             working: working,
             resting: resting,
             headline: headline,
-            detail: detail,
             isUrgent: waiting > 0,
             isEmpty: isEmpty
         )
