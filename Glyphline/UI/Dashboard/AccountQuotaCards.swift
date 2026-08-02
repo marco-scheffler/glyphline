@@ -183,11 +183,35 @@ private struct QuotaWindowRow: View {
     }
 }
 
-/// The bar and its pace marker. The marker is the point of the card: "63 % used"
-/// says nothing on its own, "63 % used and an even burn would have you at 40 %"
-/// says stop.
-private struct QuotaBar: View {
+/// The bar and its pace marker. The marker is the point of the card: "37 % left"
+/// says nothing on its own, "37 % left where an even burn would have left you
+/// 60 %" says stop.
+///
+/// Visible to the test target rather than private: what it draws is a pair of
+/// positions on a track, and the only way to hold that honestly is to render it
+/// and read the pixels back.
+struct QuotaBar: View {
     let card: QuotaCardModel
+
+    /// The share of the track that carries paint, measured from the left.
+    ///
+    /// The bar drains. It fills up as a window is *spent* if this is the used
+    /// fraction, which puts it in plain contradiction with the "% free" figure
+    /// printed directly above it — the number counting down while the bar counts
+    /// up, and a window with nothing left drawn as a full bar. A gauge, not an
+    /// odometer, and the same way the menu bar panel's rows have always read.
+    var fillFraction: Double { card.headroomFraction }
+
+    /// Where the marker sits on that same track, or `nil` for a window with no
+    /// pace to draw.
+    ///
+    /// Mirrored, because the bar is. `pacePosition` is the elapsed share of the
+    /// window — where an even burn would have *spent* you to by now — so on a
+    /// draining bar it marks what such a burn would have *left*: four fifths
+    /// through the window, a fifth. The reading inverts with it. The fill short
+    /// of the marker now means burning faster than the window allows, where a
+    /// filling bar meant that by running past it.
+    var markerPosition: Double? { card.pacePosition.map { 1 - $0 } }
 
     var body: some View {
         GeometryReader { geometry in
@@ -196,13 +220,13 @@ private struct QuotaBar: View {
                     .fill(.quaternary)
                 Capsule()
                     .fill(card.state.tint)
-                    .frame(width: geometry.size.width * card.usedFraction)
+                    .frame(width: geometry.size.width * fillFraction)
 
-                if let pace = card.pacePosition {
+                if let marker = markerPosition {
                     Capsule()
                         .fill(.primary.opacity(0.65))
                         .frame(width: 2, height: 15)
-                        .offset(x: geometry.size.width * pace - 1, y: -3)
+                        .offset(x: geometry.size.width * marker - 1, y: -3)
                 }
             }
         }

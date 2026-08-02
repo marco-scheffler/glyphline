@@ -103,6 +103,7 @@
 		8B5B67935A1260AA20266915 /* MenuBarFooterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3DD33D0E2FF6D40D47CCD41 /* MenuBarFooterTests.swift */; };
 		8B5E7D6A51CECD50DB78F10B /* ClaudeWebResponseClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 383FF44EC0D7B7C405AE465B /* ClaudeWebResponseClassifier.swift */; };
 		8D9EA1487B3C0A416574EBBC /* WindowOcclusionReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3529DEF033DF359EF2652FD4 /* WindowOcclusionReader.swift */; };
+		90236A937EC9F6160800734A /* QuotaBarTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28DF65699C37FFD9D90CC4A0 /* QuotaBarTests.swift */; };
 		91A12D7EBAEDB4A0211E86FB /* AgentverseCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB6486F570B1DA77ACCB5458 /* AgentverseCoordinatorTests.swift */; };
 		93E608E9C5CFD027119E0E62 /* OfficeLightingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D3C73941B3DC3E54BAB1EB4 /* OfficeLightingTests.swift */; };
 		9442C7847482BDAC9B50C660 /* RateWindowStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1923CB6870F90CE15FC576F9 /* RateWindowStoreTests.swift */; };
@@ -209,6 +210,7 @@
 		25763F9DE4C82450A3834BDC /* AgentSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentSession.swift; sourceTree = "<group>"; };
 		25CF48DAF9EE1D8F9862E87F /* AccountQuotaCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountQuotaCards.swift; sourceTree = "<group>"; };
 		28A51A602B459C74D5B7B379 /* ClaudeWebResponseClassifierTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeWebResponseClassifierTests.swift; sourceTree = "<group>"; };
+		28DF65699C37FFD9D90CC4A0 /* QuotaBarTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuotaBarTests.swift; sourceTree = "<group>"; };
 		294A09533288129B01331D6A /* OfficeRendererShell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfficeRendererShell.swift; sourceTree = "<group>"; };
 		297662193FBB25AD8305E87D /* LocalUsageStatistics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalUsageStatistics.swift; sourceTree = "<group>"; };
 		2CEE811175655E96A48209E0 /* SessionPalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionPalette.swift; sourceTree = "<group>"; };
@@ -562,6 +564,7 @@
 				55BA8694018F37636CBB9BF7 /* MoneyAmountTests.swift */,
 				9D3C73941B3DC3E54BAB1EB4 /* OfficeLightingTests.swift */,
 				65F46725420D301A64582EF6 /* ProviderAdapterRegistryTests.swift */,
+				28DF65699C37FFD9D90CC4A0 /* QuotaBarTests.swift */,
 				12013027711B198DBAD1759B /* QuotaCardModelTests.swift */,
 				B966305CF54AAA51888A2FC0 /* QuotaIndicatorTests.swift */,
 				11D41DE98E9E03A2433764CC /* RateWindowSourceTests.swift */,
@@ -884,6 +887,7 @@
 				E9F07FC2418C6707018C3666 /* MoneyAmountTests.swift in Sources */,
 				93E608E9C5CFD027119E0E62 /* OfficeLightingTests.swift in Sources */,
 				7689725CCEE34D9A6EC7ACE1 /* ProviderAdapterRegistryTests.swift in Sources */,
+				90236A937EC9F6160800734A /* QuotaBarTests.swift in Sources */,
 				D431B81BDD73F738ECC79DCA /* QuotaCardModelTests.swift in Sources */,
 				47DFD6941E6389FBFA591FDA /* QuotaIndicatorTests.swift in Sources */,
 				05ADA18D2E958FB3A3558030 /* RateWindowSourceTests.swift in Sources */,
