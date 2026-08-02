@@ -107,8 +107,8 @@ final class DashboardSummaryRowTests: XCTestCase {
 }
 
 /// Somewhere for the probe to put what it measured. A lock rather than a plain
-/// mutable class: the report is `@Sendable`, and this repo takes no
-/// `@unchecked Sendable` to get around that.
+/// mutable class: the report is `@Sendable`, and this repo takes none of the
+/// escape hatches out of that.
 private final class HeightBox: Sendable {
     private let state = OSAllocatedUnfairLock<[Int: CGFloat]>(initialState: [:])
 
