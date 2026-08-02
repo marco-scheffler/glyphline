@@ -136,6 +136,11 @@ struct GlyphlineApp: App {
 /// A view rather than a bare `Button` in the command group: `openWindow` is an
 /// environment value, and a `Scene` has no environment to read it from.
 ///
+/// Through `AgentverseLauncher` like every other entry point. It used to raise
+/// the window on its own, without regularising the app first or activating it
+/// after — in menu bar mode that opened the map behind the frontmost app, or
+/// left it to be swept closed again.
+///
 /// ⌘⇧A is free — the app defines no shortcuts of its own, and the standard menus
 /// SwiftUI supplies take ⌘A for Select All but nothing with Shift.
 private struct OpenAgentverseCommand: View {
@@ -143,7 +148,7 @@ private struct OpenAgentverseCommand: View {
 
     var body: some View {
         Button("Open Agentverse") {
-            openWindow(id: AppMode.agentverseWindowID)
+            AgentverseLauncher.open(using: openWindow)
         }
         .keyboardShortcut("a", modifiers: [.command, .shift])
     }

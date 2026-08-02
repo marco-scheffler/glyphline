@@ -85,11 +85,7 @@ struct MenuBarView: View {
 
             MenuBarFooter(
                 openDashboard: openDashboard,
-                openAgentverse: {
-                    AppActivationController.regulariseForWindow()
-                    openWindow(id: AppMode.agentverseWindowID)
-                    NSApp.activate(ignoringOtherApps: true)
-                },
+                openAgentverse: { AgentverseLauncher.open(using: openWindow) },
                 refresh: {
                     Task {
                         await coordinator.refreshRateWindowsOnDemand()

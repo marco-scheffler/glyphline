@@ -86,22 +86,6 @@ struct DashboardView: View {
     }
 }
 
-/// The one way into the map from the main window.
-///
-/// The Agentverse is a window of its own — even the whole dashboard window at its
-/// minimum width is well short of the 1690 points the scene was designed at — so
-/// this opens that window rather than taking the dashboard's own space.
-/// Same three steps as `MenuBarView`: the app has to become a regular one before
-/// a window of this kind is any use. Kept as one function so the header's call to
-/// action and any later entry point cannot drift into two different sequences.
-enum AgentverseLauncher {
-    @MainActor static func open(using openWindow: OpenWindowAction) {
-        AppActivationController.regulariseForWindow()
-        openWindow(id: AppMode.agentverseWindowID)
-        NSApp.activate(ignoringOtherApps: true)
-    }
-}
-
 /// What the dashboard says when an account is failing or signed out.
 ///
 /// The condition for moving Accounts into settings at all. Accounts is where you
