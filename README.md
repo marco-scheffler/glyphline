@@ -81,6 +81,21 @@ Gatekeeper clears it without even needing a network connection.
 Glyphline lives in the menu bar and has no Dock icon. After launching it, look
 for the glyph in the top right, not in the Dock.
 
+### Updates
+
+From 1.2 onward Glyphline keeps itself current: it looks for a new version once
+a day and tells you what changed. **It never installs anything without your
+click** — automatic checking and automatic installing are two different things,
+and only the first is on. Both the automatic check and a "Check Now" button live
+in Settings, and the app menu has "Check for Updates…".
+
+Every update is signed with a key that never leaves the developer's Mac, and the
+signature is verified before anything is installed — on top of Apple's
+notarisation, not instead of it.
+
+Version 1.1 and earlier cannot update themselves. They predate all of this, so
+they need one manual download to reach a version that can.
+
 ## Building from source
 
 ```bash
@@ -156,5 +171,6 @@ needs no Xcode.
 
 ## Built with
 
-Swift 6, SwiftUI, Swift Charts, and [GRDB](https://github.com/groue/GRDB.swift)
-— the only package dependency.
+Swift 6, SwiftUI, Swift Charts, [GRDB](https://github.com/groue/GRDB.swift) for
+the ledger and [Sparkle](https://sparkle-project.org) for updates — the only two
+package dependencies.

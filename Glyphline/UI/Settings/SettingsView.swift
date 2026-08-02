@@ -3,6 +3,7 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(\.openWindow) private var openWindow
     @EnvironmentObject private var settings: AppSettingsStore
+    @EnvironmentObject private var updates: UpdateController
     @State private var latitudeInput = ""
     @State private var longitudeInput = ""
 
@@ -35,6 +36,27 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
+            Section("Updates") {
+                Toggle("Check for updates automatically", isOn: $updates.automaticallyChecksForUpdates)
+
+                LabeledContent {
+                    Button("Check Now") {
+                        updates.checkForUpdates()
+                    }
+                    // Grey while a check is already running, rather than
+                    // queueing a second one behind the first.
+                    .disabled(!updates.canCheckForUpdates)
+                } label: {
+                    Text("Version \(Self.installedVersion)")
+                }
+
+                // Said plainly because it is the reassurance that matters: an
+                // app that reads your quota data must not be one that swaps
+                // itself out while you are not looking.
+                Text("Glyphline checks once a day and always asks before installing anything.")
+                    .foregroundStyle(.secondary)
+            }
+
             Section("Location") {
                 // Edited as text rather than bound straight to the numbers: a
                 // half-typed "-" or "52." is not a coordinate yet, and a numeric
@@ -59,6 +81,14 @@ struct SettingsView: View {
             latitudeInput = Self.text(for: settings.manualLatitude)
             longitudeInput = Self.text(for: settings.manualLongitude)
         }
+    }
+
+    /// The version the user is actually running, read from the bundle rather
+    /// than written down here — a number kept in two places is a number that
+    /// eventually disagrees with itself, and this one is next to a button whose
+    /// whole job is to compare versions.
+    static var installedVersion: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—"
     }
 
     private var resolvedPlace: UserPlace.Coordinates {

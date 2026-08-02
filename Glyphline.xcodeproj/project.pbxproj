@@ -68,6 +68,7 @@
 		4FF372770903337C7E0AB24F /* DashboardPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BB91452D402455F2ACA0690 /* DashboardPresentation.swift */; };
 		50DE389F4361F81A9F3BBAE6 /* AccountSummaryFormatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65C301199FDCC9595DC906A9 /* AccountSummaryFormatting.swift */; };
 		54B04C19F46485890B8DC28B /* AgentSessionScannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BD3C2C540C231D67EC5F063 /* AgentSessionScannerTests.swift */; };
+		56B581EF8FB7A7FF22E8D6D7 /* UpdateController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13C2A5ABB0A8E43A39707DB6 /* UpdateController.swift */; };
 		56B7FB0376CEC3F26127F083 /* AccountCredentialReference.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54DF3B50A77102C6E68EAC4C /* AccountCredentialReference.swift */; };
 		59022EBC301F5B43468F886F /* CostEstimatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10078AD9B1875C460A90C37 /* CostEstimatorTests.swift */; };
 		5B80D237FF5A7B0A61F4AFCA /* UserPlace.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B3D3ECA1152729E0516F4B8 /* UserPlace.swift */; };
@@ -138,6 +139,7 @@
 		C37C57C420AC156638B83240 /* AccountQuotaCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25CF48DAF9EE1D8F9862E87F /* AccountQuotaCards.swift */; };
 		C7D043D534497E4E92F09CF5 /* DeleteAccountFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E897587F3639B71FA29F250 /* DeleteAccountFlowTests.swift */; };
 		CAE25CBB5FB46C3D44E6BD64 /* LedgerStoreFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2ACCDCE077861E9661ECBFF /* LedgerStoreFactory.swift */; };
+		D1A707DBBD89428EF9095370 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 541EB1BE40A50BB81B68A65D /* Sparkle */; };
 		D2B18F77CE6A271F859A2598 /* SceneLightTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80ED211E069178416163921B /* SceneLightTests.swift */; };
 		D2FF36E4F82131E6CC5FE369 /* AppLocalization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8048A6A752B49A04BE4F3F78 /* AppLocalization.swift */; };
 		D39587DE951EAE8214D46323 /* DailyUsageSeries.swift in Sources */ = {isa = PBXBuildFile; fileRef = F14BBDE367E8BE177C79F8B4 /* DailyUsageSeries.swift */; };
@@ -172,6 +174,7 @@
 		FC1B8072CE59DBC7F6532B72 /* AgentverseSnapshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AACCE706FF21FC1CBF54AA72 /* AgentverseSnapshotTests.swift */; };
 		FD2E6B0D841CAF9F824F9BB8 /* LocalUsagePeriodTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D31897CD1062193BF63AE80 /* LocalUsagePeriodTests.swift */; };
 		FE115011C319F621E5E47A5E /* MigrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38CEA8D84FAB5879F7C9B70E /* MigrationTests.swift */; };
+		FE474D5271F781AEA57A17F9 /* UpdateConfigurationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9C0687AA9C44DF758152726 /* UpdateConfigurationTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -199,6 +202,7 @@
 		11D41DE98E9E03A2433764CC /* RateWindowSourceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RateWindowSourceTests.swift; sourceTree = "<group>"; };
 		12013027711B198DBAD1759B /* QuotaCardModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuotaCardModelTests.swift; sourceTree = "<group>"; };
 		12E48ACC872A23A3B329B354 /* AppMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppMode.swift; sourceTree = "<group>"; };
+		13C2A5ABB0A8E43A39707DB6 /* UpdateController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateController.swift; sourceTree = "<group>"; };
 		15AE8CE25E9DFB53944DBD13 /* ClaudeWebQuotaSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeWebQuotaSource.swift; sourceTree = "<group>"; };
 		1923CB6870F90CE15FC576F9 /* RateWindowStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RateWindowStoreTests.swift; sourceTree = "<group>"; };
 		1A12C10E9B329DC6D4E86D94 /* ProviderAdapterRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderAdapterRegistry.swift; sourceTree = "<group>"; };
@@ -344,6 +348,7 @@
 		E3CEC45B8BEB8CB7E837BC96 /* BreakRoom.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BreakRoom.swift; sourceTree = "<group>"; };
 		E3DD33D0E2FF6D40D47CCD41 /* MenuBarFooterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarFooterTests.swift; sourceTree = "<group>"; };
 		E78959ED32C99389D71E836A /* ClaudeUsageQuotaDTOsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeUsageQuotaDTOsTests.swift; sourceTree = "<group>"; };
+		E9C0687AA9C44DF758152726 /* UpdateConfigurationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateConfigurationTests.swift; sourceTree = "<group>"; };
 		EB6486F570B1DA77ACCB5458 /* AgentverseCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentverseCoordinatorTests.swift; sourceTree = "<group>"; };
 		F06FF5203E4C15863CAB3EE3 /* AccountsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountsView.swift; sourceTree = "<group>"; };
 		F14BBDE367E8BE177C79F8B4 /* DailyUsageSeries.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyUsageSeries.swift; sourceTree = "<group>"; };
@@ -361,6 +366,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				2DF42C50602C384C26283736 /* GRDB in Frameworks */,
+				D1A707DBBD89428EF9095370 /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -577,6 +583,7 @@
 				F4E1FE1146583F38A8203043 /* SunPositionTests.swift */,
 				AB71829869D2BDC5C53A536A /* SyncCoordinatorLocalUsageTests.swift */,
 				62C5666D45C5D74DC69F722E /* SyncCoordinatorTests.swift */,
+				E9C0687AA9C44DF758152726 /* UpdateConfigurationTests.swift */,
 				6038A4E395A2847039481F0D /* UsageModelsTests.swift */,
 				8436B59B839E014CC6FDD206 /* UserPlaceTests.swift */,
 				E098575A9DAE4BCF0C1DB381 /* WeatherServiceTests.swift */,
@@ -612,6 +619,7 @@
 				64891BE57A59E15EEFF1CD5F /* AppActivationController.swift */,
 				12E48ACC872A23A3B329B354 /* AppMode.swift */,
 				7E78F87ED03A83F2D193EF8B /* AppSettingsStore.swift */,
+				13C2A5ABB0A8E43A39707DB6 /* UpdateController.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -754,6 +762,7 @@
 			name = Glyphline;
 			packageProductDependencies = (
 				C1D17CF7506CDB47E08BD82A /* GRDB */,
+				541EB1BE40A50BB81B68A65D /* Sparkle */,
 			);
 			productName = Glyphline;
 			productReference = 5925F83C461A2E9765557F05 /* Glyphline.app */;
@@ -796,6 +805,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				9894883FBBDB05A3DDFAA240 /* XCRemoteSwiftPackageReference "GRDB.swift" */,
+				99A75BD8208BBD418EE58B8A /* XCRemoteSwiftPackageReference "Sparkle" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = A9CC8BD0882A481B4570CC94 /* Products */;
@@ -900,6 +910,7 @@
 				84A54ADAC7F03FF978AB6A90 /* SunPositionTests.swift in Sources */,
 				383C6EC1087E7FC1D05F6919 /* SyncCoordinatorLocalUsageTests.swift in Sources */,
 				AA9559C25108258EBA10DC8A /* SyncCoordinatorTests.swift in Sources */,
+				FE474D5271F781AEA57A17F9 /* UpdateConfigurationTests.swift in Sources */,
 				B8B5DF46E5F52175C3B0C9F8 /* UsageModelsTests.swift in Sources */,
 				DD2396AD5BE685E977AB9FAD /* UserPlaceTests.swift in Sources */,
 				798F27EB96BD8D11CAF2AEE8 /* WeatherServiceTests.swift in Sources */,
@@ -997,6 +1008,7 @@
 				6AA0FC8F5FB21FA7852CEBAB /* SunPosition.swift in Sources */,
 				771EDD480CF8D227507CB099 /* SyncCoordinator.swift in Sources */,
 				E911DAA860CC70539901ED44 /* TranscriptTimestampParser.swift in Sources */,
+				56B581EF8FB7A7FF22E8D6D7 /* UpdateController.swift in Sources */,
 				D8B77926E2F0A8CA8B0916E2 /* UsageModels.swift in Sources */,
 				5B80D237FF5A7B0A61F4AFCA /* UserPlace.swift in Sources */,
 				E070D0F406645BA4C9DDA77A /* WeatherService.swift in Sources */,
@@ -1259,9 +1271,22 @@
 				minimumVersion = 7.0.0;
 			};
 		};
+		99A75BD8208BBD418EE58B8A /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.9.5;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		541EB1BE40A50BB81B68A65D /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 99A75BD8208BBD418EE58B8A /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
+		};
 		C1D17CF7506CDB47E08BD82A /* GRDB */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 9894883FBBDB05A3DDFAA240 /* XCRemoteSwiftPackageReference "GRDB.swift" */;

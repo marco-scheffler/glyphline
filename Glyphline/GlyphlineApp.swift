@@ -6,10 +6,21 @@ struct GlyphlineApp: App {
     @StateObject private var settings: AppSettingsStore
     @StateObject private var coordinator: SyncCoordinator
     @StateObject private var agentverse: AgentverseCoordinator
+    @StateObject private var updates: UpdateController
 
     init() {
         let settings = AppSettingsStore()
         _settings = StateObject(wrappedValue: settings)
+
+        // The updater has to be able to put the app back the way the mode
+        // setting wants it once it is done showing windows. It is handed that as
+        // one closure rather than the whole settings object, so it can be built
+        // and reasoned about without one.
+        _updates = StateObject(
+            wrappedValue: UpdateController {
+                AppActivationController.apply(mode: settings.appMode)
+            }
+        )
 
         // One store for both coordinators: `makeDefault()` opens a fresh
         // `DatabaseQueue` and runs the migrations every time it is called, so a
@@ -63,6 +74,16 @@ struct GlyphlineApp: App {
         // through the menu bar panel, and `.windowOnly` removes the menu bar
         // extra entirely — leaving that mode with no way in at all.
         .commands {
+            // Directly under "About Glyphline", where macOS apps have kept this
+            // item for twenty years. Somewhere findable matters more than usual
+            // here: it is the only way to ask for an update on purpose.
+            CommandGroup(after: .appInfo) {
+                Button("Check for Updates…") {
+                    updates.checkForUpdates()
+                }
+                .disabled(!updates.canCheckForUpdates)
+            }
+
             CommandGroup(after: .newItem) {
                 OpenAgentverseCommand()
             }
@@ -78,6 +99,9 @@ struct GlyphlineApp: App {
                 // The accounts list draws each account's quota bars, from the
                 // same coordinator every other surface reads.
                 .environmentObject(coordinator)
+                // General carries the update section, and its toggle reads the
+                // updater's own defaults rather than a copy of them.
+                .environmentObject(updates)
         }
 
         MenuBarExtra(isInserted: menuBarExtraInsertion) {
