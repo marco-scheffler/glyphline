@@ -686,8 +686,12 @@ enum DashboardPresentation {
     }
 }
 
-private extension Color {
+extension Color {
     /// A colour from the design's own `#rrggbb`, in sRGB.
+    ///
+    /// Not private any more: the window background is specified in the same
+    /// reference and in the same notation, and a second copy of this initialiser
+    /// is exactly how two files end up disagreeing about what `#0a0e18` means.
     ///
     /// The palette is specified as hex in the reference, so it is written here as
     /// hex too: translating six digits into three fractions by hand at each entry

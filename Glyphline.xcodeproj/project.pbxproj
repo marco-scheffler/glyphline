@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		006CDCCCDC2821B7F6F58864 /* AccountQuotaGridTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 617EF38646F5BA34DC3F3BBA /* AccountQuotaGridTests.swift */; };
+		0160BC9831F3B8A655180046 /* DashboardBackgroundTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52DCE9A9E59AD1B33F1AF2EF /* DashboardBackgroundTests.swift */; };
 		017DFB509A44E6251A8B0684 /* AgentverseWindowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8753659B8C311D8F1103166 /* AgentverseWindowTests.swift */; };
 		0226286211D87B2076BC10F1 /* SceneRGB.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4ABF530307D06D892CBE9F72 /* SceneRGB.swift */; };
 		02E55AFA00BD9CCB7061CBD2 /* DatabaseQueueFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9430FC958CF84944A796120 /* DatabaseQueueFactory.swift */; };
@@ -28,6 +29,7 @@
 		1D1137DB62EEA16A172F4F1D /* MoneyAmount.swift in Sources */ = {isa = PBXBuildFile; fileRef = 675ADA919D8753AAAEFAB44F /* MoneyAmount.swift */; };
 		1F057127236C7C74BCADB639 /* AppModeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 347CEC22ED71F6DCC815DB03 /* AppModeTests.swift */; };
 		20870BC880BA7E4E50BF9BDF /* OfficeRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60915C0CA289E17E1E10BD08 /* OfficeRenderer.swift */; };
+		2383783CD9C706F9225877DC /* DashboardBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2A55943991CB2395020BD39 /* DashboardBackground.swift */; };
 		23BFBC7149C0F420E8F4C6AE /* ClaudeWebResponseClassifierTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28A51A602B459C74D5B7B379 /* ClaudeWebResponseClassifierTests.swift */; };
 		242AB864C1FDF71D404148A1 /* DailyUsageChartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3180847F75604A4B36DD2308 /* DailyUsageChartView.swift */; };
 		2476C4431D917C70FF6241F3 /* ClaudeWebSessionStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAB6B58FFD4950C915812BC0 /* ClaudeWebSessionStoreTests.swift */; };
@@ -230,6 +232,7 @@
 		4BB91452D402455F2ACA0690 /* DashboardPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardPresentation.swift; sourceTree = "<group>"; };
 		4E9A1292C4590819749AE424 /* AccountsViewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountsViewTests.swift; sourceTree = "<group>"; };
 		4FF23487330689CD09F72F59 /* ClaudeTranscriptReaderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeTranscriptReaderTests.swift; sourceTree = "<group>"; };
+		52DCE9A9E59AD1B33F1AF2EF /* DashboardBackgroundTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardBackgroundTests.swift; sourceTree = "<group>"; };
 		5465BF81A3D7F440B3636E5B /* SunPosition.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SunPosition.swift; sourceTree = "<group>"; };
 		54DF3B50A77102C6E68EAC4C /* AccountCredentialReference.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountCredentialReference.swift; sourceTree = "<group>"; };
 		55BA8694018F37636CBB9BF7 /* MoneyAmountTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoneyAmountTests.swift; sourceTree = "<group>"; };
@@ -320,6 +323,7 @@
 		CED600FBC4E418427965BBFC /* DailyUsageSeriesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyUsageSeriesTests.swift; sourceTree = "<group>"; };
 		D10078AD9B1875C460A90C37 /* CostEstimatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CostEstimatorTests.swift; sourceTree = "<group>"; };
 		D2875A21D3F767FBB58928F1 /* FixtureRateWindowSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FixtureRateWindowSource.swift; sourceTree = "<group>"; };
+		D2A55943991CB2395020BD39 /* DashboardBackground.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardBackground.swift; sourceTree = "<group>"; };
 		D461F567F4AC93CAD78D6410 /* Account.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Account.swift; sourceTree = "<group>"; };
 		D4AC0AFC5C6676B8681635D9 /* LocalUsagePeriod.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalUsagePeriod.swift; sourceTree = "<group>"; };
 		D6BD6C14C75AEFB9B82A4095 /* AgentRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentRow.swift; sourceTree = "<group>"; };
@@ -529,6 +533,7 @@
 				CAB6B58FFD4950C915812BC0 /* ClaudeWebSessionStoreTests.swift */,
 				D10078AD9B1875C460A90C37 /* CostEstimatorTests.swift */,
 				CED600FBC4E418427965BBFC /* DailyUsageSeriesTests.swift */,
+				52DCE9A9E59AD1B33F1AF2EF /* DashboardBackgroundTests.swift */,
 				A8169F2BD942F98645929BDD /* DashboardPresentationTests.swift */,
 				58A9ECA0A61329D92A28B46F /* DashboardSummaryRowTests.swift */,
 				FF76F68273B2AD4088C657D5 /* DatabaseQueueFactoryTests.swift */,
@@ -576,6 +581,7 @@
 				25CF48DAF9EE1D8F9862E87F /* AccountQuotaCards.swift */,
 				3180847F75604A4B36DD2308 /* DailyUsageChartView.swift */,
 				F14BBDE367E8BE177C79F8B4 /* DailyUsageSeries.swift */,
+				D2A55943991CB2395020BD39 /* DashboardBackground.swift */,
 				8A8FE605EF3B33F256650E43 /* DashboardOverview.swift */,
 				4BB91452D402455F2ACA0690 /* DashboardPresentation.swift */,
 				2FF107C0B0D2937AF32703E8 /* DashboardSmallParts.swift */,
@@ -846,6 +852,7 @@
 				2476C4431D917C70FF6241F3 /* ClaudeWebSessionStoreTests.swift in Sources */,
 				59022EBC301F5B43468F886F /* CostEstimatorTests.swift in Sources */,
 				4D737C9B96A0AF6D1F6C0C8B /* DailyUsageSeriesTests.swift in Sources */,
+				0160BC9831F3B8A655180046 /* DashboardBackgroundTests.swift in Sources */,
 				5DCB7D6D73554B36CA4FA2E3 /* DashboardPresentationTests.swift in Sources */,
 				82848FBA563211A15C9B8E60 /* DashboardSummaryRowTests.swift in Sources */,
 				15BF5AF96B128FB27308844A /* DatabaseQueueFactoryTests.swift in Sources */,
@@ -923,6 +930,7 @@
 				EE496A4425EF2D3826391753 /* CostEstimator.swift in Sources */,
 				242AB864C1FDF71D404148A1 /* DailyUsageChartView.swift in Sources */,
 				D39587DE951EAE8214D46323 /* DailyUsageSeries.swift in Sources */,
+				2383783CD9C706F9225877DC /* DashboardBackground.swift in Sources */,
 				FAAB4935C3A53DB6331C5F42 /* DashboardOverview.swift in Sources */,
 				4FF372770903337C7E0AB24F /* DashboardPresentation.swift in Sources */,
 				852066E97380E4600CFF1453 /* DashboardSmallParts.swift in Sources */,
