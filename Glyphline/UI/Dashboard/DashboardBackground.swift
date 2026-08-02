@@ -67,10 +67,35 @@ extension View {
     /// The palette also goes into the environment here rather than only into
     /// the background view, because the cards on top of it are tinted with the
     /// same surface — one call, so the two cannot end up on different palettes.
+    /// The background reads the palette out of the environment itself rather
+    /// than being handed one.
+    ///
+    /// `containerBackground` evaluates its closure when the window's backing is
+    /// configured, not on every render of the view it is attached to. Passing
+    /// the palette in captured whichever one was current at that moment, so
+    /// picking a new one in Settings retinted the cards — they read the
+    /// environment — and left the surface behind them on the old colour, which
+    /// looked exactly like nothing happening at all. A view that reads the
+    /// value itself re-renders when the value changes, no matter how many
+    /// times its enclosing closure runs.
     func dashboardWindowBackground(palette: DashboardPalette) -> some View {
         environment(\.dashboardPalette, palette)
             .containerBackground(for: .window) {
-                DashboardBackground(palette: palette)
+                EnvironmentDashboardBackground()
+                    .environment(\.dashboardPalette, palette)
             }
+    }
+}
+
+/// `DashboardBackground` with the palette taken from the environment.
+///
+/// Separate from `DashboardBackground` so that view keeps its explicit
+/// `palette:` initialiser: the pixel tests render one palette at a time and
+/// must not depend on an environment they would have to build first.
+private struct EnvironmentDashboardBackground: View {
+    @Environment(\.dashboardPalette) private var palette
+
+    var body: some View {
+        DashboardBackground(palette: palette)
     }
 }
