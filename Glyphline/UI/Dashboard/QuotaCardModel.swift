@@ -20,9 +20,6 @@ enum QuotaCardState: Equatable, Sendable {
 /// past the marker means the window will not survive to its reset.
 struct QuotaCardModel: Identifiable, Equatable, Sendable {
     var kind: RateWindowKind
-    /// "5h", "Week", "Cycle" — from `QuotaIndicator`, so no surface invents its
-    /// own word for a window kind.
-    var title: String
     /// What the provider says is consumed, clamped to 0…1. A figure outside that
     /// range is a provider defect, and a bar drawn from it would run off its
     /// track or backwards.
@@ -61,7 +58,6 @@ struct QuotaCardModel: Identifiable, Equatable, Sendable {
 
         return QuotaCardModel(
             kind: window.kind,
-            title: QuotaIndicator.labelAndVerb(for: window.kind).label,
             usedFraction: used,
             headroomFraction: headroom,
             usedPercent: percent(used),

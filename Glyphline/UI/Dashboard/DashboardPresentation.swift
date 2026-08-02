@@ -551,16 +551,13 @@ enum DashboardPresentation {
     /// to say *which* window it is, which is why the account no longer appears
     /// here.
     ///
-    /// Spelled out rather than reusing `QuotaIndicator`'s "5h" / "Week". Those
-    /// are sized for a menu bar row a few points wide; a card has the room to say
-    /// what it means, and a label that reads as a sentence fragment is what makes
-    /// two stacked windows legible as two windows.
+    /// Spelled out rather than reusing the menu bar's "5h" / "Week". Those are
+    /// sized for a row a few points wide; a card has the room to say what it
+    /// means. Both readings are `RateWindowKind`'s own, named `shortName` and
+    /// `longName` so the difference between them is visible at each call site
+    /// and neither can be renamed without the other in view.
     static func quotaWindowLabel(for kind: RateWindowKind) -> String {
-        switch kind {
-        case .rollingFiveHours: "5-hour"
-        case .weekly: "Weekly"
-        case .billingCycle: "Billing cycle"
-        }
+        kind.longName
     }
 
     // MARK: - Wording
