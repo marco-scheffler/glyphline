@@ -52,7 +52,24 @@ final class AccountAttentionTests: XCTestCase {
         )
     }
 
-    private func group(_ account: Account, message: String?) -> QuotaBarGroup {
+    /// A quota group as the coordinator builds one: a failure carries both its
+    /// code and its message, and a non-failure carries neither.
+    private func group(
+        _ account: Account,
+        failure: RateWindowSourceError?
+    ) -> QuotaBarGroup {
+        QuotaBarGroup(
+            id: account.id,
+            displayName: account.displayName,
+            message: failure?.message,
+            failureCode: failure?.code,
+            rows: []
+        )
+    }
+
+    /// A group whose message is not one of the app's failures — the panel's own
+    /// "No quota reported yet.", say. No code, so nothing to act on.
+    private func codelessGroup(_ account: Account, message: String?) -> QuotaBarGroup {
         QuotaBarGroup(id: account.id, displayName: account.displayName, message: message, rows: [])
     }
 
@@ -64,8 +81,8 @@ final class AccountAttentionTests: XCTestCase {
         let attention = DashboardPresentation.accountsNeedingAttention(
             summaries: [summary(expired), summary(rejected)],
             quotaGroups: [
-                group(expired, message: RateWindowSourceError.sessionExpired.message),
-                group(rejected, message: RateWindowSourceError.credentialRejected(statusCode: 403).message),
+                group(expired, failure: .sessionExpired),
+                group(rejected, failure: .credentialRejected(statusCode: 403)),
             ]
         )
 
@@ -83,23 +100,31 @@ final class AccountAttentionTests: XCTestCase {
     func testTheReasonsNobodyCanActOnDoNotAskForAttention() {
         let quiet = account("Quiet")
 
-        for message in [
-            RateWindowSourceError.notAvailable.message,
-            RateWindowSourceError.notConfigured.message,
-            RateWindowSourceError.transportFailure.message,
-            RateWindowSourceError.unreadablePage.message,
-            RateWindowSourceError.unexpectedResponseShape.message,
-            QuotaIndicator.noQuotaReportedMessage,
+        for failure: RateWindowSourceError in [
+            .notAvailable,
+            .notConfigured,
+            .transportFailure,
+            .unreadablePage,
+            .unexpectedResponseShape,
         ] {
             XCTAssertEqual(
                 DashboardPresentation.accountsNeedingAttention(
                     summaries: [summary(quiet)],
-                    quotaGroups: [group(quiet, message: message)]
+                    quotaGroups: [group(quiet, failure: failure)]
                 ).count,
                 0,
-                "\(message) is not something the user is being asked to fix"
+                "\(failure.code) is not something the user is being asked to fix"
             )
         }
+
+        // A message that is not a failure at all reaches the same place.
+        XCTAssertEqual(
+            DashboardPresentation.accountsNeedingAttention(
+                summaries: [summary(quiet)],
+                quotaGroups: [codelessGroup(quiet, message: QuotaIndicator.noQuotaReportedMessage)]
+            ).count,
+            0
+        )
     }
 
     /// A failed sync run is the other way an account is broken, and it is the one
@@ -109,7 +134,7 @@ final class AccountAttentionTests: XCTestCase {
 
         let attention = DashboardPresentation.accountsNeedingAttention(
             summaries: [summary(failing, syncStatus: .failed, syncMessage: "Ledger write refused.")],
-            quotaGroups: [group(failing, message: nil)]
+            quotaGroups: [group(failing, failure: nil)]
         )
 
         XCTAssertEqual(attention.map(\.reason), ["Ledger write refused."])
@@ -138,7 +163,7 @@ final class AccountAttentionTests: XCTestCase {
                     summary(fine, syncStatus: .running),
                     summary(fine),
                 ],
-                quotaGroups: [group(fine, message: nil)]
+                quotaGroups: [group(fine, failure: nil)]
             ).isEmpty
         )
     }
@@ -150,7 +175,7 @@ final class AccountAttentionTests: XCTestCase {
 
         let attention = DashboardPresentation.accountsNeedingAttention(
             summaries: [summary(broken, syncStatus: .failed, syncMessage: "Sync failed.")],
-            quotaGroups: [group(broken, message: RateWindowSourceError.sessionExpired.message)]
+            quotaGroups: [group(broken, failure: .sessionExpired)]
         )
 
         XCTAssertEqual(attention.map(\.reason), [RateWindowSourceError.sessionExpired.message])
@@ -164,9 +189,89 @@ final class AccountAttentionTests: XCTestCase {
         XCTAssertTrue(
             DashboardPresentation.accountsNeedingAttention(
                 summaries: [summary(off, syncStatus: .failed, syncMessage: "Sync failed.")],
-                quotaGroups: [group(off, message: RateWindowSourceError.sessionExpired.message)]
+                quotaGroups: [group(off, failure: .sessionExpired)]
             ).isEmpty
         )
+    }
+
+    /// The banner is keyed on identity, not on wording.
+    ///
+    /// Localising the reason changes every one of these strings. If the
+    /// membership test read the message, this is where the banner would go
+    /// silent in every language but English — so the assertion is run against a
+    /// message that is deliberately not the app's own.
+    func testTranslatingTheReasonDoesNotChangeWhoNeedsAttention() {
+        for failure: RateWindowSourceError in [.sessionExpired, .credentialRejected(statusCode: 401)] {
+            let broken = account("Broken")
+            let translated = "Deine Claude-Anmeldung ist abgelaufen."
+            let attention = DashboardPresentation.accountsNeedingAttention(
+                summaries: [summary(broken)],
+                quotaGroups: [
+                    QuotaBarGroup(
+                        id: broken.id,
+                        displayName: broken.displayName,
+                        message: translated,
+                        failureCode: failure.code,
+                        rows: []
+                    ),
+                ]
+            )
+
+            XCTAssertEqual(
+                attention.map(\.reason),
+                [translated],
+                "\(failure.code) must reach the banner whatever language its message is in"
+            )
+        }
+    }
+
+    /// Every failure the app can produce is classified one way or the other, and
+    /// exactly the two actionable ones reach the banner. A case added later
+    /// without a decision about it fails here rather than defaulting silently.
+    func testEveryFailureCodeIsClassifiedAndOnlyTwoAreActionable() {
+        let errors: [RateWindowSourceError] = [
+            .notConfigured,
+            .notAvailable,
+            .credentialRejected(statusCode: 403),
+            .transportFailure,
+            .unreadablePage,
+            .unexpectedResponseShape,
+            .sessionExpired,
+        ]
+
+        XCTAssertEqual(Set(errors.map(\.code)), Set(RateWindowFailureCode.allCases))
+
+        for error in errors {
+            let one = account("One")
+            let asked = !DashboardPresentation.accountsNeedingAttention(
+                summaries: [summary(one)],
+                quotaGroups: [group(one, failure: error)]
+            ).isEmpty
+
+            XCTAssertEqual(
+                asked,
+                error.code.isUserActionable,
+                "\(error.code) reaches the banner exactly when it is actionable"
+            )
+        }
+
+        XCTAssertEqual(RateWindowFailureCode.userActionable, [.sessionExpired, .credentialRejected])
+    }
+
+    /// The status code is not part of the identity: 401 and 403 mean the same
+    /// thing to the user, and both have to reach the banner.
+    func testEveryRejectionStatusCodeReachesTheBanner() {
+        for status in [401, 403] {
+            let rejected = account("Rejected")
+            XCTAssertEqual(
+                DashboardPresentation.accountsNeedingAttention(
+                    summaries: [summary(rejected)],
+                    quotaGroups: [group(rejected, failure: .credentialRejected(statusCode: status))]
+                ).count,
+                1,
+                "\(status) is a rejected credential"
+            )
+        }
     }
 
     /// The headline is a count, and one account is not "1 accounts".

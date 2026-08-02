@@ -38,6 +38,12 @@ final class SyncCoordinator: ObservableObject {
     /// Per-account reason why quota is not being shown. Cleared on a good fetch.
     @Published private(set) var rateWindowMessages: [UUID: String] = [:]
 
+    /// The failure behind each entry in `rateWindowMessages`, where one failed.
+    ///
+    /// Kept beside the message rather than recovered from it: the message is
+    /// translated, so it cannot identify anything.
+    @Published private(set) var rateWindowFailureCodes: [UUID: RateWindowFailureCode] = [:]
+
     /// Accounts currently being fetched, so an on-demand refresh cannot double up
     /// with a scheduled one.
     private var rateWindowFetchesInFlight: Set<UUID> = []
@@ -381,6 +387,7 @@ final class SyncCoordinator: ObservableObject {
                 // quota for these subscriptions, so inviting the user to set one up
                 // would send them after something that does not exist.
                 rateWindowMessages[account.id] = RateWindowSourceError.notAvailable.message
+                rateWindowFailureCodes[account.id] = RateWindowSourceError.notAvailable.code
                 continue
             }
 
@@ -390,8 +397,10 @@ final class SyncCoordinator: ObservableObject {
 
                 if result.dataQuality == .unavailable {
                     let message = result.message ?? RateWindowSourceError.notAvailable.message
+                    let code = result.failureCode ?? RateWindowSourceError.notAvailable.code
                     rateWindowMessages[account.id] = message
-                    await noteQuotaFailure(message: message, account: account)
+                    rateWindowFailureCodes[account.id] = code
+                    await noteQuotaFailure(code: code, account: account)
                     continue
                 }
 
@@ -400,6 +409,7 @@ final class SyncCoordinator: ObservableObject {
                 // the message is carried through rather than cleared. Nil stays
                 // nil, which is the ordinary case.
                 rateWindowMessages[account.id] = result.message
+                rateWindowFailureCodes[account.id] = result.failureCode
                 // The fetch worked, so the next expiry is a fresh transition.
                 sessionExpiryNotified.remove(account.id)
                 for window in result.windows {
@@ -414,9 +424,11 @@ final class SyncCoordinator: ObservableObject {
                 }
             } catch let error as RateWindowSourceError {
                 rateWindowMessages[account.id] = error.message
-                await noteQuotaFailure(message: error.message, account: account)
+                rateWindowFailureCodes[account.id] = error.code
+                await noteQuotaFailure(code: error.code, account: account)
             } catch {
                 rateWindowMessages[account.id] = RateWindowSourceError.transportFailure.message
+                rateWindowFailureCodes[account.id] = RateWindowSourceError.transportFailure.code
             }
         }
 
@@ -443,7 +455,8 @@ final class SyncCoordinator: ObservableObject {
                     windows: latest.map {
                         QuotaWindowState(window: $0, confirmedAt: confirmations[$0.kind])
                     },
-                    message: rateWindowMessages[account.id]
+                    message: rateWindowMessages[account.id],
+                    failureCode: rateWindowFailureCodes[account.id]
                 )
             }
 
@@ -459,10 +472,11 @@ final class SyncCoordinator: ObservableObject {
     /// alone, so a blip in the middle of an expiry does not re-arm and re-announce
     /// a session the user has already been told about.
     ///
-    /// The message is compared against the app's own constant. Nothing from a
-    /// response body ever reaches this comparison, or the notification.
-    private func noteQuotaFailure(message: String, account: Account) async {
-        guard message == RateWindowSourceError.sessionExpired.message,
+    /// Decided on the failure's code, not on its wording: the message is shown
+    /// to the user and therefore translated, and a notification that only fired
+    /// in English would be worse than none.
+    private func noteQuotaFailure(code: RateWindowFailureCode, account: Account) async {
+        guard code == .sessionExpired,
               !sessionExpiryNotified.contains(account.id)
         else {
             return
@@ -486,6 +500,7 @@ final class SyncCoordinator: ObservableObject {
     /// Called after the account is deleted.
     func forgetAccount(id accountID: UUID) {
         rateWindowMessages[accountID] = nil
+        rateWindowFailureCodes[accountID] = nil
         rateWindowConfirmations[accountID] = nil
         // Defence in depth, and provably a no-op today: the in-flight marker is
         // inserted and removed within one iteration of `collectRateWindows` via

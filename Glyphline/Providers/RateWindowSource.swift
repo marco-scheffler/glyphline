@@ -4,6 +4,55 @@ struct RateWindowResult: Codable, Equatable, Sendable {
     var windows: [RateWindow]
     var dataQuality: DataQuality
     var message: String?
+    /// Which failure produced `message`, when a failure produced it.
+    ///
+    /// Carried beside the message rather than derived from it: the message is
+    /// shown to the user and therefore translated, so it cannot also be the
+    /// thing the app recognises the failure by.
+    var failureCode: RateWindowFailureCode?
+
+    init(
+        windows: [RateWindow],
+        dataQuality: DataQuality,
+        message: String? = nil,
+        failureCode: RateWindowFailureCode? = nil
+    ) {
+        self.windows = windows
+        self.dataQuality = dataQuality
+        self.message = message
+        self.failureCode = failureCode
+    }
+}
+
+/// A failure's identity, stable across languages.
+///
+/// Exists so that "is this something the user can fix?" is decided by a value
+/// the app controls rather than by the wording of a sentence. The strings are
+/// stable because they are persisted in `RateWindowResult` and compared, never
+/// shown.
+enum RateWindowFailureCode: String, Codable, Equatable, Sendable, CaseIterable {
+    case notConfigured
+    case notAvailable
+    case credentialRejected
+    case transportFailure
+    case unreadablePage
+    case unexpectedResponseShape
+    case sessionExpired
+
+    /// The failures that mean the user has something to do.
+    ///
+    /// Only these two. `notAvailable` is a permanent fact about a subscription
+    /// and `notConfigured` a route nobody has asked for, so neither is a task —
+    /// and the transient three would put a banner on the dashboard for a Wi-Fi
+    /// blip, which is how a banner becomes something people stop reading.
+    static let userActionable: Set<RateWindowFailureCode> = [
+        .sessionExpired,
+        .credentialRejected,
+    ]
+
+    var isUserActionable: Bool {
+        Self.userActionable.contains(self)
+    }
 }
 
 /// A source of quota windows for one account.
@@ -52,40 +101,60 @@ enum RateWindowSourceError: Error, Equatable, Sendable {
     /// no stored token to replace — the user signs in again in a browser.
     case sessionExpired
 
-    var message: String {
+    /// What the app recognises this failure by. Never shown, never translated.
+    ///
+    /// The status code is deliberately not part of it: every code that produces
+    /// `credentialRejected` means the same thing to the user.
+    var code: RateWindowFailureCode {
         switch self {
-        case .notConfigured:
-            "No quota source is set up for this subscription."
-        case .notAvailable:
-            "Quota reporting is not available for this subscription."
-        case .credentialRejected:
-            "The stored quota token was rejected. Re-authorise this subscription."
-        case .transportFailure:
-            "Could not reach the provider. This is usually temporary."
-        case .unreadablePage:
-            "Could not read the page claude.ai returned. This is usually temporary."
-        case .unexpectedResponseShape:
-            "claude.ai did not return the expected data. If you are signing in, make sure you are fully signed in before continuing."
-        case .sessionExpired:
-            "Your Claude sign-in has expired. Sign in again."
+        case .notConfigured: .notConfigured
+        case .notAvailable: .notAvailable
+        case .credentialRejected: .credentialRejected
+        case .transportFailure: .transportFailure
+        case .unreadablePage: .unreadablePage
+        case .unexpectedResponseShape: .unexpectedResponseShape
+        case .sessionExpired: .sessionExpired
         }
     }
 
-    /// The messages that mean the user has something to do.
-    ///
-    /// Only these two. `notAvailable` is a permanent fact about a subscription
-    /// and `notConfigured` a route nobody has asked for, so neither is a task —
-    /// and the transient three would put a banner on the dashboard for a Wi-Fi
-    /// blip, which is how a banner becomes something people stop reading.
-    ///
-    /// Matched by message rather than by case because that is what survives the
-    /// trip to a view: the coordinator stores a reason string per account, and
-    /// `noteQuotaFailure` already compares against these same constants. Nothing
-    /// from a response body ever reaches this set.
-    static let userActionableMessages: Set<String> = [
-        RateWindowSourceError.sessionExpired.message,
-        // The status code is not part of the message, so any of the codes that
-        // produce this case produce this string.
-        RateWindowSourceError.credentialRejected(statusCode: 401).message,
-    ]
+    /// What the user is told. Translated, and therefore never compared against.
+    var message: String {
+        switch self {
+        case .notConfigured:
+            String(
+                localized: "No quota source is set up for this subscription.",
+                comment: "Quota failure reason: a route to quota exists for this provider, but this account has none."
+            )
+        case .notAvailable:
+            String(
+                localized: "Quota reporting is not available for this subscription.",
+                comment: "Quota failure reason: no route to quota exists for this subscription at all."
+            )
+        case .credentialRejected:
+            String(
+                localized: "The stored quota token was rejected. Re-authorise this subscription.",
+                comment: "Quota failure reason: the provider answered 401 or 403 to the stored token."
+            )
+        case .transportFailure:
+            String(
+                localized: "Could not reach the provider. This is usually temporary.",
+                comment: "Quota failure reason: the provider was unreachable."
+            )
+        case .unreadablePage:
+            String(
+                localized: "Could not read the page claude.ai returned. This is usually temporary.",
+                comment: "Quota failure reason: the page body never came back as text. claude.ai is a host name, keep it."
+            )
+        case .unexpectedResponseShape:
+            String(
+                localized: "claude.ai did not return the expected data. If you are signing in, make sure you are fully signed in before continuing.",
+                comment: "Quota failure reason: the page was read but was not the expected shape. claude.ai is a host name, keep it."
+            )
+        case .sessionExpired:
+            String(
+                localized: "Your Claude sign-in has expired. Sign in again.",
+                comment: "Quota failure reason: the web session is no longer valid and there is no stored token to replace."
+            )
+        }
+    }
 }

@@ -81,6 +81,23 @@ struct QuotaAccountState: Equatable, Sendable {
     var displayName: String
     var windows: [QuotaWindowState]
     var message: String?
+    /// Which failure `message` states, when it states one. Nil when the message
+    /// is not a failure, or when there is no message at all.
+    var failureCode: RateWindowFailureCode?
+
+    init(
+        accountID: UUID,
+        displayName: String,
+        windows: [QuotaWindowState],
+        message: String? = nil,
+        failureCode: RateWindowFailureCode? = nil
+    ) {
+        self.accountID = accountID
+        self.displayName = displayName
+        self.windows = windows
+        self.message = message
+        self.failureCode = failureCode
+    }
 }
 
 /// One account's block in the menu, with the freshness bound already applied.
@@ -131,6 +148,24 @@ struct QuotaBarGroup: Identifiable, Equatable, Sendable {
     var displayName: String
     var message: String?
     var rows: [QuotaBarRow]
+    /// Which failure `message` states, when it states one. Carried through from
+    /// the source so the dashboard can decide whether the user has something to
+    /// do without reading a translated sentence.
+    var failureCode: RateWindowFailureCode?
+
+    init(
+        id: UUID,
+        displayName: String,
+        message: String? = nil,
+        failureCode: RateWindowFailureCode? = nil,
+        rows: [QuotaBarRow]
+    ) {
+        self.id = id
+        self.displayName = displayName
+        self.message = message
+        self.rows = rows
+        self.failureCode = failureCode
+    }
 
     /// True when the group would render its account heading over nothing at all.
     ///
@@ -566,6 +601,7 @@ enum QuotaIndicator {
                 id: state.accountID,
                 displayName: state.displayName,
                 message: state.message,
+                failureCode: state.failureCode,
                 rows: state.windows.map { windowState in
                     let (label, verb) = labelAndVerb(for: windowState.window.kind)
                     let asOf = isFresh(windowState, now: now, freshness: freshness)

@@ -534,6 +534,22 @@ final class SyncCoordinatorTests: XCTestCase {
         XCTAssertEqual(notifier.sentNames, ["Max #1"])
     }
 
+    /// The expiry notification is decided on the failure's code, not on its
+    /// wording. Comparing the message would mean a user running the app in any
+    /// language but English is never told their sign-in expired.
+    func testAnExpiredSessionNotifiesWhateverLanguageItsMessageIsIn() async throws {
+        let notifier = RecordingQuotaNotifier()
+        let coordinator = try makeExpiringCoordinator(
+            source: SwitchableQuotaSource(behaviour: .expiredInAnotherLanguage),
+            notifier: notifier
+        )
+
+        await coordinator.collectRateWindows()
+
+        XCTAssertEqual(notifier.sentCount, 1)
+        XCTAssertEqual(notifier.sentNames, ["Max #1"])
+    }
+
     func testASuccessfulFetchRearmsTheNotification() async throws {
         let notifier = RecordingQuotaNotifier()
         let source = SwitchableQuotaSource(behaviour: .expired)
@@ -811,6 +827,9 @@ final class RecordingQuotaNotifier: QuotaNotifier {
 final class SwitchableQuotaSource: RateWindowSource {
     enum Behaviour {
         case expired
+        /// An expired session whose message is in another language, as it will be
+        /// once the reason is translated. Same code, different words.
+        case expiredInAnotherLanguage
         case transportFailure
         case healthy
     }
@@ -827,12 +846,20 @@ final class SwitchableQuotaSource: RateWindowSource {
             case .expired:
                 return RateWindowResult(
                     windows: [], dataQuality: .unavailable,
-                    message: RateWindowSourceError.sessionExpired.message
+                    message: RateWindowSourceError.sessionExpired.message,
+                    failureCode: RateWindowSourceError.sessionExpired.code
+                )
+            case .expiredInAnotherLanguage:
+                return RateWindowResult(
+                    windows: [], dataQuality: .unavailable,
+                    message: "Deine Claude-Anmeldung ist abgelaufen.",
+                    failureCode: RateWindowSourceError.sessionExpired.code
                 )
             case .transportFailure:
                 return RateWindowResult(
                     windows: [], dataQuality: .unavailable,
-                    message: RateWindowSourceError.transportFailure.message
+                    message: RateWindowSourceError.transportFailure.message,
+                    failureCode: RateWindowSourceError.transportFailure.code
                 )
             case .healthy:
                 return RateWindowResult(

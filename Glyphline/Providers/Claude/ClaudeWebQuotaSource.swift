@@ -108,8 +108,14 @@ struct ClaudeWebQuotaSource: RateWindowSource {
     }
 
     /// Messages come from `RateWindowSourceError` and nowhere else, so no part of
-    /// a response body can reach one.
+    /// a response body can reach one. The code travels with the message because
+    /// the message is translated and cannot be recognised downstream.
     private static func unavailable(_ error: RateWindowSourceError) -> RateWindowResult {
-        RateWindowResult(windows: [], dataQuality: .unavailable, message: error.message)
+        RateWindowResult(
+            windows: [],
+            dataQuality: .unavailable,
+            message: error.message,
+            failureCode: error.code
+        )
     }
 }

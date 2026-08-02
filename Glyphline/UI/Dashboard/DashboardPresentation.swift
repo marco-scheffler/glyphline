@@ -215,8 +215,11 @@ enum DashboardPresentation {
     /// failure mechanism here. `QuotaBarGroup.message` is the reason the sync
     /// coordinator stores per account when a quota fetch fails — the same string
     /// the menu bar panel and the accounts list already show — and only the two
-    /// of those the user can actually fix count as attention. The other input is
-    /// the account's own last sync run, which carries the provider's message.
+    /// of those the user can actually fix count as attention. *Which* two is
+    /// decided by `QuotaBarGroup.failureCode` and never by the wording of the
+    /// message: the message is translated, so a membership test on it would put
+    /// the banner in English only. The other input is the account's own last
+    /// sync run, which carries the provider's message.
     ///
     /// A quota reason wins over a failed run for the same account: an expired
     /// sign-in is why the run failed, and naming the cause beats naming the
@@ -228,16 +231,21 @@ enum DashboardPresentation {
         summaries: [AccountUsageSummary],
         quotaGroups: [QuotaBarGroup]
     ) -> [AccountAttention] {
-        let quotaReasons = Dictionary(
-            quotaGroups.map { ($0.id, $0.message) },
+        let quotaFailures = Dictionary(
+            quotaGroups.map { ($0.id, (code: $0.failureCode, message: $0.message)) },
             uniquingKeysWith: { first, _ in first }
         )
 
         return summaries.compactMap { summary in
             guard summary.account.isEnabled else { return nil }
 
-            if let reason = quotaReasons[summary.account.id] ?? nil,
-               RateWindowSourceError.userActionableMessages.contains(reason) {
+            // The message is what the row says; the code is what decides it says
+            // anything. A failure without a message has nothing to put in the
+            // row, so it falls through to the sync run rather than showing a
+            // named account over a blank reason.
+            if let failure = quotaFailures[summary.account.id],
+               let code = failure.code, code.isUserActionable,
+               let reason = failure.message {
                 return AccountAttention(
                     id: summary.account.id,
                     accountName: summary.account.resolvedName,
