@@ -11,6 +11,14 @@
        identifier plus the code signature — has nothing stable to bind to. -->
   <key>CFBundleIdentifier</key>
   <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+  <!-- Which localisation the bundle falls back to when the reader's Mac is set
+       to a language this app does not carry. Without the key CFBundle picks
+       whichever .lproj it happens to find first, so a Korean Mac could land on
+       French — a wrong language chosen at random reads as a broken app, where
+       the development language reads as "not translated yet". Wired to the
+       build setting for the same reason the bundle identifier is. -->
+  <key>CFBundleDevelopmentRegion</key>
+  <string>$(DEVELOPMENT_LANGUAGE)</string>
   <key>CFBundleExecutable</key>
   <string>$(EXECUTABLE_NAME)</string>
   <key>CFBundleName</key>
