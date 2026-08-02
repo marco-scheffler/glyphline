@@ -254,6 +254,59 @@ final class DashboardPresentationTests: XCTestCase {
         XCTAssertEqual(slices.map(\.model), [DashboardPresentation.unknownModelLabel])
     }
 
+    // MARK: - Naming a day
+
+    /// A timezone far enough west that a UTC midnight is still the previous
+    /// afternoon there — the case the panel used to get wrong.
+    private var losAngeles: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "America/Los_Angeles")!
+        return calendar
+    }
+
+    /// Every day in this pipeline is a UTC midnight, so its name has to be read
+    /// off the UTC calendar too.
+    ///
+    /// Would catch: the panel's old `entry.day.formatted(.dateTime…)`, which
+    /// takes the *current* timezone and ignores the one it is handed. Under that
+    /// code both calls below return the same string and the inequality fails —
+    /// in Berlin as well as in Los Angeles, which is the point: a fixture that
+    /// only discriminates where the machine happens to stand is no fixture.
+    func testADayIsNamedInUTCRatherThanLocally() {
+        let midnight = day("2026-03-15T00:00:00Z")
+
+        XCTAssertEqual(DashboardPresentation.dayTitle(of: midnight),
+                       DashboardPresentation.dayTitle(of: midnight, calendar: calendar))
+        XCTAssertNotEqual(DashboardPresentation.dayTitle(of: midnight, calendar: losAngeles),
+                          DashboardPresentation.dayTitle(of: midnight, calendar: calendar))
+    }
+
+    /// And it is wrong by exactly one day, which is what makes the fixture a
+    /// discriminating one rather than merely a differing one: read locally in
+    /// Los Angeles, this instant names the *day before* the day it stands for.
+    func testReadLocallyAWesternMachineNamesThePreviousDay() {
+        let midnight = day("2026-03-15T00:00:00Z")
+        let dayBefore = day("2026-03-14T00:00:00Z")
+
+        XCTAssertEqual(DashboardPresentation.dayTitle(of: midnight, calendar: losAngeles),
+                       DashboardPresentation.dayTitle(of: dayBefore, calendar: calendar))
+    }
+
+    /// The axis labels bar centres, not day starts, so it survived a local
+    /// formatter almost everywhere — and stopped at UTC+12, where noon UTC is
+    /// already tomorrow. Would catch the axis label going back to a formatter
+    /// that ignores the calendar: both calls would then agree.
+    func testTheAxisLabelIsAlsoReadInUTC() {
+        let centre = DashboardPresentation.barCentre(of: day("2026-03-15T00:00:00Z"))
+        var auckland = Calendar(identifier: .gregorian)
+        auckland.timeZone = TimeZone(identifier: "Pacific/Auckland")!
+
+        XCTAssertEqual(DashboardPresentation.axisDayLabel(of: centre),
+                       DashboardPresentation.axisDayLabel(of: centre, calendar: calendar))
+        XCTAssertNotEqual(DashboardPresentation.axisDayLabel(of: centre, calendar: auckland),
+                          DashboardPresentation.axisDayLabel(of: centre, calendar: calendar))
+    }
+
     // MARK: - Naming a window inside its account's card
 
     /// The card header names the account; the rows inside only have to name

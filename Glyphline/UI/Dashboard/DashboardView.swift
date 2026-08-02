@@ -729,7 +729,7 @@ private struct DailyUsageChart: View {
             AxisMarks(values: Self.axisMarks(for: entries)) { value in
                 AxisGridLine()
                 if let day = value.as(Date.self) {
-                    AxisValueLabel(day.formatted(.dateTime.day().month(.abbreviated)))
+                    AxisValueLabel(DashboardPresentation.axisDayLabel(of: day))
                 }
             }
         }
@@ -844,7 +844,7 @@ private struct DayDetailPanel: View {
 
     private func head(_ entry: DailyUsageEntry) -> some View {
         HStack(alignment: .firstTextBaseline) {
-            Text(entry.day.formatted(.dateTime.weekday(.wide).day().month(.wide)))
+            Text(DashboardPresentation.dayTitle(of: entry.day))
                 .font(.callout.weight(.semibold))
             if isToday {
                 Text("today")
