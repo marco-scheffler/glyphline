@@ -9,3 +9,7 @@ tools/agentverse/.cache/
 tools/agentverse/check.js
 tools/agentverse/agentverse-*.html
 shots/
+
+# Specs und Pläne bleiben lokal — sie tragen lokale Pfade und die
+# Entstehungsgeschichte, die niemanden außerhalb dieses Rechners angeht.
+docs/superpowers/
