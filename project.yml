@@ -2,7 +2,7 @@ name: Glyphline
 options:
   minimumXcodeGenVersion: 2.42.0
   deploymentTarget:
-    macOS: "14.0"
+    macOS: "26.0"
 packages:
   GRDB:
     url: https://github.com/groue/GRDB.swift.git
@@ -11,7 +11,7 @@ targets:
   Glyphline:
     type: application
     platform: macOS
-    deploymentTarget: "14.0"
+    deploymentTarget: "26.0"
     sources:
       - Glyphline
     resources:
@@ -36,7 +36,7 @@ targets:
   GlyphlineTests:
     type: bundle.unit-test
     platform: macOS
-    deploymentTarget: "14.0"
+    deploymentTarget: "26.0"
     sources:
       - GlyphlineTests
     resources:
