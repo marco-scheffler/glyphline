@@ -286,10 +286,10 @@ private struct DashboardOverview: View {
     /// cost two cards, so five accounts meant ten. Halving that is the whole
     /// point of the shape.
     ///
-    /// The cards tile into an adaptive grid rather than a single column. Two
-    /// accounts sit side by side in the pane's width and five wrap to as many
-    /// rows as the width allows, so growing the account count costs height only
-    /// once the horizontal room is actually used up.
+    /// The cards tile into a grid that fills the row rather than a single
+    /// column. Two accounts sit side by side in the pane's width and five wrap
+    /// to as many rows as the width allows, so growing the account count costs
+    /// height only once the horizontal room is actually used up.
     @ViewBuilder private var quotaBlocks: some View {
         if accountSummaries.isEmpty {
             EmptyStateBox(
@@ -297,26 +297,19 @@ private struct DashboardOverview: View {
                     ?? "No accounts saved yet, so there is no quota to show. Add one under Accounts."
             )
         } else {
-            LazyVGrid(
-                columns: [GridItem(.adaptive(minimum: 300), spacing: 14, alignment: .top)],
-                alignment: .leading,
-                spacing: 14
-            ) {
-                ForEach(accountSummaries) { summary in
-                    quotaBlock(for: summary)
-                }
-            }
+            AccountQuotaGrid(accounts: accountSummaries.map(quotaBlock(for:)))
         }
     }
 
-    private func quotaBlock(for summary: AccountUsageSummary) -> some View {
+    private func quotaBlock(for summary: AccountUsageSummary) -> AccountQuotaCardModel {
         // Matched by account id, never by position: this list and the quota
         // states are ordered independently, and attributing one subscription's
         // quota to another is the failure this app works hardest to avoid.
         let state = coordinator.quotaStates.first { $0.accountID == summary.account.id }
 
         guard let state else {
-            return AccountQuotaCard(
+            return AccountQuotaCardModel(
+                id: summary.account.id,
                 accountName: summary.account.displayName,
                 providerName: summary.account.providerID.displayName,
                 cards: [],
@@ -325,7 +318,8 @@ private struct DashboardOverview: View {
         }
 
         let cards = state.windows.compactMap { QuotaCardModel.make(for: $0.window, now: Date()) }
-        return AccountQuotaCard(
+        return AccountQuotaCardModel(
+            id: summary.account.id,
             accountName: summary.account.displayName,
             providerName: summary.account.providerID.displayName,
             cards: state.message == nil ? cards : [],
@@ -812,14 +806,97 @@ private struct ProportionBar: View {
 /// cannot be built without it. That is what keeps an account unambiguous now
 /// that the window rows no longer repeat it — the compiler, rather than a
 /// convention each call site has to remember.
-private struct AccountQuotaCard: View {
-    let accountName: String
-    let providerName: String
-    let cards: [QuotaCardModel]
+struct AccountQuotaCardModel: Identifiable, Equatable {
+    var id: UUID
+    var accountName: String
+    var providerName: String
+    var cards: [QuotaCardModel]
     /// Why there are no windows to draw, when there are none. Rendered inside
     /// the card rather than in place of it: an account that reports nothing is
     /// still an account, and dropping its card would make it look unconfigured.
-    let message: String?
+    var message: String?
+}
+
+/// The account cards, filling the row and sharing its width evenly.
+///
+/// A `LazyVGrid` of adaptive columns stood here. It reflows, but its cells size
+/// themselves, so three accounts with unequal amounts to say came out ragged —
+/// and a spent weekly window renders a different number of lines from one at
+/// 100 %, so ragged was the normal case rather than the unlucky one.
+///
+/// This is instead the same shape the summary tiles use: a row is an `HStack` of
+/// cards that each claim `maxWidth: .infinity` (even widths) and
+/// `maxHeight: .infinity` (the row's height, so the shortest card's glass still
+/// reaches the bottom edge), fixed on the vertical axis because the enclosing
+/// `ScrollView` proposes nil height and an unbounded `maxHeight` would otherwise
+/// have nothing finite to fill.
+///
+/// `ViewThatFits` picks how many columns the pane can carry: each candidate row
+/// is as many cards wide as it says, and a card will not go below
+/// `minimumCardWidth`, so the widest candidate that still fits wins. That is
+/// what makes the layout answer both questions at once — a narrower window and
+/// a fourth account reflow by the same rule.
+struct AccountQuotaGrid: View {
+    let accounts: [AccountQuotaCardModel]
+
+    /// Below this a card's headroom figure and its pace sentence stop fitting on
+    /// their own lines. It is the same 300 the adaptive grid used.
+    static let minimumCardWidth: CGFloat = 300
+    static let spacing: CGFloat = 14
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            ForEach(Self.columnCandidates(accountCount: accounts.count), id: \.self) { columns in
+                grid(columns: columns)
+            }
+        }
+    }
+
+    /// The column counts to try, widest first: never more columns than there are
+    /// accounts, and never fewer than one — a single column always "fits",
+    /// because `ViewThatFits` falls back to its last candidate regardless.
+    static func columnCandidates(accountCount: Int) -> [Int] {
+        guard accountCount > 1 else { return [1] }
+        return Array((1...accountCount).reversed())
+    }
+
+    /// The accounts split into rows of at most `columns`.
+    static func rows(of accounts: [AccountQuotaCardModel], columns: Int) -> [[AccountQuotaCardModel]] {
+        let width = max(columns, 1)
+        return stride(from: 0, to: accounts.count, by: width).map {
+            Array(accounts[$0..<min($0 + width, accounts.count)])
+        }
+    }
+
+    private func grid(columns: Int) -> some View {
+        VStack(spacing: Self.spacing) {
+            ForEach(Self.rows(of: accounts, columns: columns), id: \.first?.id) { row in
+                HStack(alignment: .top, spacing: Self.spacing) {
+                    ForEach(row) { account in
+                        AccountQuotaCard(model: account)
+                    }
+                    // A short last row keeps the column widths of the rows above
+                    // it instead of stretching two cards across three columns.
+                    if row.count < columns {
+                        ForEach(0..<(columns - row.count), id: \.self) { _ in
+                            Color.clear.frame(maxWidth: .infinity, maxHeight: 0)
+                        }
+                    }
+                }
+                .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+}
+
+struct AccountQuotaCard: View {
+    let model: AccountQuotaCardModel
+
+    private var accountName: String { model.accountName }
+    private var providerName: String { model.providerName }
+    private var cards: [QuotaCardModel] { model.cards }
+    private var message: String? { model.message }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -843,8 +920,18 @@ private struct AccountQuotaCard: View {
                     QuotaWindowRow(card: card)
                 }
             }
+
+            // The slack from equalising a row's heights goes below the content,
+            // as it does in the summary tiles: an account with one window keeps
+            // its figures on the same lines as the account beside it with two.
+            Spacer(minLength: 0)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(
+            minWidth: AccountQuotaGrid.minimumCardWidth,
+            maxWidth: .infinity,
+            maxHeight: .infinity,
+            alignment: .topLeading
+        )
         .padding(16)
         .glassCard()
     }

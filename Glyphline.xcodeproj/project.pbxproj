@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		006CDCCCDC2821B7F6F58864 /* AccountQuotaGridTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 617EF38646F5BA34DC3F3BBA /* AccountQuotaGridTests.swift */; };
 		017DFB509A44E6251A8B0684 /* AgentverseWindowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8753659B8C311D8F1103166 /* AgentverseWindowTests.swift */; };
 		02E55AFA00BD9CCB7061CBD2 /* DatabaseQueueFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9430FC958CF84944A796120 /* DatabaseQueueFactory.swift */; };
 		040125B0318A3CB8CF66A313 /* timezone-places.json in Resources */ = {isa = PBXBuildFile; fileRef = F7E41CF08357DEC111ECE205 /* timezone-places.json */; };
@@ -201,6 +202,7 @@
 		590AB7BB7B2B0704E4EF7C23 /* SceneLight.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneLight.swift; sourceTree = "<group>"; };
 		5925F83C461A2E9765557F05 /* Glyphline.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Glyphline.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		6038A4E395A2847039481F0D /* UsageModelsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageModelsTests.swift; sourceTree = "<group>"; };
+		617EF38646F5BA34DC3F3BBA /* AccountQuotaGridTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountQuotaGridTests.swift; sourceTree = "<group>"; };
 		62C5666D45C5D74DC69F722E /* SyncCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncCoordinatorTests.swift; sourceTree = "<group>"; };
 		638A38B8627A7BD8E24BA8C6 /* DatastreamSceneTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatastreamSceneTests.swift; sourceTree = "<group>"; };
 		64891BE57A59E15EEFF1CD5F /* AppActivationController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppActivationController.swift; sourceTree = "<group>"; };
@@ -449,6 +451,7 @@
 				97C425B4A5612D534BA5FECC /* AccountCredentialReferenceTests.swift */,
 				346DE5E32009926B52DF6DC4 /* AccountDeletionFormattingTests.swift */,
 				224A62075870B8FAF84E2274 /* AccountDeletionStoreTests.swift */,
+				617EF38646F5BA34DC3F3BBA /* AccountQuotaGridTests.swift */,
 				849077EF726D5E3F756B4805 /* AccountSummaryFormattingTests.swift */,
 				4E9A1292C4590819749AE424 /* AccountsViewTests.swift */,
 				40D313DABDF65EC1DBCADDBD /* AddAccountFlowTests.swift */,
@@ -740,6 +743,7 @@
 				63F14DB500EC723BCB61AB44 /* AccountCredentialReferenceTests.swift in Sources */,
 				9781D3AFE9D9ED610186CCBB /* AccountDeletionFormattingTests.swift in Sources */,
 				18FAA7AC1EAAEBCD3D16EC0C /* AccountDeletionStoreTests.swift in Sources */,
+				006CDCCCDC2821B7F6F58864 /* AccountQuotaGridTests.swift in Sources */,
 				314BE108752F760302660DC4 /* AccountSummaryFormattingTests.swift in Sources */,
 				E4F7AE192ECCD2D4A0E3EC80 /* AccountsViewTests.swift in Sources */,
 				72517151B7BCCE3BC2748539 /* AddAccountFlowTests.swift in Sources */,
