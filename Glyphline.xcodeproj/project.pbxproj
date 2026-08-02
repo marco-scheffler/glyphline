@@ -82,6 +82,7 @@
 		7A236834E440289A3C2FB2CD /* AgentverseWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AF1829AD2379CF1AA77C13C /* AgentverseWindow.swift */; };
 		7BB34FDDD9F07754C4B60EF3 /* AgentverseCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DA33CFDBB20825AB71AEEC4 /* AgentverseCoordinator.swift */; };
 		7EE1E0DD0196D6F33CE6E4CE /* AddAccountFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A81C1F539EBD6824C59FADB0 /* AddAccountFlow.swift */; };
+		7FC11071D7C8C08A94F2921B /* LocalUsagePeriod.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4AC0AFC5C6676B8681635D9 /* LocalUsagePeriod.swift */; };
 		81A31CCE7A84A8263856A8DC /* Migrations.swift in Sources */ = {isa = PBXBuildFile; fileRef = 979B2CFA8C52D4A2693A102A /* Migrations.swift */; };
 		82848FBA563211A15C9B8E60 /* DashboardSummaryRowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58A9ECA0A61329D92A28B46F /* DashboardSummaryRowTests.swift */; };
 		84A54ADAC7F03FF978AB6A90 /* SunPositionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4E1FE1146583F38A8203043 /* SunPositionTests.swift */; };
@@ -90,7 +91,6 @@
 		8A0A7176801705F955EB4B5C /* RateWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 392B5FF66B8772E918631363 /* RateWindow.swift */; };
 		8A3BE7918F84E156A45F3259 /* RateWindowSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = C052559758FF74B410700F49 /* RateWindowSource.swift */; };
 		8A832CA3F523AE02FFE88010 /* ClaudeSignInWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 102E19DF99EBAC8A3C8BDC32 /* ClaudeSignInWindow.swift */; };
-		8AC1E001A95AA9B2390855B8 /* LocalUsagePeriod.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45E769274D7E65D92F394E71 /* LocalUsagePeriod.swift */; };
 		8B5B67935A1260AA20266915 /* MenuBarFooterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3DD33D0E2FF6D40D47CCD41 /* MenuBarFooterTests.swift */; };
 		8B5E7D6A51CECD50DB78F10B /* ClaudeWebResponseClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 383FF44EC0D7B7C405AE465B /* ClaudeWebResponseClassifier.swift */; };
 		8D9EA1487B3C0A416574EBBC /* WindowOcclusionReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3529DEF033DF359EF2652FD4 /* WindowOcclusionReader.swift */; };
@@ -202,7 +202,6 @@
 		3B3D3ECA1152729E0516F4B8 /* UserPlace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserPlace.swift; sourceTree = "<group>"; };
 		40D313DABDF65EC1DBCADDBD /* AddAccountFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddAccountFlowTests.swift; sourceTree = "<group>"; };
 		412F5489EA0C8B4EE160128C /* GlyphlineSmokeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlyphlineSmokeTests.swift; sourceTree = "<group>"; };
-		45E769274D7E65D92F394E71 /* LocalUsagePeriod.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalUsagePeriod.swift; sourceTree = "<group>"; };
 		461DE0E81EA86DEF3F3E1A47 /* LedgerStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LedgerStore.swift; sourceTree = "<group>"; };
 		466589744951D48FB568CFF6 /* ModelMix.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelMix.swift; sourceTree = "<group>"; };
 		4BB91452D402455F2ACA0690 /* DashboardPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardPresentation.swift; sourceTree = "<group>"; };
@@ -293,6 +292,7 @@
 		D10078AD9B1875C460A90C37 /* CostEstimatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CostEstimatorTests.swift; sourceTree = "<group>"; };
 		D2875A21D3F767FBB58928F1 /* FixtureRateWindowSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FixtureRateWindowSource.swift; sourceTree = "<group>"; };
 		D461F567F4AC93CAD78D6410 /* Account.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Account.swift; sourceTree = "<group>"; };
+		D4AC0AFC5C6676B8681635D9 /* LocalUsagePeriod.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalUsagePeriod.swift; sourceTree = "<group>"; };
 		D6BD6C14C75AEFB9B82A4095 /* AgentRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentRow.swift; sourceTree = "<group>"; };
 		D77D1A5B95F10AFA61A5E3DB /* DatastreamScene.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatastreamScene.swift; sourceTree = "<group>"; };
 		D968A135D66AE439311BECFE /* ClaudeUsageQuotaDTOs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeUsageQuotaDTOs.swift; sourceTree = "<group>"; };
@@ -331,14 +331,6 @@
 				D2875A21D3F767FBB58928F1 /* FixtureRateWindowSource.swift */,
 			);
 			path = Fixtures;
-			sourceTree = "<group>";
-		};
-		1269EAD23D095D8AD16E7D9B /* Statistics */ = {
-			isa = PBXGroup;
-			children = (
-				45E769274D7E65D92F394E71 /* LocalUsagePeriod.swift */,
-			);
-			path = Statistics;
 			sourceTree = "<group>";
 		};
 		13A80FAF108D5835B140ED5C /* Agentverse */ = {
@@ -420,7 +412,6 @@
 				8458A42F1F06D2B392B0FC4F /* Dashboard */,
 				F1B2F67B911241E4BFE4CFEB /* MenuBar */,
 				9F6DE687DF84CC3578391EEA /* Settings */,
-				1269EAD23D095D8AD16E7D9B /* Statistics */,
 			);
 			path = UI;
 			sourceTree = "<group>";
@@ -546,6 +537,7 @@
 				F14BBDE367E8BE177C79F8B4 /* DailyUsageSeries.swift */,
 				4BB91452D402455F2ACA0690 /* DashboardPresentation.swift */,
 				69F038C1101F3228D2C607FB /* DashboardView.swift */,
+				D4AC0AFC5C6676B8681635D9 /* LocalUsagePeriod.swift */,
 				466589744951D48FB568CFF6 /* ModelMix.swift */,
 				04698B43079198825E73F1BE /* QuotaCardModel.swift */,
 				06BB230F1D63495A95C6A003 /* SpendPeriod.swift */,
@@ -895,7 +887,7 @@
 				A578DC0E93318FDA5872EA0B /* KeychainStore.swift in Sources */,
 				B85CA610DA5E8BBC7879D1CD /* LedgerStore.swift in Sources */,
 				CAE25CBB5FB46C3D44E6BD64 /* LedgerStoreFactory.swift in Sources */,
-				8AC1E001A95AA9B2390855B8 /* LocalUsagePeriod.swift in Sources */,
+				7FC11071D7C8C08A94F2921B /* LocalUsagePeriod.swift in Sources */,
 				17A602A14DA23148EB4494DC /* LocalUsageStatistics.swift in Sources */,
 				31494C08A9507E7C43F21F0D /* MarginLabels.swift in Sources */,
 				2A7289DD211158D42C26C9DE /* MenuBarView.swift in Sources */,
