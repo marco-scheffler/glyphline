@@ -918,7 +918,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.marcoscheffler.glyphline;
 				SDKROOT = macosx;
@@ -977,7 +977,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -1002,7 +1002,7 @@
 					"@executable_path/../Frameworks",
 					"@loader_path/../Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				SDKROOT = macosx;
 				SWIFT_VERSION = 6.0;
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Glyphline.app/Contents/MacOS/Glyphline";
@@ -1023,7 +1023,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.marcoscheffler.glyphline;
 				SDKROOT = macosx;
@@ -1044,7 +1044,7 @@
 					"@executable_path/../Frameworks",
 					"@loader_path/../Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				SDKROOT = macosx;
 				SWIFT_VERSION = 6.0;
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Glyphline.app/Contents/MacOS/Glyphline";
@@ -1096,7 +1096,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
