@@ -2,6 +2,12 @@ import AppKit
 import SwiftUI
 
 struct MenuBarView: View {
+    /// The panel's fixed width and the inset its content sits in. Named because
+    /// the footer row has to fit inside them, and a menu bar panel that outgrows
+    /// its width clips its trailing control without saying anything.
+    static let panelWidth: CGFloat = 320
+    static let panelPadding: CGFloat = 12
+
     @Environment(\.openWindow) private var openWindow
     @EnvironmentObject private var settings: AppSettingsStore
     @EnvironmentObject private var coordinator: SyncCoordinator
@@ -77,32 +83,22 @@ struct MenuBarView: View {
 
             Divider()
 
-            // A compact footer row rather than three stacked full-width buttons:
-            // these are the panel's exits, not its content.
-            HStack(spacing: 6) {
-                Button("Open Dashboard", action: openDashboard)
-                Button("Open Agentverse") {
+            MenuBarFooter(
+                openDashboard: openDashboard,
+                openAgentverse: {
                     AppActivationController.regulariseForWindow()
                     openWindow(id: AppMode.agentverseWindowID)
                     NSApp.activate(ignoringOtherApps: true)
-                }
-                Button("Refresh") {
+                },
+                refresh: {
                     Task {
                         await coordinator.refreshRateWindowsOnDemand()
                     }
                 }
-
-                Spacer(minLength: 0)
-
-                Button("Quit") {
-                    NSApp.terminate(nil)
-                }
-            }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
+            )
         }
-        .padding(12)
-        .frame(width: 320)
+        .padding(Self.panelPadding)
+        .frame(width: Self.panelWidth)
         .task {
             await coordinator.refreshRateWindowsOnDemand()
         }
@@ -142,5 +138,58 @@ struct MenuBarView: View {
         AppActivationController.apply(mode: settings.appMode)
         openWindow(id: AppMode.dashboardWindowID)
         NSApp.activate(ignoringOtherApps: true)
+    }
+}
+
+/// The panel's exits: a compact row rather than stacked full-width buttons,
+/// because these are not the panel's content.
+///
+/// Its own view for two reasons. The row now carries four controls plus Quit
+/// inside 320 points, which is where it starts clipping — and a clipped menu bar
+/// panel says nothing about it. And a `SettingsLink` needs no environment, so
+/// the row can be hosted off screen and measured.
+struct MenuBarFooter: View {
+    let openDashboard: () -> Void
+    let openAgentverse: () -> Void
+    let refresh: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            // Two rows, not one. Five controls in 320 points overflow by about
+            // 58 of them, and a menu bar panel clips what does not fit from the
+            // trailing edge without a word — which is where Quit sits.
+            //
+            // Split by kind rather than to even the rows out: the top row opens
+            // something, the bottom row acts on the app.
+            HStack(spacing: 6) {
+                Button("Dashboard", action: openDashboard)
+                Button("Agentverse", action: openAgentverse)
+
+                // `SettingsLink`, not the `openSettings` environment action. In
+                // `.menuBarOnly` the app runs as an accessory: it has no app
+                // menu, so ⌘, has nothing to hang off and this row is the only
+                // way into settings at all. `SettingsLink` is the control that
+                // is handed the settings window directly and works from a menu
+                // bar extra, which is the part the environment action has
+                // historically not.
+                SettingsLink {
+                    Text("Settings")
+                }
+
+                Spacer(minLength: 0)
+            }
+
+            HStack(spacing: 6) {
+                Button("Refresh", action: refresh)
+
+                Spacer(minLength: 0)
+
+                Button("Quit") {
+                    NSApp.terminate(nil)
+                }
+            }
+        }
+        .buttonStyle(.bordered)
+        .controlSize(.small)
     }
 }
