@@ -6,6 +6,35 @@ enum RateWindowKind: String, Codable, CaseIterable, Sendable {
     case rollingFiveHours
     case weekly
     case billingCycle
+
+    /// What a window is called where there is no room to spell it out: the menu
+    /// bar panel, a few points wide, with a figure and a reset time on the same
+    /// line. "5h" earns its terseness there.
+    var shortName: String {
+        switch self {
+        case .rollingFiveHours: "5h"
+        case .weekly: "Week"
+        case .billingCycle: "Cycle"
+        }
+    }
+
+    /// What it is called where there is room: a dashboard card, whose header
+    /// already names the account, leaving the row to say only which window it
+    /// is. A label that reads as a sentence fragment is what makes two stacked
+    /// windows legible as two windows.
+    ///
+    /// Two names and not one, deliberately — a card is not a menu bar row, and
+    /// forcing them together would make one of the two surfaces read badly. What
+    /// they must not be is two *independent* sources, which is what they had
+    /// drifted into: one word for a window kind can then be renamed without the
+    /// other, and the app starts calling one thing two things by accident.
+    var longName: String {
+        switch self {
+        case .rollingFiveHours: "5-hour"
+        case .weekly: "Weekly"
+        case .billingCycle: "Billing cycle"
+        }
+    }
 }
 
 /// One observation of one window at one instant.

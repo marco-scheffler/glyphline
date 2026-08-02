@@ -316,6 +316,25 @@ final class DashboardPresentationTests: XCTestCase {
         XCTAssertEqual(DashboardPresentation.quotaWindowLabel(for: .weekly), "Weekly")
     }
 
+    /// The card's long name and the menu bar's short one are two readings of one
+    /// window kind, kept on that kind so they cannot be renamed apart. Both
+    /// surfaces read them; neither writes its own.
+    ///
+    /// Would catch: a surface going back to spelling a window kind out inline.
+    /// Replacing either call's body with a literal switch makes the pair
+    /// disagree with the kind the moment one of them is edited — which is the
+    /// state this replaced.
+    func testBothReadingsOfAWindowKindComeFromTheKindItself() {
+        for kind in RateWindowKind.allCases {
+            XCTAssertEqual(DashboardPresentation.quotaWindowLabel(for: kind), kind.longName)
+            XCTAssertEqual(QuotaIndicator.labelAndVerb(for: kind).label, kind.shortName)
+            // Two readings, not two words for the same job: the short one is
+            // there because it is shorter.
+            XCTAssertLessThan(kind.shortName.count, kind.longName.count, "\(kind)")
+            XCTAssertFalse(kind.shortName.isEmpty)
+        }
+    }
+
     /// Two windows stacked in one card must not read alike, or the card says one
     /// figure twice instead of two windows. Every kind, so a fourth added later
     /// cannot quietly duplicate an existing label.

@@ -461,17 +461,22 @@ enum QuotaIndicator {
         }
     }
 
-    /// The one place window kinds get their words. `rowText` and `barGroups` both
-    /// read it, so a surface cannot start saying "Cycle resets" on its own.
+    /// The verb each window kind takes, beside its short name. `rowText` and
+    /// `barGroups` both read it, so a surface cannot start saying "Cycle resets"
+    /// on its own.
+    ///
+    /// The label itself comes from `RateWindowKind.shortName`. The dashboard's
+    /// cards have room for the spelled-out `longName` and use that; both live on
+    /// the kind so the two readings of one window cannot be renamed apart.
     ///
     /// "ends", not "resets", for the cycle. A subscription *term* end returns no
     /// capacity — the spike found a Codex term ending in 2027 — and even a
     /// monthly cycle boundary is the end of a period rather than a quota refill.
     static func labelAndVerb(for kind: RateWindowKind) -> (label: String, verb: String) {
         switch kind {
-        case .rollingFiveHours: ("5h", "resets")
-        case .weekly: ("Week", "resets")
-        case .billingCycle: ("Cycle", "ends")
+        case .rollingFiveHours: (kind.shortName, "resets")
+        case .weekly: (kind.shortName, "resets")
+        case .billingCycle: (kind.shortName, "ends")
         }
     }
 
