@@ -20,6 +20,17 @@ struct AccountsView: View {
     /// Named so the probe test can subtract it rather than assume it.
     static let headerTopPadding: CGFloat = 20
 
+    /// The gap between the header row and the first card — and, crucially, one
+    /// that is applied to the header rather than to the scroll view's content.
+    ///
+    /// The list used to buy its breathing room with `.padding(.vertical, 16)` on
+    /// the `LazyVStack` inside the `ScrollView`. That padding is part of the
+    /// scrolled document: at any scroll offset above zero it has moved out of
+    /// sight and the first visible card sits flush against the header, which is
+    /// what read as the cards running underneath it. A gap that must survive
+    /// scrolling has to live outside the scroll view.
+    static let headerBottomPadding: CGFloat = 16
+
     /// Carries the counts alongside the account so the alert renders from the
     /// figures read when the button was pressed, not from a second query while
     /// the alert is already on screen.
@@ -120,7 +131,10 @@ struct AccountsView: View {
                         }
                     }
                     .padding(.horizontal, 24)
-                    .padding(.vertical, 16)
+                    // Bottom only. The gap above the first card is the header's
+                    // now, so that it cannot scroll away; keeping it here too
+                    // would double it while the list sits at the top.
+                    .padding(.bottom, 16)
                 }
             }
         }
@@ -132,7 +146,10 @@ struct AccountsView: View {
     /// this view has no toolbar to put anything in, so a toolbar item there
     /// renders nowhere at all — and the place it is indispensable is the empty
     /// state, where adding an account is the only thing to do.
-    private var header: some View {
+    /// Not private, and deliberately without the gap below it: the probe test
+    /// hosts this row on its own to measure how far the scroll view starts below
+    /// it. Folding the gap in here would make that distance unmeasurable.
+    var header: some View {
         HStack(alignment: .firstTextBaseline) {
             Text("Accounts")
                 .font(.title2.weight(.semibold))
@@ -153,6 +170,7 @@ struct AccountsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
+                .padding(.bottom, Self.headerBottomPadding)
             list
         }
         .sheet(isPresented: $isPresentingAddAccount) {
