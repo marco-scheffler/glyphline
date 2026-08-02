@@ -320,7 +320,10 @@ enum QuotaIndicator {
     /// A billing cycle deliberately has none: its length is whatever the
     /// subscription says, a month or a year, and guessing one would put a
     /// confident prediction on the window least able to support it.
-    private static func span(of kind: RateWindowKind) -> TimeInterval? {
+    /// Internal rather than private since the dashboard cards place their pace
+    /// marker against the same lengths; a second table of window spans is how
+    /// two surfaces start disagreeing about where a window began.
+    static func span(of kind: RateWindowKind) -> TimeInterval? {
         switch kind {
         case .rollingFiveHours: 5 * 60 * 60
         case .weekly: 7 * 24 * 60 * 60
