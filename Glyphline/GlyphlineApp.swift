@@ -42,6 +42,10 @@ struct GlyphlineApp: App {
                 DashboardView()
                     .environmentObject(settings)
                     .environmentObject(coordinator)
+                    // The dashboard's header counts waiting agents, so it needs
+                    // the same coordinator the map window uses — not one of its
+                    // own, which would forget who was on track last sweep.
+                    .environmentObject(agentverse)
             }
         }
         .windowStyle(.titleBar)
