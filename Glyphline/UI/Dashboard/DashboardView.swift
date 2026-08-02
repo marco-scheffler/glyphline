@@ -3,7 +3,7 @@ import SwiftUI
 
 struct DashboardView: View {
     @Environment(\.openWindow) private var openWindow
-    @State private var selection: DashboardDestination? = .overview
+    @State private var selection: DashboardDestination? = .dashboard
     @State private var accountSummaries: [AccountUsageSummary] = []
     @State private var loadError: String?
 
@@ -88,8 +88,8 @@ struct DashboardView: View {
     }
 
     @ViewBuilder private var detailView: some View {
-        switch selection ?? .overview {
-        case .overview:
+        switch DashboardDestination.resolved(selection?.rawValue) {
+        case .dashboard:
             DashboardOverview(
                 accountSummaries: accountSummaries,
                 loadError: loadError,
@@ -99,12 +99,9 @@ struct DashboardView: View {
             AccountsView(
                 accounts: accountSummaries,
                 ledgerStore: ledgerStore,
-                onDeleted: loadDashboard
+                onDeleted: loadDashboard,
+                onAdded: loadDashboard
             )
-        case .statistics:
-            StatisticsView()
-        case .addAccount:
-            AddAccountView(ledgerStore: ledgerStore, onSave: loadDashboard)
         case .settings:
             SettingsView()
         }
@@ -127,25 +124,32 @@ struct DashboardView: View {
     }
 }
 
-private enum DashboardDestination: String, CaseIterable, Identifiable {
-    case overview
+/// The sidebar's places. Adding an account is not one of them — it is an action,
+/// and it lives as a button in `AccountsView`.
+enum DashboardDestination: String, CaseIterable, Identifiable {
+    case dashboard
     case accounts
-    case statistics
-    case addAccount
     case settings
 
     var id: String { rawValue }
 
+    /// The destination for a raw value that no longer names a case.
+    ///
+    /// Cases do get removed — `overview`, `statistics` and `addAccount` just
+    /// were — so a selection carried over from an older build has to resolve
+    /// through the failable initialiser and land here. Forcing the unwrap
+    /// instead is how an app traps at launch after an update, with nothing to do
+    /// about it but delete preferences.
+    static func resolved(_ rawValue: String?) -> DashboardDestination {
+        rawValue.flatMap(DashboardDestination.init(rawValue:)) ?? .dashboard
+    }
+
     var title: String {
         switch self {
-        case .overview:
-            "Overview"
+        case .dashboard:
+            "Dashboard"
         case .accounts:
             "Accounts"
-        case .statistics:
-            "Statistics"
-        case .addAccount:
-            "Add Account"
         case .settings:
             "Settings"
         }
@@ -153,14 +157,10 @@ private enum DashboardDestination: String, CaseIterable, Identifiable {
 
     var systemImage: String {
         switch self {
-        case .overview:
+        case .dashboard:
             "rectangle.grid.2x2"
         case .accounts:
             "person.2"
-        case .statistics:
-            "chart.bar"
-        case .addAccount:
-            "plus.circle"
         case .settings:
             "gearshape"
         }
