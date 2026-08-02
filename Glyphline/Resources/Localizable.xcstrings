@@ -323,6 +323,7 @@
       }
     },
     "%@ tokens" : {
+      "comment" : "A token count with its unit. The placeholder is an already-formatted number.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -372,10 +373,10 @@
             "value" : "%@ 个 token"
           }
         }
-      },
-      "comment" : "A token count with its unit. The placeholder is an already-formatted number."
+      }
     },
     "%@ tokens · %@" : {
+      "comment" : "A token count and the money it came to. Placeholders: an already-formatted number, and an amount.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -425,8 +426,7 @@
             "value" : "%1$@ 个 token · %2$@"
           }
         }
-      },
-      "comment" : "A token count and the money it came to. Placeholders: an already-formatted number, and an amount."
+      }
     },
     "%@ · %@" : {
       "comment" : "Quota bar detail with the pace note appended. Placeholders: the detail so far, and the pace note.",
@@ -482,6 +482,7 @@
       }
     },
     "%@ — %@" : {
+      "comment" : "An account's name and why it needs attention, on one line. Placeholders: the account name and the reason.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -531,8 +532,7 @@
             "value" : "%1$@ — %2$@"
           }
         }
-      },
-      "comment" : "An account's name and why it needs attention, on one line. Placeholders: the account name and the reason."
+      }
     },
     "%@ — usage unknown, %@" : {
       "comment" : "Menu row with no reported fraction. Placeholders: the window's short name and the tail.",
@@ -700,6 +700,7 @@
       "shouldTranslate" : false
     },
     "%lld accounts" : {
+      "comment" : "Header count. The placeholder is 2 or more.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -749,8 +750,7 @@
             "value" : "%lld 个账户"
           }
         }
-      },
-      "comment" : "Header count. The placeholder is 2 or more."
+      }
     },
     "%lld accounts need attention" : {
       "comment" : "Attention banner headline, plural. The placeholder is the account count (always 2 or more).",
@@ -1283,6 +1283,7 @@
       }
     },
     "(as of %@)" : {
+      "comment" : "Appended when a figure is older than the app is willing to present as current. The placeholder is an instant.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -1332,10 +1333,10 @@
             "value" : "（截至 %@）"
           }
         }
-      },
-      "comment" : "Appended when a figure is older than the app is willing to present as current. The placeholder is an instant."
+      }
     },
     "1 account" : {
+      "comment" : "Header count for exactly one account.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -1385,8 +1386,7 @@
             "value" : "1 个账户"
           }
         }
-      },
-      "comment" : "Header count for exactly one account."
+      }
     },
     "1 account needs attention" : {
       "comment" : "Attention banner headline, singular.",
@@ -1495,6 +1495,7 @@
       }
     },
     "15 minutes" : {
+      "comment" : "Sync interval option.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -1544,8 +1545,7 @@
             "value" : "15 分钟"
           }
         }
-      },
-      "comment" : "Sync interval option."
+      }
     },
     "30 Days" : {
       "comment" : "Chart period picker segment: the last thirty days.",
@@ -1601,6 +1601,7 @@
       }
     },
     "30 minutes" : {
+      "comment" : "Sync interval option.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -1650,8 +1651,7 @@
             "value" : "30 分钟"
           }
         }
-      },
-      "comment" : "Sync interval option."
+      }
     },
     "5-hour" : {
       "comment" : "Spelled-out name of the rolling five-hour quota window, dashboard card",
@@ -1813,6 +1813,7 @@
       }
     },
     "60 minutes" : {
+      "comment" : "Sync interval option.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -1862,8 +1863,7 @@
             "value" : "60 分钟"
           }
         }
-      },
-      "comment" : "Sync interval option."
+      }
     },
     "7 Days" : {
       "comment" : "Chart period picker segment: the last seven days.",
@@ -1919,6 +1919,7 @@
       }
     },
     "Accounts" : {
+      "comment" : "Settings tab, and the accounts list's own heading.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -1968,10 +1969,10 @@
             "value" : "账户"
           }
         }
-      },
-      "comment" : "Settings tab, and the accounts list's own heading."
+      }
     },
     "Add Account" : {
+      "comment" : "Button that opens the add-account form. Title case: it is a button.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -2021,10 +2022,10 @@
             "value" : "添加账户"
           }
         }
-      },
-      "comment" : "Button that opens the add-account form. Title case: it is a button."
+      }
     },
     "Add account" : {
+      "comment" : "Same action as 'Add Account', in a place that uses sentence case.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -2074,10 +2075,10 @@
             "value" : "添加账户"
           }
         }
-      },
-      "comment" : "Same action as 'Add Account', in a place that uses sentence case."
+      }
     },
     "Add an account" : {
+      "comment" : "Call to action on the empty accounts list.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -2127,10 +2128,10 @@
             "value" : "添加一个账户"
           }
         }
-      },
-      "comment" : "Call to action on the empty accounts list."
+      }
     },
     "Add an account to store credentials securely and start tracking usage." : {
+      "comment" : "Explanation on the empty accounts list.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -2180,10 +2181,10 @@
             "value" : "添加账户即可安全保存凭据并开始记录用量。"
           }
         }
-      },
-      "comment" : "Explanation on the empty accounts list."
+      }
     },
     "Admin API key" : {
+      "comment" : "An account source: an organisation's admin API key.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -2233,8 +2234,7 @@
             "value" : "管理员 API 密钥"
           }
         }
-      },
-      "comment" : "An account source: an organisation's admin API key."
+      }
     },
     "Agents" : {
       "comment" : "Card heading over the count of coding agents running on this Mac. Drawn in capitals; keep it to one short word.",
@@ -2290,6 +2290,7 @@
       }
     },
     "Agents. %@" : {
+      "comment" : "VoiceOver label for the Agents tile. The placeholder is the tile's headline, already translated.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -2339,10 +2340,10 @@
             "value" : "Agent。%@"
           }
         }
-      },
-      "comment" : "VoiceOver label for the Agents tile. The placeholder is the tile's headline, already translated."
+      }
     },
     "Agentverse" : {
+      "comment" : "The app's own name for its animated view of the running agents. A coined name — leave it as it is.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -2392,8 +2393,7 @@
             "value" : "Agentverse"
           }
         }
-      },
-      "comment" : "The app's own name for its animated view of the running agents. A coined name — leave it as it is."
+      }
     },
     "All Time" : {
       "comment" : "Chart period picker segment: everything that was scanned.",
@@ -2449,6 +2449,7 @@
       }
     },
     "App Mode" : {
+      "comment" : "Settings section heading, over where the app shows itself.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -2498,8 +2499,7 @@
             "value" : "应用模式"
           }
         }
-      },
-      "comment" : "Settings section heading, over where the app shows itself."
+      }
     },
     "At least one model has no price on file, so the total is incomplete." : {
       "comment" : "Note beside a spend total that is missing at least one model's price.",
@@ -2555,6 +2555,7 @@
       }
     },
     "BREAK ROOM" : {
+      "comment" : "Sign painted into Agentverse scene, over rest area. Drawn in capitals into fixed-width sign — keep it at most long as English.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -2604,8 +2605,7 @@
             "value" : "休息室"
           }
         }
-      },
-      "comment" : "Sign painted into the Agentverse scene, over the rest area. Drawn in capitals into a fixed-width sign — keep it at most as long as the English."
+      }
     },
     "Billing cycle" : {
       "comment" : "Spelled-out name of the billing cycle window, dashboard card",
@@ -2661,6 +2661,7 @@
       }
     },
     "COLLECTORS" : {
+      "comment" : "Sign painted into the Agentverse scene, over the machines that gather the token figures. Drawn in capitals into a fixed-width sign — keep it at most as long as the English.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -2710,10 +2711,10 @@
             "value" : "收集器"
           }
         }
-      },
-      "comment" : "Sign painted into the Agentverse scene, over the machines that gather the token figures. Drawn in capitals into a fixed-width sign — keep it at most as long as the English."
+      }
     },
     "Cancel" : {
+      "comment" : "Standard dialog button. Use the word macOS itself uses.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -2763,10 +2764,10 @@
             "value" : "取消"
           }
         }
-      },
-      "comment" : "Standard dialog button. Use the word macOS itself uses."
+      }
     },
     "Claude subscription (sign in)" : {
+      "comment" : "An account source: a claude.ai subscription, reached by signing in. 'Claude' is a product name and stays.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -2816,10 +2817,10 @@
             "value" : "Claude 订阅（登录）"
           }
         }
-      },
-      "comment" : "An account source: a claude.ai subscription, reached by signing in. 'Claude' is a product name and stays."
+      }
     },
     "Close" : {
+      "comment" : "Standard dialog button. Use the word macOS itself uses.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -2869,10 +2870,10 @@
             "value" : "关闭"
           }
         }
-      },
-      "comment" : "Standard dialog button. Use the word macOS itself uses."
+      }
     },
     "Connection" : {
+      "comment" : "Section heading in the add-account form, over the credential fields.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -2922,10 +2923,10 @@
             "value" : "连接"
           }
         }
-      },
-      "comment" : "Section heading in the add-account form, over the credential fields."
+      }
     },
     "Could not delete account" : {
+      "comment" : "Error dialog title.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -2975,8 +2976,113 @@
             "value" : "无法删除账户"
           }
         }
-      },
-      "comment" : "Error dialog title."
+      }
+    },
+    "Could not reach the provider. This is usually temporary." : {
+      "comment" : "Quota failure reason: the provider was unreachable.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Anbieter war nicht erreichbar. Das ist meist vorübergehend."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not reach the provider. This is usually temporary."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo contactar con el proveedor. Suele ser algo temporal."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossible de joindre le fournisseur. C’est généralement temporaire."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non è stato possibile raggiungere il provider. Di solito è temporaneo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "プロバイダーに接続できませんでした。通常は一時的なものです。"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não foi possível acessar o provedor. Isso costuma ser temporário."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法连接到服务商。这通常是暂时的。"
+          }
+        }
+      }
+    },
+    "Could not read the page claude.ai returned. This is usually temporary." : {
+      "comment" : "Quota failure reason: the page body never came back as text. claude.ai is a host name, keep it.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Seite, die claude.ai zurückgegeben hat, war nicht lesbar. Das ist meist vorübergehend."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not read the page claude.ai returned. This is usually temporary."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo leer la página que devolvió claude.ai. Suele ser algo temporal."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossible de lire la page renvoyée par claude.ai. C’est généralement temporaire."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non è stato possibile leggere la pagina restituita da claude.ai. Di solito è temporaneo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "claude.ai が返したページを読み取れませんでした。通常は一時的なものです。"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não foi possível ler a página retornada por claude.ai. Isso costuma ser temporário."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法读取 claude.ai 返回的页面。这通常是暂时的。"
+          }
+        }
+      }
     },
     "Cycle" : {
       "comment" : "Terse name of the billing cycle window, menu bar row: the subscription's own billing period. Keep it short.",
@@ -3085,6 +3191,7 @@
       }
     },
     "Dashboard" : {
+      "comment" : "Button in the menu bar panel, and the main window's title. The panel is only ten points wider than its five buttons need, so keep this short.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -3134,10 +3241,10 @@
             "value" : "仪表板"
           }
         }
-      },
-      "comment" : "Button in the menu bar panel, and the main window's title. The panel is only ten points wider than its five buttons need, so keep this short."
+      }
     },
     "Data" : {
+      "comment" : "Section heading in the add-account form, over the fields that decide what is stored.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -3187,8 +3294,7 @@
             "value" : "数据"
           }
         }
-      },
-      "comment" : "Section heading in the add-account form, over the fields that decide what is stored."
+      }
     },
     "Day" : {
       "comment" : "Spend period picker segment: one day",
@@ -3244,6 +3350,7 @@
       }
     },
     "Delete" : {
+      "comment" : "Standard destructive button. Use the word macOS itself uses.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -3293,8 +3400,7 @@
             "value" : "删除"
           }
         }
-      },
-      "comment" : "Standard destructive button. Use the word macOS itself uses."
+      }
     },
     "Delete \"%@\"?" : {
       "comment" : "Delete confirmation title. The placeholder is the account's display name; the quotation marks around it are part of the sentence.",
@@ -3350,6 +3456,7 @@
       }
     },
     "Delete account" : {
+      "comment" : "Destructive button on an account.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -3399,8 +3506,7 @@
             "value" : "删除账户"
           }
         }
-      },
-      "comment" : "Destructive button on an account."
+      }
     },
     "Disabled" : {
       "comment" : "Account status: the account is switched off and nothing syncs it.",
@@ -3456,6 +3562,7 @@
       }
     },
     "Display Name" : {
+      "comment" : "Field label: what the account is called in this app's own lists.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -3505,10 +3612,10 @@
             "value" : "显示名称"
           }
         }
-      },
-      "comment" : "Field label: what the account is called in this app's own lists."
+      }
     },
     "Enable account after save" : {
+      "comment" : "Checkbox in the add-account form.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -3558,10 +3665,10 @@
             "value" : "保存后启用账户"
           }
         }
-      },
-      "comment" : "Checkbox in the add-account form."
+      }
     },
     "From time zone" : {
+      "comment" : "Option that derives the location from the Mac's time zone instead of asking for coordinates.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -3611,10 +3718,10 @@
             "value" : "按时区"
           }
         }
-      },
-      "comment" : "Option that derives the location from the Mac's time zone instead of asking for coordinates."
+      }
     },
     "General" : {
+      "comment" : "Settings tab: the options that do not belong to any other tab.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -3664,13 +3771,13 @@
             "value" : "通用"
           }
         }
-      },
-      "comment" : "Settings tab: the options that do not belong to any other tab."
+      }
     },
     "Glyphline" : {
       "shouldTranslate" : false
     },
     "Glyphline also syncs after the Mac wakes from sleep." : {
+      "comment" : "Hint under the sync interval. 'Glyphline' is the app's name and stays.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -3720,8 +3827,7 @@
             "value" : "Mac 从睡眠中唤醒后，Glyphline 也会同步。"
           }
         }
-      },
-      "comment" : "Hint under the sync interval. 'Glyphline' is the app's name and stays."
+      }
     },
     "Glyphline — quota available" : {
       "comment" : "VoiceOver name for the menu bar item. 'Glyphline' is the app's name and stays.",
@@ -3883,6 +3989,7 @@
       }
     },
     "In the office" : {
+      "comment" : "List section heading over the agents that are running or waiting. The app pictures the agents as staff in an office; keep that image.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -3932,10 +4039,10 @@
             "value" : "在办公室"
           }
         }
-      },
-      "comment" : "List section heading over the agents that are running or waiting. The app pictures the agents as staff in an office; keep that image."
+      }
     },
     "Interval" : {
+      "comment" : "Picker label: how often the app synchronises.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -3985,8 +4092,7 @@
             "value" : "间隔"
           }
         }
-      },
-      "comment" : "Picker label: how often the app synchronises."
+      }
     },
     "Its claude.ai sign-in will be removed from this Mac." : {
       "comment" : "Delete dialog: the stored claude.ai web session goes with the account.",
@@ -4042,6 +4148,7 @@
       }
     },
     "Latitude" : {
+      "comment" : "Coordinate field for the daylight in the Agentverse scene.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -4091,10 +4198,10 @@
             "value" : "纬度"
           }
         }
-      },
-      "comment" : "Coordinate field for the daylight in the Agentverse scene."
+      }
     },
     "Leave empty to use %@." : {
+      "comment" : "Hint under a field with a default. The placeholder names the default.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -4144,8 +4251,7 @@
             "value" : "留空则使用 %@。"
           }
         }
-      },
-      "comment" : "Hint under a field with a default. The placeholder names the default."
+      }
     },
     "Level with the %lld-day median" : {
       "comment" : "Today's comparison line with no change against the median of the last N completed days.",
@@ -4254,6 +4360,7 @@
       }
     },
     "Local Claude Code logs" : {
+      "comment" : "An account source: the transcripts Claude Code writes on this Mac. 'Claude Code' is a product name and stays.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -4303,10 +4410,10 @@
             "value" : "本地 Claude Code 日志"
           }
         }
-      },
-      "comment" : "An account source: the transcripts Claude Code writes on this Mac. 'Claude Code' is a product name and stays."
+      }
     },
     "Location" : {
+      "comment" : "Settings section heading, over the coordinates that decide the daylight in the Agentverse scene.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -4356,10 +4463,10 @@
             "value" : "位置"
           }
         }
-      },
-      "comment" : "Settings section heading, over the coordinates that decide the daylight in the Agentverse scene."
+      }
     },
     "Longitude" : {
+      "comment" : "Coordinate field for the daylight in the Agentverse scene.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -4409,10 +4516,10 @@
             "value" : "经度"
           }
         }
-      },
-      "comment" : "Coordinate field for the daylight in the Agentverse scene."
+      }
     },
     "Model" : {
+      "comment" : "Value label in the usage chart, naming which model a bar belongs to.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -4462,8 +4569,7 @@
             "value" : "模型"
           }
         }
-      },
-      "comment" : "Value label in the usage chart, naming which model a bar belongs to."
+      }
     },
     "Model Mix · %@" : {
       "comment" : "Card heading over the share each model took of the spend. Drawn in capitals. The placeholder is the selected period, e.g. 'Week'. The · is a separator and stays.",
@@ -4572,6 +4678,7 @@
       }
     },
     "Name" : {
+      "comment" : "Field label in the add-account form.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -4621,10 +4728,10 @@
             "value" : "名称"
           }
         }
-      },
-      "comment" : "Field label in the add-account form."
+      }
     },
     "No Accounts Yet" : {
+      "comment" : "Heading of the empty accounts list. Title case.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -4674,8 +4781,7 @@
             "value" : "还没有账户"
           }
         }
-      },
-      "comment" : "Heading of the empty accounts list. Title case."
+      }
     },
     "No Claude Code sessions on this Mac in the last few days." : {
       "localizations" : {
@@ -4730,6 +4836,7 @@
       }
     },
     "No accounts saved yet" : {
+      "comment" : "Empty accounts list, in a place that uses sentence case.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -4779,10 +4886,10 @@
             "value" : "尚未保存任何账户"
           }
         }
-      },
-      "comment" : "Empty accounts list, in a place that uses sentence case."
+      }
     },
     "No accounts yet. Open the dashboard to add one." : {
+      "comment" : "Shown in the menu bar panel when no account exists.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -4832,10 +4939,10 @@
             "value" : "还没有账户。打开仪表板即可添加。"
           }
         }
-      },
-      "comment" : "Shown in the menu bar panel when no account exists."
+      }
     },
     "No agent is running" : {
+      "comment" : "Shown in the menu bar panel when no coding agent is running on this Mac.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -4885,8 +4992,7 @@
             "value" : "没有正在运行的 Agent"
           }
         }
-      },
-      "comment" : "Shown in the menu bar panel when no coding agent is running on this Mac."
+      }
     },
     "No agents on this Mac" : {
       "comment" : "Agents tile headline when no session of any kind was found.",
@@ -4995,6 +5101,7 @@
       }
     },
     "No local token usage recorded for this period." : {
+      "comment" : "Shown when the local scan found nothing in the selected period.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -5044,10 +5151,10 @@
             "value" : "此时间段内没有记录到本地 token 用量。"
           }
         }
-      },
-      "comment" : "Shown when the local scan found nothing in the selected period."
+      }
     },
     "No map" : {
+      "comment" : "Shown in place of the Agentverse scene when it cannot be drawn.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -5097,8 +5204,7 @@
             "value" : "无地图"
           }
         }
-      },
-      "comment" : "Shown in place of the Agentverse scene when it cannot be drawn."
+      }
     },
     "No price on file" : {
       "comment" : "Stands in for an amount when the model is absent from the pricing catalog.",
@@ -5202,6 +5308,59 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "尚未报告配额。"
+          }
+        }
+      }
+    },
+    "No quota source is set up for this subscription." : {
+      "comment" : "Quota failure reason: a route to quota exists for this provider, but this account has none.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Für dieses Abo ist keine Kontingentquelle eingerichtet."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No quota source is set up for this subscription."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No hay ninguna fuente de cuota configurada para esta suscripción."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucune source de quota n’est configurée pour cet abonnement."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Per questo abbonamento non è configurata alcuna fonte di quota."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このサブスクリプションにはクォータの取得元が設定されていません。"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nenhuma fonte de cota está configurada para esta assinatura."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此订阅未配置配额来源。"
           }
         }
       }
@@ -5578,6 +5737,7 @@
       }
     },
     "Nothing was recorded on this day." : {
+      "comment" : "Shown when a day picked in the chart has no usage at all.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -5627,10 +5787,10 @@
             "value" : "这一天没有任何记录。"
           }
         }
-      },
-      "comment" : "Shown when a day picked in the chart has no usage at all."
+      }
     },
     "OFF THE CLOCK" : {
+      "comment" : "Sign painted into Agentverse scene, over area where idle agents rest. Drawn in capitals into fixed-width sign — keep it at most long as English.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -5680,10 +5840,10 @@
             "value" : "已下班"
           }
         }
-      },
-      "comment" : "Sign painted into the Agentverse scene, over the area where idle agents rest. Drawn in capitals into a fixed-width sign — keep it at most as long as the English."
+      }
     },
     "OK" : {
+      "comment" : "Standard dialog button. Use the word macOS itself uses.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -5733,10 +5893,10 @@
             "value" : "OK"
           }
         }
-      },
-      "comment" : "Standard dialog button. Use the word macOS itself uses."
+      }
     },
     "Off the clock" : {
+      "comment" : "List section heading over the agents whose sessions are idle. The app pictures the agents as staff in an office; this is the after-hours section.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -5786,8 +5946,7 @@
             "value" : "已下班"
           }
         }
-      },
-      "comment" : "List section heading over the agents whose sessions are idle. The app pictures the agents as staff in an office; this is the after-hours section."
+      }
     },
     "Only %lld of %lld days have been scanned so far." : {
       "comment" : "Spend tile note when the local scan covers fewer days than the period is named after.",
@@ -5843,6 +6002,7 @@
       }
     },
     "Open Agentverse" : {
+      "comment" : "Button that opens the Agentverse window.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -5892,10 +6052,10 @@
             "value" : "打开 Agentverse"
           }
         }
-      },
-      "comment" : "Button that opens the Agentverse window."
+      }
     },
     "Open Settings" : {
+      "comment" : "Button that opens the settings window.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -5945,10 +6105,10 @@
             "value" : "打开设置"
           }
         }
-      },
-      "comment" : "Button that opens the settings window."
+      }
     },
     "Open the Agentverse in its own window" : {
+      "comment" : "Tooltip on the Agents tile.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -5998,8 +6158,7 @@
             "value" : "在独立窗口中打开 Agentverse"
           }
         }
-      },
-      "comment" : "Tooltip on the Agents tile."
+      }
     },
     "Other" : {
       "comment" : "Chart legend entry for the models folded together beyond the legend's limit.",
@@ -6055,6 +6214,7 @@
       }
     },
     "Period" : {
+      "comment" : "Picker label over the chart and the spend tile: which stretch of time is shown.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -6104,10 +6264,10 @@
             "value" : "时间段"
           }
         }
-      },
-      "comment" : "Picker label over the chart and the spend tile: which stretch of time is shown."
+      }
     },
     "Pick a day in the chart to see which models ran on it." : {
+      "comment" : "Prompt under the chart before any day has been picked.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -6157,10 +6317,10 @@
             "value" : "在图表中选择某一天，查看当天运行了哪些模型。"
           }
         }
-      },
-      "comment" : "Prompt under the chart before any day has been picked."
+      }
     },
     "Presentation" : {
+      "comment" : "Picker label in Settings: whether the app appears in the menu bar, the Dock, or both.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -6210,10 +6370,10 @@
             "value" : "呈现方式"
           }
         }
-      },
-      "comment" : "Picker label in Settings: whether the app appears in the menu bar, the Dock, or both."
+      }
     },
     "Provider" : {
+      "comment" : "Which company's API an account belongs to. The provider names themselves are not translated.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -6263,10 +6423,10 @@
             "value" : "提供方"
           }
         }
-      },
-      "comment" : "Which company's API an account belongs to. The provider names themselves are not translated."
+      }
     },
     "Quality" : {
+      "comment" : "Row label in the add-account form: the rendering quality of the Agentverse scene.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -6316,10 +6476,10 @@
             "value" : "质量"
           }
         }
-      },
-      "comment" : "Row label in the add-account form: the rendering quality of the Agentverse scene."
+      }
     },
     "Quit" : {
+      "comment" : "Menu bar panel button that quits the app. Same word macOS itself uses.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -6369,8 +6529,60 @@
             "value" : "退出"
           }
         }
-      },
-      "comment" : "Menu bar panel button that quits the app. Same word macOS itself uses."
+      }
+    },
+    "Quota reporting is not available for this subscription." : {
+      "comment" : "Quota failure reason: no route to quota exists for this subscription at all.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Für dieses Abo ist keine Kontingentanzeige verfügbar."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quota reporting is not available for this subscription."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El informe de cuota no está disponible para esta suscripción."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le suivi du quota n’est pas disponible pour cet abonnement."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il rapporto sulla quota non è disponibile per questo abbonamento."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このサブスクリプションではクォータの取得に対応していません。"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O relatório de cota não está disponível para esta assinatura."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此订阅不支持配额报告。"
+          }
+        }
+      }
     },
     "Quotas" : {
       "comment" : "Section heading over the per-account quota cards. Drawn in capitals; keep it to one short word.",
@@ -6426,6 +6638,7 @@
       }
     },
     "Refresh" : {
+      "comment" : "Button that fetches the quota figures again, now. In the menu bar panel, which has almost no room to spare — prefer the shortest natural wording.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -6475,10 +6688,10 @@
             "value" : "刷新"
           }
         }
-      },
-      "comment" : "Button that fetches the quota figures again, now. In the menu bar panel, which has almost no room to spare — prefer the shortest natural wording."
+      }
     },
     "Remove this session from the Agentverse" : {
+      "comment" : "Tooltip on the button that drops one agent session from the view.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -6528,10 +6741,10 @@
             "value" : "将此会话从 Agentverse 中移除"
           }
         }
-      },
-      "comment" : "Tooltip on the button that drops one agent session from the view."
+      }
     },
     "Rename Account" : {
+      "comment" : "Dialog title. Title case.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -6581,10 +6794,10 @@
             "value" : "重命名账户"
           }
         }
-      },
-      "comment" : "Dialog title. Title case."
+      }
     },
     "Rename account" : {
+      "comment" : "Same action as 'Rename Account', in a place that uses sentence case.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -6634,10 +6847,10 @@
             "value" : "重命名账户"
           }
         }
-      },
-      "comment" : "Same action as 'Rename Account', in a place that uses sentence case."
+      }
     },
     "Save" : {
+      "comment" : "Standard form button. Use the word macOS itself uses.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -6687,10 +6900,10 @@
             "value" : "保存"
           }
         }
-      },
-      "comment" : "Standard form button. Use the word macOS itself uses."
+      }
     },
     "Save Account" : {
+      "comment" : "Button that saves the add-account form. Title case.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -6740,10 +6953,10 @@
             "value" : "保存账户"
           }
         }
-      },
-      "comment" : "Button that saves the add-account form. Title case."
+      }
     },
     "Scanning local transcripts…" : {
+      "comment" : "Progress row while the app reads the Claude Code transcripts on this Mac.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -6793,10 +7006,10 @@
             "value" : "正在扫描本地记录…"
           }
         }
-      },
-      "comment" : "Progress row while the app reads the Claude Code transcripts on this Mac."
+      }
     },
     "Settings" : {
+      "comment" : "Button and window title. Use the word macOS itself uses for its own settings.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -6846,8 +7059,7 @@
             "value" : "设置"
           }
         }
-      },
-      "comment" : "Button and window title. Use the word macOS itself uses for its own settings."
+      }
     },
     "Shares are of the priced spend only — at least one model has no price on file." : {
       "comment" : "Note beside the model mix percentages when a model in the period has no price.",
@@ -6903,6 +7115,7 @@
       }
     },
     "Source" : {
+      "comment" : "Picker label when adding an account: where the usage figures are read from.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -6952,8 +7165,7 @@
             "value" : "来源"
           }
         }
-      },
-      "comment" : "Picker label when adding an account: where the usage figures are read from."
+      }
     },
     "Spend · this Mac" : {
       "comment" : "Card heading over the money figure, which counts only what was run on this computer. Drawn in capitals; keep it short. The · is a separator and stays.",
@@ -7009,6 +7221,7 @@
       }
     },
     "Sync" : {
+      "comment" : "Settings section heading, over the automatic-synchronisation options.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -7058,10 +7271,10 @@
             "value" : "同步"
           }
         }
-      },
-      "comment" : "Settings section heading, over the automatic-synchronisation options."
+      }
     },
     "Sync automatically" : {
+      "comment" : "Checkbox in Settings.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -7111,8 +7324,7 @@
             "value" : "自动同步"
           }
         }
-      },
-      "comment" : "Checkbox in Settings."
+      }
     },
     "Sync failed" : {
       "comment" : "Account status: the last sync run failed without a message of its own.",
@@ -7379,6 +7591,59 @@
         }
       }
     },
+    "The stored quota token was rejected. Re-authorise this subscription." : {
+      "comment" : "Quota failure reason: the provider answered 401 or 403 to the stored token.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das gespeicherte Kontingent-Token wurde abgelehnt. Autorisiere dieses Abo neu."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The stored quota token was rejected. Re-authorise this subscription."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se rechazó el token de cuota guardado. Vuelve a autorizar esta suscripción."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le jeton de quota enregistré a été refusé. Autorisez de nouveau cet abonnement."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il token di quota salvato è stato rifiutato. Autorizza di nuovo questo abbonamento."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保存されているクォータ用トークンが拒否されました。このサブスクリプションを再認証してください。"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O token de cota salvo foi recusado. Autorize esta assinatura novamente."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已保存的配额令牌被拒绝。请重新授权此订阅。"
+          }
+        }
+      }
+    },
     "These figures cover every Claude subscription together. The transcripts carry no marker of which subscription paid for a session, so they cannot be attributed to one." : {
       "comment" : "Note under the Quotas section explaining that the totals cannot be split per subscription.",
       "localizations" : {
@@ -7592,6 +7857,7 @@
       }
     },
     "Tokens" : {
+      "comment" : "Axis and value label in the usage chart: the unit the model bills in. The English word is used as-is by developer tooling in most languages.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -7641,8 +7907,7 @@
             "value" : "Token"
           }
         }
-      },
-      "comment" : "Axis and value label in the usage chart: the unit the model bills in. The English word is used as-is by developer tooling in most languages."
+      }
     },
     "Unknown model" : {
       "comment" : "Chart legend entry for usage rows that carry no model identifier.",
@@ -7751,6 +8016,7 @@
       }
     },
     "View" : {
+      "comment" : "Picker label in the Agentverse window: which of the scene's views to draw.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -7800,8 +8066,7 @@
             "value" : "视图"
           }
         }
-      },
-      "comment" : "Picker label in the Agentverse window: which of the scene's views to draw."
+      }
     },
     "Week" : {
       "comment" : "Spend period picker segment: one week. A length of time the spend total covers, beside Day/Month/Year — not the weekly quota window, which has its own key.",
@@ -7962,6 +8227,59 @@
         }
       }
     },
+    "Your Claude sign-in has expired. Sign in again." : {
+      "comment" : "Quota failure reason: the web session is no longer valid and there is no stored token to replace.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deine Claude-Anmeldung ist abgelaufen. Melde dich erneut an."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your Claude sign-in has expired. Sign in again."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tu sesión de Claude ha caducado. Vuelve a iniciar sesión."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre connexion à Claude a expiré. Reconnectez-vous."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L’accesso a Claude è scaduto. Accedi di nuovo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude のサインインの有効期限が切れました。もう一度サインインしてください。"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seu login no Claude expirou. Entre novamente."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的 Claude 登录已过期，请重新登录。"
+          }
+        }
+      }
+    },
     "Your subscription reports how much of a window is used, not a token cap, so these are percentages." : {
       "comment" : "Note under the quota cards explaining why they show percentages rather than token counts.",
       "localizations" : {
@@ -8011,6 +8329,59 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "你的订阅报告的是某个窗口用掉了多少，而不是 token 上限，所以这里显示百分比。"
+          }
+        }
+      }
+    },
+    "claude.ai did not return the expected data. If you are signing in, make sure you are fully signed in before continuing." : {
+      "comment" : "Quota failure reason: the page was read but was not the expected shape. claude.ai is a host name, keep it.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "claude.ai hat nicht die erwarteten Daten zurückgegeben. Wenn du dich gerade anmeldest, stelle sicher, dass die Anmeldung vollständig abgeschlossen ist, bevor du fortfährst."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "claude.ai did not return the expected data. If you are signing in, make sure you are fully signed in before continuing."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "claude.ai no devolvió los datos esperados. Si estás iniciando sesión, asegúrate de haberla completado antes de continuar."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "claude.ai n’a pas renvoyé les données attendues. Si vous êtes en train de vous connecter, assurez-vous que la connexion est terminée avant de continuer."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "claude.ai non ha restituito i dati previsti. Se stai effettuando l’accesso, assicurati di averlo completato prima di continuare."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "claude.ai から想定したデータが返りませんでした。サインイン中の場合は、完全にサインインしてから続けてください。"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "claude.ai não retornou os dados esperados. Se você estiver entrando na conta, conclua o login antes de continuar."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "claude.ai 未返回预期的数据。如果你正在登录，请先完成登录再继续。"
           }
         }
       }
@@ -8493,6 +8864,7 @@
       }
     },
     "read from the local transcripts — machine-wide, because a transcript file carries no account" : {
+      "comment" : "Footnote under the local figures, saying why they cannot be split per account. Lower case: it continues a line above.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -8542,8 +8914,7 @@
             "value" : "读自本地记录 — 覆盖整台机器，因为记录文件不带账户信息"
           }
         }
-      },
-      "comment" : "Footnote under the local figures, saying why they cannot be split per account. Lower case: it continues a line above."
+      }
     },
     "resets %@" : {
       "comment" : "Menu row tail on a window that refills. The placeholder is a clock time or a date, e.g. 'resets 14:00'. Lower case: it sits inside a longer row.",
@@ -9029,6 +9400,7 @@
       "shouldTranslate" : false
     },
     "▲ WAITING ON YOU" : {
+      "comment" : "Sign painted into Agentverse scene over agent stopped needs answer. ▲ part sign stays. Drawn in capitals into fixed-width sign — keep it short.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -9078,8 +9450,7 @@
             "value" : "▲ 正在等你"
           }
         }
-      },
-      "comment" : "Sign painted into the Agentverse scene over an agent that has stopped and needs an answer. The ▲ is part of the sign and stays. Drawn in capitals into a fixed-width sign — keep it short."
+      }
     }
   },
   "version" : "1.0"

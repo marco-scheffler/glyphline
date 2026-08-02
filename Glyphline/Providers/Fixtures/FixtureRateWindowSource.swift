@@ -24,7 +24,8 @@ struct FixtureRateWindowSource: RateWindowSource {
             return RateWindowResult(
                 windows: [],
                 dataQuality: .unavailable,
-                message: RateWindowSourceError.notAvailable.message
+                message: RateWindowSourceError.notAvailable.message,
+                failureCode: RateWindowSourceError.notAvailable.code
             )
         case .healthy:
             return RateWindowResult(
