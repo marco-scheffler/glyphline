@@ -368,7 +368,6 @@ private struct DashboardOverview: View {
                     spendCard
                     agentsCard
                     modelMixCard
-                    accountRingsCard
                 }
                 .frame(width: 300)
             }
@@ -556,42 +555,6 @@ private struct DashboardOverview: View {
                 Text("No local token usage recorded for this period.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .glassCard()
-    }
-
-    // MARK: Account rings
-
-    private var accountRingsCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            CardTitle("Accounts")
-
-            if accountSummaries.isEmpty {
-                Text("No accounts saved yet.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-            } else {
-                ForEach(coordinator.quotaBars) { group in
-                    HStack(spacing: 11) {
-                        // The first window an account reports is its shortest,
-                        // which is the one that runs out first and the only one
-                        // worth a ring this size.
-                        UsageRing(remaining: group.rows.first?.remainingFraction)
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text(group.displayName)
-                                .font(.callout)
-                                .lineLimit(1)
-                                .truncationMode(.middle)
-                            Text(group.rows.first?.label ?? QuotaIndicator.noQuotaReportedMessage)
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer(minLength: 0)
-                    }
-                }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -1013,36 +976,6 @@ private struct AgentCountBox: View {
                 : AnyShapeStyle(.quaternary.opacity(0.4)),
             in: RoundedRectangle(cornerRadius: 11, style: .continuous)
         )
-    }
-}
-
-private struct UsageRing: View {
-    /// Nil when the provider reported no consumed fraction. The ring then shows
-    /// no arc at all rather than a full or an empty one, both of which would be
-    /// confident and wrong.
-    let remaining: Double?
-
-    var body: some View {
-        ZStack {
-            Circle().strokeBorder(.quaternary, lineWidth: 4)
-            if let used {
-                Circle()
-                    .trim(from: 0, to: used)
-                    .stroke(
-                        used > 0.6 ? Color.orange : Color.green,
-                        style: StrokeStyle(lineWidth: 4, lineCap: .round)
-                    )
-                    .rotationEffect(.degrees(-90))
-            }
-            Text(used.map { "\(Int(($0 * 100).rounded()))" } ?? "–")
-                .font(.system(size: 10, weight: .semibold))
-                .monospacedDigit()
-        }
-        .frame(width: 36, height: 36)
-    }
-
-    private var used: Double? {
-        remaining.map { min(max(1 - $0, 0), 1) }
     }
 }
 
