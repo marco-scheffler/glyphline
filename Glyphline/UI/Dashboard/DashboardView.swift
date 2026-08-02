@@ -28,6 +28,15 @@ struct DashboardView: View {
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .frame(minWidth: 980, minHeight: 640)
+        // The surface the glass cards refract. Without it they sample the
+        // system's neutral window background and the dashboard reads grey.
+        .dashboardWindowBackground()
+        // The background is a fixed dark navy, so the window has to be dark
+        // whatever the system is set to: in light appearance the labels would
+        // come out near-black on it. Pinned here rather than app-wide — the
+        // settings and menu bar surfaces are ordinary system chrome and should
+        // keep following the user's choice.
+        .preferredColorScheme(.dark)
         .navigationTitle("Glyphline")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
