@@ -378,15 +378,6 @@ enum DashboardPresentation {
         return unknownModelColorHex
     }
 
-    /// The colours for a chart's style scale, in the order of its domain.
-    ///
-    /// The view hands its domain here rather than assembling a palette of its
-    /// own, which is what keeps `modelColor` the only place a model's colour is
-    /// decided.
-    static func modelColors(for identifiers: [String]) -> [Color] {
-        identifiers.map(modelColor)
-    }
-
     /// The models a legend can carry, ranked as `ModelMix` ranks them — by cost.
     ///
     /// Beyond `limit` the legend stops being a legend, so the tail is folded into
@@ -418,6 +409,37 @@ enum DashboardPresentation {
         }
 
         return slices
+    }
+
+    /// The daily chart's style scale: what its legend prints, and in what
+    /// colour.
+    struct ChartStyleScale: Equatable {
+        /// The series keys, which are also the legend's text.
+        var domain: [String]
+        var range: [Color]
+    }
+
+    /// The style scale for a set of slices, in the order they are drawn.
+    ///
+    /// The legend has no words of its own — it prints the series keys — so a
+    /// legend that names models rather than reciting `claude-opus-4-8` is a
+    /// matter of plotting the display name. An explicit domain is also what
+    /// makes the range meaningful: without it Swift Charts orders the colours
+    /// itself and a model can change colour between two periods.
+    ///
+    /// Two identifiers can share a name — a dated build and its undated model —
+    /// and they already share a colour, so the later one folds into the earlier
+    /// rather than putting "Haiku 4.5" in the legend twice.
+    static func chartStyleScale(for slices: [DayModelSlice]) -> ChartStyleScale {
+        var seen: Set<String> = []
+        var scale = ChartStyleScale(domain: [], range: [])
+        for slice in slices {
+            let name = modelDisplayName(slice.model)
+            guard seen.insert(name).inserted else { continue }
+            scale.domain.append(name)
+            scale.range.append(modelColor(slice.model))
+        }
+        return scale
     }
 
     // MARK: - The daily chart's x axis

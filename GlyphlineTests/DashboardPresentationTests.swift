@@ -413,21 +413,53 @@ final class DashboardPresentationTests: XCTestCase {
         }
     }
 
-    /// The chart's style-scale range comes from the same function the swatches
-    /// do. A second palette assembled in the view is exactly how the chart and
-    /// the Model Mix tile end up disagreeing about which purple is Opus 5.
-    func testTheChartsRangeIsBuiltFromTheSameColourSource() {
-        let domain = [
-            "claude-opus-5",
-            "claude-haiku-4-5-20251001",
-            "claude-mystery-9",
-            DashboardPresentation.otherModelsLabel,
-        ]
+    // MARK: - The chart's legend
+
+    private func slice(_ model: String) -> DashboardPresentation.DayModelSlice {
+        DashboardPresentation.DayModelSlice(day: day("2026-07-01T00:00:00Z"), model: model, tokens: 1)
+    }
+
+    /// The legend prints the series keys, so the keys are names and not
+    /// identifiers. A legend reading `claude-haiku-4-5-20251001` is the chart
+    /// showing its plumbing.
+    func testTheLegendNamesItsModelsRatherThanRecitingTheirIdentifiers() {
+        let scale = DashboardPresentation.chartStyleScale(for: [
+            slice("claude-opus-5"),
+            slice("claude-opus-4-8"),
+            slice("claude-haiku-4-5-20251001"),
+            slice("claude-mystery-9"),
+            slice(DashboardPresentation.otherModelsLabel),
+        ])
+
         XCTAssertEqual(
-            DashboardPresentation.modelColors(for: domain),
-            domain.map(DashboardPresentation.modelColor)
+            scale.domain,
+            ["Opus 5", "Opus 4.8", "Haiku 4.5", "claude-mystery-9", "Other"]
         )
-        XCTAssertEqual(DashboardPresentation.modelColors(for: []), [])
+        // The colour still comes from the identifier, so naming a model has not
+        // recoloured it.
+        XCTAssertEqual(
+            scale.range,
+            [
+                DashboardPresentation.modelColor("claude-opus-5"),
+                DashboardPresentation.modelColor("claude-opus-4-8"),
+                DashboardPresentation.modelColor("claude-haiku-4-5"),
+                DashboardPresentation.modelColor("claude-mystery-9"),
+                DashboardPresentation.modelColor(DashboardPresentation.otherModelsLabel),
+            ]
+        )
+    }
+
+    /// A dated build and its undated model are one name and one colour, so they
+    /// are one legend entry. Two identical entries would read as two models.
+    func testTwoIdentifiersWithOneNameAreOneLegendEntry() {
+        let scale = DashboardPresentation.chartStyleScale(for: [
+            slice("claude-haiku-4-5"),
+            slice("claude-haiku-4-5-20251001"),
+        ])
+
+        XCTAssertEqual(scale.domain, ["Haiku 4.5"])
+        XCTAssertEqual(scale.range.count, 1)
+        XCTAssertEqual(DashboardPresentation.chartStyleScale(for: []).domain, [])
     }
 
     // MARK: - The chart's x axis
