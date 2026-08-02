@@ -13,3 +13,7 @@ shots/
 # Specs und Pläne bleiben lokal — sie tragen lokale Pfade und die
 # Entstehungsgeschichte, die niemanden außerhalb dieses Rechners angeht.
 docs/superpowers/
+
+# Lokaler Werkzeug-Cache (Code-Graph, mehrere MB). Gehört niemandem
+# außerhalb dieses Rechners und darf nicht versehentlich mitgehen.
+.tokensave/
