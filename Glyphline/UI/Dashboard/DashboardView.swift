@@ -273,7 +273,7 @@ private struct DashboardOverview: View {
         }
     }
 
-    /// Every account's windows at once, one block each.
+    /// Every account's windows at once, one card each.
     ///
     /// The account switcher that used to sit here has gone. A tab hid whichever
     /// subscription you were not looking at, which is precisely what somebody
@@ -281,11 +281,15 @@ private struct DashboardOverview: View {
     /// accounts" total: two subscriptions with separate five-hour limits do not
     /// have a combined one.
     ///
-    /// Blocks stack rather than tile. An account reports two or three windows and
-    /// those have to stay on one row — a grid over the flattened cards would wrap
-    /// mid-account and put one subscription's weekly card under another's. Five
-    /// accounts is therefore five rows in a pane that already scrolls, which is
-    /// the vertical cost the switcher was buying and is no longer worth it.
+    /// One card per account with its windows stacked inside, rather than a card
+    /// per window: an account reporting a five-hour and a weekly window used to
+    /// cost two cards, so five accounts meant ten. Halving that is the whole
+    /// point of the shape.
+    ///
+    /// The cards tile into an adaptive grid rather than a single column. Two
+    /// accounts sit side by side in the pane's width and five wrap to as many
+    /// rows as the width allows, so growing the account count costs height only
+    /// once the horizontal room is actually used up.
     @ViewBuilder private var quotaBlocks: some View {
         if accountSummaries.isEmpty {
             EmptyStateBox(
@@ -293,7 +297,11 @@ private struct DashboardOverview: View {
                     ?? "No accounts saved yet, so there is no quota to show. Add one under Accounts."
             )
         } else {
-            VStack(alignment: .leading, spacing: 14) {
+            LazyVGrid(
+                columns: [GridItem(.adaptive(minimum: 300), spacing: 14, alignment: .top)],
+                alignment: .leading,
+                spacing: 14
+            ) {
                 ForEach(accountSummaries) { summary in
                     quotaBlock(for: summary)
                 }
@@ -301,39 +309,31 @@ private struct DashboardOverview: View {
         }
     }
 
-    @ViewBuilder private func quotaBlock(for summary: AccountUsageSummary) -> some View {
-        let name = summary.account.displayName
+    private func quotaBlock(for summary: AccountUsageSummary) -> some View {
         // Matched by account id, never by position: this list and the quota
         // states are ordered independently, and attributing one subscription's
         // quota to another is the failure this app works hardest to avoid.
         let state = coordinator.quotaStates.first { $0.accountID == summary.account.id }
 
-        VStack(alignment: .leading, spacing: 8) {
-            Text(name)
-                .font(.headline)
-                .lineLimit(1)
-                .truncationMode(.middle)
-
-            if let state {
-                let cards = state.windows.compactMap {
-                    QuotaCardModel.make(for: $0.window, now: Date())
-                }
-
-                if let message = state.message {
-                    EmptyStateBox(message)
-                } else if cards.isEmpty {
-                    EmptyStateBox(QuotaIndicator.noQuotaReportedMessage)
-                } else {
-                    HStack(alignment: .top, spacing: 14) {
-                        ForEach(cards) { card in
-                            QuotaCardView(card: card, accountName: name)
-                        }
-                    }
-                }
-            } else {
-                EmptyStateBox("This account has not reported a quota yet.")
-            }
+        guard let state else {
+            return AccountQuotaCard(
+                accountName: summary.account.displayName,
+                providerName: summary.account.providerID.displayName,
+                cards: [],
+                message: "This account has not reported a quota yet."
+            )
         }
+
+        let cards = state.windows.compactMap { QuotaCardModel.make(for: $0.window, now: Date()) }
+        return AccountQuotaCard(
+            accountName: summary.account.displayName,
+            providerName: summary.account.providerID.displayName,
+            cards: state.message == nil ? cards : [],
+            // The provider's own explanation wins over ours, and a state that
+            // reports no window at all still has to say so rather than leave the
+            // account's card empty.
+            message: state.message ?? (cards.isEmpty ? QuotaIndicator.noQuotaReportedMessage : nil)
+        )
     }
 
     // MARK: Usage on this Mac
@@ -792,18 +792,60 @@ private struct ProportionBar: View {
 
 // MARK: - The quota card
 
-private struct QuotaCardView: View {
-    let card: QuotaCardModel
-    /// Which subscription this window belongs to. Not optional: with every
-    /// account on screen at once there is no longer a tab making that obvious,
-    /// so no card is allowed to render without saying whose it is.
+/// One account's quota: its name at the top, every window it reports stacked
+/// beneath.
+///
+/// The name is a stored property with no default and no optional, so this card
+/// cannot be built without it. That is what keeps an account unambiguous now
+/// that the window rows no longer repeat it — the compiler, rather than a
+/// convention each call site has to remember.
+private struct AccountQuotaCard: View {
     let accountName: String
+    let providerName: String
+    let cards: [QuotaCardModel]
+    /// Why there are no windows to draw, when there are none. Rendered inside
+    /// the card rather than in place of it: an account that reports nothing is
+    /// still an account, and dropping its card would make it look unconfigured.
+    let message: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 1) {
+                Text(accountName)
+                    .font(.headline)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                Text(providerName)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            if let message {
+                Text(message)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                ForEach(cards) { card in
+                    QuotaWindowRow(card: card)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .glassCard()
+    }
+}
+
+/// One window inside its account's card: headroom, bar with pace marker, pace
+/// sentence.
+private struct QuotaWindowRow: View {
+    let card: QuotaCardModel
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            CardTitle(DashboardPresentation.quotaCardTitle(window: card.title, account: accountName))
+            CardTitle(DashboardPresentation.quotaWindowLabel(for: card.kind))
                 .lineLimit(1)
-                .truncationMode(.middle)
 
             HStack(alignment: .firstTextBaseline, spacing: 4) {
                 Text("\(card.headroomPercent)")
@@ -835,8 +877,6 @@ private struct QuotaCardView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .glassCard()
     }
 }
 

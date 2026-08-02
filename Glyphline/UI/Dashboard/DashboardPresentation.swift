@@ -212,23 +212,26 @@ enum DashboardPresentation {
         return slices
     }
 
-    // MARK: - Naming whose quota a card is
+    // MARK: - Naming a window inside its account's card
 
-    /// A quota card's heading: the window's own label and the account it belongs
-    /// to, in that order.
+    /// How a window is labelled inside the card of the account it belongs to.
     ///
-    /// The account switcher this replaced made whose window you were reading
-    /// unambiguous by only ever showing one account at a time. With every account
-    /// on screen that job has to move into the card — a wall of anonymous
-    /// percentage cards would be worse than the tabs were. The name therefore
-    /// sits on the card and not only on the heading above its row, because a card
-    /// glanced at on its own is exactly the case the heading does not cover.
+    /// The account switcher that used to make "whose window is this" obvious is
+    /// gone, and the answer now sits in the card's own header — one card per
+    /// account, its name at the top. That leaves each window inside needing only
+    /// to say *which* window it is, which is why the account no longer appears
+    /// here.
     ///
-    /// Window first: the cards of one account sit in a row, so the leading word
-    /// is what distinguishes them from each other, and the account is the
-    /// qualifier that distinguishes the row.
-    static func quotaCardTitle(window: String, account: String) -> String {
-        "\(window) · \(account)"
+    /// Spelled out rather than reusing `QuotaIndicator`'s "5h" / "Week". Those
+    /// are sized for a menu bar row a few points wide; a card has the room to say
+    /// what it means, and a label that reads as a sentence fragment is what makes
+    /// two stacked windows legible as two windows.
+    static func quotaWindowLabel(for kind: RateWindowKind) -> String {
+        switch kind {
+        case .rollingFiveHours: "5-hour"
+        case .weekly: "Weekly"
+        case .billingCycle: "Billing cycle"
+        }
     }
 
     // MARK: - Wording
