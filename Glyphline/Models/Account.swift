@@ -1,6 +1,19 @@
 import Foundation
 
-struct Account: Identifiable, Codable, Equatable, Sendable {
+/// Deliberately not `Codable`.
+///
+/// `customName` is `private(set)` so that the rule about blank names — trimmed,
+/// and nothing left of a blank means no name — runs on every way in. A
+/// synthesised `init(from:)` is a way in that skips it: it assigns the stored
+/// property straight from JSON, so a `"  "` in a decoded payload would become a
+/// name the whole app then treats as real. Nothing decodes an `Account` today,
+/// which made this a hole rather than a bug, and the conformance was unused —
+/// the ledger persists through `AccountRecord`, which rebuilds accounts through
+/// the initialiser and so is normalised on the way back out.
+///
+/// Should an `Account` ever need to be decoded, write `init(from:)` by hand and
+/// route `customName` through `normalizedName`.
+struct Account: Identifiable, Equatable, Sendable {
     let id: UUID
     var providerID: ProviderID
     /// The name derived from the credential when the account was added. Never
