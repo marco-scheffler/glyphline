@@ -14,10 +14,14 @@ enum QuotaCardState: Equatable, Sendable {
 /// One quota window as a card draws it: a bar, a marker on that bar, and the
 /// sentence underneath.
 ///
-/// The marker is the reason this type exists. "63% used" says nothing on its
-/// own; "63% used and an even burn would have you at 40%" says stop. The marker
-/// sits where a perfectly even burn to the reset would put you *now*, so a bar
-/// past the marker means the window will not survive to its reset.
+/// The marker is the reason this type exists. "37% left" says nothing on its
+/// own; "37% left where an even burn would have left you 60%" says stop. The
+/// marker sits where a perfectly even burn to the reset would put you *now*.
+///
+/// This type states that position as the elapsed share of the window — how far a
+/// an even burn would have spent you. `QuotaBar` mirrors it, because the bar it
+/// draws drains rather than fills, so a bar *short* of the marker is the one
+/// that will not survive to its reset.
 struct QuotaCardModel: Identifiable, Equatable, Sendable {
     var kind: RateWindowKind
     /// What the provider says is consumed, clamped to 0…1. A figure outside that
