@@ -59,21 +59,13 @@ transcripts to tell you what all of it would have cost on the API.
 
 ## Screenshots
 
-> Not in the repository yet — drop them into `docs/assets/` under these names.
-
-[![The dashboard: quota cards per account, spend, agents and model mix above a daily usage chart](docs/assets/dashboard.png)](docs/assets/dashboard.png)
+[![The dashboard: quota cards per account, spend, agents and model mix above a daily usage chart stacked by model](docs/assets/dashboard.png)](docs/assets/dashboard.png)
 The dashboard — every account's windows, what today cost, and which agents need you
 
-[![The Agentverse as an isometric office at night, agents at desks with status crystals above their heads](docs/assets/agentverse-office.png)](docs/assets/agentverse-office.png)
-The Agentverse — agents at their desks, lit by the real sun for your timezone
+[![The datastream view: one lane of falling glyphs per session, with two lanes frozen and marked as waiting on you](docs/assets/agentverse-datastream.png)](docs/assets/agentverse-datastream.png)
+The datastream — a lane per session, frozen and amber when it needs an answer
 
-[![Agents blocked on a reply waiting in the break room](docs/assets/agentverse-breakroom.png)](docs/assets/agentverse-breakroom.png)
-Blocked on you — they leave their desk and wait in the break room until you come back
-
-[![The datastream view: one lane of falling glyphs per session](docs/assets/agentverse-datastream.png)](docs/assets/agentverse-datastream.png)
-The datastream — the same information as an instrument rather than a place
-
-[![The menu bar panel showing quota headroom at a glance](docs/assets/menubar.png)](docs/assets/menubar.png)
+[![The menu bar panel listing each account's five-hour and weekly headroom with reset times](docs/assets/menubar.png)](docs/assets/menubar.png)
 The menu bar — headroom and pace without opening anything
 
 ## Requirements
