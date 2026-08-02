@@ -34,14 +34,26 @@ enum AppActivationController {
         }
     }
 
+    /// The identifier SwiftUI gives the window its `Settings` scene opens. Not a
+    /// scene id of ours — the framework names that window itself.
+    static let settingsWindowID = "com_apple_SwiftUI_Settings_window"
+
     /// Split out from the `NSApp` walk so the matching rule can be tested without a
     /// running window.
     ///
     /// Prefix, not equality: SwiftUI derives the `NSWindow` identifier from the
     /// scene id and appends its own counter — the agentverse window comes up as
     /// `agentverse-AppWindow-1`, verified against a built app rather than assumed.
+    ///
+    /// The settings window is here for both of the things this predicate decides.
+    /// It opens in every mode, including `.menuBarOnly` where the app is an
+    /// accessory — so the app has to stay regular while it is up. And it carries
+    /// the app-mode picker: without the exemption, switching to Menu Bar from
+    /// inside settings would have the dashboard's window sweep close the very
+    /// window the user was working in.
     static func isWindowNeedingRegularApp(identifier: String?) -> Bool {
         guard let identifier else { return false }
         return identifier.hasPrefix(AppMode.agentverseWindowID)
+            || identifier.hasPrefix(settingsWindowID)
     }
 }

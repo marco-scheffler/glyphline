@@ -68,6 +68,18 @@ struct GlyphlineApp: App {
             }
         }
 
+        // A real settings scene, so ⌘, and the app menu's Settings… item exist at
+        // all — SwiftUI supplies neither without one. Accounts is a tab in here
+        // rather than a place in the dashboard's sidebar: what is left of it is
+        // management, which is configuration.
+        Settings {
+            SettingsRootView()
+                .environmentObject(settings)
+                // The accounts list draws each account's quota bars, from the
+                // same coordinator every other surface reads.
+                .environmentObject(coordinator)
+        }
+
         MenuBarExtra(isInserted: menuBarExtraInsertion) {
             ModeAwareMenuBarRoot(settings: settings) {
                 MenuBarView()

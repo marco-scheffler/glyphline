@@ -16,6 +16,10 @@ struct AccountsView: View {
     /// so without this a second press starts a second deletion.
     @State private var deletingAccountID: UUID?
 
+    /// How much room the header claims above the list, beyond the row itself.
+    /// Named so the probe test can subtract it rather than assume it.
+    static let headerTopPadding: CGFloat = 20
+
     /// Carries the counts alongside the account so the alert renders from the
     /// figures read when the button was pressed, not from a second query while
     /// the alert is already on screen.
@@ -25,7 +29,9 @@ struct AccountsView: View {
         var id: UUID { account.id }
     }
 
-    var body: some View {
+    /// The list on its own, so the header above it and the sheets and alerts
+    /// around it stay legible as separate pieces.
+    @ViewBuilder private var list: some View {
         Group {
             if accounts.isEmpty {
                 ContentUnavailableView(
@@ -36,9 +42,6 @@ struct AccountsView: View {
             } else {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 16) {
-                        Text("Accounts")
-                            .font(.title2.weight(.semibold))
-
                         // Computed once per render pass. Evaluated inside the
                         // ForEach it rebuilt the whole array once per card.
                         let quotaBars = coordinator.quotaBars
@@ -116,23 +119,41 @@ struct AccountsView: View {
                             .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 8))
                         }
                     }
-                    .padding(24)
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 16)
                 }
             }
         }
-        .navigationTitle("Accounts")
-        // In the toolbar rather than in the header above the list: the list has
-        // an empty state, and a header button would be missing in exactly the
-        // situation where adding an account is the only thing to do.
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    isPresentingAddAccount = true
-                } label: {
-                    Label("Add account", systemImage: "person.badge.plus")
-                }
-                .help("Add an account")
+    }
+
+    /// The title and the one action the list has.
+    ///
+    /// A header row rather than a toolbar item. As a tab in the settings window
+    /// this view has no toolbar to put anything in, so a toolbar item there
+    /// renders nowhere at all — and the place it is indispensable is the empty
+    /// state, where adding an account is the only thing to do.
+    private var header: some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text("Accounts")
+                .font(.title2.weight(.semibold))
+
+            Spacer(minLength: 12)
+
+            Button {
+                isPresentingAddAccount = true
+            } label: {
+                Label("Add account", systemImage: "person.badge.plus")
             }
+            .help("Add an account")
+        }
+        .padding(.horizontal, 24)
+        .padding(.top, Self.headerTopPadding)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            header
+            list
         }
         .sheet(isPresented: $isPresentingAddAccount) {
             VStack(spacing: 0) {
