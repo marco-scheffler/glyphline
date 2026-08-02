@@ -64,7 +64,7 @@ struct DashboardView: View {
         // detail view's own appearance: the first scan reads gigabytes across
         // hundreds of project directories.
         .task { await coordinator.scanLocalUsageOnceAtLaunch() }
-        // The header's call to action counts agents, so the dashboard needs a
+        // The Agents tile counts agents, so the dashboard needs a
         // sweep of its own — the map's window may never have been opened.
         .task { await agentverse.refresh() }
     }
@@ -244,8 +244,6 @@ private struct DashboardOverview: View {
             }
 
             Spacer(minLength: 12)
-
-            AgentverseCallToActionButton(model: callToAction, action: openAgentverse)
         }
     }
 
@@ -505,27 +503,60 @@ private struct DashboardOverview: View {
 
     // MARK: Agents
 
+    /// The whole tile is the way into the Agentverse.
+    ///
+    /// The header used to carry a separate call to action counting the same
+    /// three numbers this tile boxes up; one fact on two surfaces is one too
+    /// many, so the tile took the click and the header went back to its title.
+    /// The call to action's plain-language line came with it: three numbered
+    /// boxes do not read at a glance the way "1 agent is waiting on you" does.
+    ///
+    /// Amber and outlined only while somebody is waiting, matching the waiting
+    /// box and the plumbob over a waiting agent's head. Quiet otherwise: a
+    /// dashboard that always looks urgent stops meaning anything.
     private var agentsCard: some View {
         let cta = callToAction
 
-        return VStack(alignment: .leading, spacing: 8) {
-            CardTitle("Agents")
+        return Button(action: openAgentverse) {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    CardTitle("Agents")
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.tertiary)
+                }
 
-            if cta.isEmpty {
-                Text("No Claude Code sessions on this Mac in the last few days.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-            } else {
-                HStack(spacing: 8) {
-                    AgentCountBox(count: cta.waiting, label: "waiting on you", isHot: cta.isUrgent)
-                    AgentCountBox(count: cta.working, label: "working", isHot: false)
-                    AgentCountBox(count: cta.resting, label: "resting", isHot: false)
+                if cta.isEmpty {
+                    Text("No Claude Code sessions on this Mac in the last few days.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else {
+                    Text(cta.headline)
+                        .font(.callout.weight(cta.isUrgent ? .semibold : .regular))
+                        .foregroundStyle(cta.isUrgent ? Color.orange : Color.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    HStack(spacing: 8) {
+                        AgentCountBox(count: cta.waiting, label: "waiting on you", isHot: cta.isUrgent)
+                        AgentCountBox(count: cta.working, label: "working", isHot: false)
+                        AgentCountBox(count: cta.resting, label: "resting", isHot: false)
+                    }
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .padding(16)
+            .glassCard()
+            .overlay(
+                RoundedRectangle(cornerRadius: 15, style: .continuous)
+                    .strokeBorder(cta.isUrgent ? Color.orange.opacity(0.55) : Color.clear)
+            )
+            .shadow(color: cta.isUrgent ? .orange.opacity(0.28) : .clear, radius: 14)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .padding(16)
-        .glassCard()
+        .buttonStyle(.plain)
+        .help("Open the Agentverse in its own window")
+        .accessibilityLabel("Agents. \(cta.headline)")
     }
 
     // MARK: Model mix
@@ -1092,79 +1123,6 @@ private extension QuotaCardState {
         case .warn: .orange
         case .spent: .red
         }
-    }
-}
-
-// MARK: - The call to action
-
-/// Amber with a slow pulse when agents are waiting, matching the plumbob over a
-/// waiting agent's head so both surfaces speak one language. Neutral, unlit and
-/// still when nobody is: a dashboard that always looks urgent stops meaning
-/// anything.
-private struct AgentverseCallToActionButton: View {
-    let model: DashboardPresentation.AgentverseCallToAction
-    let action: () -> Void
-
-    @State private var isPulsing = false
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 13) {
-                ring
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(model.headline)
-                        .font(.callout.weight(.semibold))
-                    Text(model.detail)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Image(systemName: "chevron.right")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.tertiary)
-            }
-            .padding(.vertical, 10)
-            .padding(.leading, 11)
-            .padding(.trailing, 14)
-            .glassCard(cornerRadius: 14)
-            .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .strokeBorder(model.isUrgent ? Color.orange.opacity(0.55) : Color.clear)
-            )
-            .shadow(color: model.isUrgent ? .orange.opacity(0.28) : .clear, radius: 14)
-        }
-        .buttonStyle(.plain)
-        .help("Open the Agentverse in its own window")
-        .accessibilityLabel("\(model.headline). \(model.detail)")
-    }
-
-    private var ring: some View {
-        ZStack {
-            Circle()
-                .fill(model.isUrgent ? Color.orange.opacity(0.18) : Color.secondary.opacity(0.10))
-            Circle()
-                .strokeBorder(model.isUrgent ? Color.orange.opacity(0.5) : Color.secondary.opacity(0.25))
-
-            if model.isUrgent {
-                Circle()
-                    .strokeBorder(Color.orange.opacity(0.7), lineWidth: 1.5)
-                    .scaleEffect(isPulsing ? 1.42 : 1)
-                    .opacity(isPulsing ? 0 : 0.85)
-                    // 2.2 s, the same unhurried period the plumbob keeps. A
-                    // faster pulse reads as an alarm rather than as a nudge.
-                    .animation(
-                        .easeOut(duration: 2.2).repeatForever(autoreverses: false),
-                        value: isPulsing
-                    )
-            }
-
-            Text("\(model.waiting)")
-                .font(.system(size: 17, weight: .bold))
-                .monospacedDigit()
-                .foregroundStyle(model.isUrgent ? Color.orange : Color.secondary)
-        }
-        .frame(width: 38, height: 38)
-        .onAppear { isPulsing = model.isUrgent }
-        .onChange(of: model.isUrgent) { _, urgent in isPulsing = urgent }
     }
 }
 

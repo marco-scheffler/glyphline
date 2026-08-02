@@ -169,7 +169,6 @@ final class DashboardPresentationTests: XCTestCase {
         XCTAssertFalse(cta.isUrgent)
         XCTAssertFalse(cta.isEmpty)
         XCTAssertEqual(cta.headline, "Nobody is waiting on you")
-        XCTAssertEqual(cta.detail, "4 working · 2 resting — open the Agentverse")
     }
 
     func testOneWaitingAgentIsSingular() {
@@ -186,7 +185,7 @@ final class DashboardPresentationTests: XCTestCase {
         XCTAssertEqual(cta.headline, "3 agents are waiting on you")
     }
 
-    /// A session count of zero is one of the four empty states: the button still
+    /// A session count of zero is one of the four empty states: the tile still
     /// opens the map, it simply says there is nobody in it.
     func testNoSessionsAtAllSaysSoAndStaysQuiet() {
         let cta = DashboardPresentation.callToAction(waiting: 0, working: 0, resting: 0)
@@ -194,7 +193,6 @@ final class DashboardPresentationTests: XCTestCase {
         XCTAssertTrue(cta.isEmpty)
         XCTAssertFalse(cta.isUrgent)
         XCTAssertEqual(cta.headline, "No agents on this Mac")
-        XCTAssertEqual(cta.detail, "Open the Agentverse")
     }
 
     // MARK: - Chart slices
