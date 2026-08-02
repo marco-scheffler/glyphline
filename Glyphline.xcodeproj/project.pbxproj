@@ -27,6 +27,7 @@
 		1F057127236C7C74BCADB639 /* AppModeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 347CEC22ED71F6DCC815DB03 /* AppModeTests.swift */; };
 		23BFBC7149C0F420E8F4C6AE /* ClaudeWebResponseClassifierTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28A51A602B459C74D5B7B379 /* ClaudeWebResponseClassifierTests.swift */; };
 		2476C4431D917C70FF6241F3 /* ClaudeWebSessionStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAB6B58FFD4950C915812BC0 /* ClaudeWebSessionStoreTests.swift */; };
+		257DBBE3716A5D0C5DBBCA95 /* AccountsListSpacingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F420DC860B6D6F8784153356 /* AccountsListSpacingTests.swift */; };
 		267FC40CA71C733DD3833754 /* SpendSummaryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39F2CB017DCE303DF2074D0E /* SpendSummaryTests.swift */; };
 		28C11321FB7E815ECD239AE1 /* PricingCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D596EC370B13AA593C32D79 /* PricingCatalog.swift */; };
 		29DAC97DF9CC2CB3A0D01784 /* AppSettingsStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD5F66FB95D8BBD93EFCBE00 /* AppSettingsStoreTests.swift */; };
@@ -290,6 +291,7 @@
 		EB6486F570B1DA77ACCB5458 /* AgentverseCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentverseCoordinatorTests.swift; sourceTree = "<group>"; };
 		F06FF5203E4C15863CAB3EE3 /* AccountsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountsView.swift; sourceTree = "<group>"; };
 		F14BBDE367E8BE177C79F8B4 /* DailyUsageSeries.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyUsageSeries.swift; sourceTree = "<group>"; };
+		F420DC860B6D6F8784153356 /* AccountsListSpacingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountsListSpacingTests.swift; sourceTree = "<group>"; };
 		F4E1FE1146583F38A8203043 /* SunPositionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SunPositionTests.swift; sourceTree = "<group>"; };
 		F7E41CF08357DEC111ECE205 /* timezone-places.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "timezone-places.json"; sourceTree = "<group>"; };
 		F94F481767914DA33C8B0E8D /* SnapshotIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapshotIdentity.swift; sourceTree = "<group>"; };
@@ -459,6 +461,7 @@
 				346DE5E32009926B52DF6DC4 /* AccountDeletionFormattingTests.swift */,
 				224A62075870B8FAF84E2274 /* AccountDeletionStoreTests.swift */,
 				617EF38646F5BA34DC3F3BBA /* AccountQuotaGridTests.swift */,
+				F420DC860B6D6F8784153356 /* AccountsListSpacingTests.swift */,
 				849077EF726D5E3F756B4805 /* AccountSummaryFormattingTests.swift */,
 				4E9A1292C4590819749AE424 /* AccountsViewTests.swift */,
 				40D313DABDF65EC1DBCADDBD /* AddAccountFlowTests.swift */,
@@ -755,6 +758,7 @@
 				18FAA7AC1EAAEBCD3D16EC0C /* AccountDeletionStoreTests.swift in Sources */,
 				006CDCCCDC2821B7F6F58864 /* AccountQuotaGridTests.swift in Sources */,
 				314BE108752F760302660DC4 /* AccountSummaryFormattingTests.swift in Sources */,
+				257DBBE3716A5D0C5DBBCA95 /* AccountsListSpacingTests.swift in Sources */,
 				E4F7AE192ECCD2D4A0E3EC80 /* AccountsViewTests.swift in Sources */,
 				72517151B7BCCE3BC2748539 /* AddAccountFlowTests.swift in Sources */,
 				5D6CC45BF8A924FA46602063 /* AgentRowTests.swift in Sources */,
