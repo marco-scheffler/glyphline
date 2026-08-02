@@ -10,8 +10,9 @@ enum DatastreamState: Equatable, Sendable {
 /// One session as the datastream shows it: a lane.
 struct DatastreamLane: Equatable, Sendable {
     let id: String
-    /// What the header leads with: what this session is doing, already clipped to
-    /// `SessionLabel.laneLimit`.
+    /// What the header leads with: what this session is doing, in full. The
+    /// renderer cuts it to the measured width of the lane it is drawn in — a
+    /// count clipped here could only ever be right at one window size.
     let name: String
     /// The second line's first field, and no longer the name: every lane in one
     /// checkout would otherwise read the same.
@@ -56,6 +57,15 @@ struct DatastreamLayout: Equatable, Sendable {
 
     /// The collector rail, the reference's `FLOOR`.
     var floorY: Double { canvas.height - 46 }
+
+    /// Air between the header text and the lane's two dividers, so a fitted
+    /// title does not sit flush against the neighbouring lane.
+    static let headerTextInset: Double = 6
+
+    /// What a header line may measure. A lane is the pane divided by the lane
+    /// count, so this is a variable — which is why the header is cut to it with
+    /// `LabelFit` rather than to a character count.
+    var laneTextWidth: Double { max(0, laneWidth - 2 * Self.headerTextInset) }
 
     /// The reference's glyph size and the gap between two glyphs in a column.
     static let glyphSize: Double = 15
@@ -353,18 +363,18 @@ struct DatastreamScene: View {
     var body: some View {
         // Pulled out of the closure: `Canvas`'s renderer is `@Sendable`, so it
         // may only capture values, never the view.
+        // The full title, not a character-clipped one: the renderer cuts it to
+        // the measured width of the lane it will actually be drawn in.
         let lanes = sessions.map { session in
             DatastreamLane(id: session.id,
-                           name: SessionLabel.truncated(session.displayTitle,
-                                                        to: SessionLabel.laneLimit),
+                           name: session.displayTitle,
                            repository: session.repositoryName,
                            state: session.activity == .waitingForYou ? .waiting : .working,
                            subagentCount: session.subagentCount,
                            workTokens: workTokens[session.id] ?? 0)
         } + parked.map { session in
             DatastreamLane(id: session.sessionID,
-                           name: SessionLabel.truncated(session.displayTitle,
-                                                        to: SessionLabel.laneLimit),
+                           name: session.displayTitle,
                            repository: session.repositoryName,
                            state: .parked,
                            subagentCount: session.subagentCount,
@@ -392,6 +402,20 @@ struct DatastreamRenderer {
     private var seconds: Double { Double(frame) / 60 }
 
     private static let background = Color(red: 4 / 255, green: 7 / 255, blue: 10 / 255)
+
+    /// The header's first line, in one place, so the string is measured with the
+    /// same font it is drawn with.
+    private static func nameText(_ string: String) -> Text {
+        Text(string).font(.system(size: 11, design: .monospaced))
+    }
+
+    /// The width of a resolved string against an unbounded proposal, so a long
+    /// title reports its true length instead of being wrapped into the lane.
+    private func measure(_ context: GraphicsContext, _ text: Text) -> Double {
+        let free = CGSize(width: CGFloat.greatestFiniteMagnitude,
+                          height: CGFloat.greatestFiniteMagnitude)
+        return context.resolve(text).measure(in: free).width
+    }
 
     func draw(in context: GraphicsContext, size: CGSize, lanes: [DatastreamLane]) {
         context.fill(Path(CGRect(origin: .zero, size: size)), with: .color(Self.background))
@@ -457,13 +481,14 @@ struct DatastreamRenderer {
                      with: .color(.white.opacity(0.04 * dim)))
         context.fill(Path(CGRect(x: laneX + 1, y: 0, width: laneWidth - 1, height: 36)),
                      with: .color(Self.background.opacity(0.76)))
-        // Clipped once, where the lane is built. A second, tighter limit here
-        // would silently override `SessionLabel.laneLimit` and put the two
-        // numbers out of step.
-        let name = SessionLabel.truncated(lane.name, to: SessionLabel.laneLimit)
-        context.draw(Text(name)
-            .font(.system(size: 11, design: .monospaced))
-            .foregroundColor(lane.tint.alpha(dim)),
+        // Cut here and nowhere else, against the width of the lane it is about
+        // to be drawn in and by the metrics it will be drawn with. A character
+        // count could not do this: the lane is the pane divided by the number of
+        // sessions, so its width is a variable and the count is not.
+        let name = LabelFit.truncated(lane.name, to: layout.laneTextWidth) {
+            self.measure(context, Self.nameText($0))
+        }
+        context.draw(Self.nameText(name).foregroundColor(lane.tint.alpha(dim)),
                      at: CGPoint(x: centre, y: 15))
         context.draw(Text(lane.caption)
             .font(.system(size: 9.5, design: .monospaced))

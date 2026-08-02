@@ -57,18 +57,19 @@ struct AgentSession: Identifiable, Equatable, Sendable {
     var repositoryName: String { SessionLabel.repositoryName(cwd: cwd) }
 }
 
-/// How a session is named on screen, in one place, because three surfaces have
-/// to agree on it and each one truncates to its own width.
+/// How a session is named on screen, in one place, because several surfaces have
+/// to agree on it.
+///
+/// The one character count left here is the sidebar's, and it is a count because
+/// the sidebar's column is a constant width. Everything drawn into a canvas is
+/// cut with `LabelFit` against the width it actually gets.
 enum SessionLabel {
-    /// The sidebar's column is 264 pt of proportional text — the widest of the
-    /// three, so it gets the most characters.
+    /// The sidebar's column is a fixed 264 pt of proportional text.
     static let sidebarLimit = 42
-    /// A datastream lane is roughly 150 pt at 11 pt monospaced, about 6.6 pt per
-    /// character.
-    static let laneLimit = 22
-    // The office plates have no limit here. Their column is a fraction of the
-    // pane, so a character count in this list could only ever be right at one
-    // window size; `LabelFit` cuts them to the measured width instead.
+    // The office plates, the datastream's lane headers and the off-the-clock
+    // strip have no limit here. Each of them is a fraction of the pane, so a
+    // character count in this list could only ever be right at one window size;
+    // `LabelFit` cuts them to the measured width instead.
 
     /// The last path component, and the whole path when there is no component to
     /// take — `URL(fileURLWithPath:)` answers "/" and "." for the degenerate
