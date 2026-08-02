@@ -760,10 +760,42 @@ struct OfficeRenderer {
     /// names from reading as one.
     static let offClockTextWidth: Double = offClockSlotPitch - 12
 
+    /// Where the strip's first sleeper stands, and where the heading starts.
+    /// Both were inline constants; the heading's fit is measured against them,
+    /// so they have to be one number each.
+    static let offClockFirstSlotX: Double = 104
+    static let offClockHeadingX: Double = 20
+
+    /// What the "OFF THE CLOCK" heading may measure.
+    ///
+    /// The heading sits on its own line to the left of the strip, and the only
+    /// thing drawn in its vertical band is the first sleeper's head — a circle
+    /// of radius 7 centred 18 points right of the slot. So the heading has to
+    /// stop short of that head, with a little air, and it has the whole left of
+    /// the pane up to there.
+    ///
+    /// English measures 81 against the 89 this allows. Spanish "FUERA DE
+    /// HORARIO" is 99 and Portuguese "FORA DE EXPEDIENTE" is 109, both of which
+    /// would be drawn across a sleeper's face.
+    static let offClockHeadingWidth: Double =
+        (offClockFirstSlotX + 18 - 7) - 6 - offClockHeadingX
+
     /// The sleeper's name, in one place, so it is measured with the font it is
     /// drawn with.
     private static func offClockText(_ string: String) -> Text {
         Text(string).font(.system(size: 10))
+    }
+
+    /// The strip's heading, in one place, for the same reason.
+    static func offClockHeadingText(_ string: String) -> Text {
+        Text(string).font(.system(size: 10))
+    }
+
+    /// The heading cut to the room it has. Split out of the drawing for the same
+    /// reason as the sleeper's name below it: the rule can then be asserted
+    /// without rendering the strip.
+    static func fittedOffClockHeading(_ heading: String, measure: (String) -> Double) -> String {
+        LabelFit.truncated(heading, to: offClockHeadingWidth, measure: measure)
     }
 
     /// A sleeper's name cut to its slot. Split out of the drawing for the same
@@ -778,16 +810,23 @@ struct OfficeRenderer {
     private func drawOffClock(_ context: GraphicsContext, size: CGSize,
                               offClock: [OfficeDesk]) {
         guard !offClock.isEmpty else { return }
-        context.draw(context.resolve(Text("OFF THE CLOCK")
-            .font(.system(size: 10))
+        let heading = Self.fittedOffClockHeading(
+            String(
+                localized: "OFF THE CLOCK",
+                comment: "Sign painted into Agentverse scene, over area where idle agents rest. Drawn in capitals into fixed-width sign — keep it at most long as English."
+            )
+        ) { self.measure(context, Self.offClockHeadingText($0)) }
+        context.draw(context.resolve(Self.offClockHeadingText(heading)
             .foregroundStyle(Color(red: 107 / 255, green: 123 / 255, blue: 136 / 255)
                 .opacity(0.75))),
-                     at: CGPoint(x: 20, y: size.height - 58), anchor: .bottomLeading)
+                     at: CGPoint(x: Self.offClockHeadingX, y: size.height - 58),
+                     anchor: .bottomLeading)
 
         for (i, session) in offClock.prefix(5).enumerated() {
             let dim = hovered != nil && hovered != session.id
             let al = dim ? 0.22 : 0.6
-            let sx = 104 + Double(i) * Self.offClockSlotPitch, sy = size.height - 34
+            let sx = Self.offClockFirstSlotX + Double(i) * Self.offClockSlotPitch
+            let sy = size.height - 34
             var ctx = context
             ctx.opacity = al
             ctx.fill(Path(roundedRect: CGRect(x: sx - 30, y: sy - 14, width: 60, height: 22),
@@ -1183,10 +1222,49 @@ struct OfficeRenderer {
         var ctx = context
         ctx.opacity = 0.9
         let sp = p(b.u0 - 0.4, b.v0 + 1.5, wall * 0.62)
-        let text = Text("BREAK ROOM")
-            .font(.system(size: 11 * max(0.8, scale)))
+        let name = String(
+            localized: "BREAK ROOM",
+            comment: "Sign painted into Agentverse scene, over rest area. Drawn in capitals into fixed-width sign — keep it at most long as English."
+        )
+        // Cut to the room, by the same measurement it is drawn with. The sign
+        // runs rightwards in screen space across the room it names and has to
+        // stop at the room's far corner — past that there is no break room
+        // under it, only office floor and then bare canvas.
+        //
+        // Nothing measured this until the app was translated. In the tightest
+        // scene this app lays out — 24 sessions in a 900×600 pane — the room is
+        // 78 points wide at the sign's height and English "BREAK ROOM" is 60,
+        // which is why it read as settled. Spanish and Portuguese "SALA DE
+        // DESCANSO" is 91 and would hang 12 points off the room's far corner.
+        let sign = fittedBreakRoomSign(name) { self.measure(context, self.signText($0)) }
+        let text = signText(sign)
             .foregroundStyle(Color(red: 1, green: 206 / 255, blue: 140 / 255).opacity(0.85))
         ctx.draw(ctx.resolve(text), at: CGPoint(x: sp.x + 8, y: sp.y), anchor: .bottomLeading)
+    }
+
+    /// How far the break room's sign may run: from the wall it hangs on, out to
+    /// the room's far corner in screen coordinates.
+    ///
+    /// Derived from the projection rather than written down, because the room's
+    /// screen width is a function of the pane and of how many desks are in it —
+    /// the same reason the plates are cut to a measured column and not to a
+    /// character count.
+    var signAvailableWidth: Double {
+        let b = layout.breakRoom
+        let h = layout.wallHeight * 0.62
+        return max(0, p(b.u1 + 0.4, b.v0 - 0.4, h).x - (p(b.u0 - 0.4, b.v0 + 1.5, h).x + 8))
+    }
+
+    /// The sign, in one place, so it is measured with the font it is drawn with.
+    /// The size follows the zoom, so the fit has to as well.
+    func signText(_ string: String) -> Text {
+        Text(string).font(.system(size: 11 * max(0.8, scale)))
+    }
+
+    /// The sign cut to the room. Split out of the drawing so the rule can be
+    /// asserted without a render pass, like the plates' fit above it.
+    func fittedBreakRoomSign(_ sign: String, measure: (String) -> Double) -> String {
+        LabelFit.truncated(sign, to: signAvailableWidth, measure: measure)
     }
 
     private func breakFurniture() -> [(d: Double, draw: (GraphicsContext) -> Void)] {

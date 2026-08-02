@@ -622,6 +622,26 @@ struct DatastreamRenderer {
                             .opacity(0.9 * lit)))
     }
 
+    /// Air between the sign and the plate's two edges, so the text never sits
+    /// flush against the stroke around it.
+    static let waitingBannerInset: Double = 8
+
+    /// The banner's sign, in one place, so it is measured with the font it is
+    /// drawn with.
+    static func waitingBannerText(_ string: String) -> Text {
+        Text(string).font(.system(size: 10, design: .monospaced))
+    }
+
+    /// The sign cut to the plate it is drawn on. Split out of the drawing so the
+    /// rule can be asserted without rendering a lane.
+    static func fittedWaitingBanner(_ sign: String,
+                                    plateWidth: Double,
+                                    measure: (String) -> Double) -> String {
+        LabelFit.truncated(sign,
+                           to: max(0, plateWidth - 2 * waitingBannerInset),
+                           measure: measure)
+    }
+
     private func drawWaitingBanner(lane: DatastreamLane,
                                    centre: Double,
                                    laneWidth: Double,
@@ -636,9 +656,20 @@ struct DatastreamRenderer {
                     with: .color(Color(red: 60 / 255, green: 30 / 255, blue: 4 / 255).opacity(0.92)))
         banner.stroke(Path(rect.insetBy(dx: 0.5, dy: 0.5)),
                       with: .color(lane.tint.alpha(0.85)), lineWidth: 1.2)
-        banner.draw(Text("▲ WAITING ON YOU")
-            .font(.system(size: 10, design: .monospaced))
-            .foregroundColor(lane.tint.color),
+        // Cut to the plate, by the measurement it is drawn with. `bw` is a
+        // variable — the lane is the pane divided by however many sessions are
+        // running — so this is the same bug the lane headers already had: a
+        // string sized once against one width. English "▲ WAITING ON YOU" is 99
+        // points and German "▲ WARTET AUF DICH" is 106, and the plate is only
+        // 150 at its widest and 114 with ten lanes open.
+        let sign = Self.fittedWaitingBanner(
+            String(
+                localized: "▲ WAITING ON YOU",
+                comment: "Sign painted into Agentverse scene over agent stopped needs answer. ▲ part sign stays. Drawn in capitals into fixed-width sign — keep it short."
+            ),
+            plateWidth: bw
+        ) { measure(context, Self.waitingBannerText($0)) }
+        banner.draw(Self.waitingBannerText(sign).foregroundColor(lane.tint.color),
                     at: CGPoint(x: centre, y: layout.floorY - 39))
     }
 }

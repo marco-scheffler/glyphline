@@ -416,14 +416,7 @@ struct DashboardOverview: View {
             HStack {
                 CardTitle(String(localized: "Daily Usage", comment: "Card heading over the per-day usage chart. Drawn in capitals; keep it to two short words."))
                 Spacer()
-                Picker("Period", selection: $period) {
-                    ForEach(LocalUsagePeriod.allCases) { period in
-                        Text(period.title).tag(period)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                .frame(width: 220)
+                ChartPeriodPicker(period: $period)
             }
 
             DailyUsageChart(
@@ -643,6 +636,39 @@ struct DashboardOverview: View {
         .font(.caption)
         .foregroundStyle(.secondary)
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// The chart's period switcher.
+///
+/// Its own view so it can be laid out and measured on its own, which is the only
+/// way to hold what it is here for: a segmented control given less width than it
+/// asks for truncates its segments, silently, in whatever language happens to be
+/// longest. It used to be pinned at `.frame(width: 220)`, measured once against
+/// "7 Days / 30 Days / All Time" — which itself wants 221, so English was already
+/// short by a point — while Italian's "7 giorni / 30 giorni / Tutto" wants 234.
+/// `.fixedSize()` asks for what the words need instead, and the card has it to
+/// give: this row is a title and this picker inside a pane at least 980 points
+/// wide.
+struct ChartPeriodPicker: View {
+    @Binding var period: LocalUsagePeriod
+
+    /// What each segment is called. The periods' own names by default; the
+    /// measurement tests hand in another language's, because those names come
+    /// from `String(localized:)` and so follow the language of the *process* —
+    /// which the test scheme pins to English — rather than a locale a test could
+    /// put in the environment.
+    var title: (LocalUsagePeriod) -> String = \.title
+
+    var body: some View {
+        Picker("Period", selection: $period) {
+            ForEach(LocalUsagePeriod.allCases) { period in
+                Text(verbatim: title(period)).tag(period)
+            }
+        }
+        .pickerStyle(.segmented)
+        .labelsHidden()
+        .fixedSize()
     }
 }
 
