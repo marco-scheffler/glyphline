@@ -36,11 +36,23 @@ done
 
 cd "$REPO"
 
-# Nur bauen, wenn im durchgereichten Verzeichnis noch keine .stringsdata liegen.
-# Der Normalfall ist, dass der Aufrufer schon mit SWIFT_EMIT_LOC_STRINGS=YES
-# gebaut hat und wir dessen Ergebnis mitbenutzen.
-if [ -z "$(find "$DERIVED" -name '*.stringsdata' -print -quit 2>/dev/null)" ]; then
+# Fremdes Build-Verzeichnis mitbenutzen — aber nur, wenn der Aufrufer es
+# ausdrücklich durchreicht. Genau dann hat er gerade selbst mit
+# SWIFT_EMIT_LOC_STRINGS=YES gebaut, und ein zweiter Build wäre verschenkte Zeit.
+#
+# Ohne diese Bedingung entschied die bloße *Existenz* alter .stringsdata, ob neu
+# gebaut wird. Das ging still schief: ein Aufruf von Hand fand die Reste eines
+# früheren Laufs, glich den Katalog gegen einen alten Stand ab und meldete
+# "synchronisiert", ohne einen einzigen neuen String gesehen zu haben. release.sh
+# reicht nichts durch — dort hätte derselbe Fehler eine Auslieferung durchgewunken.
+if [ -n "${L10N_DERIVED_DATA:-}" ] \
+    && [ -n "$(find "$DERIVED" -name '*.stringsdata' -print -quit 2>/dev/null)" ]; then
+    echo "==> Nutze die .stringsdata aus $DERIVED"
+else
     echo "==> Baue mit SWIFT_EMIT_LOC_STRINGS=YES"
+    # Erst wegräumen: sonst mischen sich die .stringsdata dieses Builds mit denen
+    # des vorigen, und ein gelöschter String bliebe über seine alte Datei am Leben.
+    rm -rf "$DERIVED"
     xcodebuild -scheme Glyphline -configuration Debug -destination 'platform=macOS' \
         -derivedDataPath "$DERIVED" SWIFT_EMIT_LOC_STRINGS=YES build \
         | grep -E "error:|BUILD (SUCCEEDED|FAILED)" || true
