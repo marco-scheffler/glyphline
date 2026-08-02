@@ -4,7 +4,6 @@ import SwiftUI
 
 struct DashboardView: View {
     @Environment(\.openWindow) private var openWindow
-    @State private var selection: DashboardDestination? = .dashboard
     @State private var accountSummaries: [AccountUsageSummary] = []
     @State private var loadError: String?
 
@@ -18,19 +17,19 @@ struct DashboardView: View {
     }
 
     var body: some View {
-        NavigationSplitView {
-            List(DashboardDestination.allCases, selection: $selection) { destination in
-                Label(destination.title, systemImage: destination.systemImage)
-                    .tag(destination)
-            }
-            .navigationTitle("Glyphline")
-            .frame(minWidth: 220, idealWidth: 240)
-        } detail: {
-            detailView
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        }
-        .navigationSplitViewStyle(.balanced)
+        // No sidebar. It held two rows, both of which are configuration and now
+        // live in the settings window, and it charged the dashboard about 214
+        // points for them — width the three summary tiles, the row of quota
+        // cards and the thirty-bar chart all actually use.
+        DashboardOverview(
+            accountSummaries: accountSummaries,
+            loadError: loadError,
+            syncFailureMessage: coordinator.syncFailureMessage,
+            openAgentverse: { AgentverseLauncher.open(using: openWindow) }
+        )
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .frame(minWidth: 980, minHeight: 640)
+        .navigationTitle("Glyphline")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button {
@@ -60,27 +59,6 @@ struct DashboardView: View {
         .task { await agentverse.refresh() }
     }
 
-    @ViewBuilder private var detailView: some View {
-        switch DashboardDestination.resolved(selection?.rawValue) {
-        case .dashboard:
-            DashboardOverview(
-                accountSummaries: accountSummaries,
-                loadError: loadError,
-                syncFailureMessage: coordinator.syncFailureMessage,
-                openAgentverse: { AgentverseLauncher.open(using: openWindow) }
-            )
-        case .accounts:
-            AccountsView(
-                accounts: accountSummaries,
-                ledgerStore: ledgerStore,
-                onDeleted: loadDashboard,
-                onAdded: loadDashboard
-            )
-        case .settings:
-            SettingsView()
-        }
-    }
-
     private func loadDashboard() {
         guard let ledgerStore else {
             loadError = "Ledger unavailable."
@@ -100,9 +78,9 @@ struct DashboardView: View {
 
 /// The one way into the map from the main window.
 ///
-/// The Agentverse is a window of its own — at the dashboard's minimum width less
-/// the sidebar the scene would get about 740 points against the 1690 it was
-/// designed at — so this opens that window rather than switching the detail pane.
+/// The Agentverse is a window of its own — even the whole dashboard window at its
+/// minimum width is well short of the 1690 points the scene was designed at — so
+/// this opens that window rather than taking the dashboard's own space.
 /// Same three steps as `MenuBarView`: the app has to become a regular one before
 /// a window of this kind is any use. Kept as one function so the header's call to
 /// action and any later entry point cannot drift into two different sequences.
@@ -111,49 +89,6 @@ enum AgentverseLauncher {
         AppActivationController.regulariseForWindow()
         openWindow(id: AppMode.agentverseWindowID)
         NSApp.activate(ignoringOtherApps: true)
-    }
-}
-
-/// The sidebar's places. Adding an account is not one of them — it is an action,
-/// and it lives as a button in `AccountsView`.
-enum DashboardDestination: String, CaseIterable, Identifiable {
-    case dashboard
-    case accounts
-    case settings
-
-    var id: String { rawValue }
-
-    /// The destination for a raw value that no longer names a case.
-    ///
-    /// Cases do get removed — `overview`, `statistics` and `addAccount` just
-    /// were — so a selection carried over from an older build has to resolve
-    /// through the failable initialiser and land here. Forcing the unwrap
-    /// instead is how an app traps at launch after an update, with nothing to do
-    /// about it but delete preferences.
-    static func resolved(_ rawValue: String?) -> DashboardDestination {
-        rawValue.flatMap(DashboardDestination.init(rawValue:)) ?? .dashboard
-    }
-
-    var title: String {
-        switch self {
-        case .dashboard:
-            "Dashboard"
-        case .accounts:
-            "Accounts"
-        case .settings:
-            "Settings"
-        }
-    }
-
-    var systemImage: String {
-        switch self {
-        case .dashboard:
-            "rectangle.grid.2x2"
-        case .accounts:
-            "person.2"
-        case .settings:
-            "gearshape"
-        }
     }
 }
 
@@ -294,7 +229,7 @@ private struct DashboardOverview: View {
         if accountSummaries.isEmpty {
             EmptyStateBox(
                 loadError
-                    ?? "No accounts saved yet, so there is no quota to show. Add one under Accounts."
+                    ?? "No accounts saved yet, so there is no quota to show. Add one in Settings."
             )
         } else {
             AccountQuotaGrid(accounts: accountSummaries.map(quotaBlock(for:)))
