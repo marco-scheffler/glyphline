@@ -1,3 +1,4 @@
+import SwiftUI
 import XCTest
 
 @testable import Glyphline
@@ -353,5 +354,81 @@ final class DashboardPresentationTests: XCTestCase {
             DashboardPresentation.modelDisplayName(""),
             DashboardPresentation.unknownModelLabel
         )
+    }
+
+    // MARK: - Colouring a model
+
+    private func color(_ hex: UInt32) -> Color {
+        Color(
+            .sRGB,
+            red: Double((hex >> 16) & 0xff) / 255,
+            green: Double((hex >> 8) & 0xff) / 255,
+            blue: Double(hex & 0xff) / 255
+        )
+    }
+
+    /// The approved palette, verbatim. The scheme is what does the work — a
+    /// glance says whether purple dominates the bill — and it survives only if
+    /// every hue is the one the design named.
+    func testEveryKnownModelKeepsItsApprovedColour() {
+        let expected: [String: UInt32] = [
+            "claude-fable-5": 0xff_7a_b8,
+            "claude-opus-5": 0xa9_7b_ff,
+            "claude-opus-4-8": 0x8a_63_d6,
+            "claude-sonnet-5": 0x5b_a9_ff,
+            "claude-sonnet-4-6": 0x4a_86_c8,
+            "claude-haiku-4-5": 0x3d_dc_91,
+        ]
+        for (identifier, hex) in expected {
+            XCTAssertEqual(DashboardPresentation.modelColor(identifier), color(hex), identifier)
+        }
+    }
+
+    /// The dated builds are folded onto their model here exactly as they are in
+    /// the naming, or Haiku would arrive in the chart twice in two colours.
+    func testADatedVariantKeepsItsModelsColour() {
+        XCTAssertEqual(
+            DashboardPresentation.modelColor("claude-haiku-4-5-20251001"),
+            DashboardPresentation.modelColor("claude-haiku-4-5")
+        )
+        XCTAssertEqual(
+            DashboardPresentation.modelColor("claude-haiku-4-5-20251001"),
+            color(0x3d_dc_91)
+        )
+    }
+
+    /// A model nobody has a colour for gets grey, and grey is nobody else's.
+    /// Left to the chart it would be dressed in a default hue and read as a
+    /// family it does not belong to.
+    func testAnUnknownModelIsGreyAndNotAKnownModelsColour() {
+        let grey = color(0x8e_8e_93)
+        XCTAssertEqual(DashboardPresentation.modelColor("claude-mystery-9"), grey)
+        XCTAssertEqual(DashboardPresentation.modelColor("claude-mystery-9-20260114"), grey)
+        XCTAssertEqual(DashboardPresentation.modelColor(""), grey)
+        XCTAssertEqual(DashboardPresentation.modelColor(DashboardPresentation.otherModelsLabel), grey)
+
+        for known in [
+            "claude-fable-5", "claude-opus-5", "claude-opus-4-8",
+            "claude-sonnet-5", "claude-sonnet-4-6", "claude-haiku-4-5",
+        ] {
+            XCTAssertNotEqual(DashboardPresentation.modelColor(known), grey, known)
+        }
+    }
+
+    /// The chart's style-scale range comes from the same function the swatches
+    /// do. A second palette assembled in the view is exactly how the chart and
+    /// the Model Mix tile end up disagreeing about which purple is Opus 5.
+    func testTheChartsRangeIsBuiltFromTheSameColourSource() {
+        let domain = [
+            "claude-opus-5",
+            "claude-haiku-4-5-20251001",
+            "claude-mystery-9",
+            DashboardPresentation.otherModelsLabel,
+        ]
+        XCTAssertEqual(
+            DashboardPresentation.modelColors(for: domain),
+            domain.map(DashboardPresentation.modelColor)
+        )
+        XCTAssertEqual(DashboardPresentation.modelColors(for: []), [])
     }
 }

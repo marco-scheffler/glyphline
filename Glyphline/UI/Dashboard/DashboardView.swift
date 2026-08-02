@@ -529,6 +529,7 @@ private struct DashboardOverview: View {
             if let mix = breakdown?.mix, !mix.isEmpty {
                 ForEach(mix.entries.prefix(Self.legendLimit)) { entry in
                     HStack(spacing: 8) {
+                        ModelSwatch(identifier: entry.model)
                         Text(entry.model.map(DashboardPresentation.modelDisplayName)
                             ?? DashboardPresentation.unknownModelLabel)
                             .lineLimit(1)
@@ -625,6 +626,7 @@ private struct DailyUsageChart: View {
 
     private var chart: some View {
         let slices = self.slices
+        let domain = Self.modelDomain(of: slices)
         let highlighted = highlightedDay
 
         return Chart(slices) { slice in
@@ -640,6 +642,12 @@ private struct DailyUsageChart: View {
             // must not move when the selection does.
             .opacity(highlighted == nil || slice.day == highlighted ? 1 : 0.55)
         }
+        // The chart's colours are the app's, not Swift Charts' defaults: the
+        // hue names the model family everywhere it appears.
+        .chartForegroundStyleScale(
+            domain: domain,
+            range: DashboardPresentation.modelColors(for: domain)
+        )
         .chartLegend(position: .bottom, alignment: .leading, spacing: 10)
         .chartYAxis {
             AxisMarks(position: .leading)
@@ -700,6 +708,21 @@ private struct DailyUsageChart: View {
                 .position(x: rect.minX + start + width / 2, y: rect.minY + rect.height / 2)
                 .allowsHitTesting(false)
         }
+    }
+
+    /// The chart's style-scale domain: every model actually drawn, in the order
+    /// it is drawn, with `Other` wherever the fold put it.
+    ///
+    /// An explicit domain is what makes the range meaningful — without it Swift
+    /// Charts orders the colours itself and a model can change colour between
+    /// two periods.
+    private static func modelDomain(of slices: [DashboardPresentation.DayModelSlice]) -> [String] {
+        var seen: Set<String> = []
+        var domain: [String] = []
+        for slice in slices where seen.insert(slice.model).inserted {
+            domain.append(slice.model)
+        }
+        return domain
     }
 
     /// Snaps to the nearest day the series actually has, so a tap in the gutter
@@ -794,6 +817,7 @@ private struct DayDetailPanel: View {
             ) {
                 ForEach(ranked) { model in
                     HStack(spacing: 8) {
+                        ModelSwatch(identifier: model.model)
                         Text(model.model ?? DashboardPresentation.unknownModelLabel)
                             .lineLimit(1)
                             .truncationMode(.middle)
@@ -809,6 +833,21 @@ private struct DayDetailPanel: View {
                 }
             }
         }
+    }
+}
+
+/// A model's colour, beside its name. The same colour the chart draws it in —
+/// that is the whole point of the swatch: it is what lets a reader carry a hue
+/// from a bar down to the row that names it.
+private struct ModelSwatch: View {
+    let identifier: String?
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: 2, style: .continuous)
+            // A nil identifier is the same unknown the label calls "Unknown
+            // model", and gets the same grey.
+            .fill(DashboardPresentation.modelColor(identifier ?? ""))
+            .frame(width: 8, height: 8)
     }
 }
 
