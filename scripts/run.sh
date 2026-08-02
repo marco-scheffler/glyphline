@@ -25,14 +25,23 @@ sleep 1
 pkill -x Glyphline 2>/dev/null || true
 
 echo "==> Baue Release ($(git rev-parse --short HEAD))"
+# SWIFT_EMIT_LOC_STRINGS=YES kostet hier nichts extra und liefert die
+# .stringsdata, aus denen der Katalog-Check gleich danach ohne zweiten Build
+# auskommt.
 xcodebuild -scheme Glyphline -configuration Release -destination 'platform=macOS' \
-    -derivedDataPath "$DERIVED" build \
+    -derivedDataPath "$DERIVED" SWIFT_EMIT_LOC_STRINGS=YES build \
     | grep -E "error:|warning:|BUILD (SUCCEEDED|FAILED)" || true
 
 if [ ! -d "$APP" ]; then
     echo "FEHLER: Build lieferte keine App unter $APP" >&2
     exit 1
 fi
+
+# Hier und nicht erst beim Release: ein nicht abgeglichener String fällt sonst
+# niemandem auf, weil der englische Fallback korrekt gerendert wird. Wer die App
+# baut, hat den String gerade geschrieben — das ist der Moment, ihn zu melden.
+echo "==> Prüfe den String-Katalog"
+L10N_DERIVED_DATA="$DERIVED" "$REPO/scripts/check-l10n.sh"
 
 echo "==> Installiere nach $DEST"
 mkdir -p "$DEST"

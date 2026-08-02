@@ -51,6 +51,13 @@ if ! xcrun notarytool history --keychain-profile "$NOTARY_PROFILE" >/dev/null 2>
     exit 1
 fi
 
+# Vor dem Build, nicht danach: was hier ausgeliefert wird, geht an Nutzer in
+# allen acht Sprachen, und ein nicht abgeglichener String erreicht keinen
+# Übersetzer. (Es gibt kein CI in diesem Repo, das den Check sonst führen
+# könnte — deshalb hängt er an run.sh und hier.)
+echo "==> Prüfe den String-Katalog"
+"$REPO/scripts/check-l10n.sh"
+
 echo "==> Archiviere universal ($(git rev-parse --short HEAD))"
 rm -rf "$ARCHIVE" "$EXPORT"
 xcodebuild -scheme Glyphline -configuration Release -destination 'generic/platform=macOS' \
