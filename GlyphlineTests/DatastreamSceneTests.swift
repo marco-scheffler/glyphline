@@ -74,6 +74,10 @@ final class DatastreamSceneTests: XCTestCase {
     /// font — 11 pt monospaced runs about 6.6 pt per character.
     private func measure(_ text: String) -> Double { Double(text.count) * 6.6 }
 
+    private func renderer(_ layout: DatastreamLayout) -> DatastreamRenderer {
+        DatastreamRenderer(layout: layout, frame: 0, hovered: nil)
+    }
+
     private static let panes = [CGSize(width: 1300, height: 640),
                                 CGSize(width: 900, height: 560),
                                 CGSize(width: 640, height: 480),
@@ -93,8 +97,7 @@ final class DatastreamSceneTests: XCTestCase {
                 let layout = DatastreamLayout(canvas: pane, laneCount: count)
                 XCTAssertLessThanOrEqual(layout.laneTextWidth, layout.laneWidth,
                                          "pane \(pane) count \(count)")
-                let fitted = LabelFit.truncated(title, to: layout.laneTextWidth,
-                                                measure: measure)
+                let fitted = renderer(layout).fittedName(title, measure: measure)
                 XCTAssertLessThanOrEqual(
                     measure(fitted), layout.laneTextWidth,
                     "pane \(pane) count \(count): \"\(fitted)\" measures "
@@ -108,7 +111,7 @@ final class DatastreamSceneTests: XCTestCase {
     func testATitleLongerThanTheLaneIsCutAndSaysSo() {
         let title = "PR 3 fortsetzen: Datastream-Spuren beschriften und messen"
         let layout = DatastreamLayout(canvas: Self.canvas, laneCount: 9)
-        let fitted = LabelFit.truncated(title, to: layout.laneTextWidth, measure: measure)
+        let fitted = renderer(layout).fittedName(title, measure: measure)
 
         XCTAssertTrue(fitted.hasSuffix("…"), fitted)
         XCTAssertTrue(title.hasPrefix(String(fitted.dropLast())), fitted)
@@ -122,9 +125,7 @@ final class DatastreamSceneTests: XCTestCase {
     func testAShortTitleIsLeftAlone() {
         let layout = DatastreamLayout(canvas: Self.canvas, laneCount: 4)
         for title in ["glyphline", "Issue 558", "a"] {
-            XCTAssertEqual(LabelFit.truncated(title, to: layout.laneTextWidth,
-                                              measure: measure),
-                           title)
+            XCTAssertEqual(renderer(layout).fittedName(title, measure: measure), title)
         }
     }
 

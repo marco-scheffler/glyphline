@@ -409,6 +409,20 @@ struct DatastreamRenderer {
         Text(string).font(.system(size: 11, design: .monospaced))
     }
 
+    /// The header's first line, cut to the lane it is about to be drawn in and
+    /// by the metrics it will be drawn with.
+    ///
+    /// A function rather than a call inlined into the drawing, because the
+    /// drawing cannot be asserted and this can: the measurement is injected, so
+    /// a test hands in its own metrics and reads the cut back.
+    ///
+    /// A character count could not do this job. A lane is the pane divided by the
+    /// number of sessions, so its width is a variable, and a constant number of
+    /// characters can only ever be right at one window size.
+    func fittedName(_ name: String, measure: (String) -> Double) -> String {
+        LabelFit.truncated(name, to: layout.laneTextWidth, measure: measure)
+    }
+
     /// The width of a resolved string against an unbounded proposal, so a long
     /// title reports its true length instead of being wrapped into the lane.
     private func measure(_ context: GraphicsContext, _ text: Text) -> Double {
@@ -485,9 +499,7 @@ struct DatastreamRenderer {
         // to be drawn in and by the metrics it will be drawn with. A character
         // count could not do this: the lane is the pane divided by the number of
         // sessions, so its width is a variable and the count is not.
-        let name = LabelFit.truncated(lane.name, to: layout.laneTextWidth) {
-            self.measure(context, Self.nameText($0))
-        }
+        let name = fittedName(lane.name) { self.measure(context, Self.nameText($0)) }
         context.draw(Self.nameText(name).foregroundColor(lane.tint.alpha(dim)),
                      at: CGPoint(x: centre, y: 15))
         context.draw(Text(lane.caption)
