@@ -20,6 +20,7 @@ enum LedgerColumn {
     static let accountID = "accountID"
     static let providerID = "providerID"
     static let displayName = "displayName"
+    static let customName = "customName"
     static let credentialReference = "credentialReference"
     static let createdAt = "createdAt"
     static let isEnabled = "isEnabled"
@@ -450,6 +451,19 @@ enum Migrations {
             try db.alter(table: LedgerTable.agentverseParked) { table in
                 table.add(column: LedgerColumn.aiTitle, .text)
                 table.add(column: LedgerColumn.slug, .text)
+            }
+        }
+
+        migrator.registerMigration("v13_account_custom_name") { db in
+            // The name the user chose for an account, beside — not instead of —
+            // the name derived from its credential.
+            //
+            // Nullable, and deliberately not a copy of `displayName`: clearing
+            // the name has to hand the account back to its derived one, and that
+            // is only possible while the derived name is still there to return
+            // to. Backfilling this column would destroy exactly that.
+            try db.alter(table: LedgerTable.accounts) { table in
+                table.add(column: LedgerColumn.customName, .text)
             }
         }
 

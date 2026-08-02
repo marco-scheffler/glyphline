@@ -26,4 +26,32 @@ final class AccountsViewTests: XCTestCase {
         XCTAssertEqual(adds, 1)
         XCTAssertEqual(deletes, 0)
     }
+
+    /// The rename has to reach the ledger *and* reload the list. The row renders
+    /// from the parent's `accounts`, so a write without the callback leaves the
+    /// old name on screen and looks like the rename did nothing.
+    func testRenamingAnAccountWritesItAndReloadsTheList() throws {
+        let dbQueue = try DatabaseQueueFactory.makeInMemory()
+        try Migrations.makeMigrator().migrate(dbQueue)
+        let store = LedgerStore(dbQueue: dbQueue)
+        let id = UUID()
+        try store.saveAccount(
+            Account(
+                id: id,
+                providerID: .claude,
+                displayName: "Claude personal",
+                credentialReference: "local-source://\(id.uuidString)",
+                createdAt: Date(timeIntervalSince1970: 1_800_000_000),
+                isEnabled: true
+            )
+        )
+
+        var reloads = 0
+        let view = AccountsView(accounts: [], ledgerStore: store, onRenamed: { reloads += 1 })
+
+        view.commitRename(accountID: id, name: " Work ")
+
+        XCTAssertEqual(try store.fetchAccounts().first?.resolvedName, "Work")
+        XCTAssertEqual(reloads, 1)
+    }
 }

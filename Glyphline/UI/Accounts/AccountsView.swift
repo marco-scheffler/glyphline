@@ -7,6 +7,10 @@ struct AccountsView: View {
     var webSessions: any WebSessionRemoving = ClaudeWebSessionStore()
     var onDeleted: () -> Void = {}
     var onAdded: () -> Void = {}
+    /// Reloads the list after a rename. The row renders from `accounts`, which
+    /// the parent owns, so without this the new name is invisible until
+    /// something else refetches.
+    var onRenamed: () -> Void = {}
 
     @EnvironmentObject private var coordinator: SyncCoordinator
     @State private var isPresentingAddAccount = false
@@ -15,6 +19,10 @@ struct AccountsView: View {
     /// The account whose delete is in flight. Nothing else marks an account busy,
     /// so without this a second press starts a second deletion.
     @State private var deletingAccountID: UUID?
+    /// The account whose name is being edited, and the text being typed. Nil
+    /// means no editor is open.
+    @State private var renamingAccount: Account?
+    @State private var renameDraft = ""
 
     /// How much room the header claims above the list, beyond the row itself.
     /// Named so the probe test can subtract it rather than assume it.
@@ -61,13 +69,27 @@ struct AccountsView: View {
                             VStack(alignment: .leading, spacing: 10) {
                                 HStack(alignment: .top, spacing: 12) {
                                     VStack(alignment: .leading, spacing: 4) {
-                                        Text(summary.account.displayName)
+                                        Text(summary.account.resolvedName)
                                             .font(.headline)
                                         Text(summary.account.providerID.displayName)
                                             .foregroundStyle(.secondary)
                                     }
 
                                     Spacer(minLength: 12)
+
+                                    Button {
+                                        // Seeded with the current custom name, not
+                                        // the resolved one: opening the editor must
+                                        // not silently turn the derived name into a
+                                        // chosen one on the next save.
+                                        renameDraft = summary.account.customName ?? ""
+                                        renamingAccount = summary.account
+                                    } label: {
+                                        Image(systemName: "pencil")
+                                    }
+                                    .buttonStyle(.borderless)
+                                    .accessibilityLabel("Rename account")
+                                    .help("Rename account")
 
                                     // Disabled only while this account's own delete
                                     // is in flight.
@@ -192,8 +214,30 @@ struct AccountsView: View {
             }
             .frame(minWidth: 520, minHeight: 480)
         }
+        .sheet(item: $renamingAccount) { account in
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Rename Account")
+                    .font(.headline)
+                TextField("Name", text: $renameDraft)
+                    .textFieldStyle(.roundedBorder)
+                // Says what an empty field does, rather than leaving the user to
+                // find out by clearing it.
+                Text("Leave empty to use \(account.displayName).")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                HStack {
+                    Spacer()
+                    Button("Cancel") { renamingAccount = nil }
+                    Button("Save") { commitRename(accountID: account.id, name: renameDraft) }
+                        .keyboardShortcut(.defaultAction)
+                }
+            }
+            .padding(20)
+            .frame(minWidth: 360)
+        }
         .alert(
-            Text(pendingDeletion.map { AccountDeletionFormatting.title(displayName: $0.account.displayName) } ?? ""),
+            Text(pendingDeletion.map { AccountDeletionFormatting.title(displayName: $0.account.resolvedName) } ?? ""),
             isPresented: isShowingPendingDeletion,
             presenting: pendingDeletion
         ) { pending in
@@ -230,6 +274,21 @@ struct AccountsView: View {
     func accountSaved() {
         isPresentingAddAccount = false
         onAdded()
+    }
+
+    /// Writes the new name and reloads. A named method rather than an inline
+    /// closure so the write and the reload can be exercised without driving the
+    /// sheet — the same reason `accountSaved()` exists.
+    ///
+    /// The editor closes either way: the only failure here is the ledger being
+    /// unavailable, which is the same condition that already leaves the whole
+    /// tab read-only, and leaving the sheet open with no explanation would be
+    /// worse than closing it.
+    func commitRename(accountID: UUID, name: String) {
+        defer { renamingAccount = nil }
+        guard let ledgerStore else { return }
+        try? ledgerStore.renameAccount(accountID: accountID, to: name)
+        onRenamed()
     }
 
     /// Real bindings rather than `.constant(…)`: SwiftUI writes `false` back when

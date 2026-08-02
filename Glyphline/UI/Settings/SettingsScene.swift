@@ -95,7 +95,8 @@ struct AccountsSettingsView: View {
                 accounts: accounts,
                 ledgerStore: ledgerStore,
                 onDeleted: load,
-                onAdded: load
+                onAdded: load,
+                onRenamed: load
             )
         }
         .onAppear(perform: load)
