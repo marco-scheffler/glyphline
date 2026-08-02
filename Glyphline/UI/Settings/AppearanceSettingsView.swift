@@ -82,6 +82,14 @@ struct AppearanceSettingsView: View {
                     .font(.caption)
                     .foregroundStyle(isSelected ? .primary : .secondary)
             }
+            // Without this the swatch is not clickable where anyone would click
+            // it. `DashboardBackground` ends in `allowsHitTesting(false)`,
+            // which is right for the window surface it was written for — it
+            // must not swallow clicks meant for the dashboard — but here the
+            // same view *is* the control, and it refused every hit on the
+            // thumbnail. Only the name underneath responded. Declaring the
+            // shape gives the button one hit region covering both.
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         // The swatch is the whole control, so the name it announces is the
