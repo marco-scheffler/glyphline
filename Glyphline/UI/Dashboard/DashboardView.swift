@@ -721,14 +721,24 @@ private struct DailyUsageChart: View {
         .chartYAxis {
             AxisMarks(position: .leading)
         }
+        // Marked at bar centres, not at bar starts. A `unit: .day` bar is drawn
+        // forward from its own date, so a mark at that date labels the bar's
+        // leading edge and the reader reads every label one half-bar too far
+        // left. The centre is noon of the same day, so it still formats as that
+        // day.
         .chartXAxis {
-            AxisMarks(values: .automatic(desiredCount: 6)) { value in
+            AxisMarks(values: Self.axisMarks(for: entries)) { value in
                 AxisGridLine()
                 if let day = value.as(Date.self) {
                     AxisValueLabel(day.formatted(.dateTime.day().month(.abbreviated)))
                 }
             }
         }
+        // The days are UTC day starts (see `DailyUsageSeries`). Charts would bin
+        // them by the local calendar instead, putting every bar a timezone
+        // offset away from the day it stands for — and away from the marks and
+        // the hit test below, which reason in the same UTC days the data has.
+        .environment(\.calendar, LocalUsagePeriod.utcCalendar)
         .frame(height: Self.plotHeight)
         // The band is drawn in the chart's *background*, so it sits behind the
         // bars instead of veiling them. The tap target stays an overlay,
@@ -769,7 +779,7 @@ private struct DailyUsageChart: View {
     @ViewBuilder private func selectionBand(rect: CGRect, proxy: ChartProxy) -> some View {
         if let day = highlightedDay,
            let start = proxy.position(forX: day),
-           let end = proxy.position(forX: day.addingTimeInterval(24 * 60 * 60)) {
+           let end = proxy.position(forX: DashboardPresentation.barEnd(of: day)) {
             let width = max(end - start, 3)
             Rectangle()
                 .fill(.primary.opacity(0.09))
@@ -794,14 +804,23 @@ private struct DailyUsageChart: View {
         return domain
     }
 
-    /// Snaps to the nearest day the series actually has, so a tap in the gutter
-    /// between two bars still selects one of them.
+    /// Where the axis is labelled: at most six of the series' own days, each
+    /// moved to its bar's centre.
+    private static func axisMarks(for entries: [DailyUsageEntry]) -> [Date] {
+        DashboardPresentation
+            .axisDays(for: entries.map(\.day), desiredCount: 6)
+            .map { DashboardPresentation.barCentre(of: $0) }
+    }
+
+    /// Selects the bar the tap landed in, snapping to the nearest bar when it
+    /// landed in a gutter. The mapping lives in `DashboardPresentation` because
+    /// it is the half-bar offset this chart used to get wrong, and it is worth a
+    /// test that a closure in here cannot have.
     private func select(at x: CGFloat, proxy: ChartProxy) {
         guard let tapped: Date = proxy.value(atX: x) else { return }
-        let nearest = entries.min {
-            abs($0.day.timeIntervalSince(tapped)) < abs($1.day.timeIntervalSince(tapped))
+        if let day = DashboardPresentation.day(atChartValue: tapped, among: entries.map(\.day)) {
+            selectedDay = day
         }
-        selectedDay = nearest?.day
     }
 }
 

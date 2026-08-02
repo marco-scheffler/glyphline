@@ -420,6 +420,69 @@ enum DashboardPresentation {
         return slices
     }
 
+    // MARK: - The daily chart's x axis
+
+    /// The instant one day after `day`, which is where that day's bar ends.
+    ///
+    /// A `BarMark` plotted with `unit: .day` is not a tick at `day`: it fills
+    /// the whole bin `[day, day + 1)` and so is drawn *forward* from its own x
+    /// value. Every alignment question the chart has — where the label goes,
+    /// which bar a tap landed in — is a question about this span.
+    static func barEnd(of day: Date, calendar: Calendar = LocalUsagePeriod.utcCalendar) -> Date {
+        calendar.date(byAdding: .day, value: 1, to: day) ?? day.addingTimeInterval(24 * 60 * 60)
+    }
+
+    /// The middle of a day's bar, which is the one point the bar, its axis label
+    /// and its tap target all have to agree on.
+    static func barCentre(of day: Date, calendar: Calendar = LocalUsagePeriod.utcCalendar) -> Date {
+        day.addingTimeInterval(barEnd(of: day, calendar: calendar).timeIntervalSince(day) / 2)
+    }
+
+    /// At most `desiredCount` of the series' days, evenly spread, always
+    /// including the last one.
+    ///
+    /// The axis is labelled from the days the series actually has rather than
+    /// from `.automatic` marks on the continuous scale, because an automatic
+    /// mark falls on a round date that is nobody's bar centre. Counted back from
+    /// the newest day so that the bar a reader looks at first is always named.
+    static func axisDays(for days: [Date], desiredCount: Int) -> [Date] {
+        guard desiredCount > 0 else { return [] }
+        guard days.count > desiredCount else { return days }
+        let step = Int((Double(days.count) / Double(desiredCount)).rounded(.up))
+        let picked = Swift.stride(from: days.count - 1, through: 0, by: -step).map { days[$0] }
+        return picked.reversed()
+    }
+
+    /// The day whose bar contains `value`, a date read off the chart's
+    /// continuous x scale.
+    ///
+    /// `ChartProxy.value(atX:)` answers in scale units, so a tap in the visual
+    /// middle of a bar comes back as roughly *noon* of that day, not its
+    /// midnight. Snapping that raw value to the nearest day start therefore
+    /// hands everything past a bar's middle to the following day — the whole hit
+    /// map sits half a bar to the left of what the reader is aiming at. Asking
+    /// which bin contains the value has no such offset.
+    ///
+    /// A value in a gutter or in a gap in the series belongs to no bin at all,
+    /// and falls back to the day whose bar centre is nearest.
+    static func day(
+        atChartValue value: Date,
+        among days: [Date],
+        calendar: Calendar = LocalUsagePeriod.utcCalendar
+    ) -> Date? {
+        guard !days.isEmpty else { return nil }
+        if let containing = days.first(where: {
+            value >= $0 && value < barEnd(of: $0, calendar: calendar)
+        }) {
+            return containing
+        }
+        return days.min {
+            let first = abs(barCentre(of: $0, calendar: calendar).timeIntervalSince(value))
+            let second = abs(barCentre(of: $1, calendar: calendar).timeIntervalSince(value))
+            return first < second
+        }
+    }
+
     // MARK: - Naming a window inside its account's card
 
     /// How a window is labelled inside the card of the account it belongs to.

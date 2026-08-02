@@ -429,4 +429,80 @@ final class DashboardPresentationTests: XCTestCase {
         )
         XCTAssertEqual(DashboardPresentation.modelColors(for: []), [])
     }
+
+    // MARK: - The chart's x axis
+
+    /// A run of consecutive UTC days, as `DailyUsageSeries` produces them.
+    private func days(from iso: String, count: Int) -> [Date] {
+        let first = day(iso)
+        return (0..<count).map { calendar.date(byAdding: .day, value: $0, to: first)! }
+    }
+
+    /// A point `fraction` of the way across `day`'s bar, in scale units — what
+    /// `ChartProxy.value(atX:)` hands back for a tap at that spot.
+    private func inBar(_ day: Date, at fraction: Double) -> Date {
+        day.addingTimeInterval(24 * 60 * 60 * fraction)
+    }
+
+    /// The one that matters: the bar the reader clicks is the day that gets
+    /// selected, everywhere along the axis.
+    ///
+    /// The mapping this replaced snapped the raw scale value to the nearest day
+    /// *start*, and a bar runs forward from its start — so every tap past a
+    /// bar's middle fell to the following day. The 0.75 samples are what catch
+    /// that; the centre sample alone would not, because a tie there resolves to
+    /// the earlier day either way.
+    func testATapAnywhereInABarSelectsThatBarsDay() {
+        let axis = days(from: "2026-07-01T00:00:00Z", count: 30)
+
+        for index in [0, 15, 29] {
+            let bar = axis[index]
+            for fraction in [0.05, 0.25, 0.5, 0.75, 0.95] {
+                XCTAssertEqual(
+                    DashboardPresentation.day(atChartValue: inBar(bar, at: fraction), among: axis),
+                    bar,
+                    "day \(index) at \(fraction) of its bar"
+                )
+            }
+        }
+    }
+
+    /// A tap in a gap in the series belongs to no bar, and still has to select
+    /// one rather than nothing.
+    func testATapInAGapSnapsToTheNearestBar() {
+        let axis = [day("2026-07-01T00:00:00Z"), day("2026-07-10T00:00:00Z")]
+        let gap = day("2026-07-03T00:00:00Z")
+
+        XCTAssertEqual(DashboardPresentation.day(atChartValue: gap, among: axis), axis[0])
+        XCTAssertEqual(
+            DashboardPresentation.day(atChartValue: day("2026-07-08T00:00:00Z"), among: axis),
+            axis[1]
+        )
+        XCTAssertNil(DashboardPresentation.day(atChartValue: gap, among: []))
+    }
+
+    /// The centre is the middle of the span the bar actually covers, which is
+    /// the day it starts on — not a tick at that day.
+    func testABarsCentreIsTheMiddleOfTheDayItCovers() {
+        let start = day("2026-07-01T00:00:00Z")
+        XCTAssertEqual(DashboardPresentation.barEnd(of: start), day("2026-07-02T00:00:00Z"))
+        XCTAssertEqual(DashboardPresentation.barCentre(of: start), day("2026-07-01T12:00:00Z"))
+    }
+
+    /// The axis is labelled on the series' own days, thinned rather than
+    /// crowded, and the newest bar is always one of them.
+    func testTheAxisIsLabelledOnTheSeriesOwnDaysAndAlwaysTheLast() {
+        let axis = days(from: "2026-07-01T00:00:00Z", count: 30)
+        let marks = DashboardPresentation.axisDays(for: axis, desiredCount: 6)
+
+        XCTAssertEqual(marks.count, 6)
+        XCTAssertEqual(marks.last, axis.last)
+        XCTAssertEqual(marks, marks.sorted())
+        XCTAssertTrue(marks.allSatisfy(axis.contains))
+
+        // A short series is labelled in full; there is nothing to thin.
+        let short = days(from: "2026-07-01T00:00:00Z", count: 4)
+        XCTAssertEqual(DashboardPresentation.axisDays(for: short, desiredCount: 6), short)
+        XCTAssertEqual(DashboardPresentation.axisDays(for: short, desiredCount: 0), [])
+    }
 }
