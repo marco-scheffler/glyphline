@@ -183,6 +183,26 @@ final class SyncCoordinator: ObservableObject {
         }
     }
 
+    /// The same rows `localUsageStatistics` reads, arranged the two further ways
+    /// the dashboard needs them.
+    ///
+    /// Built here rather than in the view because the ledger and the pricing
+    /// catalog are private to this type — handing a view the raw rows would let a
+    /// second surface price them with a second estimator.
+    func localUsageBreakdown(since: Date?, now: Date = Date()) -> LocalUsageBreakdown? {
+        guard let ledger,
+              let costEstimator,
+              let rows = try? ledger.fetchLocalTokenUsage(since: since)
+        else {
+            return nil
+        }
+
+        return LocalUsageBreakdown(
+            series: DailyUsageSeries.from(rows: rows, estimator: costEstimator, now: now),
+            mix: ModelMix.from(rows: rows, estimator: costEstimator)
+        )
+    }
+
     /// Aggregates the stored rows for a period into per-model totals and
     /// API-equivalent estimates. Nil when there is nothing to read them from.
     func localUsageStatistics(since: Date?) -> LocalUsageStatistics? {

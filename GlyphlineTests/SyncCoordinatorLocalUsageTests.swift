@@ -266,13 +266,13 @@ final class SyncCoordinatorLocalUsageTests: XCTestCase {
     }
 
     func testTheScopeNoteSaysTheFiguresCoverEverySubscriptionTogether() {
-        let note = StatisticsView.subscriptionScopeNote
+        let note = DashboardPresentation.subscriptionScopeNote
         XCTAssertTrue(note.contains("every Claude subscription together"), note)
         XCTAssertTrue(note.contains("cannot be attributed to one"), note)
     }
 
     func testAnUnpricedRowRendersAsUnpricedRatherThanAsZero() {
-        let rendered = StatisticsView.amount(micros: nil, currency: nil)
+        let rendered = DashboardPresentation.amount(micros: nil, currency: nil)
         XCTAssertFalse(rendered.contains("0"), rendered)
         XCTAssertEqual(rendered, "No price on file")
     }
