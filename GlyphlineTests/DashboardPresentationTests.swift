@@ -292,4 +292,66 @@ final class DashboardPresentationTests: XCTestCase {
         XCTAssertTrue(note.contains("priced spend only"), note)
         XCTAssertTrue(note.contains("no price on file"), note)
     }
+
+    // MARK: - Naming a model
+
+    /// Every identifier the pricing catalog carries has a name a person reads.
+    func testEveryCatalogIdentifierHasItsFriendlyName() {
+        let expected = [
+            "claude-fable-5": "Fable 5",
+            "claude-opus-5": "Opus 5",
+            "claude-opus-4-8": "Opus 4.8",
+            "claude-sonnet-5": "Sonnet 5",
+            "claude-sonnet-4-6": "Sonnet 4.6",
+            "claude-haiku-4-5": "Haiku 4.5",
+            "gpt-5.4": "GPT-5.4",
+        ]
+        for (identifier, name) in expected {
+            XCTAssertEqual(DashboardPresentation.modelDisplayName(identifier), name, identifier)
+        }
+    }
+
+    /// The transcripts carry dated builds of the same model. The date is
+    /// stripped, so a variant nobody listed still reads as its model.
+    func testADatedVariantIsNamedAsItsUndatedModel() {
+        XCTAssertEqual(
+            DashboardPresentation.modelDisplayName("claude-haiku-4-5-20251001"),
+            "Haiku 4.5"
+        )
+        XCTAssertEqual(
+            DashboardPresentation.modelDisplayName("claude-opus-4-8-20260114"),
+            "Opus 4.8"
+        )
+    }
+
+    /// A suffix that is not a date must not be eaten: `claude-opus-4-8` ends in
+    /// digits too, and chopping nine characters off anything would rename it.
+    func testASuffixThatIsNotADateIsNotStripped() {
+        XCTAssertEqual(
+            DashboardPresentation.modelDisplayName("claude-opus-4-8-preview7"),
+            "claude-opus-4-8-preview7"
+        )
+    }
+
+    /// A model this app has never seen is the one most worth noticing, so it
+    /// keeps its raw identifier rather than vanishing or going blank.
+    func testAnUnknownIdentifierKeepsItsRawID() {
+        XCTAssertEqual(
+            DashboardPresentation.modelDisplayName("claude-mystery-9"),
+            "claude-mystery-9"
+        )
+        XCTAssertEqual(
+            DashboardPresentation.modelDisplayName("claude-mystery-9-20260114"),
+            "claude-mystery-9-20260114"
+        )
+    }
+
+    /// An empty identifier has nothing to print, so it falls back to the words
+    /// an absent model gets instead of drawing an empty row.
+    func testAnEmptyIdentifierFallsBackToTheUnknownModelLabel() {
+        XCTAssertEqual(
+            DashboardPresentation.modelDisplayName(""),
+            DashboardPresentation.unknownModelLabel
+        )
+    }
 }
