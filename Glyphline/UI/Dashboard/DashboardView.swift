@@ -150,7 +150,53 @@ private struct AccountAttentionBanner: View {
 
 // MARK: - The overview
 
-private struct DashboardOverview: View {
+/// How a summary tile says what height it was given, for the one caller that
+/// needs to know: the height probe.
+///
+/// It has to be reported from inside the row and cannot be measured from
+/// outside. The tiles read the coordinators out of the environment, so they only
+/// exist once the overview is in a hierarchy, and SwiftUI gives a laid-out
+/// subview no `NSView` of its own to measure — two of the three glass cards
+/// happen to get a backing view and the third does not.
+///
+/// Nil everywhere but in the probe, and the row adds nothing at all when it is
+/// nil.
+private struct SummaryTileHeightReportKey: EnvironmentKey {
+    static let defaultValue: (@Sendable (Int, CGFloat) -> Void)? = nil
+}
+
+extension EnvironmentValues {
+    var summaryTileHeightReport: (@Sendable (Int, CGFloat) -> Void)? {
+        get { self[SummaryTileHeightReportKey.self] }
+        set { self[SummaryTileHeightReportKey.self] = newValue }
+    }
+}
+
+private struct SummaryTileHeightReporter: ViewModifier {
+    let index: Int
+    @Environment(\.summaryTileHeightReport) private var report
+
+    func body(content: Content) -> some View {
+        if let report {
+            content.background(
+                GeometryReader { proxy in
+                    // Reported from the reader's own body rather than through a
+                    // preference: the probe lays the row out with
+                    // `layoutSubtreeIfNeeded` and never runs a render loop, so
+                    // there is no later pass in which a preference would arrive.
+                    report(index, proxy.size.height)
+                    return Color.clear
+                }
+            )
+        } else {
+            content
+        }
+    }
+}
+
+/// Not private, so the height probe can measure the real tiles rather than a
+/// rebuilt likeness of them.
+struct DashboardOverview: View {
     let accountSummaries: [AccountUsageSummary]
     let loadError: String?
     let syncFailureMessage: String?
@@ -356,9 +402,9 @@ private struct DashboardOverview: View {
             // and the others then stretch to it. It also stops the row from
             // claiming the chart's vertical space.
             HStack(alignment: .top, spacing: 14) {
-                spendCard
-                agentsCard
-                modelMixCard
+                spendCard.modifier(SummaryTileHeightReporter(index: 0))
+                agentsCard.modifier(SummaryTileHeightReporter(index: 1))
+                modelMixCard.modifier(SummaryTileHeightReporter(index: 2))
             }
             .fixedSize(horizontal: false, vertical: true)
 
