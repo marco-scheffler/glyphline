@@ -10,9 +10,12 @@ struct AgentRowModel: Equatable {
 
         var text: String {
             switch self {
-            case .working: "working"
-            case .waiting: "waiting"
-            case .parked: "parked"
+            case .working:
+                String(localized: "working", comment: "Agent state: this coding agent is busy running. Shown both as a small pill beside a row and as the caption under a count. Lower case, one short word — the space is narrow in both places.")
+            case .waiting:
+                String(localized: "waiting", comment: "Agent list badge: this coding agent has stopped and is waiting for the user to answer it. Lower case, one or two words — it is a small pill beside the row.")
+            case .parked:
+                String(localized: "parked", comment: "Agent list badge: this coding agent's session is idle — still open, but nothing is running and nothing is being asked of the user. Lower case, one or two words — it is a small pill beside the row.")
             }
         }
 

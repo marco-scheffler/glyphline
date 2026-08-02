@@ -13,11 +13,20 @@ enum RateWindowKind: String, Codable, CaseIterable, Sendable {
     var shortName: String {
         switch self {
         case .rollingFiveHours:
-            String(localized: "5h", comment: "Terse name of the rolling five-hour quota window, menu bar row")
+            String(localized: "5h", comment: "Terse name of the rolling five-hour quota window, menu bar row: the quota that refills every five hours. Digit plus unit letter; keep it to two or three characters.")
         case .weekly:
-            String(localized: "Week", comment: "Terse name of the weekly quota window, menu bar row")
+            // Its own key rather than the bare word: the spend picker also draws
+            // "Week", and there it names a length of time the reader chose. Here
+            // it names the provider's rolling weekly rate-limit window. English
+            // spells both the same; a language that does not would have had to
+            // pick one meaning for both.
+            String(
+                localized: "quotaWindow.weekly.short",
+                defaultValue: "Week",
+                comment: "Terse name of the weekly quota window, menu bar row, beside '5h' and 'Cycle'. Names the provider's rolling weekly rate-limit window, not a calendar week. Keep it short — the row is a few points wide."
+            )
         case .billingCycle:
-            String(localized: "Cycle", comment: "Terse name of the billing cycle window, menu bar row")
+            String(localized: "Cycle", comment: "Terse name of the billing cycle window, menu bar row: the subscription's own billing period. Keep it short.")
         }
     }
 

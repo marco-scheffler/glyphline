@@ -755,24 +755,24 @@ final class QuotaIndicatorTests: XCTestCase {
     /// "in 3 Stunden" here, and round the 20 minutes away besides.
     func testRemainingTimeIsRenderedCompactlyInEnglish() {
         XCTAssertEqual(
-            QuotaIndicator.remainingText(until: now.addingTimeInterval(200 * 60), now: now, verb: "resets"),
+            QuotaIndicator.remainingText(until: now.addingTimeInterval(200 * 60), now: now, verb: .resets),
             "resets in 3h 20m"
         )
         XCTAssertEqual(
-            QuotaIndicator.remainingText(until: now.addingTimeInterval(180 * 60), now: now, verb: "resets"),
+            QuotaIndicator.remainingText(until: now.addingTimeInterval(180 * 60), now: now, verb: .resets),
             "resets in 3h",
             "a whole number of hours drops the empty minute component"
         )
         XCTAssertEqual(
-            QuotaIndicator.remainingText(until: now.addingTimeInterval(45 * 60), now: now, verb: "resets"),
+            QuotaIndicator.remainingText(until: now.addingTimeInterval(45 * 60), now: now, verb: .resets),
             "resets in 45m"
         )
         XCTAssertEqual(
-            QuotaIndicator.remainingText(until: now.addingTimeInterval(4 * 86_400), now: now, verb: "resets"),
+            QuotaIndicator.remainingText(until: now.addingTimeInterval(4 * 86_400), now: now, verb: .resets),
             "resets in 4d"
         )
         XCTAssertEqual(
-            QuotaIndicator.remainingText(until: now.addingTimeInterval(3 * 86_400), now: now, verb: "ends"),
+            QuotaIndicator.remainingText(until: now.addingTimeInterval(3 * 86_400), now: now, verb: .ends),
             "ends in 3d",
             "the billing cycle keeps its own verb"
         )
@@ -780,12 +780,12 @@ final class QuotaIndicatorTests: XCTestCase {
 
     func testRemainingTimeHandlesTheEdgesPlainly() {
         XCTAssertEqual(
-            QuotaIndicator.remainingText(until: now.addingTimeInterval(30), now: now, verb: "resets"),
+            QuotaIndicator.remainingText(until: now.addingTimeInterval(30), now: now, verb: .resets),
             "resets any moment",
             "under a minute must not render as 'in 0m'"
         )
         XCTAssertEqual(
-            QuotaIndicator.remainingText(until: now.addingTimeInterval(-300), now: now, verb: "resets"),
+            QuotaIndicator.remainingText(until: now.addingTimeInterval(-300), now: now, verb: .resets),
             "due now",
             "an elapsed instant says so rather than rendering a negative interval"
         )
@@ -798,13 +798,13 @@ final class QuotaIndicatorTests: XCTestCase {
     func testAWaitOfDaysCarriesItsHours() {
         XCTAssertEqual(
             QuotaIndicator.remainingText(
-                until: now.addingTimeInterval(4 * 86_400 + 6 * 3_600), now: now, verb: "resets"
+                until: now.addingTimeInterval(4 * 86_400 + 6 * 3_600), now: now, verb: .resets
             ),
             "resets in 4d 6h"
         )
         XCTAssertEqual(
             QuotaIndicator.remainingText(
-                until: now.addingTimeInterval(86_400 + 30 * 60), now: now, verb: "resets"
+                until: now.addingTimeInterval(86_400 + 30 * 60), now: now, verb: .resets
             ),
             "resets in 1d",
             "minutes are below the resolution a multi-day wait is read at"

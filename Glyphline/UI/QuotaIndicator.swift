@@ -18,6 +18,19 @@ enum QuotaSeverity: Equatable, Sendable {
     case unknown
 }
 
+/// What a window's countdown says is about to happen to it.
+///
+/// A choice of two, not a translated word, because every phrase the choice
+/// produces is written out whole in the catalog. The verb used to travel through
+/// the code as an already-localised `String` dropped into a `%@`, which handed a
+/// translator a bare "resets" and no sight of the row it lands in.
+enum QuotaVerb: Equatable, Sendable {
+    /// The window refills: the five-hour and weekly quotas.
+    case resets
+    /// The window merely ends and returns no capacity: a subscription term.
+    case ends
+}
+
 /// Locale and time zone the quota strings are rendered in.
 ///
 /// Injectable for one reason: a test that builds the same `DateFormatter` as the
@@ -306,29 +319,50 @@ enum QuotaIndicator {
     /// the row exists for.
     ///
     /// `verb` keeps the distinction the labels carry: a billing cycle *ends*, it
-    /// does not reset, because a subscription term end returns no capacity. It
-    /// arrives already localised from `labelAndVerb`, and lands in a `%@` slot
-    /// here — a fragment, which is a compromise the alternative (six whole
-    /// sentences, two verbs times three shapes) does not repay.
-    static func remainingText(until instant: Date, now: Date, verb: String) -> String {
+    /// does not reset, because a subscription term end returns no capacity.
+    ///
+    /// It arrives as a `QuotaVerb`, not as an already-localised word, so that
+    /// each of the six results is a whole phrase in the catalog. It used to be a
+    /// translated fragment landing in a `%@` here, which reads as English and as
+    /// nothing else: a translator saw "resets" alone, with no way to know it
+    /// would be followed by a duration, a clock time, or "any moment", and no
+    /// language agrees with English about where a verb goes.
+    static func remainingText(until instant: Date, now: Date, verb: QuotaVerb) -> String {
         let remaining = instant.timeIntervalSince(now)
 
         // Past due carries no verb: "resets in -5m" is nonsense, and "ended"
         // would claim a refill happened that this app did not observe.
         guard remaining > 0 else {
-            return String(localized: "due now", comment: "Quota row: the reset instant has already passed.")
+            return String(localized: "due now", comment: "Quota row when the reset instant has already passed and no new figure has arrived yet. Lower case: it sits inside a longer row.")
         }
         guard remaining >= 60 else {
-            return String(
-                localized: "\(verb) any moment",
-                comment: "Quota row with under a minute left. The placeholder is the window's verb, 'resets' or 'ends'."
-            )
+            switch verb {
+            case .resets:
+                return String(
+                    localized: "resets any moment",
+                    comment: "Quota row with under a minute left on a window that refills. Lower case: it sits inside a longer row."
+                )
+            case .ends:
+                return String(
+                    localized: "ends any moment",
+                    comment: "Quota row with under a minute left on a subscription term, which returns no capacity. Lower case: it sits inside a longer row."
+                )
+            }
         }
 
-        return String(
-            localized: "\(verb) in \(compactDuration(remaining))",
-            comment: "Quota row countdown. Placeholders: the window's verb ('resets' or 'ends') and a duration such as '3h 20m'."
-        )
+        let duration = compactDuration(remaining)
+        switch verb {
+        case .resets:
+            return String(
+                localized: "resets in \(duration)",
+                comment: "Quota row countdown on a window that refills. The placeholder is a compact duration such as '3h 20m'. Lower case: it sits inside a longer row."
+            )
+        case .ends:
+            return String(
+                localized: "ends in \(duration)",
+                comment: "Quota row countdown on a subscription term, which returns no capacity. The placeholder is a compact duration such as '4d 6h'. Lower case: it sits inside a longer row."
+            )
+        }
     }
 
     /// How long the window itself spans, which is what makes its start
@@ -510,14 +544,11 @@ enum QuotaIndicator {
     /// "ends", not "resets", for the cycle. A subscription *term* end returns no
     /// capacity — the spike found a Codex term ending in 2027 — and even a
     /// monthly cycle boundary is the end of a period rather than a quota refill.
-    static func labelAndVerb(for kind: RateWindowKind) -> (label: String, verb: String) {
+    static func labelAndVerb(for kind: RateWindowKind) -> (label: String, verb: QuotaVerb) {
         switch kind {
-        case .rollingFiveHours:
-            (kind.shortName, String(localized: "resets", comment: "Verb for a window that refills, as in 'resets in 3h 20m'."))
-        case .weekly:
-            (kind.shortName, String(localized: "resets", comment: "Verb for a window that refills, as in 'resets in 3h 20m'."))
-        case .billingCycle:
-            (kind.shortName, String(localized: "ends", comment: "Verb for a subscription term, which returns no capacity, as in 'ends in 4d 6h'."))
+        case .rollingFiveHours: (kind.shortName, .resets)
+        case .weekly: (kind.shortName, .resets)
+        case .billingCycle: (kind.shortName, .ends)
         }
     }
 
@@ -616,11 +647,20 @@ enum QuotaIndicator {
     ) -> String {
         let (label, verb) = labelAndVerb(for: window.kind)
 
-        let tail = window.resetAt.map {
-            String(
-                localized: "\(verb) \(instantText($0, now: now, formatting: formatting))",
-                comment: "Menu row tail. Placeholders: the window's verb ('resets' or 'ends') and a clock time or date."
-            )
+        let tail = window.resetAt.map { resetAt -> String in
+            let instant = instantText(resetAt, now: now, formatting: formatting)
+            switch verb {
+            case .resets:
+                return String(
+                    localized: "resets \(instant)",
+                    comment: "Menu row tail on a window that refills. The placeholder is a clock time or a date, e.g. 'resets 14:00'. Lower case: it sits inside a longer row."
+                )
+            case .ends:
+                return String(
+                    localized: "ends \(instant)",
+                    comment: "Menu row tail on a subscription term, which returns no capacity. The placeholder is a clock time or a date, e.g. 'ends 31 Oct 2026'. Lower case: it sits inside a longer row."
+                )
+            }
         } ?? noActiveWindowText
 
         let head: String
