@@ -766,6 +766,13 @@ struct OfficeRenderer {
         Text(string).font(.system(size: 10))
     }
 
+    /// A sleeper's name cut to its slot. Split out of the drawing for the same
+    /// reason as the plates' fit: the measurement is injected, so the rule can be
+    /// asserted without rendering the strip.
+    static func fittedOffClockName(_ name: String, measure: (String) -> Double) -> String {
+        LabelFit.truncated(name, to: offClockTextWidth, measure: measure)
+    }
+
     /// The sofa strip along the bottom: sessions that are done for the day, five
     /// at a time, asleep under a grey crystal.
     private func drawOffClock(_ context: GraphicsContext, size: CGSize,
@@ -817,7 +824,7 @@ struct OfficeRenderer {
             // like the plates above. A character count read the same way here as
             // it did in the plates: it happened to look right in one font at one
             // size and ran into the neighbouring sleeper otherwise.
-            let name = LabelFit.truncated(session.name, to: Self.offClockTextWidth) {
+            let name = Self.fittedOffClockName(session.name) {
                 self.measure(context, Self.offClockText($0))
             }
             context.draw(context.resolve(Self.offClockText(name)

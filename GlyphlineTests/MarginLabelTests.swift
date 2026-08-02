@@ -341,27 +341,36 @@ final class MarginLabelTests: XCTestCase {
         }
     }
 
+    /// A stand-in for the strip's 10 pt proportional metrics, which run rather
+    /// narrower than the 12.5 pt plates above.
+    private func offClockMeasure(_ text: String) -> Double { Double(text.count) * 5.5 }
+
     /// The off-the-clock strip stands its sleepers a fixed pitch apart and
-    /// centres each name on its sleeper, so a name wider than the pitch runs into
-    /// the next one. Its budget therefore has to be narrower than the pitch, and
-    /// a long name has to come back inside it.
+    /// centres each name on its sleeper, so its budget has to be narrower than
+    /// the pitch and a long name has to come back inside it.
     ///
-    /// Would catch: the hard-coded `prefix(13)` this replaced. Thirteen
-    /// characters of a proportional 10 pt name measure past the slot, which is
-    /// the same unit mismatch the plates had.
+    /// Would catch: the hard-coded `String(name.prefix(13)) + "…"` this replaced.
+    /// That count is a constant in the wrong unit, and it errs the other way from
+    /// the plates did — at 10 pt the slot holds about eighteen characters, so the
+    /// count threw away a fifth of every name that fitted. The middle assertion
+    /// is the one that goes red: `prefix(13)` cuts a name the slot has room for.
     func testASleepersNameIsCutToItsSlotRatherThanToACharacterCount() throws {
         XCTAssertLessThan(OfficeRenderer.offClockTextWidth,
                           OfficeRenderer.offClockSlotPitch,
                           "two sleepers' names must not meet in the middle")
 
-        let name = "Issue 558 auf Umstellung des Agentverse"
-        let cut = LabelFit.truncated(name, to: OfficeRenderer.offClockTextWidth,
-                                     measure: measure)
-        XCTAssertLessThanOrEqual(measure(cut), OfficeRenderer.offClockTextWidth)
+        // Eighteen characters: past the old count, inside the slot.
+        let fits = "glyphline-agentver"
+        XCTAssertLessThanOrEqual(offClockMeasure(fits), OfficeRenderer.offClockTextWidth)
+        XCTAssertEqual(OfficeRenderer.fittedOffClockName(fits, measure: offClockMeasure),
+                       fits,
+                       "a name the slot has room for must arrive whole")
+
+        let long = "Issue 558 auf Umstellung des Agentverse"
+        let cut = OfficeRenderer.fittedOffClockName(long, measure: offClockMeasure)
+        XCTAssertLessThanOrEqual(offClockMeasure(cut), OfficeRenderer.offClockTextWidth)
         XCTAssertTrue(cut.hasSuffix("…"), cut)
-        XCTAssertEqual(LabelFit.truncated("glyphline", to: OfficeRenderer.offClockTextWidth,
-                                          measure: measure),
-                       "glyphline")
+        XCTAssertTrue(long.hasPrefix(String(cut.dropLast())), cut)
     }
 
     func testAnEmptyOrDegenerateInputPlacesNothingRatherThanCrashing() throws {
