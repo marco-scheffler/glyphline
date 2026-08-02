@@ -23,10 +23,10 @@ struct LocalModelUsageStatistic: Identifiable, Equatable, Sendable {
     var id: String { modelKey }
 
     /// Same key the store groups rows by, so an unnamed model stays one row.
-    var modelKey: String {
-        guard let model else { return "nil:" }
-        return "value:\(model)"
-    }
+    /// Delegated rather than repeated: this is a primary-key encoding, and a
+    /// second copy diverges silently — a mismatched key does not raise, it
+    /// produces a row that never joins.
+    var modelKey: String { LedgerModelIdentity.makeKey(for: model) }
 
     var totalTokens: Int64 {
         inputTokens + cacheCreationTokens + cacheReadTokens + outputTokens

@@ -230,4 +230,35 @@ final class LocalUsageStatisticsTests: XCTestCase {
         XCTAssertTrue(LocalUsageStatistics.estimateDisclaimer.contains("Estimated"))
         XCTAssertTrue(LocalUsageStatistics.estimateDisclaimer.contains("never billed"))
     }
+
+    /// The row's key and the store's key are the same primary-key encoding, and
+    /// nothing but this test makes them move together. They were two literal
+    /// copies until now: a comment claimed they matched, which is a promise the
+    /// compiler cannot keep. A divergence does not raise — it produces a row
+    /// that silently never joins.
+    func testModelKeyMatchesTheStoreEncoding() {
+        for model in ["claude-opus-5", "gpt-5.4", "", "value:weird"] {
+            let row = LocalModelUsageStatistic(
+                model: model,
+                inputTokens: 0,
+                cacheCreationTokens: 0,
+                cacheReadTokens: 0,
+                outputTokens: 0,
+                estimatedAmountMicros: nil,
+                currency: nil
+            )
+            XCTAssertEqual(row.modelKey, LedgerModelIdentity.makeKey(for: model))
+        }
+
+        let unnamed = LocalModelUsageStatistic(
+            model: nil,
+            inputTokens: 0,
+            cacheCreationTokens: 0,
+            cacheReadTokens: 0,
+            outputTokens: 0,
+            estimatedAmountMicros: nil,
+            currency: nil
+        )
+        XCTAssertEqual(unnamed.modelKey, LedgerModelIdentity.makeKey(for: nil))
+    }
 }
