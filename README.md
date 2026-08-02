@@ -9,7 +9,7 @@
 [![Platform: macOS 26+](https://img.shields.io/badge/Platform-macOS%2026%2B-blue.svg)](#requirements)
 [![Swift 6](https://img.shields.io/badge/Swift-6.0-orange.svg)](#building-from-source)
 [![Apple Silicon](https://img.shields.io/badge/Apple%20Silicon-native-black.svg)](#requirements)
-[![Tests](https://img.shields.io/badge/tests-583%20passing-success.svg)](#building-from-source)
+[![Languages: 8](https://img.shields.io/badge/languages-8-success.svg)](#languages)
 
 A native macOS menu bar app that watches your Claude quota windows, prices what
 your Claude Code sessions actually cost, and shows you which agents are sitting
@@ -54,6 +54,9 @@ transcripts to tell you what all of it would have cost on the API.
 - 🟩 **Or a datastream, if you prefer an instrument to a place** — one lane of
   falling glyphs per session, subagents as tributaries feeding it, and a lane
   that freezes and glitches amber when it needs you.
+- 🌍 **Speaks your language** — English, German, Spanish, French, Italian,
+  Portuguese (Brazil), Japanese and Simplified Chinese, following your system
+  setting.
 - 🔒 **Local by default** — transcripts are read on your Mac and never leave it.
   One outbound request, hourly, for the weather.
 
@@ -99,6 +102,17 @@ forgotten after 96.
 
 **Cost** is API-equivalent, not money you were charged: what those tokens would
 have cost had they gone through the API instead of a subscription.
+
+## Languages
+
+English, German, Spanish, French, Italian, Portuguese (Brazil), Japanese and
+Simplified Chinese. Glyphline follows your system language; there is no
+in-app switcher.
+
+English is the source language. The other seven translations are a best effort
+and have not been reviewed by native speakers — if something reads badly in
+your language, a pull request against
+`Glyphline/Resources/Localizable.xcstrings` is very welcome.
 
 ## Notes
 
