@@ -360,17 +360,18 @@ private struct DashboardOverview: View {
                     .foregroundStyle(.red)
             }
 
+            // The chart is the only element here that gains anything from
+            // width — thirty stacked bars and a day detail beneath them — so it
+            // gets the whole row. The three summary tiles read the same at a
+            // third of the width as they did in a 300-point column.
             HStack(alignment: .top, spacing: 14) {
-                chartCard
-                    .frame(maxWidth: .infinity)
-
-                VStack(spacing: 14) {
-                    spendCard
-                    agentsCard
-                    modelMixCard
-                }
-                .frame(width: 300)
+                spendCard
+                agentsCard
+                modelMixCard
             }
+
+            chartCard
+                .frame(maxWidth: .infinity)
         }
     }
 
