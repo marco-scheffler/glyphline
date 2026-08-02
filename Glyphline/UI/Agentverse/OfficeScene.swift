@@ -754,6 +754,18 @@ struct OfficeRenderer {
 
     // MARK: - Off the clock
 
+    /// How far apart two sleepers stand along the strip.
+    static let offClockSlotPitch: Double = 116
+    /// What a sleeper's name may measure: its slot, less the air that keeps two
+    /// names from reading as one.
+    static let offClockTextWidth: Double = offClockSlotPitch - 12
+
+    /// The sleeper's name, in one place, so it is measured with the font it is
+    /// drawn with.
+    private static func offClockText(_ string: String) -> Text {
+        Text(string).font(.system(size: 10))
+    }
+
     /// The sofa strip along the bottom: sessions that are done for the day, five
     /// at a time, asleep under a grey crystal.
     private func drawOffClock(_ context: GraphicsContext, size: CGSize,
@@ -768,7 +780,7 @@ struct OfficeRenderer {
         for (i, session) in offClock.prefix(5).enumerated() {
             let dim = hovered != nil && hovered != session.id
             let al = dim ? 0.22 : 0.6
-            let sx = 104 + Double(i) * 116, sy = size.height - 34
+            let sx = 104 + Double(i) * Self.offClockSlotPitch, sy = size.height - 34
             var ctx = context
             ctx.opacity = al
             ctx.fill(Path(roundedRect: CGRect(x: sx - 30, y: sy - 14, width: 60, height: 22),
@@ -801,11 +813,14 @@ struct OfficeRenderer {
                                          y: sy - 24 - Double(k) * 8),
                              anchor: .bottomLeading)
             }
-            let name = session.name.count > 14
-                ? String(session.name.prefix(13)) + "…"
-                : session.name
-            context.draw(context.resolve(Text(name)
-                .font(.system(size: 10))
+            // Cut to the slot's width by the same measurement it is drawn with,
+            // like the plates above. A character count read the same way here as
+            // it did in the plates: it happened to look right in one font at one
+            // size and ran into the neighbouring sleeper otherwise.
+            let name = LabelFit.truncated(session.name, to: Self.offClockTextWidth) {
+                self.measure(context, Self.offClockText($0))
+            }
+            context.draw(context.resolve(Self.offClockText(name)
                 .foregroundStyle(Color(red: 139 / 255, green: 155 / 255, blue: 176 / 255))),
                          at: CGPoint(x: sx, y: sy + 22), anchor: .center)
         }

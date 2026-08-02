@@ -341,6 +341,29 @@ final class MarginLabelTests: XCTestCase {
         }
     }
 
+    /// The off-the-clock strip stands its sleepers a fixed pitch apart and
+    /// centres each name on its sleeper, so a name wider than the pitch runs into
+    /// the next one. Its budget therefore has to be narrower than the pitch, and
+    /// a long name has to come back inside it.
+    ///
+    /// Would catch: the hard-coded `prefix(13)` this replaced. Thirteen
+    /// characters of a proportional 10 pt name measure past the slot, which is
+    /// the same unit mismatch the plates had.
+    func testASleepersNameIsCutToItsSlotRatherThanToACharacterCount() throws {
+        XCTAssertLessThan(OfficeRenderer.offClockTextWidth,
+                          OfficeRenderer.offClockSlotPitch,
+                          "two sleepers' names must not meet in the middle")
+
+        let name = "Issue 558 auf Umstellung des Agentverse"
+        let cut = LabelFit.truncated(name, to: OfficeRenderer.offClockTextWidth,
+                                     measure: measure)
+        XCTAssertLessThanOrEqual(measure(cut), OfficeRenderer.offClockTextWidth)
+        XCTAssertTrue(cut.hasSuffix("…"), cut)
+        XCTAssertEqual(LabelFit.truncated("glyphline", to: OfficeRenderer.offClockTextWidth,
+                                          measure: measure),
+                       "glyphline")
+    }
+
     func testAnEmptyOrDegenerateInputPlacesNothingRatherThanCrashing() throws {
         XCTAssertTrue(MarginLabelLayout.place([], canvas: CGSize(width: 900, height: 600),
                                               columnWidth: 170, roomCentreX: 450).isEmpty)

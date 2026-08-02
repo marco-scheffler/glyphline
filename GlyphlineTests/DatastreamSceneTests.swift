@@ -67,6 +67,67 @@ final class DatastreamSceneTests: XCTestCase {
         }
     }
 
+    // MARK: - Header titles cut to a width, not to a character count
+
+    /// A stand-in for the header's text metrics, monotone in the prefix length
+    /// exactly as the real one is. The rule under test is the fitting, not the
+    /// font — 11 pt monospaced runs about 6.6 pt per character.
+    private func measure(_ text: String) -> Double { Double(text.count) * 6.6 }
+
+    private static let panes = [CGSize(width: 1300, height: 640),
+                                CGSize(width: 900, height: 560),
+                                CGSize(width: 640, height: 480),
+                                CGSize(width: 420, height: 320)]
+
+    /// The whole point of the fix, and the property a character count cannot
+    /// hold: a lane is the pane divided by the session count, so the same 22
+    /// characters that fit at 1300 by 4 overflow at 420 by 20.
+    ///
+    /// Would catch: the old `SessionLabel.laneLimit` coming back. Injecting
+    /// `String(title.prefix(21)) + "…"` in place of the fitter fails at every
+    /// pane from nine lanes up.
+    func testNoLaneHeaderIsWiderThanItsLane() {
+        let title = "Issue 558 auf Umstellung des Agentverse in die zweite Ansicht"
+        for pane in Self.panes {
+            for count in 4...20 {
+                let layout = DatastreamLayout(canvas: pane, laneCount: count)
+                XCTAssertLessThanOrEqual(layout.laneTextWidth, layout.laneWidth,
+                                         "pane \(pane) count \(count)")
+                let fitted = LabelFit.truncated(title, to: layout.laneTextWidth,
+                                                measure: measure)
+                XCTAssertLessThanOrEqual(
+                    measure(fitted), layout.laneTextWidth,
+                    "pane \(pane) count \(count): \"\(fitted)\" measures "
+                        + "\(measure(fitted)) in a \(layout.laneTextWidth) lane")
+            }
+        }
+    }
+
+    /// Would catch: a fitter that returns the text unchanged, or one that drops
+    /// the ellipsis so a cut title reads as the whole one.
+    func testATitleLongerThanTheLaneIsCutAndSaysSo() {
+        let title = "PR 3 fortsetzen: Datastream-Spuren beschriften und messen"
+        let layout = DatastreamLayout(canvas: Self.canvas, laneCount: 9)
+        let fitted = LabelFit.truncated(title, to: layout.laneTextWidth, measure: measure)
+
+        XCTAssertTrue(fitted.hasSuffix("…"), fitted)
+        XCTAssertTrue(title.hasPrefix(String(fitted.dropLast())), fitted)
+        XCTAssertLessThanOrEqual(measure(fitted), layout.laneTextWidth)
+        // And it uses the lane it has: one character more would not fit.
+        XCTAssertGreaterThan(measure(fitted + "x"), layout.laneTextWidth, fitted)
+    }
+
+    /// A rule that truncates everything is as wrong as one that truncates
+    /// nothing. Would catch: cutting unconditionally instead of measuring first.
+    func testAShortTitleIsLeftAlone() {
+        let layout = DatastreamLayout(canvas: Self.canvas, laneCount: 4)
+        for title in ["glyphline", "Issue 558", "a"] {
+            XCTAssertEqual(LabelFit.truncated(title, to: layout.laneTextWidth,
+                                              measure: measure),
+                           title)
+        }
+    }
+
     // MARK: - Determinism
 
     /// Would catch: a lane seeded from anything other than its session id, and
