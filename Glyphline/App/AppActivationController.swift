@@ -29,9 +29,40 @@ enum AppActivationController {
     /// Whether a window is on screen that the app has to stay `.regular` for.
     @MainActor
     static func hasWindowNeedingRegularApp() -> Bool {
-        NSApp.windows.contains { window in
-            window.isVisible && isWindowNeedingRegularApp(identifier: window.identifier?.rawValue)
-        }
+        NSApp.windows.contains { $0.isVisible && isWindowNeedingRegularApp($0) }
+    }
+
+    /// The settings window, as claimed by its own content view.
+    ///
+    /// Weak on purpose: this is a note about a window that exists, not a reason
+    /// for it to keep existing. Once the window is gone the reference empties
+    /// itself and the app can drop back to `.accessory`.
+    @MainActor
+    private(set) static weak var claimedSettingsWindow: NSWindow?
+
+    /// Let the settings window identify itself instead of being recognised by
+    /// name.
+    ///
+    /// `settingsWindowID` below is Apple's internal string, not API, and a major
+    /// release is exactly where such a name changes. If it ever does, the
+    /// identifier match goes quietly false and the symptom is obscure: switching
+    /// to Menu Bar mode from inside settings closes the window the user is
+    /// standing in. A window that has told us who it is cannot be renamed out
+    /// from under us.
+    @MainActor
+    static func claimSettingsWindow(_ window: NSWindow?) {
+        guard let window else { return }
+        claimedSettingsWindow = window
+    }
+
+    /// The rule as it is actually applied, on a real window: the claim first,
+    /// the identifier as the fallback for a window that never got to claim
+    /// itself — a settings window restored before its content view is on screen,
+    /// for one.
+    @MainActor
+    static func isWindowNeedingRegularApp(_ window: NSWindow) -> Bool {
+        window === claimedSettingsWindow
+            || isWindowNeedingRegularApp(identifier: window.identifier?.rawValue)
     }
 
     /// The identifier SwiftUI gives the window its `Settings` scene opens. Not a
