@@ -6,8 +6,10 @@ struct AccountsView: View {
     var credentialStore: any CredentialStore = KeychainStore()
     var webSessions: any WebSessionRemoving = ClaudeWebSessionStore()
     var onDeleted: () -> Void = {}
+    var onAdded: () -> Void = {}
 
     @EnvironmentObject private var coordinator: SyncCoordinator
+    @State private var isPresentingAddAccount = false
     @State private var pendingDeletion: PendingDeletion?
     @State private var deletionError: String?
     /// The account whose delete is in flight. Nothing else marks an account busy,
@@ -119,6 +121,38 @@ struct AccountsView: View {
             }
         }
         .navigationTitle("Accounts")
+        // In the toolbar rather than in the header above the list: the list has
+        // an empty state, and a header button would be missing in exactly the
+        // situation where adding an account is the only thing to do.
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    isPresentingAddAccount = true
+                } label: {
+                    Label("Add account", systemImage: "person.badge.plus")
+                }
+                .help("Add an account")
+            }
+        }
+        .sheet(isPresented: $isPresentingAddAccount) {
+            VStack(spacing: 0) {
+                AddAccountView(
+                    ledgerStore: ledgerStore,
+                    credentialStore: credentialStore,
+                    webSessions: webSessions,
+                    onSave: accountSaved
+                )
+                Divider()
+                HStack {
+                    Spacer()
+                    // The form has no way out of its own — as a destination it
+                    // never needed one.
+                    Button("Close") { isPresentingAddAccount = false }
+                }
+                .padding(16)
+            }
+            .frame(minWidth: 520, minHeight: 480)
+        }
         .alert(
             Text(pendingDeletion.map { AccountDeletionFormatting.title(displayName: $0.account.displayName) } ?? ""),
             isPresented: isShowingPendingDeletion,
@@ -148,6 +182,15 @@ struct AccountsView: View {
                     Text(deletionError ?? "")
                 }
         }
+    }
+
+    /// A named method rather than an inline closure, so the reload after a save
+    /// can be exercised without driving the sheet. The list is rendered from
+    /// `accounts`, which the parent owns; without this the newly saved account
+    /// stays invisible until something else reloads the ledger.
+    func accountSaved() {
+        isPresentingAddAccount = false
+        onAdded()
     }
 
     /// Real bindings rather than `.constant(…)`: SwiftUI writes `false` back when
