@@ -255,6 +255,26 @@ final class DashboardPresentationTests: XCTestCase {
         XCTAssertEqual(slices.map(\.model), [DashboardPresentation.unknownModelLabel])
     }
 
+    // MARK: - Naming whose quota a card is
+
+    /// With every account's windows on screen at once there is no tab left to
+    /// say whose window you are reading, so the card has to. A heading is not
+    /// enough: this is the string a card carries on its own.
+    func testAQuotaCardTitleNamesBothTheWindowAndTheAccount() {
+        let title = DashboardPresentation.quotaCardTitle(window: "5h", account: "Work")
+
+        XCTAssertEqual(title, "5h · Work")
+    }
+
+    /// The failure this replaces the tabs to avoid: two accounts' cards for the
+    /// same window kind must not read identically.
+    func testTwoAccountsSameWindowDoNotProduceTheSameHeading() {
+        XCTAssertNotEqual(
+            DashboardPresentation.quotaCardTitle(window: "Week", account: "Work"),
+            DashboardPresentation.quotaCardTitle(window: "Week", account: "Personal")
+        )
+    }
+
     // MARK: - Wording
 
     /// The quota cards can show percentages and pace but not the reference's

@@ -171,11 +171,6 @@ private struct DashboardOverview: View {
     @EnvironmentObject private var coordinator: SyncCoordinator
     @EnvironmentObject private var agentverse: AgentverseCoordinator
 
-    /// Which subscription's quota cards are on screen. **Only** the quota cards:
-    /// everything below reads the local transcripts, and a transcript carries no
-    /// account. There is deliberately no "all accounts" tab either — two
-    /// subscriptions with separate five-hour limits do not have a combined one.
-    @State private var quotaAccountID: UUID?
     @State private var period: LocalUsagePeriod = .last30Days
     @State private var breakdown: LocalUsageBreakdown?
     @State private var selectedDay: Date?
@@ -268,75 +263,77 @@ private struct DashboardOverview: View {
 
     private var quotaSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline, spacing: 14) {
-                SectionTitle("Quotas")
-
-                // The switcher belongs to this section and moves nothing else.
-                // Only quota windows differ per subscription; everything under
-                // "Usage on this Mac" comes from transcripts that carry no
-                // account at all.
-                if accountSummaries.count > 1 {
-                    Picker("Account", selection: quotaAccountBinding) {
-                        ForEach(accountSummaries) { summary in
-                            Text(summary.account.displayName).tag(summary.account.id)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
-                    .frame(maxWidth: 360)
-                }
-
-                Spacer(minLength: 0)
-            }
+            SectionTitle("Quotas")
 
             Text(DashboardPresentation.quotaNoCapNote)
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-            quotaCards
+            quotaBlocks
         }
     }
 
-    private var quotaAccountBinding: Binding<UUID> {
-        Binding(
-            get: { quotaAccountID ?? accountSummaries.first?.account.id ?? UUID() },
-            set: { quotaAccountID = $0 }
-        )
-    }
-
-    @ViewBuilder private var quotaCards: some View {
+    /// Every account's windows at once, one block each.
+    ///
+    /// The account switcher that used to sit here has gone. A tab hid whichever
+    /// subscription you were not looking at, which is precisely what somebody
+    /// with two of them needs on screen together. There is still no "all
+    /// accounts" total: two subscriptions with separate five-hour limits do not
+    /// have a combined one.
+    ///
+    /// Blocks stack rather than tile. An account reports two or three windows and
+    /// those have to stay on one row — a grid over the flattened cards would wrap
+    /// mid-account and put one subscription's weekly card under another's. Five
+    /// accounts is therefore five rows in a pane that already scrolls, which is
+    /// the vertical cost the switcher was buying and is no longer worth it.
+    @ViewBuilder private var quotaBlocks: some View {
         if accountSummaries.isEmpty {
             EmptyStateBox(
                 loadError
                     ?? "No accounts saved yet, so there is no quota to show. Add one under Accounts."
             )
-        } else if let state = selectedQuotaState {
-            let cards = state.windows.compactMap { QuotaCardModel.make(for: $0.window, now: Date()) }
-
-            if let message = state.message {
-                EmptyStateBox(message)
-            } else if cards.isEmpty {
-                EmptyStateBox(QuotaIndicator.noQuotaReportedMessage)
-            } else {
-                // A row rather than a grid: an account reports two or three
-                // windows, and a grid would leave a hole where the third is.
-                HStack(alignment: .top, spacing: 14) {
-                    ForEach(cards) { card in
-                        QuotaCardView(card: card)
-                    }
+        } else {
+            VStack(alignment: .leading, spacing: 14) {
+                ForEach(accountSummaries) { summary in
+                    quotaBlock(for: summary)
                 }
             }
-        } else {
-            EmptyStateBox("This account has not reported a quota yet.")
         }
     }
 
-    /// Matched by account id, never by position: this list and the quota states
-    /// are ordered independently, and attributing one subscription's quota to
-    /// another is the failure this app works hardest to avoid.
-    private var selectedQuotaState: QuotaAccountState? {
-        let id = quotaAccountBinding.wrappedValue
-        return coordinator.quotaStates.first { $0.accountID == id }
+    @ViewBuilder private func quotaBlock(for summary: AccountUsageSummary) -> some View {
+        let name = summary.account.displayName
+        // Matched by account id, never by position: this list and the quota
+        // states are ordered independently, and attributing one subscription's
+        // quota to another is the failure this app works hardest to avoid.
+        let state = coordinator.quotaStates.first { $0.accountID == summary.account.id }
+
+        VStack(alignment: .leading, spacing: 8) {
+            Text(name)
+                .font(.headline)
+                .lineLimit(1)
+                .truncationMode(.middle)
+
+            if let state {
+                let cards = state.windows.compactMap {
+                    QuotaCardModel.make(for: $0.window, now: Date())
+                }
+
+                if let message = state.message {
+                    EmptyStateBox(message)
+                } else if cards.isEmpty {
+                    EmptyStateBox(QuotaIndicator.noQuotaReportedMessage)
+                } else {
+                    HStack(alignment: .top, spacing: 14) {
+                        ForEach(cards) { card in
+                            QuotaCardView(card: card, accountName: name)
+                        }
+                    }
+                }
+            } else {
+                EmptyStateBox("This account has not reported a quota yet.")
+            }
+        }
     }
 
     // MARK: Usage on this Mac
@@ -834,10 +831,16 @@ private struct ProportionBar: View {
 
 private struct QuotaCardView: View {
     let card: QuotaCardModel
+    /// Which subscription this window belongs to. Not optional: with every
+    /// account on screen at once there is no longer a tab making that obvious,
+    /// so no card is allowed to render without saying whose it is.
+    let accountName: String
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            CardTitle(card.title)
+            CardTitle(DashboardPresentation.quotaCardTitle(window: card.title, account: accountName))
+                .lineLimit(1)
+                .truncationMode(.middle)
 
             HStack(alignment: .firstTextBaseline, spacing: 4) {
                 Text("\(card.headroomPercent)")

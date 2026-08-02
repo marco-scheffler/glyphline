@@ -212,6 +212,25 @@ enum DashboardPresentation {
         return slices
     }
 
+    // MARK: - Naming whose quota a card is
+
+    /// A quota card's heading: the window's own label and the account it belongs
+    /// to, in that order.
+    ///
+    /// The account switcher this replaced made whose window you were reading
+    /// unambiguous by only ever showing one account at a time. With every account
+    /// on screen that job has to move into the card — a wall of anonymous
+    /// percentage cards would be worse than the tabs were. The name therefore
+    /// sits on the card and not only on the heading above its row, because a card
+    /// glanced at on its own is exactly the case the heading does not cover.
+    ///
+    /// Window first: the cards of one account sit in a row, so the leading word
+    /// is what distinguishes them from each other, and the account is the
+    /// qualifier that distinguishes the row.
+    static func quotaCardTitle(window: String, account: String) -> String {
+        "\(window) · \(account)"
+    }
+
     // MARK: - Wording
 
     /// Why the figures below the Quotas section cannot be split per subscription.
