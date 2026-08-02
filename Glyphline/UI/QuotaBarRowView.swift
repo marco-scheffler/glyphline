@@ -7,7 +7,7 @@ import SwiftUI
 /// how "Cycle ends" becomes "Cycle resets" in one place only.
 struct QuotaBarRowView: View {
     /// How the row arranges itself. Not a cosmetic preference: the wide form
-    /// spends a fixed 52pt on the label plus a fixed bar width, which leaves the
+    /// spends a fixed label gutter plus a fixed bar width, which leaves the
     /// 320pt menu bar panel too little room for a detail string such as
     /// "17% — resets 04.08.26, 0:59" and squeezes the bar to make it fit.
     enum Layout {
@@ -19,6 +19,21 @@ struct QuotaBarRowView: View {
         /// bar more pixels than the wide form manages in a narrow panel.
         case compact
     }
+
+    /// The gutter the window's name gets in the wide row.
+    ///
+    /// Fixed rather than intrinsic so that two stacked rows start their bars on
+    /// the same line — a per-row width gives a ragged column and makes two bars
+    /// impossible to compare at a glance.
+    ///
+    /// It was 52, which is what English needed: the longest `shortName` there is
+    /// "Cycle" at 33 points. Nothing measured it again when the app was
+    /// translated, and Italian's "Settimana" is 59 — seven points past the
+    /// gutter, which a fixed frame does not report, it just truncates to
+    /// "Settiman…". Sized now to the widest shortName any shipped language
+    /// carries, with room for the next one, and `LocalizedLayoutTests` measures
+    /// every translation against it.
+    static let labelColumnWidth: CGFloat = 68
 
     let row: QuotaBarRow
     var layout: Layout = .wide
@@ -39,7 +54,7 @@ struct QuotaBarRowView: View {
         HStack(spacing: 10) {
             Text(row.label)
                 .font(.callout.weight(.medium))
-                .frame(width: 52, alignment: .leading)
+                .frame(width: Self.labelColumnWidth, alignment: .leading)
 
             bar
                 .frame(maxWidth: barWidth)
