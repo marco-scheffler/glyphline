@@ -102,6 +102,7 @@
 		98A65AA989758D13E3FA0152 /* SessionPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CEE811175655E96A48209E0 /* SessionPalette.swift */; };
 		997A00516E02E7218B94A6E1 /* MarginLabelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0134DD4D833802DA52513B15 /* MarginLabelTests.swift */; };
 		9FEB70E4EF62958B3969ABFF /* Account.swift in Sources */ = {isa = PBXBuildFile; fileRef = D461F567F4AC93CAD78D6410 /* Account.swift */; };
+		A35BDBFD6FB0542A2D9499EF /* LocalizedLayoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90593AA09366929E35BB6663 /* LocalizedLayoutTests.swift */; };
 		A385281B699E65EE57FD572E /* ClaudeCodeLogReaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 919CF627AF46F1C143EA18B9 /* ClaudeCodeLogReaderTests.swift */; };
 		A578DC0E93318FDA5872EA0B /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA3B73CA5CAB2E184CE9154D /* KeychainStore.swift */; };
 		A955A2F608426B01906EBDD4 /* ModelMix.swift in Sources */ = {isa = PBXBuildFile; fileRef = 466589744951D48FB568CFF6 /* ModelMix.swift */; };
@@ -245,6 +246,7 @@
 		8C7EFBFB9C39E2FB8C3A9072 /* GlyphlineTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GlyphlineTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		8E897587F3639B71FA29F250 /* DeleteAccountFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeleteAccountFlowTests.swift; sourceTree = "<group>"; };
 		8EB4CDCE71718F453A076C59 /* ClaudeTranscriptReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeTranscriptReader.swift; sourceTree = "<group>"; };
+		90593AA09366929E35BB6663 /* LocalizedLayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalizedLayoutTests.swift; sourceTree = "<group>"; };
 		919CF627AF46F1C143EA18B9 /* ClaudeCodeLogReaderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeCodeLogReaderTests.swift; sourceTree = "<group>"; };
 		93998924B14DDD73F3240DEA /* WeatherService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeatherService.swift; sourceTree = "<group>"; };
 		93FBE86612C30FFEEC2EE1FD /* AccountDeletionFormatting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountDeletionFormatting.swift; sourceTree = "<group>"; };
@@ -507,6 +509,7 @@
 				89EEFE279720CAF7CA13AEB0 /* KeychainStoreTests.swift */,
 				FA3C1D8E770A657CE4E29EF0 /* LedgerStoreTests.swift */,
 				3A189C19EFFD6B5EE8F139A8 /* LocalizationTests.swift */,
+				90593AA09366929E35BB6663 /* LocalizedLayoutTests.swift */,
 				2D061EE64EFE518EB86B8570 /* LocalTokenUsageStoreTests.swift */,
 				0D31897CD1062193BF63AE80 /* LocalUsagePeriodTests.swift */,
 				8ACB43E390F384515433FB04 /* LocalUsageStatisticsTests.swift */,
@@ -725,7 +728,14 @@
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				Base,
+				de,
 				en,
+				es,
+				fr,
+				it,
+				ja,
+				"pt-BR",
+				"zh-Hans",
 			);
 			mainGroup = A158D1E3705ED0DEAF67B509;
 			minimizedProjectReferenceProxies = 1;
@@ -812,6 +822,7 @@
 				FD2E6B0D841CAF9F824F9BB8 /* LocalUsagePeriodTests.swift in Sources */,
 				DB6A9090D4D818A7DA838E14 /* LocalUsageStatisticsTests.swift in Sources */,
 				2EC169CA2BD81D61716041E1 /* LocalizationTests.swift in Sources */,
+				A35BDBFD6FB0542A2D9499EF /* LocalizedLayoutTests.swift in Sources */,
 				997A00516E02E7218B94A6E1 /* MarginLabelTests.swift in Sources */,
 				8B5B67935A1260AA20266915 /* MenuBarFooterTests.swift in Sources */,
 				FE115011C319F621E5E47A5E /* MigrationTests.swift in Sources */,
