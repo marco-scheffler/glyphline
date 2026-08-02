@@ -695,7 +695,7 @@ private struct DailyUsageChart: View {
 
     private var chart: some View {
         let slices = self.slices
-        let domain = Self.modelDomain(of: slices)
+        let scale = DashboardPresentation.chartStyleScale(for: slices)
         let highlighted = highlightedDay
 
         return Chart(slices) { slice in
@@ -703,7 +703,9 @@ private struct DailyUsageChart: View {
                 x: .value("Day", slice.day, unit: .day),
                 y: .value("Tokens", slice.tokens)
             )
-            .foregroundStyle(by: .value("Model", slice.model))
+            // The series key is the legend's text, so it is the model's name and
+            // not its identifier. Nobody reads a bill in `claude-opus-4-8`.
+            .foregroundStyle(by: .value("Model", DashboardPresentation.modelDisplayName(slice.model)))
             // The unselected days are dimmed rather than the selected one
             // brightened: the palette is already saturated, and lightening a
             // pink or a purple towards white costs exactly the generation
@@ -713,10 +715,7 @@ private struct DailyUsageChart: View {
         }
         // The chart's colours are the app's, not Swift Charts' defaults: the
         // hue names the model family everywhere it appears.
-        .chartForegroundStyleScale(
-            domain: domain,
-            range: DashboardPresentation.modelColors(for: domain)
-        )
+        .chartForegroundStyleScale(domain: scale.domain, range: scale.range)
         .chartLegend(position: .bottom, alignment: .leading, spacing: 10)
         .chartYAxis {
             AxisMarks(position: .leading)
@@ -787,21 +786,6 @@ private struct DailyUsageChart: View {
                 .position(x: rect.minX + start + width / 2, y: rect.minY + rect.height / 2)
                 .allowsHitTesting(false)
         }
-    }
-
-    /// The chart's style-scale domain: every model actually drawn, in the order
-    /// it is drawn, with `Other` wherever the fold put it.
-    ///
-    /// An explicit domain is what makes the range meaningful — without it Swift
-    /// Charts orders the colours itself and a model can change colour between
-    /// two periods.
-    private static func modelDomain(of slices: [DashboardPresentation.DayModelSlice]) -> [String] {
-        var seen: Set<String> = []
-        var domain: [String] = []
-        for slice in slices where seen.insert(slice.model).inserted {
-            domain.append(slice.model)
-        }
-        return domain
     }
 
     /// Where the axis is labelled: at most six of the series' own days, each
@@ -906,7 +890,8 @@ private struct DayDetailPanel: View {
                 ForEach(ranked) { model in
                     HStack(spacing: 8) {
                         ModelSwatch(identifier: model.model)
-                        Text(model.model ?? DashboardPresentation.unknownModelLabel)
+                        Text(model.model.map(DashboardPresentation.modelDisplayName)
+                            ?? DashboardPresentation.unknownModelLabel)
                             .lineLimit(1)
                             .truncationMode(.middle)
                             .foregroundStyle(.secondary)
