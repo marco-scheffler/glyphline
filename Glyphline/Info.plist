@@ -33,5 +33,17 @@
   <string>$(CURRENT_PROJECT_VERSION)</string>
   <key>LSMinimumSystemVersion</key>
   <string>$(MACOSX_DEPLOYMENT_TARGET)</string>
+  <!-- Where the app asks whether a newer Glyphline exists. Served straight out
+       of the repository rather than from a server of its own: there is no
+       infrastructure to keep alive, the file is versioned, and what was
+       published is visible in the diff. raw.githubusercontent.com caches for a
+       few minutes, so a fresh release is not offered the same second it is
+       pushed — which is fine, and better than an outage nobody notices. -->
+  <key>SUFeedURL</key>
+  <string>https://raw.githubusercontent.com/marco-scheffler/glyphline/main/appcast.xml</string>
+  <!-- Once a day. Sparkle's own default is a week, which for an app that ships
+       fixes to a menu bar someone watches all day is too slow to be useful. -->
+  <key>SUScheduledCheckInterval</key>
+  <integer>86400</integer>
 </dict>
 </plist>

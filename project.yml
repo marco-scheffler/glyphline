@@ -7,6 +7,13 @@ packages:
   GRDB:
     url: https://github.com/groue/GRDB.swift.git
     from: 7.0.0
+  # Der Updater. Die zweite und einzige weitere Abhängigkeit — bewusst nicht
+  # selbst gebaut: ein Update-Mechanismus lädt Code aus dem Netz und führt ihn
+  # aus, und die Signaturprüfung dahinter ist genau die Sorte Code, die man
+  # nicht als Nebenprodukt eines Feature-Abends schreibt.
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle.git
+    from: 2.9.5
 targets:
   Glyphline:
     type: application
@@ -31,6 +38,8 @@ targets:
     dependencies:
       - package: GRDB
         product: GRDB
+      - package: Sparkle
+        product: Sparkle
     settings:
       PRODUCT_BUNDLE_IDENTIFIER: com.marcoscheffler.glyphline
       MARKETING_VERSION: "1.1"
