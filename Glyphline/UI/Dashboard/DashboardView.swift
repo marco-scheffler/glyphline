@@ -1210,18 +1210,19 @@ private struct EmptyStateBox: View {
 }
 
 private extension View {
-    /// The reference's glass, taken from the system rather than rebuilt out of
-    /// gradients. A material tracks the desktop behind the window, follows the
-    /// appearance and honours Reduce Transparency; a hand-mixed white-on-white
-    /// gradient does none of those and reads as a web page in a window.
+    /// Liquid Glass itself, not an approximation of it. A material plus a
+    /// drawn separator stroke is flat: it blurs but does not refract, it does
+    /// not react to the window moving, and its edge is a line we chose rather
+    /// than the one the system lights. `glassEffect` brings all three, and it
+    /// draws its own border — hence no `strokeBorder` here any more.
+    ///
+    /// This is why the deployment target is macOS 26: the effect has no
+    /// back-deployment and the layered-gradient stand-in it replaces looked
+    /// wrong next to the system chrome that now uses the real thing.
     func glassCard(cornerRadius: CGFloat = 15) -> some View {
-        background(
-            .regularMaterial,
+        glassEffect(
+            .regular,
             in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .strokeBorder(.separator.opacity(0.6))
         )
     }
 }
