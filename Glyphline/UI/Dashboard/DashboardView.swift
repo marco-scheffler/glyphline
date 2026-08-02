@@ -364,11 +364,19 @@ private struct DashboardOverview: View {
             // width — thirty stacked bars and a day detail beneath them — so it
             // gets the whole row. The three summary tiles read the same at a
             // third of the width as they did in a 300-point column.
+            // `fixedSize` is load-bearing, not redundant: this row lives in a
+            // ScrollView, which proposes nil height, so the cards'
+            // `maxHeight: .infinity` would have nothing finite to fill and the
+            // row would keep its ragged bottom edge. Fixing the vertical axis
+            // makes the stack take its own ideal height — the tallest card —
+            // and the others then stretch to it. It also stops the row from
+            // claiming the chart's vertical space.
             HStack(alignment: .top, spacing: 14) {
                 spendCard
                 agentsCard
                 modelMixCard
             }
+            .fixedSize(horizontal: false, vertical: true)
 
             chartCard
                 .frame(maxWidth: .infinity)
@@ -485,7 +493,10 @@ private struct DashboardOverview: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        // The slack from equalising goes below the content, not around it:
+        // top-leading keeps the big spend figure on the same line as the other
+        // cards' first row instead of floating it mid-card.
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .padding(16)
         .glassCard()
     }
@@ -510,7 +521,7 @@ private struct DashboardOverview: View {
                 }
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .padding(16)
         .glassCard()
     }
@@ -559,7 +570,7 @@ private struct DashboardOverview: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .padding(16)
         .glassCard()
     }
