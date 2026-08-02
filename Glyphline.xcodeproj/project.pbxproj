@@ -14,6 +14,7 @@
 		05ADA18D2E958FB3A3558030 /* RateWindowSourceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11D41DE98E9E03A2433764CC /* RateWindowSourceTests.swift */; };
 		05B13717448F689D010D286A /* ClaudeOrganizationsDTOsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A44B6050C0E139657C97014 /* ClaudeOrganizationsDTOsTests.swift */; };
 		074A23E34F366B500EF9F464 /* ClaudeTranscriptReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8EB4CDCE71718F453A076C59 /* ClaudeTranscriptReader.swift */; };
+		08456132774175B5BBE137D0 /* AgentverseLauncher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AADE4342C52A9A8F604D429 /* AgentverseLauncher.swift */; };
 		0909C91D5EE4CE808530935F /* ClaudeCodeLogReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B784EDCB98F4CFE937F3132 /* ClaudeCodeLogReader.swift */; };
 		0F4765C41C2B3E2A64E36BAC /* QuotaCardModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04698B43079198825E73F1BE /* QuotaCardModel.swift */; };
 		14D0B598D9BBA709C48BEED0 /* AgentSessionScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFA5A35ACBFF7C3C12DC8EB8 /* AgentSessionScanner.swift */; };
@@ -232,6 +233,7 @@
 		86370203C13C77899EEB6DA7 /* TranscriptTimestampParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptTimestampParser.swift; sourceTree = "<group>"; };
 		89EEFE279720CAF7CA13AEB0 /* KeychainStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStoreTests.swift; sourceTree = "<group>"; };
 		8A44B6050C0E139657C97014 /* ClaudeOrganizationsDTOsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeOrganizationsDTOsTests.swift; sourceTree = "<group>"; };
+		8AADE4342C52A9A8F604D429 /* AgentverseLauncher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentverseLauncher.swift; sourceTree = "<group>"; };
 		8ACB43E390F384515433FB04 /* LocalUsageStatisticsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalUsageStatisticsTests.swift; sourceTree = "<group>"; };
 		8C06666F9B94E7FE09B8E8E5 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		8C7EFBFB9C39E2FB8C3A9072 /* GlyphlineTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GlyphlineTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -543,6 +545,7 @@
 		882DE433E3DD2C70B4CD6E0A /* App */ = {
 			isa = PBXGroup;
 			children = (
+				8AADE4342C52A9A8F604D429 /* AgentverseLauncher.swift */,
 				64891BE57A59E15EEFF1CD5F /* AppActivationController.swift */,
 				12E48ACC872A23A3B329B354 /* AppMode.swift */,
 				7E78F87ED03A83F2D193EF8B /* AppSettingsStore.swift */,
@@ -838,6 +841,7 @@
 				36548FF69B18205F3FA28F1D /* AgentSession.swift in Sources */,
 				14D0B598D9BBA709C48BEED0 /* AgentSessionScanner.swift in Sources */,
 				7BB34FDDD9F07754C4B60EF3 /* AgentverseCoordinator.swift in Sources */,
+				08456132774175B5BBE137D0 /* AgentverseLauncher.swift in Sources */,
 				C0976190599A88D6F50D380D /* AgentverseModel.swift in Sources */,
 				B478D06C9EC6D212E0D7EE98 /* AgentverseScene.swift in Sources */,
 				7A236834E440289A3C2FB2CD /* AgentverseWindow.swift in Sources */,
