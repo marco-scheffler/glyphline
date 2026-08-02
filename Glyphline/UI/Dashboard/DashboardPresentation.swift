@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 /// One period of machine-wide local usage in the two shapes the dashboard draws:
 /// a gap-free daily series and a cost-ranked model mix.
@@ -228,6 +229,64 @@ enum DashboardPresentation {
         return String(identifier.dropLast(suffixLength))
     }
 
+    // MARK: - Colouring a model
+
+    /// The approved model palette, keyed like `modelDisplayNames` on the undated
+    /// identifier.
+    ///
+    /// The scheme carries two facts at once: the hue is the family and the
+    /// lightness is the generation, so purple-heavy bars say "Opus" at a glance
+    /// and the darker purple says "the older one". Swift Charts' default palette
+    /// would order the colours by whichever model happened to appear first, which
+    /// says nothing at all.
+    private static let modelColorHexes: [String: UInt32] = [
+        "claude-fable-5": 0xff_7a_b8,
+        "claude-opus-5": 0xa9_7b_ff,
+        "claude-opus-4-8": 0x8a_63_d6,
+        "claude-sonnet-5": 0x5b_a9_ff,
+        "claude-sonnet-4-6": 0x4a_86_c8,
+        "claude-haiku-4-5": 0x3d_dc_91,
+    ]
+
+    /// What a model nobody has a colour for is drawn in.
+    ///
+    /// Grey rather than a seventh hue: letting the chart pick from its defaults
+    /// would dress an unknown model in a known family's colour, and a reader who
+    /// trusts the hue would misread the bill. Grey is the palette saying "this
+    /// one is not in the scheme" — the visual half of the raw identifier
+    /// `modelDisplayName` falls back to.
+    private static let unknownModelColorHex: UInt32 = 0x8e_8e_93
+
+    /// The colour a model is drawn in, everywhere it is drawn.
+    ///
+    /// The one source of model colour: the chart, its legend, the day detail and
+    /// the Model Mix tile all read it, so a hue cannot mean two different models
+    /// on the same screen.
+    ///
+    /// Dated builds are folded onto their model exactly as in `modelDisplayName`:
+    /// `claude-haiku-4-5-20251001` is Haiku 4.5 and gets Haiku's green.
+    static func modelColor(_ identifier: String) -> Color {
+        Color(rgbHex: colorHex(identifier))
+    }
+
+    private static func colorHex(_ identifier: String) -> UInt32 {
+        if let hex = modelColorHexes[identifier] { return hex }
+        if let undated = identifierWithoutDateSuffix(identifier),
+           let hex = modelColorHexes[undated] {
+            return hex
+        }
+        return unknownModelColorHex
+    }
+
+    /// The colours for a chart's style scale, in the order of its domain.
+    ///
+    /// The view hands its domain here rather than assembling a palette of its
+    /// own, which is what keeps `modelColor` the only place a model's colour is
+    /// decided.
+    static func modelColors(for identifiers: [String]) -> [Color] {
+        identifiers.map(modelColor)
+    }
+
     /// The models a legend can carry, ranked as `ModelMix` ranks them — by cost.
     ///
     /// Beyond `limit` the legend stops being a legend, so the tail is folded into
@@ -325,5 +384,21 @@ enum DashboardPresentation {
         }
 
         return value.formatted(.currency(code: currency))
+    }
+}
+
+private extension Color {
+    /// A colour from the design's own `#rrggbb`, in sRGB.
+    ///
+    /// The palette is specified as hex in the reference, so it is written here as
+    /// hex too: translating six digits into three fractions by hand at each entry
+    /// is how a swatch silently drifts from the design it was copied out of.
+    init(rgbHex hex: UInt32) {
+        self.init(
+            .sRGB,
+            red: Double((hex >> 16) & 0xff) / 255,
+            green: Double((hex >> 8) & 0xff) / 255,
+            blue: Double(hex & 0xff) / 255
+        )
     }
 }
