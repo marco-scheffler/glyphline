@@ -63,9 +63,23 @@ transcripts to tell you what all of it would have cost on the API.
 ## Requirements
 
 - **macOS 26 or later.** Glyphline uses Liquid Glass, which is a macOS 26 API.
-- Apple Silicon.
+- Apple Silicon or Intel — the released build is universal.
 - Claude Code, for the Agentverse and the local cost figures — it reads the
   transcripts under `~/.claude/projects/`.
+
+## Install
+
+Download the latest `Glyphline-<version>.zip` from
+[Releases](https://github.com/marco-scheffler/glyphline/releases), unzip it, and
+drag **Glyphline.app** into your Applications folder.
+
+It opens on a double-click. No right-click → Open, no `xattr -d`, no
+"unidentified developer" dialog: the app is signed with a Developer ID,
+notarised by Apple, and the notarisation ticket is stapled into the bundle — so
+Gatekeeper clears it without even needing a network connection.
+
+Glyphline lives in the menu bar and has no Dock icon. After launching it, look
+for the glyph in the top right, not in the Dock.
 
 ## Building from source
 
@@ -77,8 +91,13 @@ xcodegen generate
 ./scripts/run.sh               # builds Release, installs to ~/Applications, launches
 ```
 
-`scripts/release.sh` builds a signed, notarised universal app for handing to
-someone else. It needs a Developer ID certificate and a stored notary profile.
+`scripts/release.sh` builds what the Releases page serves: a universal app,
+signed with a Developer ID, notarised and stapled, packaged with `ditto` into
+`build/release/Glyphline-<version>.zip`. It needs a Developer ID certificate and
+a stored notary profile.
+
+Pass that ZIP on rather than a `.app` dragged out of the Finder — an app bundle
+is a directory of symlinks and executable bits, and plain `zip` loses both.
 
 ```bash
 xcodebuild test -project Glyphline.xcodeproj -scheme Glyphline -destination 'platform=macOS'
