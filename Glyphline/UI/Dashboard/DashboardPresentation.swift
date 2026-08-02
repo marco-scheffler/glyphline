@@ -505,6 +505,42 @@ enum DashboardPresentation {
         }
     }
 
+    // MARK: - Naming a day
+
+    /// A day's name, spelled out: "Sunday, 15 March".
+    ///
+    /// Formatted in the calendar the day was *computed* in. Every day in the
+    /// daily pipeline is a UTC midnight — that is what `LocalUsagePeriod
+    /// .utcCalendar` is for, because grouping locally slices a day and drops
+    /// part of it. Handing such an instant to a formatter reading the local
+    /// timezone undoes that: west of Greenwich a UTC midnight is still the
+    /// previous evening, so the panel named the day before the one whose figures
+    /// it was showing.
+    static func dayTitle(
+        of day: Date,
+        calendar: Calendar = LocalUsagePeriod.utcCalendar
+    ) -> String {
+        var style = Date.FormatStyle.dateTime.weekday(.wide).day().month(.wide)
+        style.timeZone = calendar.timeZone
+        return day.formatted(style)
+    }
+
+    /// A day's name as the chart's x axis has room for it: "15 Mar".
+    ///
+    /// Same rule and the same reason as `dayTitle`. The axis labels bar
+    /// *centres* — noon UTC — which survives a local formatter for most of the
+    /// world and stops doing so from UTC+12 eastward, where noon UTC has already
+    /// become the next day. A label that is right in Berlin and wrong in
+    /// Auckland is the same bug, just harder to see.
+    static func axisDayLabel(
+        of day: Date,
+        calendar: Calendar = LocalUsagePeriod.utcCalendar
+    ) -> String {
+        var style = Date.FormatStyle.dateTime.day().month(.abbreviated)
+        style.timeZone = calendar.timeZone
+        return day.formatted(style)
+    }
+
     // MARK: - Naming a window inside its account's card
 
     /// How a window is labelled inside the card of the account it belongs to.
