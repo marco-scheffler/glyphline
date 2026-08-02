@@ -59,6 +59,13 @@ Catalog has drifted from the source, because a string that never reaches the
 catalog never reaches a translator and looks perfectly fine in English. Run
 `scripts/check-l10n.sh --fix` and commit the updated catalog.
 
+## appcast.xml
+
+Generated, not written. `scripts/release.sh` adds one entry per release, with a
+signature over the exact ZIP that was uploaded — edit the file by hand and the
+signature no longer matches the download, which every user's update check will
+reject. If something in it looks wrong, fix the script.
+
 ## Commits
 
 Follow what `git log` already does: `feat(scope):`, `fix(scope):`,
