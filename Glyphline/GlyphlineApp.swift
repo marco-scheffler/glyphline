@@ -200,7 +200,7 @@ private struct ModeAwareWindowRoot<Content: View>: View {
     private func closeVisibleWindows() {
         for window in NSApp.windows
         where window.isVisible
-            && !AppActivationController.isWindowNeedingRegularApp(identifier: window.identifier?.rawValue) {
+            && !AppActivationController.isWindowNeedingRegularApp(window) {
             window.close()
         }
     }

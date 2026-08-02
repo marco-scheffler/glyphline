@@ -23,6 +23,9 @@ struct SettingsRootView: View {
         // a list that can be empty. Without a floor the window would open at the
         // size of an empty-state placeholder.
         .frame(minWidth: 640, minHeight: 520)
+        // The window says who it is, so nothing downstream has to guess from a
+        // framework-internal identifier.
+        .background(SettingsWindowClaim())
         // In `.menuBarOnly` the app runs as an accessory, and a window opened by
         // an accessory app never becomes key, has no Dock icon, and cannot be
         // reached again once it loses focus — from outside that looks exactly
@@ -38,6 +41,27 @@ struct SettingsRootView: View {
         // pull the Dock icon out from under it.
         .onDisappear {
             AppActivationController.apply(mode: settings.appMode)
+        }
+    }
+}
+
+/// A zero-sized view whose only job is to hand its `NSWindow` to
+/// `AppActivationController`.
+///
+/// The alternative is matching `com_apple_SwiftUI_Settings_window`, which is
+/// SwiftUI's own name for the window and not something Apple promises to keep.
+/// This costs one invisible view and cannot be renamed.
+private struct SettingsWindowClaim: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView { ClaimingView() }
+
+    func updateNSView(_ nsView: NSView, context: Context) {}
+
+    /// `viewDidMoveToWindow` rather than `makeNSView`: a view has no window at
+    /// the moment it is created, only once it is installed.
+    private final class ClaimingView: NSView {
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            AppActivationController.claimSettingsWindow(window)
         }
     }
 }

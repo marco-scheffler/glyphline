@@ -35,6 +35,32 @@ final class SettingsSceneTests: XCTestCase {
         )
     }
 
+    /// The identifier above is SwiftUI's internal name for its settings window,
+    /// not API, and a major release is where such a name changes — silently, with
+    /// no test that would notice. So the window also claims itself, and that
+    /// claim has to be enough on its own.
+    ///
+    /// The window here carries a deliberately foreign identifier: it stands in
+    /// for the release where Apple renamed theirs.
+    func testAClaimedWindowKeepsTheAppRegularWhateverItIsCalled() {
+        let renamed = NSWindow()
+        renamed.identifier = NSUserInterfaceItemIdentifier("com_apple_SwiftUI_SomethingElse")
+
+        XCTAssertFalse(
+            AppActivationController.isWindowNeedingRegularApp(renamed),
+            "an unclaimed window with an unknown identifier is still swept"
+        )
+
+        AppActivationController.claimSettingsWindow(renamed)
+        XCTAssertTrue(AppActivationController.isWindowNeedingRegularApp(renamed))
+
+        // The claim is about one window, not about a shape of window: a second
+        // one does not inherit it.
+        let other = NSWindow()
+        other.identifier = NSUserInterfaceItemIdentifier("dashboard-AppWindow-1")
+        XCTAssertFalse(AppActivationController.isWindowNeedingRegularApp(other))
+    }
+
     /// The add button used to be a toolbar item. A tab in the settings window has
     /// no toolbar, so a toolbar item there renders nowhere at all — and the one
     /// place it is indispensable is the empty state, where adding an account is
