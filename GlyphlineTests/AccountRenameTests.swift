@@ -143,6 +143,40 @@ final class AccountRenameTests: XCTestCase {
         XCTAssertNil(account.customName)
     }
 
+    /// The rule has to hold on the way *out* as well, not only on the way in.
+    ///
+    /// `Account` was `Codable`, and a synthesised `init(from:)` assigns
+    /// `customName` straight from its payload — the one way into the type that
+    /// skips `normalizedName`. The conformance is gone (nothing decoded an
+    /// account; the ledger goes through `AccountRecord`), but a blank can still
+    /// reach the column another way: a row written by an older build. Every read
+    /// path rebuilds the account through its initialiser, so it is normalised
+    /// there too.
+    ///
+    /// Would catch: a decoding or reading path that sets the stored property
+    /// directly. Replace `AccountRecord.account`'s initialiser call with a
+    /// memberwise assignment of `customName` and the account comes back named
+    /// "   " — which every surface then shows as a blank name.
+    func testABlankNameAlreadyInTheDatabaseReadsBackAsNoName() throws {
+        let dbQueue = try DatabaseQueueFactory.makeInMemory()
+        try Migrations.makeMigrator().migrate(dbQueue)
+        let store = LedgerStore(dbQueue: dbQueue)
+        let account = makeAccount("Claude personal")
+        try store.saveAccount(account)
+
+        // Straight into the column, past every normalising path the app has.
+        try dbQueue.write { db in
+            try db.execute(
+                sql: "UPDATE accounts SET customName = ? WHERE id = ?",
+                arguments: ["   ", account.id.uuidString]
+            )
+        }
+
+        let reloaded = try fetched(store, account.id)
+        XCTAssertNil(reloaded.customName)
+        XCTAssertEqual(reloaded.resolvedName, "Claude personal")
+    }
+
     // MARK: - What the dashboard shows
 
     private func summary(for account: Account) -> AccountUsageSummary {
