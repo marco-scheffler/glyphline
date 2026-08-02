@@ -131,7 +131,8 @@ in-app switcher.
 English is the source language. The other seven translations are a best effort
 and have not been reviewed by native speakers — if something reads badly in
 your language, a pull request against
-`Glyphline/Resources/Localizable.xcstrings` is very welcome.
+`Glyphline/Resources/Localizable.xcstrings` is very welcome. It needs no Xcode;
+see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Notes
 
@@ -141,6 +142,17 @@ your language, a pull request against
   no API key. Your location is derived from your **system timezone**, not from
   CoreLocation, so there is no permission prompt and it works offline. You can
   override it in Settings.
+
+## Contributing
+
+Issues and pull requests are welcome — [CONTRIBUTING.md](CONTRIBUTING.md) has
+the build steps, how the tests are run, and what to watch out for when adding a
+user-visible string. Fixing a translation is the easiest place to start and
+needs no Xcode.
+
+## License
+
+[MIT](LICENSE). Do what you like with it; it comes with no warranty.
 
 ## Built with
 
