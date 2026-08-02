@@ -428,7 +428,7 @@ final class SyncCoordinator: ObservableObject {
         // and the cards do not reorder themselves between ticks.
         quotaStates = accounts
             .sorted {
-                let byName = $0.displayName.localizedStandardCompare($1.displayName)
+                let byName = $0.resolvedName.localizedStandardCompare($1.resolvedName)
                 return byName == .orderedSame
                     ? $0.id.uuidString < $1.id.uuidString
                     : byName == .orderedAscending
@@ -439,7 +439,7 @@ final class SyncCoordinator: ObservableObject {
 
                 return QuotaAccountState(
                     accountID: account.id,
-                    displayName: account.displayName,
+                    displayName: account.resolvedName,
                     windows: latest.map {
                         QuotaWindowState(window: $0, confirmedAt: confirmations[$0.kind])
                     },
@@ -469,7 +469,7 @@ final class SyncCoordinator: ObservableObject {
         }
 
         sessionExpiryNotified.insert(account.id)
-        await quotaNotifier.notifySessionExpired(accountDisplayName: account.displayName)
+        await quotaNotifier.notifySessionExpired(accountDisplayName: account.resolvedName)
     }
 
     /// Deletes an account and drops everything this coordinator holds for it.

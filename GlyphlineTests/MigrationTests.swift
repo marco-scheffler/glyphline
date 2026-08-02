@@ -560,4 +560,41 @@ final class MigrationTests: XCTestCase {
         XCTAssertEqual(row.displayTitle, "Acme-Suite")
         XCTAssertEqual(AgentRowModel(parked: row, workTokens: 0).title, "Acme-Suite")
     }
+
+    /// The case a naive migration test misses: `accounts` is populated long
+    /// before v13, so the column has to be added to real rows. Those rows must
+    /// keep their derived name and come back with no chosen one — a migration
+    /// that backfilled `customName` would make every existing account look
+    /// renamed and destroy the fallback it is supposed to have.
+    func testV13AddsTheChosenNameWithoutDisturbingExistingAccounts() throws {
+        let dbQueue = try DatabaseQueueFactory.makeInMemory()
+        let migrator = Migrations.makeMigrator()
+        try migrator.migrate(dbQueue, upTo: "v12_parked_session_title")
+
+        let accountID = UUID()
+        let createdAt = Date(timeIntervalSince1970: 1_800_000_000)
+        try dbQueue.write { db in
+            try db.execute(
+                sql: """
+                    INSERT INTO accounts
+                        (id, providerID, displayName, credentialReference, createdAt, isEnabled)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                arguments: [
+                    accountID.uuidString, "claude", "Claude personal",
+                    "local-source://\(accountID.uuidString)", createdAt, true,
+                ]
+            )
+        }
+
+        try migrator.migrate(dbQueue)
+
+        let store = LedgerStore(dbQueue: dbQueue)
+        let account = try XCTUnwrap(store.fetchAccounts().first)
+        XCTAssertEqual(account.id, accountID, "the pre-migration account must survive")
+        XCTAssertEqual(account.displayName, "Claude personal")
+        XCTAssertEqual(account.createdAt, createdAt)
+        XCTAssertNil(account.customName, "an account written before v13 was never renamed")
+        XCTAssertEqual(account.resolvedName, "Claude personal")
+    }
 }

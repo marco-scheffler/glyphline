@@ -324,6 +324,7 @@ private struct AccountRecord: Codable, FetchableRecord, PersistableRecord, Table
     var id: String
     var providerID: String
     var displayName: String
+    var customName: String?
     var credentialReference: String
     var createdAt: Date
     var isEnabled: Bool
@@ -334,6 +335,7 @@ private struct AccountRecord: Codable, FetchableRecord, PersistableRecord, Table
         id = account.id.uuidString
         providerID = account.providerID.rawValue
         displayName = account.displayName
+        customName = account.customName
         credentialReference = account.credentialReference
         createdAt = account.createdAt
         isEnabled = account.isEnabled
@@ -350,7 +352,8 @@ private struct AccountRecord: Codable, FetchableRecord, PersistableRecord, Table
             createdAt: createdAt,
             isEnabled: isEnabled,
             quotaCredentialReference: quotaCredentialReference,
-            claudeOrganizationID: claudeOrganizationID
+            claudeOrganizationID: claudeOrganizationID,
+            customName: customName
         )
     }
 }
@@ -783,9 +786,10 @@ final class LedgerStore {
                         \(LedgerColumn.createdAt),
                         \(LedgerColumn.isEnabled),
                         \(LedgerColumn.quotaCredentialReference),
-                        \(LedgerColumn.claudeOrganizationID)
+                        \(LedgerColumn.claudeOrganizationID),
+                        \(LedgerColumn.customName)
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ON CONFLICT(\(LedgerColumn.id)) DO UPDATE SET
                         \(LedgerColumn.providerID) = excluded.\(LedgerColumn.providerID),
                         \(LedgerColumn.displayName) = excluded.\(LedgerColumn.displayName),
@@ -793,7 +797,8 @@ final class LedgerStore {
                         \(LedgerColumn.createdAt) = excluded.\(LedgerColumn.createdAt),
                         \(LedgerColumn.isEnabled) = excluded.\(LedgerColumn.isEnabled),
                         \(LedgerColumn.quotaCredentialReference) = excluded.\(LedgerColumn.quotaCredentialReference),
-                        \(LedgerColumn.claudeOrganizationID) = excluded.\(LedgerColumn.claudeOrganizationID)
+                        \(LedgerColumn.claudeOrganizationID) = excluded.\(LedgerColumn.claudeOrganizationID),
+                        \(LedgerColumn.customName) = excluded.\(LedgerColumn.customName)
                     """,
                 arguments: [
                     record.id,
@@ -804,7 +809,30 @@ final class LedgerStore {
                     record.isEnabled,
                     record.quotaCredentialReference,
                     record.claudeOrganizationID,
+                    record.customName,
                 ]
+            )
+        }
+    }
+
+    /// Gives one account a user-chosen name, or — with nil or whitespace — takes
+    /// it back and leaves the account on its derived name.
+    ///
+    /// An `UPDATE` of the single column rather than a read-modify-`saveAccount`:
+    /// the caller holds a copy of the account that may be a sync tick out of
+    /// date, and writing all of it back would carry that staleness into every
+    /// other column just to change the name.
+    func renameAccount(accountID: UUID, to name: String?) throws {
+        let normalized = Account.normalizedName(name)
+
+        try dbQueue.write { db in
+            try db.execute(
+                sql: """
+                    UPDATE \(LedgerTable.accounts)
+                    SET \(LedgerColumn.customName) = ?
+                    WHERE \(LedgerColumn.id) = ?
+                    """,
+                arguments: [normalized, accountID.uuidString]
             )
         }
     }

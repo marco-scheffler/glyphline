@@ -313,26 +313,10 @@ private struct DashboardOverview: View {
         // quota to another is the failure this app works hardest to avoid.
         let state = coordinator.quotaStates.first { $0.accountID == summary.account.id }
 
-        guard let state else {
-            return AccountQuotaCardModel(
-                id: summary.account.id,
-                accountName: summary.account.displayName,
-                providerName: summary.account.providerID.displayName,
-                cards: [],
-                message: "This account has not reported a quota yet."
-            )
-        }
-
-        let cards = state.windows.compactMap { QuotaCardModel.make(for: $0.window, now: Date()) }
-        return AccountQuotaCardModel(
-            id: summary.account.id,
-            accountName: summary.account.displayName,
-            providerName: summary.account.providerID.displayName,
-            cards: state.message == nil ? cards : [],
-            // The provider's own explanation wins over ours, and a state that
-            // reports no window at all still has to say so rather than leave the
-            // account's card empty.
-            message: state.message ?? (cards.isEmpty ? QuotaIndicator.noQuotaReportedMessage : nil)
+        return DashboardPresentation.accountQuotaCard(
+            summary: summary,
+            state: state,
+            now: Date()
         )
     }
 

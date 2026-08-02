@@ -205,7 +205,7 @@ enum DashboardPresentation {
                RateWindowSourceError.userActionableMessages.contains(reason) {
                 return AccountAttention(
                     id: summary.account.id,
-                    accountName: summary.account.displayName,
+                    accountName: summary.account.resolvedName,
                     reason: reason
                 )
             }
@@ -213,13 +213,51 @@ enum DashboardPresentation {
             if let run = summary.latestSyncRun, run.status == .failed {
                 return AccountAttention(
                     id: summary.account.id,
-                    accountName: summary.account.displayName,
+                    accountName: summary.account.resolvedName,
                     reason: run.message ?? syncFailedReason
                 )
             }
 
             return nil
         }
+    }
+
+    // MARK: - Quota cards
+
+    /// One account's quota card, named and filled.
+    ///
+    /// Lives here rather than in the view because *which* name a card carries is
+    /// a decision — the account's chosen name when there is one, the derived
+    /// name otherwise — and a decision inside a `View` cannot be asserted.
+    ///
+    /// - Parameter state: what the sync coordinator last saw for this account,
+    ///   matched by id by the caller. Nil means nothing has been seen yet.
+    static func accountQuotaCard(
+        summary: AccountUsageSummary,
+        state: QuotaAccountState?,
+        now: Date
+    ) -> AccountQuotaCardModel {
+        guard let state else {
+            return AccountQuotaCardModel(
+                id: summary.account.id,
+                accountName: summary.account.resolvedName,
+                providerName: summary.account.providerID.displayName,
+                cards: [],
+                message: "This account has not reported a quota yet."
+            )
+        }
+
+        let cards = state.windows.compactMap { QuotaCardModel.make(for: $0.window, now: now) }
+        return AccountQuotaCardModel(
+            id: summary.account.id,
+            accountName: summary.account.resolvedName,
+            providerName: summary.account.providerID.displayName,
+            cards: state.message == nil ? cards : [],
+            // The provider's own explanation wins over ours, and a state that
+            // reports no window at all still has to say so rather than leave the
+            // account's card empty.
+            message: state.message ?? (cards.isEmpty ? QuotaIndicator.noQuotaReportedMessage : nil)
+        )
     }
 
     /// The banner's headline. A count, because the reasons are listed under it.
