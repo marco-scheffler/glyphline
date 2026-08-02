@@ -57,17 +57,6 @@ transcripts to tell you what all of it would have cost on the API.
 - 🔒 **Local by default** — transcripts are read on your Mac and never leave it.
   One outbound request, hourly, for the weather.
 
-## Screenshots
-
-[![The dashboard: quota cards per account, spend, agents and model mix above a daily usage chart stacked by model](docs/assets/dashboard.png)](docs/assets/dashboard.png)
-The dashboard — every account's windows, what today cost, and which agents need you
-
-[![The datastream view: one lane of falling glyphs per session, with two lanes frozen and marked as waiting on you](docs/assets/agentverse-datastream.png)](docs/assets/agentverse-datastream.png)
-The datastream — a lane per session, frozen and amber when it needs an answer
-
-[![The menu bar panel listing each account's five-hour and weekly headroom with reset times](docs/assets/menubar.png)](docs/assets/menubar.png)
-The menu bar — headroom and pace without opening anything
-
 ## Requirements
 
 - **macOS 26 or later.** Glyphline uses Liquid Glass, which is a macOS 26 API.
