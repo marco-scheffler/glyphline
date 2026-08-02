@@ -70,4 +70,22 @@ enum RateWindowSourceError: Error, Equatable, Sendable {
             "Your Claude sign-in has expired. Sign in again."
         }
     }
+
+    /// The messages that mean the user has something to do.
+    ///
+    /// Only these two. `notAvailable` is a permanent fact about a subscription
+    /// and `notConfigured` a route nobody has asked for, so neither is a task —
+    /// and the transient three would put a banner on the dashboard for a Wi-Fi
+    /// blip, which is how a banner becomes something people stop reading.
+    ///
+    /// Matched by message rather than by case because that is what survives the
+    /// trip to a view: the coordinator stores a reason string per account, and
+    /// `noteQuotaFailure` already compares against these same constants. Nothing
+    /// from a response body ever reaches this set.
+    static let userActionableMessages: Set<String> = [
+        RateWindowSourceError.sessionExpired.message,
+        // The status code is not part of the message, so any of the codes that
+        // produce this case produce this string.
+        RateWindowSourceError.credentialRejected(statusCode: 401).message,
+    ]
 }
