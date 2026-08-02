@@ -266,9 +266,16 @@ struct DashboardOverview: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Dashboard")
                     .font(.largeTitle.weight(.bold))
+                // The plural is two whole keys rather than an interpolated "s".
+                // As one key it extracts as "%lld account%@" — a translator is
+                // handed an English suffix in a placeholder and can do nothing
+                // useful with it, and no language that inflects the noun could
+                // be served by it at all.
                 Text(accountSummaries.isEmpty
                     ? "No accounts saved yet"
-                    : "\(accountSummaries.count) account\(accountSummaries.count == 1 ? "" : "s")")
+                    : (accountSummaries.count == 1
+                        ? "1 account"
+                        : "\(accountSummaries.count) accounts"))
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }

@@ -136,7 +136,10 @@ enum QuotaIndicator {
     /// error and not "unavailable": the subscription is fine and its source
     /// answered, there is simply no active window yet. An account heading with
     /// nothing under it reads as a broken row, so no group renders headless.
-    static let noQuotaReportedMessage = "No quota reported yet."
+    static let noQuotaReportedMessage = String(
+        localized: "No quota reported yet.",
+        comment: "Shown in place of the bars when a source answered but reported no active window."
+    )
 
     /// Stands in for the reset instant on a window that has none. Both surfaces
     /// read this one constant so a row and a bar cannot start wording the same
@@ -146,7 +149,10 @@ enum QuotaIndicator {
     /// there is no window running, so there is nothing to wait for. Deliberately
     /// carries no verb, because "resets never" would be a claim about the
     /// future and "resets —" would be a gap.
-    static let noActiveWindowText = "no active window"
+    static let noActiveWindowText = String(
+        localized: "no active window",
+        comment: "Stands in for the reset instant on a window that has none. Lower case: it sits inside a longer row."
+    )
 
     /// The one exhaustion threshold in the app. `hasHeadroom` — and therefore
     /// the menu bar light — and a row's `.exhausted` verdict both compare
@@ -295,23 +301,34 @@ enum QuotaIndicator {
     /// reader actually has: how long do I wait.
     ///
     /// Composed by hand from the interval rather than through
-    /// `.formatted(.relative(...))`. Two reasons: these are *words*, and the
-    /// app's words are English wherever the Mac is set to — the relative style
-    /// would follow the system language and print "in 3 Stunden" into an English
-    /// panel — and the system style rounds to a single unit, which turns 3h 20m
-    /// into "in 3 hours" and loses exactly the precision the row exists for.
+    /// `.formatted(.relative(...))`, because the system style rounds to a single
+    /// unit: it turns 3h 20m into "in 3 hours" and loses exactly the precision
+    /// the row exists for.
     ///
     /// `verb` keeps the distinction the labels carry: a billing cycle *ends*, it
-    /// does not reset, because a subscription term end returns no capacity.
+    /// does not reset, because a subscription term end returns no capacity. It
+    /// arrives already localised from `labelAndVerb`, and lands in a `%@` slot
+    /// here — a fragment, which is a compromise the alternative (six whole
+    /// sentences, two verbs times three shapes) does not repay.
     static func remainingText(until instant: Date, now: Date, verb: String) -> String {
         let remaining = instant.timeIntervalSince(now)
 
         // Past due carries no verb: "resets in -5m" is nonsense, and "ended"
         // would claim a refill happened that this app did not observe.
-        guard remaining > 0 else { return "due now" }
-        guard remaining >= 60 else { return "\(verb) any moment" }
+        guard remaining > 0 else {
+            return String(localized: "due now", comment: "Quota row: the reset instant has already passed.")
+        }
+        guard remaining >= 60 else {
+            return String(
+                localized: "\(verb) any moment",
+                comment: "Quota row with under a minute left. The placeholder is the window's verb, 'resets' or 'ends'."
+            )
+        }
 
-        return "\(verb) in \(compactDuration(remaining))"
+        return String(
+            localized: "\(verb) in \(compactDuration(remaining))",
+            comment: "Quota row countdown. Placeholders: the window's verb ('resets' or 'ends') and a duration such as '3h 20m'."
+        )
     }
 
     /// How long the window itself spans, which is what makes its start
@@ -364,9 +381,17 @@ enum QuotaIndicator {
         guard elapsed > 0 else { return nil }
 
         let remaining = (1 - used) * elapsed / used
-        guard remaining < resetAt.timeIntervalSince(now) else { return "on track" }
+        guard remaining < resetAt.timeIntervalSince(now) else {
+            return String(
+                localized: "on track",
+                comment: "Quota pace note: this window survives to its own reset at the pace so far."
+            )
+        }
 
-        return "empty in \(compactDuration(remaining))"
+        return String(
+            localized: "empty in \(compactDuration(remaining))",
+            comment: "Quota pace note when the window will not survive to its reset. The placeholder is a duration such as '1h 40m'."
+        )
     }
 
     /// "3h 20m", "45m", "4d 6h". Every component floors, so the figure is always
@@ -385,15 +410,25 @@ enum QuotaIndicator {
             // the single-unit rounding `remainingText` documents itself as
             // refusing — and this branch did it anyway.
             let hours = (totalMinutes / 60) % 24
-            return hours == 0 ? "\(days)d" : "\(days)d \(hours)h"
+            return hours == 0
+                ? String(localized: "\(days)d", comment: "Compact duration, whole days only. Placeholder: a number of days.")
+                : String(
+                    localized: "\(days)d \(hours)h",
+                    comment: "Compact duration. Placeholders: a number of days and a number of hours."
+                )
         }
 
         let hours = totalMinutes / 60
         let minutes = totalMinutes % 60
         if hours >= 1 {
-            return minutes == 0 ? "\(hours)h" : "\(hours)h \(minutes)m"
+            return minutes == 0
+                ? String(localized: "\(hours)h", comment: "Compact duration, whole hours only. Placeholder: a number of hours.")
+                : String(
+                    localized: "\(hours)h \(minutes)m",
+                    comment: "Compact duration. Placeholders: a number of hours and a number of minutes."
+                )
         }
-        return "\(minutes)m"
+        return String(localized: "\(minutes)m", comment: "Compact duration under an hour. Placeholder: a number of minutes.")
     }
 
     /// The menu bar's fixed mark.
@@ -417,9 +452,12 @@ enum QuotaIndicator {
     /// intentional, not an oversight.
     static func accessibilityLabel(for state: QuotaLightState) -> String {
         switch state {
-        case .green: "Glyphline — quota available"
-        case .red: "Glyphline — quota exhausted"
-        case .grey: "Glyphline — quota unknown"
+        case .green:
+            String(localized: "Glyphline — quota available", comment: "VoiceOver name for the menu bar item. 'Glyphline' is the app's name and stays.")
+        case .red:
+            String(localized: "Glyphline — quota exhausted", comment: "VoiceOver name for the menu bar item. 'Glyphline' is the app's name and stays.")
+        case .grey:
+            String(localized: "Glyphline — quota unknown", comment: "VoiceOver name for the menu bar item. 'Glyphline' is the app's name and stays.")
         }
     }
 
@@ -474,9 +512,12 @@ enum QuotaIndicator {
     /// monthly cycle boundary is the end of a period rather than a quota refill.
     static func labelAndVerb(for kind: RateWindowKind) -> (label: String, verb: String) {
         switch kind {
-        case .rollingFiveHours: (kind.shortName, "resets")
-        case .weekly: (kind.shortName, "resets")
-        case .billingCycle: (kind.shortName, "ends")
+        case .rollingFiveHours:
+            (kind.shortName, String(localized: "resets", comment: "Verb for a window that refills, as in 'resets in 3h 20m'."))
+        case .weekly:
+            (kind.shortName, String(localized: "resets", comment: "Verb for a window that refills, as in 'resets in 3h 20m'."))
+        case .billingCycle:
+            (kind.shortName, String(localized: "ends", comment: "Verb for a subscription term, which returns no capacity, as in 'ends in 4d 6h'."))
         }
     }
 
@@ -522,15 +563,24 @@ enum QuotaIndicator {
                         // "left", not a bare percentage: "45%" reads either way,
                         // and the whole point of the change is that the reader
                         // no longer has to subtract.
-                        detail = "\(Int((left * 100).rounded()))% left · \(remaining)"
+                        detail = String(
+                            localized: "\(Int((left * 100).rounded()))% left · \(remaining)",
+                            comment: "Quota bar detail. Placeholders: the percentage left, and the countdown ('resets in 3h 20m')."
+                        )
                     } else {
-                        detail = "usage unknown · \(remaining)"
+                        detail = String(
+                            localized: "usage unknown · \(remaining)",
+                            comment: "Quota bar detail with no reported fraction. The placeholder is the countdown."
+                        )
                     }
 
                     // Appended rather than replacing anything. Absent only where
                     // there is nothing to say — see `paceText`.
                     if let pace = paceText(for: windowState.window, now: now) {
-                        detail += " · \(pace)"
+                        detail = String(
+                            localized: "\(detail) · \(pace)",
+                            comment: "Quota bar detail with the pace note appended. Placeholders: the detail so far, and the pace note."
+                        )
                     }
 
                     return QuotaBarRow(
@@ -567,17 +617,29 @@ enum QuotaIndicator {
         let (label, verb) = labelAndVerb(for: window.kind)
 
         let tail = window.resetAt.map {
-            "\(verb) \(instantText($0, now: now, formatting: formatting))"
+            String(
+                localized: "\(verb) \(instantText($0, now: now, formatting: formatting))",
+                comment: "Menu row tail. Placeholders: the window's verb ('resets' or 'ends') and a clock time or date."
+            )
         } ?? noActiveWindowText
 
         let head: String
         if let fraction = window.usedFraction {
-            head = "\(label) \(Int((fraction * 100).rounded()))% — \(tail)"
+            head = String(
+                localized: "\(label) \(Int((fraction * 100).rounded()))% — \(tail)",
+                comment: "Menu row. Placeholders: the window's short name, the percentage used, and the tail ('resets 14:00')."
+            )
         } else {
-            head = "\(label) — usage unknown, \(tail)"
+            head = String(
+                localized: "\(label) — usage unknown, \(tail)",
+                comment: "Menu row with no reported fraction. Placeholders: the window's short name and the tail."
+            )
         }
 
         guard let asOf else { return head }
-        return "\(head) (as of \(instantText(asOf, now: now, formatting: formatting)))"
+        return String(
+            localized: "\(head) (as of \(instantText(asOf, now: now, formatting: formatting)))",
+            comment: "Menu row qualified with when the figure was last believed. Placeholders: the row so far, and an instant."
+        )
     }
 }

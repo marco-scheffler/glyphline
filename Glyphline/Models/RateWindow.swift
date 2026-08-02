@@ -12,9 +12,12 @@ enum RateWindowKind: String, Codable, CaseIterable, Sendable {
     /// line. "5h" earns its terseness there.
     var shortName: String {
         switch self {
-        case .rollingFiveHours: "5h"
-        case .weekly: "Week"
-        case .billingCycle: "Cycle"
+        case .rollingFiveHours:
+            String(localized: "5h", comment: "Terse name of the rolling five-hour quota window, menu bar row")
+        case .weekly:
+            String(localized: "Week", comment: "Terse name of the weekly quota window, menu bar row")
+        case .billingCycle:
+            String(localized: "Cycle", comment: "Terse name of the billing cycle window, menu bar row")
         }
     }
 
@@ -30,9 +33,12 @@ enum RateWindowKind: String, Codable, CaseIterable, Sendable {
     /// other, and the app starts calling one thing two things by accident.
     var longName: String {
         switch self {
-        case .rollingFiveHours: "5-hour"
-        case .weekly: "Weekly"
-        case .billingCycle: "Billing cycle"
+        case .rollingFiveHours:
+            String(localized: "5-hour", comment: "Spelled-out name of the rolling five-hour quota window, dashboard card")
+        case .weekly:
+            String(localized: "Weekly", comment: "Spelled-out name of the weekly quota window, dashboard card")
+        case .billingCycle:
+            String(localized: "Billing cycle", comment: "Spelled-out name of the billing cycle window, dashboard card")
         }
     }
 }

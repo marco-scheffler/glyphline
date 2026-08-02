@@ -62,8 +62,14 @@ struct QuotaCardModel: Identifiable, Equatable, Sendable {
             headroomFraction: headroom,
             usedPercent: percent(used),
             headroomPercent: percent(headroom),
-            usageText: "\(percent(used))% used",
-            headroomText: "\(percent(headroom))% left",
+            usageText: String(
+                localized: "\(percent(used))% used",
+                comment: "Quota card figure. The placeholder is a whole percentage."
+            ),
+            headroomText: String(
+                localized: "\(percent(headroom))% left",
+                comment: "Quota card figure. The placeholder is a whole percentage."
+            ),
             pacePosition: pace,
             paceText: QuotaIndicator.paceText(for: window, now: now),
             state: state(used: used, pace: pace)

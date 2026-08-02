@@ -14,11 +14,11 @@ enum LocalUsagePeriod: String, CaseIterable, Identifiable, Sendable {
     var title: String {
         switch self {
         case .last7Days:
-            "7 Days"
+            String(localized: "7 Days", comment: "Chart period picker segment: the last seven days.")
         case .last30Days:
-            "30 Days"
+            String(localized: "30 Days", comment: "Chart period picker segment: the last thirty days.")
         case .allTime:
-            "All Time"
+            String(localized: "All Time", comment: "Chart period picker segment: everything that was scanned.")
         }
     }
 

@@ -82,7 +82,10 @@ enum DashboardPresentation {
         var isAbove: Bool?
     }
 
-    static let noMedianYetText = "No completed day to compare against yet."
+    static let noMedianYetText = String(
+        localized: "No completed day to compare against yet.",
+        comment: "Today's comparison line on a machine that has not finished a single day."
+    )
 
     /// - Parameter median: `DailyUsageSeries.median(days:)`, which is nil on a
     ///   machine that has not finished a single day. That is a sentence, not a
@@ -97,20 +100,32 @@ enum DashboardPresentation {
         }
         guard median > 0 else {
             return MedianComparison(
-                text: "Nothing recorded on the last \(days) completed days.",
+                text: String(
+                    localized: "Nothing recorded on the last \(days) completed days.",
+                    comment: "Today's comparison line when every completed day in the baseline was empty."
+                ),
                 isAbove: nil
             )
         }
 
         let change = (Double(todayTokens - median) / Double(median) * 100).rounded()
         guard change != 0 else {
-            return MedianComparison(text: "Level with the \(days)-day median", isAbove: nil)
+            return MedianComparison(
+                text: String(
+                    localized: "Level with the \(days)-day median",
+                    comment: "Today's comparison line with no change against the median of the last N completed days."
+                ),
+                isAbove: nil
+            )
         }
 
         let sign = change > 0 ? "+" : "−"
         let magnitude = Int(abs(change))
         return MedianComparison(
-            text: "\(sign)\(magnitude) % vs. \(days)-day median",
+            text: String(
+                localized: "\(sign)\(magnitude) % vs. \(days)-day median",
+                comment: "Today's comparison line. Placeholders: the sign (+ or −), the percentage change, and the baseline length in days."
+            ),
             isAbove: change > 0
         )
     }
@@ -142,14 +157,31 @@ enum DashboardPresentation {
         let isEmpty = waiting + working + resting == 0
 
         let headline: String
+        // Singular and plural are two separate keys rather than one key with a
+        // plural variation. Both readings already exist as branches here, and
+        // every target language has at most the two categories English has, so
+        // the branch is enough. A language with more — Russian, Polish — would
+        // need the variation instead.
         if isEmpty {
-            headline = "No agents on this Mac"
+            headline = String(
+                localized: "No agents on this Mac",
+                comment: "Agents tile headline when no session of any kind was found."
+            )
         } else if waiting == 0 {
-            headline = "Nobody is waiting on you"
+            headline = String(
+                localized: "Nobody is waiting on you",
+                comment: "Agents tile headline when sessions exist but none needs the user."
+            )
         } else if waiting == 1 {
-            headline = "1 agent is waiting on you"
+            headline = String(
+                localized: "1 agent is waiting on you",
+                comment: "Agents tile headline, singular."
+            )
         } else {
-            headline = "\(waiting) agents are waiting on you"
+            headline = String(
+                localized: "\(waiting) agents are waiting on you",
+                comment: "Agents tile headline, plural. The placeholder is the number of waiting agents (always 2 or more)."
+            )
         }
 
         return AgentverseCallToAction(
@@ -172,7 +204,10 @@ enum DashboardPresentation {
     }
 
     /// What a failed sync run says when it did not say anything itself.
-    static let syncFailedReason = "The last sync failed."
+    static let syncFailedReason = String(
+        localized: "The last sync failed.",
+        comment: "Attention reason for an account whose last sync run failed without a message of its own."
+    )
 
     /// The accounts the user has to act on.
     ///
@@ -243,7 +278,10 @@ enum DashboardPresentation {
                 accountName: summary.account.resolvedName,
                 providerName: summary.account.providerID.displayName,
                 cards: [],
-                message: "This account has not reported a quota yet."
+                message: String(
+                    localized: "This account has not reported a quota yet.",
+                    comment: "Quota card message for an account the sync coordinator has not seen any state for."
+                )
             )
         }
 
@@ -262,7 +300,12 @@ enum DashboardPresentation {
 
     /// The banner's headline. A count, because the reasons are listed under it.
     static func attentionHeadline(count: Int) -> String {
-        count == 1 ? "1 account needs attention" : "\(count) accounts need attention"
+        count == 1
+            ? String(localized: "1 account needs attention", comment: "Attention banner headline, singular.")
+            : String(
+                localized: "\(count) accounts need attention",
+                comment: "Attention banner headline, plural. The placeholder is the account count (always 2 or more)."
+            )
     }
 
     // MARK: - Chart slices
@@ -277,8 +320,20 @@ enum DashboardPresentation {
         var id: String { "\(day.timeIntervalSince1970):\(model)" }
     }
 
-    static let unknownModelLabel = "Unknown model"
-    static let otherModelsLabel = "Other"
+    /// Both of these are drawn in the legend *and* used as the chart's series key
+    /// for the rows they stand for, so they are localised: a legend that recites
+    /// "Unknown model" inside a German dashboard names nothing to that reader.
+    /// The key half is safe because every producer and every consumer reads these
+    /// two constants — the value is resolved once per process, so a slice, its
+    /// legend entry and its colour cannot disagree about it.
+    static let unknownModelLabel = String(
+        localized: "Unknown model",
+        comment: "Chart legend entry for usage rows that carry no model identifier."
+    )
+    static let otherModelsLabel = String(
+        localized: "Other",
+        comment: "Chart legend entry for the models folded together beyond the legend's limit."
+    )
 
     // MARK: - Naming a model
 
@@ -286,6 +341,12 @@ enum DashboardPresentation {
     ///
     /// Keyed on the undated identifier only: the dated variants are handled by
     /// stripping the suffix, not by listing them (see `modelDisplayName`).
+    ///
+    /// Deliberately **not** localised, on both sides. The keys are model
+    /// identifiers, and translating an identifier turns the lookup into a miss in
+    /// every language but English. The values are product names — "Opus 5" is
+    /// called that in Berlin too — and a translated one would stop matching what
+    /// the reader sees in the provider's own tooling.
     private static let modelDisplayNames: [String: String] = [
         "claude-fable-5": "Fable 5",
         "claude-opus-5": "Opus 5",
@@ -565,29 +626,41 @@ enum DashboardPresentation {
     /// Why the figures below the Quotas section cannot be split per subscription.
     /// Stated on the screen, not just in a comment: an unqualified total invites
     /// the reader to attribute it to whichever subscription they had in mind.
-    static let subscriptionScopeNote = """
-        These figures cover every Claude subscription together. \
-        The transcripts carry no marker of which subscription paid for a session, \
-        so they cannot be attributed to one.
-        """
+    static let subscriptionScopeNote = String(
+        localized: """
+            These figures cover every Claude subscription together. \
+            The transcripts carry no marker of which subscription paid for a session, \
+            so they cannot be attributed to one.
+            """,
+        comment: "Note under the Quotas section explaining that the totals cannot be split per subscription."
+    )
 
-    static let unpricedTotalNote =
-        "At least one model has no price on file, so the total is incomplete."
+    static let unpricedTotalNote = String(
+        localized: "At least one model has no price on file, so the total is incomplete.",
+        comment: "Note beside a spend total that is missing at least one model's price."
+    )
 
     /// `ModelMix` computes each share against the *priced* spend. With an
     /// unpriced model in the period, "42 % of spend" silently means "42 % of what
     /// we could price", which is exactly the kind of quiet qualifier this app
     /// exists to say out loud.
-    static let unpricedShareNote =
-        "Shares are of the priced spend only — at least one model has no price on file."
+    static let unpricedShareNote = String(
+        localized: "Shares are of the priced spend only — at least one model has no price on file.",
+        comment: "Note beside the model mix percentages when a model in the period has no price."
+    )
 
     /// The quota windows report a consumed *fraction* and nothing else. There is
     /// no token cap in `RateWindow`, so the cards say percentages and pace and
     /// never invent an absolute figure to sit beside them.
-    static let quotaNoCapNote =
-        "Your subscription reports how much of a window is used, not a token cap, so these are percentages."
+    static let quotaNoCapNote = String(
+        localized: "Your subscription reports how much of a window is used, not a token cap, so these are percentages.",
+        comment: "Note under the quota cards explaining why they show percentages rather than token counts."
+    )
 
-    static let unpricedLabel = "No price on file"
+    static let unpricedLabel = String(
+        localized: "No price on file",
+        comment: "Stands in for an amount when the model is absent from the pricing catalog."
+    )
 
     /// Nil micros means the model is absent from the pricing catalog. It is
     /// rendered as unpriced and never as zero, which would read as "free".

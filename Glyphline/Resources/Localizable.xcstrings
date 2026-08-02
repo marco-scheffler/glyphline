@@ -1,0 +1,1695 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "% free": {
+      "shouldTranslate": false
+    },
+    "%@ %@": {
+      "comment": "Menu row tail. Placeholders: the window's verb ('resets' or 'ends') and a clock time or date.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ %2$@"
+          }
+        }
+      }
+    },
+    "%@ %lld%% — %@": {
+      "comment": "Menu row. Placeholders: the window's short name, the percentage used, and the tail ('resets 14:00').",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ %2$lld%% — %3$@"
+          }
+        }
+      }
+    },
+    "%@ (as of %@)": {
+      "comment": "Menu row qualified with when the figure was last believed. Placeholders: the row so far, and an instant.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ (as of %2$@)"
+          }
+        }
+      }
+    },
+    "%@ any moment": {
+      "comment": "Quota row with under a minute left. The placeholder is the window's verb, 'resets' or 'ends'.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ any moment"
+          }
+        }
+      }
+    },
+    "%@ in %@": {
+      "comment": "Quota row countdown. Placeholders: the window's verb ('resets' or 'ends') and a duration such as '3h 20m'.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ in %2$@"
+          }
+        }
+      }
+    },
+    "%@ rate window sample recorded since %@.": {
+      "comment": "Delete dialog, singular. Placeholders: the sample count (always 1) and a date.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ rate window sample recorded since %2$@."
+          }
+        }
+      }
+    },
+    "%@ rate window sample recorded.": {
+      "comment": "Delete dialog, singular, with no earliest date on file. The placeholder is the sample count (always 1).",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ rate window sample recorded."
+          }
+        }
+      }
+    },
+    "%@ rate window samples recorded since %@.": {
+      "comment": "Delete dialog, plural. Placeholders: the sample count (2 or more) and a date.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ rate window samples recorded since %2$@."
+          }
+        }
+      }
+    },
+    "%@ rate window samples recorded.": {
+      "comment": "Delete dialog, plural, with no earliest date on file. The placeholder is the sample count (2 or more).",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ rate window samples recorded."
+          }
+        }
+      }
+    },
+    "%@ tokens": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ tokens"
+          }
+        }
+      }
+    },
+    "%@ tokens · %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ tokens · %2$@"
+          }
+        }
+      }
+    },
+    "%@ · %@": {
+      "comment": "Quota bar detail with the pace note appended. Placeholders: the detail so far, and the pace note.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · %2$@"
+          }
+        }
+      }
+    },
+    "%@ — %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ — %2$@"
+          }
+        }
+      }
+    },
+    "%@ — usage unknown, %@": {
+      "comment": "Menu row with no reported fraction. Placeholders: the window's short name and the tail.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ — usage unknown, %2$@"
+          }
+        }
+      }
+    },
+    "%@%lld %% vs. %@": {
+      "comment": "Spend comparison. Placeholders: the sign (+ or −), the percentage change, and SpendPeriod.previousPhrase.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@%2$lld %% vs. %3$@"
+          }
+        }
+      }
+    },
+    "%@%lld %% vs. %lld-day median": {
+      "comment": "Today's comparison line. Placeholders: the sign (+ or −), the percentage change, and the baseline length in days.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@%2$lld %% vs. %3$lld-day median"
+          }
+        }
+      }
+    },
+    "%lld": {
+      "shouldTranslate": false
+    },
+    "%lld %%": {
+      "shouldTranslate": false
+    },
+    "%lld accounts": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld accounts"
+          }
+        }
+      }
+    },
+    "%lld accounts need attention": {
+      "comment": "Attention banner headline, plural. The placeholder is the account count (always 2 or more).",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld accounts need attention"
+          }
+        }
+      }
+    },
+    "%lld agents are waiting on you": {
+      "comment": "Agents tile headline, plural. The placeholder is the number of waiting agents (always 2 or more).",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld agents are waiting on you"
+          }
+        }
+      }
+    },
+    "%lld%% left": {
+      "comment": "Quota card figure. The placeholder is a whole percentage.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld%% left"
+          }
+        }
+      }
+    },
+    "%lld%% left · %@": {
+      "comment": "Quota bar detail. Placeholders: the percentage left, and the countdown ('resets in 3h 20m').",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld%% left · %2$@"
+          }
+        }
+      }
+    },
+    "%lld%% used": {
+      "comment": "Quota card figure. The placeholder is a whole percentage.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld%% used"
+          }
+        }
+      }
+    },
+    "%lldd": {
+      "comment": "Compact duration, whole days only. Placeholder: a number of days.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lldd"
+          }
+        }
+      }
+    },
+    "%lldd %lldh": {
+      "comment": "Compact duration. Placeholders: a number of days and a number of hours.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lldd %2$lldh"
+          }
+        }
+      }
+    },
+    "%lldh": {
+      "comment": "Compact duration, whole hours only. Placeholder: a number of hours.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lldh"
+          }
+        }
+      }
+    },
+    "%lldh %lldm": {
+      "comment": "Compact duration. Placeholders: a number of hours and a number of minutes.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lldh %2$lldm"
+          }
+        }
+      }
+    },
+    "%lldm": {
+      "comment": "Compact duration under an hour. Placeholder: a number of minutes.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lldm"
+          }
+        }
+      }
+    },
+    "(as of %@)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "(as of %@)"
+          }
+        }
+      }
+    },
+    "1 account": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 account"
+          }
+        }
+      }
+    },
+    "1 account needs attention": {
+      "comment": "Attention banner headline, singular.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 account needs attention"
+          }
+        }
+      }
+    },
+    "1 agent is waiting on you": {
+      "comment": "Agents tile headline, singular.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 agent is waiting on you"
+          }
+        }
+      }
+    },
+    "15 minutes": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "15 minutes"
+          }
+        }
+      }
+    },
+    "30 Days": {
+      "comment": "Chart period picker segment: the last thirty days.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "30 Days"
+          }
+        }
+      }
+    },
+    "30 minutes": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "30 minutes"
+          }
+        }
+      }
+    },
+    "5-hour": {
+      "comment": "Spelled-out name of the rolling five-hour quota window, dashboard card",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "5-hour"
+          }
+        }
+      }
+    },
+    "5h": {
+      "comment": "Terse name of the rolling five-hour quota window, menu bar row",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "5h"
+          }
+        }
+      }
+    },
+    "6 Months": {
+      "comment": "Spend period picker segment: half a year",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "6 Months"
+          }
+        }
+      }
+    },
+    "60 minutes": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "60 minutes"
+          }
+        }
+      }
+    },
+    "7 Days": {
+      "comment": "Chart period picker segment: the last seven days.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "7 Days"
+          }
+        }
+      }
+    },
+    "Accounts": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accounts"
+          }
+        }
+      }
+    },
+    "Add Account": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add Account"
+          }
+        }
+      }
+    },
+    "Add account": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add account"
+          }
+        }
+      }
+    },
+    "Add an account": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add an account"
+          }
+        }
+      }
+    },
+    "Add an account to store credentials securely and start tracking usage.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add an account to store credentials securely and start tracking usage."
+          }
+        }
+      }
+    },
+    "Admin API key": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Admin API key"
+          }
+        }
+      }
+    },
+    "Agents. %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agents. %@"
+          }
+        }
+      }
+    },
+    "Agentverse": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agentverse"
+          }
+        }
+      }
+    },
+    "All Time": {
+      "comment": "Chart period picker segment: everything that was scanned.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All Time"
+          }
+        }
+      }
+    },
+    "App Mode": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "App Mode"
+          }
+        }
+      }
+    },
+    "At least one model has no price on file, so the total is incomplete.": {
+      "comment": "Note beside a spend total that is missing at least one model's price.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "At least one model has no price on file, so the total is incomplete."
+          }
+        }
+      }
+    },
+    "BREAK ROOM": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "BREAK ROOM"
+          }
+        }
+      }
+    },
+    "Billing cycle": {
+      "comment": "Spelled-out name of the billing cycle window, dashboard card",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Billing cycle"
+          }
+        }
+      }
+    },
+    "COLLECTORS": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "COLLECTORS"
+          }
+        }
+      }
+    },
+    "Cancel": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel"
+          }
+        }
+      }
+    },
+    "Claude subscription (sign in)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Claude subscription (sign in)"
+          }
+        }
+      }
+    },
+    "Close": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Close"
+          }
+        }
+      }
+    },
+    "Connection": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connection"
+          }
+        }
+      }
+    },
+    "Could not delete account": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not delete account"
+          }
+        }
+      }
+    },
+    "Cycle": {
+      "comment": "Terse name of the billing cycle window, menu bar row",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cycle"
+          }
+        }
+      }
+    },
+    "Dashboard": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dashboard"
+          }
+        }
+      }
+    },
+    "Data": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Data"
+          }
+        }
+      }
+    },
+    "Day": {
+      "comment": "Spend period picker segment: one day",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Day"
+          }
+        }
+      }
+    },
+    "Delete": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete"
+          }
+        }
+      }
+    },
+    "Delete \"%@\"?": {
+      "comment": "Delete confirmation title. The placeholder is the account's display name; the quotation marks around it are part of the sentence.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete \"%@\"?"
+          }
+        }
+      }
+    },
+    "Delete account": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete account"
+          }
+        }
+      }
+    },
+    "Disabled": {
+      "comment": "Account status: the account is switched off and nothing syncs it.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Disabled"
+          }
+        }
+      }
+    },
+    "Display Name": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Display Name"
+          }
+        }
+      }
+    },
+    "Enable account after save": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enable account after save"
+          }
+        }
+      }
+    },
+    "From time zone": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "From time zone"
+          }
+        }
+      }
+    },
+    "General": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "General"
+          }
+        }
+      }
+    },
+    "Glyphline": {
+      "shouldTranslate": false
+    },
+    "Glyphline also syncs after the Mac wakes from sleep.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Glyphline also syncs after the Mac wakes from sleep."
+          }
+        }
+      }
+    },
+    "Glyphline — quota available": {
+      "comment": "VoiceOver name for the menu bar item. 'Glyphline' is the app's name and stays.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Glyphline — quota available"
+          }
+        }
+      }
+    },
+    "Glyphline — quota exhausted": {
+      "comment": "VoiceOver name for the menu bar item. 'Glyphline' is the app's name and stays.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Glyphline — quota exhausted"
+          }
+        }
+      }
+    },
+    "Glyphline — quota unknown": {
+      "comment": "VoiceOver name for the menu bar item. 'Glyphline' is the app's name and stays.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Glyphline — quota unknown"
+          }
+        }
+      }
+    },
+    "In the office": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In the office"
+          }
+        }
+      }
+    },
+    "Interval": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Interval"
+          }
+        }
+      }
+    },
+    "Its claude.ai sign-in will be removed from this Mac.": {
+      "comment": "Delete dialog: the stored claude.ai web session goes with the account.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Its claude.ai sign-in will be removed from this Mac."
+          }
+        }
+      }
+    },
+    "Latitude": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Latitude"
+          }
+        }
+      }
+    },
+    "Leave empty to use %@.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leave empty to use %@."
+          }
+        }
+      }
+    },
+    "Level with %@": {
+      "comment": "Spend comparison with no change. The placeholder is SpendPeriod.previousPhrase, e.g. 'the previous 30 days'.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Level with %@"
+          }
+        }
+      }
+    },
+    "Level with the %lld-day median": {
+      "comment": "Today's comparison line with no change against the median of the last N completed days.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Level with the %lld-day median"
+          }
+        }
+      }
+    },
+    "Local Claude Code logs": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Local Claude Code logs"
+          }
+        }
+      }
+    },
+    "Location": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Location"
+          }
+        }
+      }
+    },
+    "Longitude": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Longitude"
+          }
+        }
+      }
+    },
+    "Model": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Model"
+          }
+        }
+      }
+    },
+    "Month": {
+      "comment": "Spend period picker segment: one month",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Month"
+          }
+        }
+      }
+    },
+    "Name": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Name"
+          }
+        }
+      }
+    },
+    "No Accounts Yet": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No Accounts Yet"
+          }
+        }
+      }
+    },
+    "No Claude Code sessions on this Mac in the last few days.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No Claude Code sessions on this Mac in the last few days."
+          }
+        }
+      }
+    },
+    "No accounts saved yet": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No accounts saved yet"
+          }
+        }
+      }
+    },
+    "No accounts yet. Open the dashboard to add one.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No accounts yet. Open the dashboard to add one."
+          }
+        }
+      }
+    },
+    "No agent is running": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No agent is running"
+          }
+        }
+      }
+    },
+    "No agents on this Mac": {
+      "comment": "Agents tile headline when no session of any kind was found.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No agents on this Mac"
+          }
+        }
+      }
+    },
+    "No completed day to compare against yet.": {
+      "comment": "Today's comparison line on a machine that has not finished a single day.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No completed day to compare against yet."
+          }
+        }
+      }
+    },
+    "No local token usage recorded for this period.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No local token usage recorded for this period."
+          }
+        }
+      }
+    },
+    "No map": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No map"
+          }
+        }
+      }
+    },
+    "No price on file": {
+      "comment": "Stands in for an amount when the model is absent from the pricing catalog.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No price on file"
+          }
+        }
+      }
+    },
+    "No quota reported yet.": {
+      "comment": "Shown in place of the bars when a source answered but reported no active window.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No quota reported yet."
+          }
+        }
+      }
+    },
+    "Nobody is waiting on you": {
+      "comment": "Agents tile headline when sessions exist but none needs the user.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nobody is waiting on you"
+          }
+        }
+      }
+    },
+    "Not enough scanned history to compare against %@ yet.": {
+      "comment": "Spend comparison when the scan does not reach back far enough. The placeholder is SpendPeriod.previousPhrase.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not enough scanned history to compare against %@ yet."
+          }
+        }
+      }
+    },
+    "Not synced yet": {
+      "comment": "Account status: no sync run has ever been recorded.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not synced yet"
+          }
+        }
+      }
+    },
+    "Nothing recorded in %@.": {
+      "comment": "Spend comparison when the baseline window is empty. The placeholder is SpendPeriod.previousPhrase, e.g. 'the previous 30 days'.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing recorded in %@."
+          }
+        }
+      }
+    },
+    "Nothing recorded on the last %lld completed days.": {
+      "comment": "Today's comparison line when every completed day in the baseline was empty.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing recorded on the last %lld completed days."
+          }
+        }
+      }
+    },
+    "Nothing recorded on this Mac %@.": {
+      "comment": "Spend tile with no rows at all. The placeholder is SpendPeriod.windowPhrase, e.g. 'today' or 'in the last 30 days'.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing recorded on this Mac %@."
+          }
+        }
+      }
+    },
+    "Nothing was recorded on this day.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing was recorded on this day."
+          }
+        }
+      }
+    },
+    "OFF THE CLOCK": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OFF THE CLOCK"
+          }
+        }
+      }
+    },
+    "OK": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OK"
+          }
+        }
+      }
+    },
+    "Off the clock": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Off the clock"
+          }
+        }
+      }
+    },
+    "Only %lld of %lld days have been scanned so far.": {
+      "comment": "Spend tile note when the local scan covers fewer days than the period is named after.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Only %1$lld of %2$lld days have been scanned so far."
+          }
+        }
+      }
+    },
+    "Open Agentverse": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Agentverse"
+          }
+        }
+      }
+    },
+    "Open Settings": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Settings"
+          }
+        }
+      }
+    },
+    "Open the Agentverse in its own window": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open the Agentverse in its own window"
+          }
+        }
+      }
+    },
+    "Other": {
+      "comment": "Chart legend entry for the models folded together beyond the legend's limit.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Other"
+          }
+        }
+      }
+    },
+    "Period": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Period"
+          }
+        }
+      }
+    },
+    "Pick a day in the chart to see which models ran on it.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pick a day in the chart to see which models ran on it."
+          }
+        }
+      }
+    },
+    "Presentation": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Presentation"
+          }
+        }
+      }
+    },
+    "Provider": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Provider"
+          }
+        }
+      }
+    },
+    "Quality": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quality"
+          }
+        }
+      }
+    },
+    "Quit": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quit"
+          }
+        }
+      }
+    },
+    "Refresh": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Refresh"
+          }
+        }
+      }
+    },
+    "Remove this session from the Agentverse": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove this session from the Agentverse"
+          }
+        }
+      }
+    },
+    "Rename Account": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rename Account"
+          }
+        }
+      }
+    },
+    "Rename account": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rename account"
+          }
+        }
+      }
+    },
+    "Save": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save"
+          }
+        }
+      }
+    },
+    "Save Account": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save Account"
+          }
+        }
+      }
+    },
+    "Scanning local transcripts…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scanning local transcripts…"
+          }
+        }
+      }
+    },
+    "Settings": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Settings"
+          }
+        }
+      }
+    },
+    "Shares are of the priced spend only — at least one model has no price on file.": {
+      "comment": "Note beside the model mix percentages when a model in the period has no price.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shares are of the priced spend only — at least one model has no price on file."
+          }
+        }
+      }
+    },
+    "Source": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Source"
+          }
+        }
+      }
+    },
+    "Sync": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sync"
+          }
+        }
+      }
+    },
+    "Sync automatically": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sync automatically"
+          }
+        }
+      }
+    },
+    "Sync failed": {
+      "comment": "Account status: the last sync run failed without a message of its own.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sync failed"
+          }
+        }
+      }
+    },
+    "Sync running": {
+      "comment": "Account status: a sync run is in flight.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sync running"
+          }
+        }
+      }
+    },
+    "Synced": {
+      "comment": "Account status: the last sync succeeded but carries no finish time.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synced"
+          }
+        }
+      }
+    },
+    "Synced %@": {
+      "comment": "Account status. The placeholder is a worded relative time such as '11 minutes ago'.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synced %@"
+          }
+        }
+      }
+    },
+    "The last sync failed.": {
+      "comment": "Attention reason for an account whose last sync run failed without a message of its own.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The last sync failed."
+          }
+        }
+      }
+    },
+    "These figures cover every Claude subscription together. The transcripts carry no marker of which subscription paid for a session, so they cannot be attributed to one.": {
+      "comment": "Note under the Quotas section explaining that the totals cannot be split per subscription.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "These figures cover every Claude subscription together. The transcripts carry no marker of which subscription paid for a session, so they cannot be attributed to one."
+          }
+        }
+      }
+    },
+    "This account has no recorded history.": {
+      "comment": "Delete dialog for an account with nothing stored against it.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This account has no recorded history."
+          }
+        }
+      }
+    },
+    "This account has not reported a quota yet.": {
+      "comment": "Quota card message for an account the sync coordinator has not seen any state for.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This account has not reported a quota yet."
+          }
+        }
+      }
+    },
+    "This cannot be recovered — claude.ai reports only the current figure, so this history exists nowhere else.": {
+      "comment": "Delete dialog: why the rate window history cannot be rebuilt.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This cannot be recovered — claude.ai reports only the current figure, so this history exists nowhere else."
+          }
+        }
+      }
+    },
+    "Tokens": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tokens"
+          }
+        }
+      }
+    },
+    "Unknown model": {
+      "comment": "Chart legend entry for usage rows that carry no model identifier.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unknown model"
+          }
+        }
+      }
+    },
+    "View": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View"
+          }
+        }
+      }
+    },
+    "Week": {
+      "comment": "Spend period picker segment: one week\nTerse name of the weekly quota window, menu bar row",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Week"
+          }
+        }
+      }
+    },
+    "Weekly": {
+      "comment": "Spelled-out name of the weekly quota window, dashboard card",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Weekly"
+          }
+        }
+      }
+    },
+    "Year": {
+      "comment": "Spend period picker segment: one year",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Year"
+          }
+        }
+      }
+    },
+    "Your subscription reports how much of a window is used, not a token cap, so these are percentages.": {
+      "comment": "Note under the quota cards explaining why they show percentages rather than token counts.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your subscription reports how much of a window is used, not a token cap, so these are percentages."
+          }
+        }
+      }
+    },
+    "due now": {
+      "comment": "Quota row: the reset instant has already passed.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "due now"
+          }
+        }
+      }
+    },
+    "empty in %@": {
+      "comment": "Quota pace note when the window will not survive to its reset. The placeholder is a duration such as '1h 40m'.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "empty in %@"
+          }
+        }
+      }
+    },
+    "ends": {
+      "comment": "Verb for a subscription term, which returns no capacity, as in 'ends in 4d 6h'.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ends"
+          }
+        }
+      }
+    },
+    "in the last %lld days": {
+      "comment": "Window fragment for multi-day periods, e.g. 'Nothing recorded on this Mac in the last 30 days.'",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "in the last %lld days"
+          }
+        }
+      }
+    },
+    "no active window": {
+      "comment": "Stands in for the reset instant on a window that has none. Lower case: it sits inside a longer row.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "no active window"
+          }
+        }
+      }
+    },
+    "on track": {
+      "comment": "Quota pace note: this window survives to its own reset at the pace so far.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "on track"
+          }
+        }
+      }
+    },
+    "read from the local transcripts — machine-wide, because a transcript file carries no account": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "read from the local transcripts — machine-wide, because a transcript file carries no account"
+          }
+        }
+      }
+    },
+    "resets": {
+      "comment": "Verb for a window that refills, as in 'resets in 3h 20m'.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "resets"
+          }
+        }
+      }
+    },
+    "the previous %lld days": {
+      "comment": "Baseline window fragment, e.g. 'Level with the previous 30 days'",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the previous %lld days"
+          }
+        }
+      }
+    },
+    "today": {
+      "comment": "Window fragment for the day period, e.g. 'Nothing recorded on this Mac today.'",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "today"
+          }
+        }
+      }
+    },
+    "usage unknown · %@": {
+      "comment": "Quota bar detail with no reported fraction. The placeholder is the countdown.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "usage unknown · %@"
+          }
+        }
+      }
+    },
+    "z": {
+      "shouldTranslate": false
+    },
+    "—": {
+      "shouldTranslate": false
+    },
+    "▲ WAITING ON YOU": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "▲ WAITING ON YOU"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

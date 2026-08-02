@@ -16,6 +16,18 @@ targets:
       - Glyphline
     resources:
       - Glyphline/Resources
+    # Der Test-Lauf bekommt seine Sprache fest zugewiesen. Sobald die Strings
+    # durch den String-Catalog aufgelöst werden, hängt jede Assertion auf einem
+    # englischen Satz an der Sprache des Prozesses — und diese Maschine läuft
+    # auf Deutsch. `language: en` setzt `-AppleLanguages (en)` für den
+    # Test-Prozess: die Bundle-Suche landet auf Englisch, während Locale.current
+    # und damit Zahlen- und Datumsformate die Region der Maschine behalten.
+    # Ohne diesen Eintrag wäre die Suite still von der eingestellten Sprache
+    # abhängig, sobald die erste Übersetzung dazukommt.
+    scheme:
+      testTargets:
+        - GlyphlineTests
+      language: en
     dependencies:
       - package: GRDB
         product: GRDB

@@ -20,15 +20,15 @@ enum SpendPeriod: String, CaseIterable, Identifiable, Sendable {
     var title: String {
         switch self {
         case .day:
-            "Day"
+            String(localized: "Day", comment: "Spend period picker segment: one day")
         case .week:
-            "Week"
+            String(localized: "Week", comment: "Spend period picker segment: one week")
         case .month:
-            "Month"
+            String(localized: "Month", comment: "Spend period picker segment: one month")
         case .halfYear:
-            "6 Months"
+            String(localized: "6 Months", comment: "Spend period picker segment: half a year")
         case .year:
-            "Year"
+            String(localized: "Year", comment: "Spend period picker segment: one year")
         }
     }
 
@@ -57,12 +57,18 @@ enum SpendPeriod: String, CaseIterable, Identifiable, Sendable {
 
     /// How the window reads inside a sentence: "Nothing recorded on this Mac
     /// *today*." / "… *in the last 30 days*."
+    /// A sentence *fragment*, not a sentence: it is interpolated into the
+    /// surrounding sentences, so a translator sees both this and the `%@` slot it
+    /// lands in. Splitting them is a compromise — five periods times four
+    /// containers is twenty whole sentences otherwise — and the slot is at the
+    /// end of every container, which is where a fragment survives translation
+    /// best.
     var windowPhrase: String {
         switch self {
         case .day:
-            "today"
+            String(localized: "today", comment: "Window fragment for the day period, e.g. 'Nothing recorded on this Mac today.'")
         default:
-            "in the last \(days) days"
+            String(localized: "in the last \(days) days", comment: "Window fragment for multi-day periods, e.g. 'Nothing recorded on this Mac in the last 30 days.'")
         }
     }
 
@@ -70,7 +76,7 @@ enum SpendPeriod: String, CaseIterable, Identifiable, Sendable {
     /// against a median of completed days instead, for the reason spelled out on
     /// `SpendSummary.make` — so "the previous 1 days" is unreachable.
     var previousPhrase: String {
-        "the previous \(days) days"
+        String(localized: "the previous \(days) days", comment: "Baseline window fragment, e.g. 'Level with the previous 30 days'")
     }
 }
 
@@ -147,7 +153,12 @@ struct SpendSummary: Equatable, Sendable {
             currency: window.first(where: { $0.currency != nil })?.currency,
             totalTokens: totalTokens,
             isEmpty: isEmpty,
-            emptyText: isEmpty ? "Nothing recorded on this Mac \(period.windowPhrase)." : nil,
+            emptyText: isEmpty
+                ? String(
+                    localized: "Nothing recorded on this Mac \(period.windowPhrase).",
+                    comment: "Spend tile with no rows at all. The placeholder is SpendPeriod.windowPhrase, e.g. 'today' or 'in the last 30 days'."
+                )
+                : nil,
             comparison: comparison(
                 for: period,
                 tokens: totalTokens,
@@ -200,25 +211,40 @@ struct SpendSummary: Equatable, Sendable {
 
         guard previousTokens > 0 else {
             return Comparison(
-                text: "Nothing recorded in \(period.previousPhrase).",
+                text: String(
+                    localized: "Nothing recorded in \(period.previousPhrase).",
+                    comment: "Spend comparison when the baseline window is empty. The placeholder is SpendPeriod.previousPhrase, e.g. 'the previous 30 days'."
+                ),
                 isAbove: nil
             )
         }
 
         let change = (Double(tokens - previousTokens) / Double(previousTokens) * 100).rounded()
         guard change != 0 else {
-            return Comparison(text: "Level with \(period.previousPhrase)", isAbove: nil)
+            return Comparison(
+                text: String(
+                    localized: "Level with \(period.previousPhrase)",
+                    comment: "Spend comparison with no change. The placeholder is SpendPeriod.previousPhrase, e.g. 'the previous 30 days'."
+                ),
+                isAbove: nil
+            )
         }
 
         let sign = change > 0 ? "+" : "−"
         return Comparison(
-            text: "\(sign)\(Int(abs(change))) % vs. \(period.previousPhrase)",
+            text: String(
+                localized: "\(sign)\(Int(abs(change))) % vs. \(period.previousPhrase)",
+                comment: "Spend comparison. Placeholders: the sign (+ or −), the percentage change, and SpendPeriod.previousPhrase."
+            ),
             isAbove: change > 0
         )
     }
 
     static func notEnoughHistoryText(for period: SpendPeriod) -> String {
-        "Not enough scanned history to compare against \(period.previousPhrase) yet."
+        String(
+            localized: "Not enough scanned history to compare against \(period.previousPhrase) yet.",
+            comment: "Spend comparison when the scan does not reach back far enough. The placeholder is SpendPeriod.previousPhrase."
+        )
     }
 
     private static func coverageText(
@@ -237,6 +263,9 @@ struct SpendSummary: Equatable, Sendable {
         // Inclusive of both ends, matching how `days` counts: a scan that starts
         // today covers one day, not zero.
         let covered = max(elapsed + 1, 0)
-        return "Only \(covered) of \(period.days) days have been scanned so far."
+        return String(
+            localized: "Only \(covered) of \(period.days) days have been scanned so far.",
+            comment: "Spend tile note when the local scan covers fewer days than the period is named after."
+        )
     }
 }
