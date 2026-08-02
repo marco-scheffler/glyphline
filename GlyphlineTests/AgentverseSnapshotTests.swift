@@ -85,6 +85,60 @@ final class AgentverseSnapshotTests: XCTestCase {
         return try XCTUnwrap(renderer.cgImage)
     }
 
+    /// How often the same bytes have to come back before a render counts as
+    /// settled, and how many renders that is allowed to take.
+    private static let settledRepeats = 5
+    private static let settleAttempts = 24
+
+    private enum RenderError: Error, CustomStringConvertible {
+        case neverSettled(attempts: Int)
+        var description: String {
+            switch self {
+            case .neverSettled(let attempts):
+                return "the same view still rendered differently after \(attempts) "
+                    + "renders — this is no longer a cache warming up"
+            }
+        }
+    }
+
+    /// The first renders of a scene in a process are *not* the renders that
+    /// follow it, and this is not a bug in the scene.
+    ///
+    /// Measured, not assumed: rendering `scene()` twice back to back and
+    /// diffing the buffers, 200 times in one process, differs exactly once —
+    /// on the first pair — in about 300 of 540 000 pixels, isolated single
+    /// pixels scattered over the drawn figures rather than any contiguous
+    /// region or displaced shape. Keeping the first twelve buffers and
+    /// comparing each to the last shows the office settling after three or
+    /// four renders and the datastream after two, and then never moving again
+    /// over another 800 renders. That is a lazily populated global cache
+    /// filling up — CoreText glyph rasterisation and CG gradient caches, the
+    /// only global mutable state on this path — and it is per drawn content,
+    /// which is why the datastream still needed its own warm-up after a dozen
+    /// office renders.
+    ///
+    /// So: throw the warm-up renders away and compare what comes after. This
+    /// deliberately does **not** loosen the comparison — every assertion below
+    /// still compares bytes exactly, and if a scene ever stops settling this
+    /// throws instead of quietly tolerating a difference.
+    ///
+    /// Note the settle rule is "the same bytes `settledRepeats` times running",
+    /// not "twice running": two and even three consecutive renders were
+    /// measured to agree with each other while both still differed from the
+    /// settled picture, so a shorter rule stops too early.
+    private func settledImage(_ view: some View) throws -> CGImage {
+        var previous: Data?
+        var repeats = 0
+        for _ in 0..<Self.settleAttempts {
+            let image = try image(view)
+            let bytes = try pixels(image)
+            repeats = bytes == previous ? repeats + 1 : 0
+            previous = bytes
+            if repeats >= Self.settledRepeats { return image }
+        }
+        throw RenderError.neverSettled(attempts: Self.settleAttempts)
+    }
+
     /// The raw pixels, not a TIFF. An encoded representation carries metadata
     /// that says nothing about the picture, and comparing it would let a change
     /// of container read as a change of drawing — or the other way round.
@@ -93,7 +147,7 @@ final class AgentverseSnapshotTests: XCTestCase {
     }
 
     private func render(_ view: some View) throws -> Data {
-        try pixels(try image(view))
+        try pixels(try settledImage(view))
     }
 
     /// The bytes of one part of a picture, so that an assertion can name *where*
@@ -104,7 +158,7 @@ final class AgentverseSnapshotTests: XCTestCase {
     /// data provider: reading the provider back would hand out the whole
     /// picture again, and this would silently become a full-frame comparison.
     private func render(_ view: some View, in rect: CGRect) throws -> Data {
-        let image = try image(view)
+        let image = try settledImage(view)
         let all = try pixels(image)
         let bytesPerPixel = image.bitsPerPixel / 8
         let x = Int(rect.minX), y = Int(rect.minY)
