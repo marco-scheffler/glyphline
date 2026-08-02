@@ -117,9 +117,22 @@ extension View {
     /// screen. Tinting with the background's own colour puts that lightening
     /// back down without replacing the effect: the refraction, the edge
     /// lighting and the reaction to the window moving all survive.
+    ///
+    /// The tint comes from the environment's palette, so changing the palette
+    /// retints every card at once. A modifier rather than a plain call, because
+    /// an `@Environment` value can only be read inside a view.
     func glassCard(cornerRadius: CGFloat = 15) -> some View {
-        glassEffect(
-            .regular.tint(DashboardBackground.cardTint),
+        modifier(GlassCard(cornerRadius: cornerRadius))
+    }
+}
+
+private struct GlassCard: ViewModifier {
+    @Environment(\.dashboardPalette) private var palette
+    let cornerRadius: CGFloat
+
+    func body(content: Content) -> some View {
+        content.glassEffect(
+            .regular.tint(palette.cardTint),
             in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
         )
     }

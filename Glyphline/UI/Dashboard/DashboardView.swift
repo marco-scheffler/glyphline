@@ -6,6 +6,7 @@ struct DashboardView: View {
     @State private var accountSummaries: [AccountUsageSummary] = []
     @State private var loadError: String?
 
+    @EnvironmentObject private var settings: AppSettingsStore
     @EnvironmentObject private var coordinator: SyncCoordinator
     @EnvironmentObject private var agentverse: AgentverseCoordinator
 
@@ -30,8 +31,13 @@ struct DashboardView: View {
         .frame(minWidth: 980, minHeight: 640)
         // The surface the glass cards refract. Without it they sample the
         // system's neutral window background and the dashboard reads grey.
-        .dashboardWindowBackground()
-        // The background is a fixed dark navy, so the window has to be dark
+        //
+        // Read from the settings store rather than fixed, and read here rather
+        // than inside the background view: the store is `@Published`, so picking
+        // a palette in the settings window redraws this body and the surface
+        // changes under the open dashboard without it being reopened.
+        .dashboardWindowBackground(palette: settings.dashboardPalette)
+        // Every palette is a very dark surface, so the window has to be dark
         // whatever the system is set to: in light appearance the labels would
         // come out near-black on it. Pinned here rather than app-wide — the
         // settings and menu bar surfaces are ordinary system chrome and should

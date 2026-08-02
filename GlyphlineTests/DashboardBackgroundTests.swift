@@ -9,9 +9,14 @@ import XCTest
 /// `glassCard()` refracts whatever is behind the window's content. For most of
 /// this app's life that was the system's neutral window background, and the
 /// dashboard rendered grey however good the glass was. The design calls for a
-/// deep blue-black, so the property worth holding is not "a background exists"
-/// but "the pixels are blue-tinted rather than neutral" — which is exactly what
-/// a render tells you and a structural check cannot.
+/// deep tinted black, so the property worth holding is not "a background
+/// exists" but "the pixels carry the palette's hue rather than being neutral" —
+/// which is exactly what a render tells you and a structural check cannot.
+///
+/// The surface is the user's choice now, so the assertions are made against
+/// every palette rather than against the default one. What is asserted is what
+/// is true of all eleven — dark, and tinted towards its own base's dominant
+/// channel — not the blue the app happened to ship with.
 ///
 /// Rendered off-screen through `NSHostingView`, the same technique
 /// `MenuBarFooterTests` and `AccountQuotaGridTests` use for layout, taken one
@@ -24,10 +29,13 @@ final class DashboardBackgroundTests: XCTestCase {
     ///
     /// `at` is in unit coordinates with the origin top-left, so the points a
     /// test names line up with the way the washes are specified.
-    private func sample(at point: UnitPoint) throws -> (
+    private func sample(
+        at point: UnitPoint,
+        palette: DashboardPalette = .indigo
+    ) throws -> (
         red: Double, green: Double, blue: Double
     ) {
-        let host = NSHostingView(rootView: AnyView(DashboardBackground()))
+        let host = NSHostingView(rootView: AnyView(DashboardBackground(palette: palette)))
         host.frame = NSRect(origin: .zero, size: size)
         // The background is drawn from fixed hex values, but pinning the
         // appearance keeps the render independent of whatever the machine
@@ -57,22 +65,22 @@ final class DashboardBackgroundTests: XCTestCase {
         )
     }
 
-    /// The assertion the whole thing is for: the surface is blue, not grey.
+    /// The assertion the whole thing is for: the surface is tinted, not grey.
     ///
     /// Sampled where the dashboard has no card over it — the top-left and
     /// upper-right corners of the window sit outside the content's padding, and
     /// the centre-left gutter is where the tint is most visible in use.
     ///
-    /// Measured as a ratio, not as a difference in points.
-    ///
-    /// A difference measures brightness as much as colour: darkening the base
-    /// shrinks it even though the surface is exactly as blue: an earlier
-    /// threshold of "blue at least 12 points above red" failed the moment the
-    /// base went from `#0a0e18` to `#070911`, which was a deliberate design
-    /// change and not a regression. A ratio holds still under that, and it is
-    /// what the assertion was always trying to say: neutral grey has all three
-    /// channels equal, so its ratio is 1.0, and no amount of dimming moves it.
-    func testTheBackgroundIsBlueTintedEverywhereItIsSampled() throws {
+    /// This used to be "blue at least 1.6× red", which was true of the one
+    /// palette the app had and is false of nine of the ten it has now — Amber's
+    /// surface is *supposed* to be redder than it is blue. Deleting it would
+    /// have given up the only assertion that can tell a rendered tint from a
+    /// rendered grey, and special-casing Indigo would have left the other ten
+    /// unwatched. So the property is stated relative to each palette instead:
+    /// whichever channel that palette's base leads with, the rendered pixel
+    /// leads with too, and by a margin a neutral grey (all three channels
+    /// equal, spread zero) cannot reach.
+    func testEveryPaletteTintsItsSurfaceTowardsItsOwnHue() throws {
         let points: [(String, UnitPoint)] = [
             ("top-left", UnitPoint(x: 0.02, y: 0.03)),
             ("upper-right", UnitPoint(x: 0.97, y: 0.10)),
@@ -80,71 +88,115 @@ final class DashboardBackgroundTests: XCTestCase {
             ("bottom-right", UnitPoint(x: 0.95, y: 0.95)),
         ]
 
-        for (name, point) in points {
-            let pixel = try sample(at: point)
-            // Guarded against a zero channel: the surface is dark by design and
-            // a pure black pixel would otherwise divide by zero rather than
-            // fail with a readable message.
-            let blueOverRed = pixel.blue / max(pixel.red, 0.5)
-            let blueOverGreen = pixel.blue / max(pixel.green, 0.5)
+        for identifier in DashboardPaletteID.presets {
+            let palette = try XCTUnwrap(identifier.preset)
+            let base = palette.base
+            let expected = Self.dominantChannel(
+                red: base.red, green: base.green, blue: base.blue
+            )
 
-            XCTAssertGreaterThan(
-                blueOverRed,
-                1.6,
-                "\(name) is not blue-tinted: r\(pixel.red) g\(pixel.green) b\(pixel.blue)"
-            )
-            XCTAssertGreaterThan(
-                blueOverGreen,
-                1.3,
-                "\(name) reads as a grey-blue haze rather than a tint: "
-                    + "r\(pixel.red) g\(pixel.green) b\(pixel.blue)"
-            )
+            for (name, point) in points {
+                let pixel = try sample(at: point, palette: palette)
+                let channels = [pixel.red, pixel.green, pixel.blue]
+                let dominant = Self.dominantChannel(
+                    red: pixel.red, green: pixel.green, blue: pixel.blue
+                )
+                let readout =
+                    "r\(pixel.red) g\(pixel.green) b\(pixel.blue)"
+
+                XCTAssertEqual(
+                    dominant,
+                    expected,
+                    "\(identifier.rawValue) at \(name) does not lead with its base's "
+                        + "channel: \(readout)"
+                )
+                // A spread, relative to the pixel's own brightness — the same
+                // reason the old assertion was a ratio and not a difference in
+                // points: darkening a palette must not read as desaturating it.
+                // Neutral grey scores zero here at any brightness.
+                XCTAssertGreaterThan(
+                    (channels.max() ?? 0) - (channels.min() ?? 0),
+                    0.06 * max(channels.max() ?? 0, 1),
+                    "\(identifier.rawValue) at \(name) renders as grey: \(readout)"
+                )
+            }
         }
     }
 
     /// Atmosphere, not decoration. Every wash is weak enough that the surface
-    /// stays a dark navy: no sampled pixel may be bright, and none may be so
-    /// saturated that a reader could point at it as a coloured blob.
+    /// stays dark: no sampled pixel may be bright, and none may be so saturated
+    /// that a reader could point at it as a coloured blob. True of all ten, so
+    /// asserted against all ten.
     func testTheSurfaceStaysDarkAndUnsaturated() throws {
         let points: [UnitPoint] = [
-            UnitPoint(x: 0.26, y: 0.02),  // the indigo wash's own centre
-            UnitPoint(x: 0.96, y: 0.30),  // the violet wash's own centre
+            UnitPoint(x: 0.26, y: 0.02),  // the leading wash's own centre
+            UnitPoint(x: 0.96, y: 0.30),  // the answering wash's own centre
             UnitPoint(x: 0.5, y: 0.5),
         ]
 
-        for point in points {
-            let pixel = try sample(at: point)
+        for identifier in DashboardPaletteID.presets {
+            let palette = try XCTUnwrap(identifier.preset)
 
-            XCTAssertLessThan(
-                max(pixel.red, pixel.green, pixel.blue),
-                80,
-                "the surface is no longer dark at \(point)"
-            )
-            XCTAssertLessThan(
-                pixel.blue - pixel.red,
-                60,
-                "the wash at \(point) is strong enough to read as a blob"
-            )
+            for point in points {
+                let pixel = try sample(at: point, palette: palette)
+                let channels = [pixel.red, pixel.green, pixel.blue]
+
+                XCTAssertLessThan(
+                    channels.max() ?? 255,
+                    80,
+                    "\(identifier.rawValue) is no longer dark at \(point)"
+                )
+                XCTAssertLessThan(
+                    (channels.max() ?? 255) - (channels.min() ?? 0),
+                    60,
+                    "\(identifier.rawValue)'s wash at \(point) is strong enough to read as a blob"
+                )
+            }
         }
     }
 
     /// The base itself carries the tint, so the corners the washes barely reach
-    /// are still blue rather than black.
-    func testTheBaseColourIsADesaturatedNavy() throws {
-        let components = try XCTUnwrap(
-            NSColor(DashboardBackground.baseColor).usingColorSpace(.sRGB)
-        )
+    /// are still coloured rather than black — for every palette, and for a
+    /// palette derived from a colour the user picked.
+    func testEveryBaseColourIsADarkTintedSurface() throws {
+        var palettes = try DashboardPaletteID.presets.map { try XCTUnwrap($0.preset) }
+        palettes.append(.derived(from: PaletteRGB(hex: 0xff_ff_ff)))
+        palettes.append(.derived(from: PaletteRGB(hex: 0x4c_6b_ff)))
 
+        for palette in palettes {
+            let components = try XCTUnwrap(
+                NSColor(palette.baseColor).usingColorSpace(.sRGB)
+            )
+            let channels = [
+                Double(components.redComponent) * 255,
+                Double(components.greenComponent) * 255,
+                Double(components.blueComponent) * 255,
+            ]
+
+            XCTAssertLessThan(
+                channels.max() ?? 255,
+                48,
+                "a base is not dark enough to be a background"
+            )
+        }
+
+        // And the default is still exactly the navy the app shipped with.
+        let indigo = try XCTUnwrap(
+            NSColor(DashboardPalette.indigo.baseColor).usingColorSpace(.sRGB)
+        )
         XCTAssertGreaterThan(
-            Double(components.blueComponent - components.redComponent) * 255,
+            Double(indigo.blueComponent - indigo.redComponent) * 255,
             8,
-            "the base is neutral"
+            "the default base is neutral"
         )
-        XCTAssertLessThan(
-            Double(components.blueComponent) * 255,
-            48,
-            "the base is not dark enough to be a background"
-        )
+    }
+
+    /// Which channel a colour leads with. Named rather than an index, so a
+    /// failure message says "blue" instead of "2".
+    private static func dominantChannel(red: Double, green: Double, blue: Double) -> String {
+        if red >= green, red >= blue { return "red" }
+        if green >= blue { return "green" }
+        return "blue"
     }
 
     /// Chart bars are drawn in per-model colours, several of which are blue or
