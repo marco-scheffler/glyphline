@@ -306,7 +306,7 @@ struct DashboardOverview: View {
 
     private var quotaSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            SectionTitle("Quotas")
+            SectionTitle(String(localized: "Quotas", comment: "Section heading over the per-account quota cards. Drawn in capitals; keep it to one short word."))
 
             Text(DashboardPresentation.quotaNoCapNote)
                 .font(.caption)
@@ -362,7 +362,7 @@ struct DashboardOverview: View {
     private var usageSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline, spacing: 14) {
-                SectionTitle("Usage on this Mac")
+                SectionTitle(String(localized: "Usage on this Mac", comment: "Section heading over the local-transcript figures, as opposed to the figures the provider reports. Drawn in capitals; keep it short."))
                 Text("""
                     read from the local transcripts — machine-wide, \
                     because a transcript file carries no account
@@ -414,7 +414,7 @@ struct DashboardOverview: View {
     private var chartCard: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
-                CardTitle("Daily Usage")
+                CardTitle(String(localized: "Daily Usage", comment: "Card heading over the per-day usage chart. Drawn in capitals; keep it to two short words."))
                 Spacer()
                 Picker("Period", selection: $period) {
                     ForEach(LocalUsagePeriod.allCases) { period in
@@ -465,7 +465,7 @@ struct DashboardOverview: View {
 
         return VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                CardTitle("Spend · this Mac")
+                CardTitle(String(localized: "Spend · this Mac", comment: "Card heading over the money figure, which counts only what was run on this computer. Drawn in capitals; keep it short. The · is a separator and stays."))
                 Spacer(minLength: 0)
                 // A menu rather than segments: five periods across a 300-point
                 // column would truncate every label to a letter or two.
@@ -509,7 +509,7 @@ struct DashboardOverview: View {
                         .foregroundStyle(.secondary)
                 }
             } else {
-                Text(summary?.emptyText ?? "Nothing recorded on this Mac \(spendPeriod.windowPhrase).")
+                Text(summary?.emptyText ?? spendPeriod.emptySpendText)
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }
@@ -541,7 +541,7 @@ struct DashboardOverview: View {
         return Button(action: openAgentverse) {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    CardTitle("Agents")
+                    CardTitle(String(localized: "Agents", comment: "Card heading over the count of coding agents running on this Mac. Drawn in capitals; keep it to one short word."))
                     Spacer(minLength: 0)
                     Image(systemName: "chevron.right")
                         .font(.caption2.weight(.semibold))
@@ -560,9 +560,9 @@ struct DashboardOverview: View {
                         .fixedSize(horizontal: false, vertical: true)
 
                     HStack(spacing: 8) {
-                        AgentCountBox(count: cta.waiting, label: "waiting on you", isHot: cta.isUrgent)
-                        AgentCountBox(count: cta.working, label: "working", isHot: false)
-                        AgentCountBox(count: cta.resting, label: "resting", isHot: false)
+                        AgentCountBox(count: cta.waiting, label: String(localized: "waiting on you", comment: "Caption under a count of coding agents that have stopped and need the user to answer them. Lower case, and narrow — three small boxes share one row."), isHot: cta.isUrgent)
+                        AgentCountBox(count: cta.working, label: String(localized: "working", comment: "Agent state: this coding agent is busy running. Shown both as a small pill beside a row and as the caption under a count. Lower case, one short word — the space is narrow in both places."), isHot: false)
+                        AgentCountBox(count: cta.resting, label: String(localized: "resting", comment: "Caption under a count of coding agents whose sessions are idle — open, but neither running nor asking anything of the user. Lower case, and narrow — three small boxes share one row."), isHot: false)
                     }
                 }
             }
@@ -584,7 +584,7 @@ struct DashboardOverview: View {
 
     private var modelMixCard: some View {
         VStack(alignment: .leading, spacing: 8) {
-            CardTitle("Model Mix · \(period.title)")
+            CardTitle(String(localized: "Model Mix · \(period.title)", comment: "Card heading over the share each model took of the spend. Drawn in capitals. The placeholder is the selected period, e.g. 'Week'. The · is a separator and stays."))
 
             if let mix = breakdown?.mix, !mix.isEmpty {
                 ForEach(mix.entries.prefix(Self.legendLimit)) { entry in
