@@ -108,9 +108,18 @@ extension View {
     /// This is why the deployment target is macOS 26: the effect has no
     /// back-deployment and the layered-gradient stand-in it replaces looked
     /// wrong next to the system chrome that now uses the real thing.
+    /// The tint is what keeps the cards dark.
+    ///
+    /// Untinted `.regular` glass lightens whatever it samples by a fixed
+    /// amount, so on a near-black background the cards came out milky and
+    /// floated well above the surface — the reference has them barely
+    /// separated from it, which is what lets the chart's colours carry the
+    /// screen. Tinting with the background's own colour puts that lightening
+    /// back down without replacing the effect: the refraction, the edge
+    /// lighting and the reaction to the window moving all survive.
     func glassCard(cornerRadius: CGFloat = 15) -> some View {
         glassEffect(
-            .regular,
+            .regular.tint(DashboardBackground.cardTint),
             in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
         )
     }

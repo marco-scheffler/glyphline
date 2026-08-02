@@ -19,7 +19,13 @@ struct DashboardBackground: View {
     /// Not black. Black would leave the glass sampling something neutral again;
     /// the blue has to be in the base, because the washes are too weak to carry
     /// the tint on their own out at the corners.
-    static let baseColor = Color(rgbHex: 0x0a_0e_18)
+    static let baseColor = Color(rgbHex: 0x07_09_11)
+
+    /// What `glassCard()` tints its glass with, so the cards sit close to the
+    /// base instead of floating above it. Kept here rather than in the card
+    /// helper because it is the same surface colour: if the base moves, this
+    /// has to move with it, and two constants in two files would drift.
+    static let cardTint = Color(rgbHex: 0x0b_0e_18).opacity(0.62)
 
     /// One radial wash, in unit coordinates so it scales with any window size.
     struct Wash {
@@ -40,24 +46,31 @@ struct DashboardBackground: View {
     /// and a cool teal at the bottom keeps the lower half from closing into
     /// flat black. Teal rather than a fourth blue: three shades of the same hue
     /// would read as one gradient with banding.
+    /// The washes have to stay off most of the window, not merely be faint.
+    /// A radius near 1.0 blankets the whole surface, and three blankets at
+    /// 0.13/0.10/0.05 stack into roughly a quarter-stop of lift everywhere —
+    /// which turned the near-black base into slate and lifted the glass with
+    /// it. Smaller radii keep the corners and the lower half at the base
+    /// colour, which is what makes the chart's colours look lit rather than
+    /// washed.
     static let washes: [Wash] = [
         Wash(
             color: Color(rgbHex: 0x4c_6b_ff),
-            opacity: 0.13,
+            opacity: 0.055,
             center: UnitPoint(x: 0.26, y: 0.02),
-            radius: 0.95
+            radius: 0.62
         ),
         Wash(
             color: Color(rgbHex: 0x8a_5c_f6),
-            opacity: 0.10,
-            center: UnitPoint(x: 0.96, y: 0.30),
-            radius: 0.80
+            opacity: 0.040,
+            center: UnitPoint(x: 0.99, y: 0.24),
+            radius: 0.48
         ),
         Wash(
             color: Color(rgbHex: 0x2f_a8_c7),
-            opacity: 0.05,
-            center: UnitPoint(x: 0.58, y: 1.04),
-            radius: 0.70
+            opacity: 0.018,
+            center: UnitPoint(x: 0.58, y: 1.10),
+            radius: 0.42
         ),
     ]
 

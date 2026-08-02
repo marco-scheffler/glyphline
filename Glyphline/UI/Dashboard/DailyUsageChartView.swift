@@ -75,7 +75,14 @@ struct DailyUsageChart: View {
     private var chart: some View {
         let slices = self.slices
         let scale = DashboardPresentation.chartStyleScale(for: slices)
-        let highlighted = highlightedDay
+        // Dimming keys on the *tapped* day, not on `highlightedDay`. The latter
+        // falls back to the last day so the detail panel is never empty, which
+        // means it is never nil — so dimming against it left twenty-nine of
+        // thirty bars permanently at 0.55 and the whole chart read as muted
+        // mauve. Nothing was selected; the chart only behaved as if something
+        // were. The selection band in `.chartBackground` already marks the
+        // default day, so brightness does not have to say it a second time.
+        let dimmed = selectedDay
 
         return Chart(slices) { slice in
             BarMark(
@@ -90,7 +97,7 @@ struct DailyUsageChart: View {
             // pink or a purple towards white costs exactly the generation
             // difference the scheme encodes. Opacity only — a bar's geometry
             // must not move when the selection does.
-            .opacity(highlighted == nil || slice.day == highlighted ? 1 : 0.55)
+            .opacity(dimmed == nil || slice.day == dimmed ? 1 : 0.55)
         }
         // The chart's colours are the app's, not Swift Charts' defaults: the
         // hue names the model family everywhere it appears.

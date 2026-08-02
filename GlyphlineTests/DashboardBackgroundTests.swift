@@ -63,10 +63,15 @@ final class DashboardBackgroundTests: XCTestCase {
     /// upper-right corners of the window sit outside the content's padding, and
     /// the centre-left gutter is where the tint is most visible in use.
     ///
-    /// The threshold is what separates the two failure modes that matter. A
-    /// neutral grey background has all three channels within a point or two of
-    /// each other; the specified surface has blue at least ~12 points above red
-    /// everywhere. Anything in between is not a look anybody asked for.
+    /// Measured as a ratio, not as a difference in points.
+    ///
+    /// A difference measures brightness as much as colour: darkening the base
+    /// shrinks it even though the surface is exactly as blue: an earlier
+    /// threshold of "blue at least 12 points above red" failed the moment the
+    /// base went from `#0a0e18` to `#070911`, which was a deliberate design
+    /// change and not a regression. A ratio holds still under that, and it is
+    /// what the assertion was always trying to say: neutral grey has all three
+    /// channels equal, so its ratio is 1.0, and no amount of dimming moves it.
     func testTheBackgroundIsBlueTintedEverywhereItIsSampled() throws {
         let points: [(String, UnitPoint)] = [
             ("top-left", UnitPoint(x: 0.02, y: 0.03)),
@@ -77,15 +82,20 @@ final class DashboardBackgroundTests: XCTestCase {
 
         for (name, point) in points {
             let pixel = try sample(at: point)
+            // Guarded against a zero channel: the surface is dark by design and
+            // a pure black pixel would otherwise divide by zero rather than
+            // fail with a readable message.
+            let blueOverRed = pixel.blue / max(pixel.red, 0.5)
+            let blueOverGreen = pixel.blue / max(pixel.green, 0.5)
 
             XCTAssertGreaterThan(
-                pixel.blue - pixel.red,
-                12,
+                blueOverRed,
+                1.6,
                 "\(name) is not blue-tinted: r\(pixel.red) g\(pixel.green) b\(pixel.blue)"
             )
             XCTAssertGreaterThan(
-                pixel.blue - pixel.green,
-                6,
+                blueOverGreen,
+                1.3,
                 "\(name) reads as a grey-blue haze rather than a tint: "
                     + "r\(pixel.red) g\(pixel.green) b\(pixel.blue)"
             )
