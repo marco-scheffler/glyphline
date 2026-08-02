@@ -5,74 +5,23 @@ import SwiftUI
 /// `glassCard()` does not invent a colour: it samples what is behind it. With
 /// the default system window background behind the cards that is neutral grey,
 /// so the whole surface read as grey no matter how good the glass was. This
-/// view is the thing the glass was always meant to have underneath — a deep
-/// blue-black with three washes over it.
+/// view is the thing the glass was always meant to have underneath — a very
+/// dark base with three washes over it.
+///
+/// Which base and which washes is the user's choice now: ten presets plus a
+/// colour they mix themselves, all of them `DashboardPalette`. The view holds
+/// no colours of its own, so a palette can be swapped at runtime and nothing
+/// here has to know that happened.
 ///
 /// The washes are deliberately weak. They are atmosphere: the surface should
-/// read as "dark and slightly blue", and no single wash should be pointable at
-/// as a coloured blob. Peak opacity is at the centre of each wash and falls to
-/// nothing at its edge, so the numbers below are upper bounds that almost no
-/// pixel actually reaches.
+/// read as "dark and slightly tinted", and no single wash should be pointable
+/// at as a coloured blob. Peak opacity is at the centre of each wash and falls
+/// to nothing at its edge, so the numbers in the palette are upper bounds that
+/// almost no pixel actually reaches.
 struct DashboardBackground: View {
-    /// The base the washes sit on: a very dark, desaturated navy.
-    ///
-    /// Not black. Black would leave the glass sampling something neutral again;
-    /// the blue has to be in the base, because the washes are too weak to carry
-    /// the tint on their own out at the corners.
-    static let baseColor = Color(rgbHex: 0x07_09_11)
-
-    /// What `glassCard()` tints its glass with, so the cards sit close to the
-    /// base instead of floating above it. Kept here rather than in the card
-    /// helper because it is the same surface colour: if the base moves, this
-    /// has to move with it, and two constants in two files would drift.
-    static let cardTint = Color(rgbHex: 0x0b_0e_18).opacity(0.62)
-
-    /// One radial wash, in unit coordinates so it scales with any window size.
-    struct Wash {
-        let color: Color
-        /// Peak opacity, at the centre.
-        let opacity: Double
-        /// Centre, as a fraction of the container's width and height. Values
-        /// outside 0…1 push a wash's centre off-screen on purpose — only its
-        /// falloff reaches the window.
-        let center: UnitPoint
-        /// Radius as a fraction of the container's larger edge.
-        let radius: Double
-    }
-
-    /// Three washes, in draw order.
-    ///
-    /// Indigo upper-left carries the main tint, violet answers it on the right,
-    /// and a cool teal at the bottom keeps the lower half from closing into
-    /// flat black. Teal rather than a fourth blue: three shades of the same hue
-    /// would read as one gradient with banding.
-    /// The washes have to stay off most of the window, not merely be faint.
-    /// A radius near 1.0 blankets the whole surface, and three blankets at
-    /// 0.13/0.10/0.05 stack into roughly a quarter-stop of lift everywhere —
-    /// which turned the near-black base into slate and lifted the glass with
-    /// it. Smaller radii keep the corners and the lower half at the base
-    /// colour, which is what makes the chart's colours look lit rather than
-    /// washed.
-    static let washes: [Wash] = [
-        Wash(
-            color: Color(rgbHex: 0x4c_6b_ff),
-            opacity: 0.055,
-            center: UnitPoint(x: 0.26, y: 0.02),
-            radius: 0.62
-        ),
-        Wash(
-            color: Color(rgbHex: 0x8a_5c_f6),
-            opacity: 0.040,
-            center: UnitPoint(x: 0.99, y: 0.24),
-            radius: 0.48
-        ),
-        Wash(
-            color: Color(rgbHex: 0x2f_a8_c7),
-            opacity: 0.018,
-            center: UnitPoint(x: 0.58, y: 1.10),
-            radius: 0.42
-        ),
-    ]
+    /// Defaulted, so a preview or a test that just wants "the surface" gets the
+    /// one this app shipped with.
+    var palette: DashboardPalette = .indigo
 
     var body: some View {
         GeometryReader { proxy in
@@ -80,18 +29,18 @@ struct DashboardBackground: View {
             let extent = max(size.width, size.height)
 
             ZStack {
-                DashboardBackground.baseColor
+                palette.baseColor
 
-                ForEach(0..<DashboardBackground.washes.count, id: \.self) { index in
-                    let wash = DashboardBackground.washes[index]
+                ForEach(0..<palette.washes.count, id: \.self) { index in
+                    let wash = palette.washes[index]
 
                     // `.clear` as the outer stop, not a darker colour: a wash
                     // has to disappear into whatever it lies on, otherwise its
                     // edge becomes the visible ring the design must not have.
                     RadialGradient(
                         gradient: Gradient(colors: [
-                            wash.color.opacity(wash.opacity),
-                            wash.color.opacity(0),
+                            wash.color.color.opacity(wash.opacity),
+                            wash.color.color.opacity(0),
                         ]),
                         center: wash.center,
                         startRadius: 0,
@@ -111,12 +60,17 @@ extension View {
     ///
     /// `containerBackground(for: .window)` rather than a plain `.background`:
     /// the latter stops at the content view, leaving the title bar area drawn
-    /// in the system's neutral chrome — a grey band above a blue surface. The
+    /// in the system's neutral chrome — a grey band above a tinted surface. The
     /// container placement reaches under the title bar, so the window reads as
     /// one surface.
-    func dashboardWindowBackground() -> some View {
-        containerBackground(for: .window) {
-            DashboardBackground()
-        }
+    ///
+    /// The palette also goes into the environment here rather than only into
+    /// the background view, because the cards on top of it are tinted with the
+    /// same surface — one call, so the two cannot end up on different palettes.
+    func dashboardWindowBackground(palette: DashboardPalette) -> some View {
+        environment(\.dashboardPalette, palette)
+            .containerBackground(for: .window) {
+                DashboardBackground(palette: palette)
+            }
     }
 }

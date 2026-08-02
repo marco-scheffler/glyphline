@@ -16,6 +16,13 @@ struct SettingsRootView: View {
             SettingsView()
                 .tabItem { Label("General", systemImage: "gearshape") }
 
+            // Its own tab rather than a fourth section in General: it is a grid
+            // of swatches, and General is already three sections of controls
+            // that all answer "how does Glyphline behave", not "how does it
+            // look".
+            AppearanceSettingsView()
+                .tabItem { Label("Appearance", systemImage: "paintpalette") }
+
             AccountsSettingsView()
                 .tabItem { Label("Accounts", systemImage: "person.2") }
         }

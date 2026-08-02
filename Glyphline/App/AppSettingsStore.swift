@@ -45,6 +45,26 @@ final class AppSettingsStore: ObservableObject {
         }
     }
 
+    /// Which palette the dashboard's surface is drawn in.
+    @Published var dashboardPaletteID: DashboardPaletteID {
+        didSet {
+            defaults.set(dashboardPaletteID.rawValue, forKey: Self.dashboardPaletteIDKey)
+        }
+    }
+
+    /// The colour a custom palette is derived from, as six hex digits in sRGB.
+    ///
+    /// Stored as text rather than as an archived `NSColor`: the archive's shape
+    /// belongs to AppKit and its colour space can be a catalog name that
+    /// resolves against the display, so the same archive can come back as a
+    /// different colour on a different Mac. Six hex digits name three integers
+    /// in a colour space this app states, and mean the same thing forever.
+    @Published var dashboardCustomColorHex: String? {
+        didSet {
+            setOrRemove(dashboardCustomColorHex, forKey: Self.dashboardCustomColorHexKey)
+        }
+    }
+
     /// The latitude the user typed in, if they typed one. Nil means "use the
     /// time zone", which is the default and what almost everyone will leave it on.
     @Published var manualLatitude: Double? {
@@ -83,6 +103,8 @@ final class AppSettingsStore: ObservableObject {
     private static let lastWeatherKey = "lastWeather"
     private static let lastWeatherFetchKey = "lastWeatherFetch"
     private static let agentverseViewKey = "agentverseView"
+    private static let dashboardPaletteIDKey = "dashboardPaletteID"
+    private static let dashboardCustomColorHexKey = "dashboardCustomColorHex"
     private static let manualLatitudeKey = "manualLatitude"
     private static let manualLongitudeKey = "manualLongitude"
 
@@ -118,6 +140,13 @@ final class AppSettingsStore: ObservableObject {
         agentverseView = defaults.string(forKey: Self.agentverseViewKey)
             .flatMap(AgentverseView.init(rawValue:)) ?? .office
 
+        // Same reasoning as the agentverse view above: a stored identifier that
+        // no longer names a case falls back to the default palette rather than
+        // trapping on the launch path.
+        dashboardPaletteID = defaults.string(forKey: Self.dashboardPaletteIDKey)
+            .flatMap(DashboardPaletteID.init(rawValue:)) ?? .indigo
+        dashboardCustomColorHex = defaults.string(forKey: Self.dashboardCustomColorHexKey)
+
         // `defaults.double` reports 0 for an absent key, and 0 is a real
         // latitude — the presence check is what keeps the equator from reading
         // as "the user typed something".
@@ -126,6 +155,16 @@ final class AppSettingsStore: ObservableObject {
     }
 
     private func setOrRemove(_ value: Double?, forKey key: String) {
+        if let value {
+            defaults.set(value, forKey: key)
+        } else {
+            defaults.removeObject(forKey: key)
+        }
+    }
+
+    /// The same rule for the custom colour: "never picked one" has to be
+    /// distinguishable from a stored value, and an empty string is not it.
+    private func setOrRemove(_ value: String?, forKey key: String) {
         if let value {
             defaults.set(value, forKey: key)
         } else {
