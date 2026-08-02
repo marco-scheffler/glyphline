@@ -129,6 +129,62 @@ final class DatastreamSceneTests: XCTestCase {
         }
     }
 
+    // MARK: - Header captions cut the same way
+
+    /// The caption is drawn at 9.5 pt where the name is drawn at 11 pt, so it
+    /// gets its own metric — a stand-in for the smaller font, monotone in the
+    /// prefix length as the real one is.
+    private func captionMeasure(_ text: String) -> Double { Double(text.count) * 5.7 }
+
+    /// The caption sits in the same lane as the name and so is bound by the same
+    /// width. It was left out when the name was moved onto the fitter.
+    ///
+    /// Would catch: the caption going back to being drawn unfitted. With
+    /// `lane.caption` passed straight through, the branch-and-model line
+    /// overflows its lane from nine lanes up at every pane below.
+    func testNoLaneCaptionIsWiderThanItsLane() {
+        let caption = "feature/agentverse-datastream-lane-labels  claude-opus-4-6"
+        for pane in Self.panes {
+            for count in 4...20 {
+                let layout = DatastreamLayout(canvas: pane, laneCount: count)
+                let fitted = renderer(layout).fittedCaption(caption, measure: captionMeasure)
+                XCTAssertLessThanOrEqual(
+                    captionMeasure(fitted), layout.laneTextWidth,
+                    "pane \(pane) count \(count): \"\(fitted)\" measures "
+                        + "\(captionMeasure(fitted)) in a \(layout.laneTextWidth) lane")
+            }
+        }
+    }
+
+    /// Would catch: a caption fitter that returns the text unchanged, or one
+    /// that drops the ellipsis so a cut caption reads as the whole one.
+    func testACaptionLongerThanTheLaneIsCutAndSaysSo() {
+        let caption = "feature/datastream-caption-fitting  claude-sonnet-5"
+        let layout = DatastreamLayout(canvas: Self.canvas, laneCount: 9)
+        let fitted = renderer(layout).fittedCaption(caption, measure: captionMeasure)
+
+        XCTAssertTrue(fitted.hasSuffix("…"), fitted)
+        XCTAssertTrue(caption.hasPrefix(String(fitted.dropLast())), fitted)
+        XCTAssertLessThanOrEqual(captionMeasure(fitted), layout.laneTextWidth)
+        XCTAssertGreaterThan(captionMeasure(fitted + "x"), layout.laneTextWidth, fitted)
+    }
+
+    /// A rule that truncates everything is as wrong as one that truncates
+    /// nothing. Would catch: cutting unconditionally instead of measuring first.
+    func testAShortCaptionIsLeftAlone() {
+        let layout = DatastreamLayout(canvas: Self.canvas, laneCount: 4)
+        for caption in ["main", "main  opus", "—"] {
+            XCTAssertEqual(renderer(layout).fittedCaption(caption, measure: captionMeasure),
+                           caption)
+        }
+    }
+
+    // Not asserted: that the caption is measured with the caption's *font*
+    // rather than the name's. The font is chosen where the string is drawn, in
+    // `GraphicsContext`, and the measurement is a closure the caller supplies —
+    // so any test hands in its own metrics and would only be checking its own
+    // stub. The name's fit has had the same gap since it was extracted.
+
     // MARK: - Determinism
 
     /// Would catch: a lane seeded from anything other than its session id, and

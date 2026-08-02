@@ -423,6 +423,24 @@ struct DatastreamRenderer {
         LabelFit.truncated(name, to: layout.laneTextWidth, measure: measure)
     }
 
+    /// The header's second line, in one place, for the same reason as the first.
+    private static func captionText(_ string: String) -> Text {
+        Text(string).font(.system(size: 9.5, design: .monospaced))
+    }
+
+    /// The caption cut to the same lane, by its own metrics.
+    ///
+    /// It is a smaller font than the name, so it is not simply the name's cut
+    /// applied twice — the same string fits further at 9.5 pt than at 11 pt, and
+    /// reusing the name's fit would throw away characters the caption has room
+    /// for. What it shares with the name is the *rule*: measure against the
+    /// lane, because the lane is the pane divided by the session count and a
+    /// character count can only be right at one window size. The caption carries
+    /// a branch name and a model name, so it is regularly the longer of the two.
+    func fittedCaption(_ caption: String, measure: (String) -> Double) -> String {
+        LabelFit.truncated(caption, to: layout.laneTextWidth, measure: measure)
+    }
+
     /// The width of a resolved string against an unbounded proposal, so a long
     /// title reports its true length instead of being wrapped into the lane.
     private func measure(_ context: GraphicsContext, _ text: Text) -> Double {
@@ -502,8 +520,11 @@ struct DatastreamRenderer {
         let name = fittedName(lane.name) { self.measure(context, Self.nameText($0)) }
         context.draw(Self.nameText(name).foregroundColor(lane.tint.alpha(dim)),
                      at: CGPoint(x: centre, y: 15))
-        context.draw(Text(lane.caption)
-            .font(.system(size: 9.5, design: .monospaced))
+        // And the caption on the same terms. It was left unfitted when the name
+        // was moved onto the measured fitter, so it went on clipping at exactly
+        // the widths the name had stopped clipping at.
+        let caption = fittedCaption(lane.caption) { self.measure(context, Self.captionText($0)) }
+        context.draw(Self.captionText(caption)
             .foregroundColor(Color(red: 140 / 255, green: 170 / 255, blue: 158 / 255)
                 .opacity(dim * 0.72)),
                      at: CGPoint(x: centre, y: 28))
