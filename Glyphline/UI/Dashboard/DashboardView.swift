@@ -617,13 +617,28 @@ private struct DailyUsageChart: View {
         return DashboardPresentation.slices(for: entries, keeping: models)
     }
 
+    /// The day the detail panel is describing: the tapped one, or the last day
+    /// when nothing has been tapped yet.
+    private var highlightedDay: Date? {
+        selectedDay ?? entries.last?.day
+    }
+
     private var chart: some View {
-        Chart(slices) { slice in
+        let slices = self.slices
+        let highlighted = highlightedDay
+
+        return Chart(slices) { slice in
             BarMark(
                 x: .value("Day", slice.day, unit: .day),
                 y: .value("Tokens", slice.tokens)
             )
             .foregroundStyle(by: .value("Model", slice.model))
+            // The unselected days are dimmed rather than the selected one
+            // brightened: the palette is already saturated, and lightening a
+            // pink or a purple towards white costs exactly the generation
+            // difference the scheme encodes. Opacity only — a bar's geometry
+            // must not move when the selection does.
+            .opacity(highlighted == nil || slice.day == highlighted ? 1 : 0.55)
         }
         .chartLegend(position: .bottom, alignment: .leading, spacing: 10)
         .chartYAxis {
@@ -638,34 +653,50 @@ private struct DailyUsageChart: View {
             }
         }
         .frame(height: Self.plotHeight)
+        // The band is drawn in the chart's *background*, so it sits behind the
+        // bars instead of veiling them. The tap target stays an overlay,
+        // because a background cannot receive the gesture.
+        .chartBackground { proxy in
+            GeometryReader { geometry in
+                if let plotFrame = proxy.plotFrame {
+                    selectionBand(rect: geometry[plotFrame], proxy: proxy)
+                }
+            }
+        }
         .chartOverlay { proxy in
             GeometryReader { geometry in
                 if let plotFrame = proxy.plotFrame {
                     let rect = geometry[plotFrame]
-                    ZStack(alignment: .topLeading) {
-                        Rectangle()
-                            .fill(.clear)
-                            .contentShape(Rectangle())
-                            .onTapGesture { location in
-                                select(at: location.x - rect.minX, proxy: proxy)
-                            }
-                        selectionOutline(rect: rect, proxy: proxy)
-                    }
+                    Rectangle()
+                        .fill(.clear)
+                        .contentShape(Rectangle())
+                        .onTapGesture { location in
+                            select(at: location.x - rect.minX, proxy: proxy)
+                        }
                 }
             }
         }
     }
 
-    /// The selected bar is outlined rather than recoloured: the colours already
-    /// name models, and a seventh colour would compete with them.
-    @ViewBuilder private func selectionOutline(rect: CGRect, proxy: ChartProxy) -> some View {
-        if let day = selectedDay ?? entries.last?.day,
+    /// The selected column's soft, borderless band, full plot height.
+    ///
+    /// The stroked box this replaces was taller than its bar and so framed a
+    /// column of empty air, with a corner radius that matched nothing else on
+    /// the page — it read as a stray container rather than as a selection. A
+    /// band behind the column is the bar chart's own idiom: it says "this
+    /// column" without drawing an edge anywhere the data has none.
+    ///
+    /// It is laid out from the plot rect and the day's own x positions, so
+    /// moving the selection changes neither the bars' widths nor anything's
+    /// position.
+    @ViewBuilder private func selectionBand(rect: CGRect, proxy: ChartProxy) -> some View {
+        if let day = highlightedDay,
            let start = proxy.position(forX: day),
            let end = proxy.position(forX: day.addingTimeInterval(24 * 60 * 60)) {
             let width = max(end - start, 3)
-            RoundedRectangle(cornerRadius: 4)
-                .stroke(.primary.opacity(0.55), lineWidth: 1.5)
-                .frame(width: width + 2, height: rect.height + 4)
+            Rectangle()
+                .fill(.primary.opacity(0.09))
+                .frame(width: width, height: rect.height)
                 .position(x: rect.minX + start + width / 2, y: rect.minY + rect.height / 2)
                 .allowsHitTesting(false)
         }
