@@ -136,6 +136,7 @@
 		DF49EDD49C8C91F912F5235F /* SettingsSceneTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA04191187AA7B6F4C1908E3 /* SettingsSceneTests.swift */; };
 		E070D0F406645BA4C9DDA77A /* WeatherService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93998924B14DDD73F3240DEA /* WeatherService.swift */; };
 		E26E4CED2DF7349EFDE10AEA /* AccountDeletionFormatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93FBE86612C30FFEEC2EE1FD /* AccountDeletionFormatting.swift */; };
+		E2E32E006A020A74343B1D07 /* LinearGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83BCAF62217C21D8E47730B0 /* LinearGenerator.swift */; };
 		E4F7AE192ECCD2D4A0E3EC80 /* AccountsViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E9A1292C4590819749AE424 /* AccountsViewTests.swift */; };
 		E87053D134E5E5BCF23BD177 /* ClaudeWebSessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D5247CB250C44F5D5A195E8 /* ClaudeWebSessionStore.swift */; };
 		E911DAA860CC70539901ED44 /* TranscriptTimestampParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86370203C13C77899EEB6DA7 /* TranscriptTimestampParser.swift */; };
@@ -234,6 +235,7 @@
 		8048A6A752B49A04BE4F3F78 /* AppLocalization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLocalization.swift; sourceTree = "<group>"; };
 		80ED211E069178416163921B /* SceneLightTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneLightTests.swift; sourceTree = "<group>"; };
 		829EAE4011C2F92553460131 /* OfficeScene.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfficeScene.swift; sourceTree = "<group>"; };
+		83BCAF62217C21D8E47730B0 /* LinearGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinearGenerator.swift; sourceTree = "<group>"; };
 		8436B59B839E014CC6FDD206 /* UserPlaceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserPlaceTests.swift; sourceTree = "<group>"; };
 		849077EF726D5E3F756B4805 /* AccountSummaryFormattingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountSummaryFormattingTests.swift; sourceTree = "<group>"; };
 		86370203C13C77899EEB6DA7 /* TranscriptTimestampParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptTimestampParser.swift; sourceTree = "<group>"; };
@@ -342,6 +344,7 @@
 				E3CEC45B8BEB8CB7E837BC96 /* BreakRoom.swift */,
 				D77D1A5B95F10AFA61A5E3DB /* DatastreamScene.swift */,
 				0CB2DAC06F09669AD3D864A7 /* IsoProjection.swift */,
+				83BCAF62217C21D8E47730B0 /* LinearGenerator.swift */,
 				64901478B67C2791458CE994 /* MarginLabels.swift */,
 				829EAE4011C2F92553460131 /* OfficeScene.swift */,
 				590AB7BB7B2B0704E4EF7C23 /* SceneLight.swift */,
@@ -887,6 +890,7 @@
 				A578DC0E93318FDA5872EA0B /* KeychainStore.swift in Sources */,
 				B85CA610DA5E8BBC7879D1CD /* LedgerStore.swift in Sources */,
 				CAE25CBB5FB46C3D44E6BD64 /* LedgerStoreFactory.swift in Sources */,
+				E2E32E006A020A74343B1D07 /* LinearGenerator.swift in Sources */,
 				7FC11071D7C8C08A94F2921B /* LocalUsagePeriod.swift in Sources */,
 				17A602A14DA23148EB4494DC /* LocalUsageStatistics.swift in Sources */,
 				31494C08A9507E7C43F21F0D /* MarginLabels.swift in Sources */,

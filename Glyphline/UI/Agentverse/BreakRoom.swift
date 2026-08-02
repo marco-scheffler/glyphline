@@ -199,21 +199,3 @@ struct BreakRoom: Equatable, Sendable {
         return Plan(legs: legs, total: legs.reduce(0) { $0 + $1.hold + $1.duration })
     }
 }
-
-/// The reference's generator: a linear congruential sequence, seeded from the
-/// session id rather than from the clock or from `hashValue`.
-///
-/// Not private, because the datastream needs the same sequence and a second copy
-/// of it would be a second thing to keep in step.
-struct LinearGenerator {
-    private var state: UInt32
-
-    init(seed: String) {
-        state = UInt32(truncatingIfNeeded: SessionPalette.fnv1a(seed))
-    }
-
-    mutating func next() -> Double {
-        state = state &* 1_664_525 &+ 1_013_904_223
-        return Double(state) / 4_294_967_296
-    }
-}
