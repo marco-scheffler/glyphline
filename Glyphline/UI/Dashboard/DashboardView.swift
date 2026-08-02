@@ -42,6 +42,16 @@ struct DashboardView: View {
                     Label("Refresh", systemImage: "arrow.triangle.2.circlepath")
                 }
             }
+
+            // `SettingsLink`, the same control the menu bar footer and the
+            // attention banner use. The app has exactly one way of opening
+            // settings; ⌘, and this button land on the same window.
+            ToolbarItem(placement: .primaryAction) {
+                SettingsLink {
+                    Label("Settings", systemImage: "gearshape")
+                }
+                .help("Open Settings")
+            }
         }
         .onAppear(perform: loadDashboard)
         // Attached to the window's root, not to a detail view, so it fires when
