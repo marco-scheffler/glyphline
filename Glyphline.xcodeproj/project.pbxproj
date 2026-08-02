@@ -14,6 +14,7 @@
 		05B13717448F689D010D286A /* ClaudeOrganizationsDTOsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A44B6050C0E139657C97014 /* ClaudeOrganizationsDTOsTests.swift */; };
 		074A23E34F366B500EF9F464 /* ClaudeTranscriptReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8EB4CDCE71718F453A076C59 /* ClaudeTranscriptReader.swift */; };
 		0909C91D5EE4CE808530935F /* ClaudeCodeLogReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B784EDCB98F4CFE937F3132 /* ClaudeCodeLogReader.swift */; };
+		0F4765C41C2B3E2A64E36BAC /* QuotaCardModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04698B43079198825E73F1BE /* QuotaCardModel.swift */; };
 		14D0B598D9BBA709C48BEED0 /* AgentSessionScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFA5A35ACBFF7C3C12DC8EB8 /* AgentSessionScanner.swift */; };
 		15BF5AF96B128FB27308844A /* DatabaseQueueFactoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF76F68273B2AD4088C657D5 /* DatabaseQueueFactoryTests.swift */; };
 		16167AD4341FB1BA1C1D551E /* ClaudeWebPageLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = C15E082BDAB475C5EB9759CE /* ClaudeWebPageLoader.swift */; };
@@ -110,6 +111,7 @@
 		CAE25CBB5FB46C3D44E6BD64 /* LedgerStoreFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2ACCDCE077861E9661ECBFF /* LedgerStoreFactory.swift */; };
 		D2B18F77CE6A271F859A2598 /* SceneLightTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80ED211E069178416163921B /* SceneLightTests.swift */; };
 		D39587DE951EAE8214D46323 /* DailyUsageSeries.swift in Sources */ = {isa = PBXBuildFile; fileRef = F14BBDE367E8BE177C79F8B4 /* DailyUsageSeries.swift */; };
+		D431B81BDD73F738ECC79DCA /* QuotaCardModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12013027711B198DBAD1759B /* QuotaCardModelTests.swift */; };
 		D8B77926E2F0A8CA8B0916E2 /* UsageModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE8DBF95730F8FD235AFAC47 /* UsageModels.swift */; };
 		DB6A9090D4D818A7DA838E14 /* LocalUsageStatisticsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8ACB43E390F384515433FB04 /* LocalUsageStatisticsTests.swift */; };
 		DD2396AD5BE685E977AB9FAD /* UserPlaceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8436B59B839E014CC6FDD206 /* UserPlaceTests.swift */; };
@@ -146,12 +148,14 @@
 
 /* Begin PBXFileReference section */
 		0134DD4D833802DA52513B15 /* MarginLabelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarginLabelTests.swift; sourceTree = "<group>"; };
+		04698B43079198825E73F1BE /* QuotaCardModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuotaCardModel.swift; sourceTree = "<group>"; };
 		0CB2DAC06F09669AD3D864A7 /* IsoProjection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IsoProjection.swift; sourceTree = "<group>"; };
 		0D31897CD1062193BF63AE80 /* LocalUsagePeriodTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalUsagePeriodTests.swift; sourceTree = "<group>"; };
 		0D5247CB250C44F5D5A195E8 /* ClaudeWebSessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeWebSessionStore.swift; sourceTree = "<group>"; };
 		102E19DF99EBAC8A3C8BDC32 /* ClaudeSignInWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeSignInWindow.swift; sourceTree = "<group>"; };
 		115EF78DDBF22BE7B267CE5B /* claude-usage-minimal.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "claude-usage-minimal.json"; sourceTree = "<group>"; };
 		11D41DE98E9E03A2433764CC /* RateWindowSourceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RateWindowSourceTests.swift; sourceTree = "<group>"; };
+		12013027711B198DBAD1759B /* QuotaCardModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuotaCardModelTests.swift; sourceTree = "<group>"; };
 		12E48ACC872A23A3B329B354 /* AppMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppMode.swift; sourceTree = "<group>"; };
 		15AE8CE25E9DFB53944DBD13 /* ClaudeWebQuotaSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeWebQuotaSource.swift; sourceTree = "<group>"; };
 		1923CB6870F90CE15FC576F9 /* RateWindowStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RateWindowStoreTests.swift; sourceTree = "<group>"; };
@@ -473,6 +477,7 @@
 				55BA8694018F37636CBB9BF7 /* MoneyAmountTests.swift */,
 				9D3C73941B3DC3E54BAB1EB4 /* OfficeLightingTests.swift */,
 				65F46725420D301A64582EF6 /* ProviderAdapterRegistryTests.swift */,
+				12013027711B198DBAD1759B /* QuotaCardModelTests.swift */,
 				B966305CF54AAA51888A2FC0 /* QuotaIndicatorTests.swift */,
 				11D41DE98E9E03A2433764CC /* RateWindowSourceTests.swift */,
 				1923CB6870F90CE15FC576F9 /* RateWindowStoreTests.swift */,
@@ -495,6 +500,7 @@
 			children = (
 				F14BBDE367E8BE177C79F8B4 /* DailyUsageSeries.swift */,
 				69F038C1101F3228D2C607FB /* DashboardView.swift */,
+				04698B43079198825E73F1BE /* QuotaCardModel.swift */,
 			);
 			path = Dashboard;
 			sourceTree = "<group>";
@@ -756,6 +762,7 @@
 				E9F07FC2418C6707018C3666 /* MoneyAmountTests.swift in Sources */,
 				93E608E9C5CFD027119E0E62 /* OfficeLightingTests.swift in Sources */,
 				7689725CCEE34D9A6EC7ACE1 /* ProviderAdapterRegistryTests.swift in Sources */,
+				D431B81BDD73F738ECC79DCA /* QuotaCardModelTests.swift in Sources */,
 				47DFD6941E6389FBFA591FDA /* QuotaIndicatorTests.swift in Sources */,
 				05ADA18D2E958FB3A3558030 /* RateWindowSourceTests.swift in Sources */,
 				9442C7847482BDAC9B50C660 /* RateWindowStoreTests.swift in Sources */,
@@ -826,6 +833,7 @@
 				4B96E1ED4A37D89F3DB7A844 /* ProviderAdapterRegistry.swift in Sources */,
 				42DA56777FC9BBAD2671DB97 /* ProviderID.swift in Sources */,
 				380A032B21975B0786C28EB0 /* QuotaBarRowView.swift in Sources */,
+				0F4765C41C2B3E2A64E36BAC /* QuotaCardModel.swift in Sources */,
 				3B32AAF07D8E919F7FEC6852 /* QuotaIndicator.swift in Sources */,
 				4116A5BE773935FFD1910B9F /* QuotaNotifier.swift in Sources */,
 				8A0A7176801705F955EB4B5C /* RateWindow.swift in Sources */,
