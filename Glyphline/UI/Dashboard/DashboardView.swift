@@ -180,6 +180,16 @@ private struct DashboardOverview: View {
     @State private var breakdown: LocalUsageBreakdown?
     @State private var selectedDay: Date?
 
+    /// The cost tile's own period, deliberately independent of `period` above:
+    /// the chart's picker says how far back the bars reach, this one says what
+    /// the spend figure covers. One control driving both would force a reader
+    /// who wants a year's spend to also throw 365 bars at a 190-point plot.
+    @State private var spendPeriod: SpendPeriod = .day
+    /// All of the scanned history, not just the chart's period — the tile can be
+    /// switched to a year while the chart shows a week, and slicing one series is
+    /// cheaper and more consistent than a second query per period change.
+    @State private var spendSeries: DailyUsageSeries?
+
     /// How many days the "vs. median" figure on the Today card looks back over.
     private static let medianDays = 7
     /// How many models the chart's legend can carry before the tail is folded
@@ -211,6 +221,12 @@ private struct DashboardOverview: View {
         // computation reads the ledger.
         .task(id: ReloadKey(period: period, revision: coordinator.localUsageRevision)) {
             breakdown = coordinator.localUsageBreakdown(since: period.since(now: Date()))
+        }
+        // Keyed on the scan revision alone: the whole history is fetched once and
+        // every spend period is a slice of it, so changing the tile's period
+        // costs no read at all.
+        .task(id: coordinator.localUsageRevision) {
+            spendSeries = coordinator.localUsageBreakdown(since: nil)?.series
         }
     }
 
@@ -352,7 +368,7 @@ private struct DashboardOverview: View {
                     .frame(maxWidth: .infinity)
 
                 VStack(spacing: 14) {
-                    todayCard
+                    spendCard
                     agentsCard
                     modelMixCard
                     accountRingsCard
@@ -414,39 +430,60 @@ private struct DashboardOverview: View {
         return days.first { $0.day == selectedDay } ?? DashboardPresentation.zeroDay(selectedDay)
     }
 
-    // MARK: Today
+    // MARK: Spend
 
-    private var todayCard: some View {
-        let today = breakdown?.series.today
-        let comparison = DashboardPresentation.todayVersusMedian(
-            todayTokens: today?.totalTokens ?? 0,
-            median: breakdown?.series.median(days: Self.medianDays),
-            days: Self.medianDays
-        )
+    private var spendCard: some View {
+        let summary = spendSeries.map {
+            SpendSummary.make(for: spendPeriod, series: $0, medianDays: Self.medianDays)
+        }
 
         return VStack(alignment: .leading, spacing: 6) {
-            CardTitle("Today · this Mac")
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                CardTitle("Spend · this Mac")
+                Spacer(minLength: 0)
+                // A menu rather than segments: five periods across a 300-point
+                // column would truncate every label to a letter or two.
+                Picker("Period", selection: $spendPeriod) {
+                    ForEach(SpendPeriod.allCases) { period in
+                        Text(period.title).tag(period)
+                    }
+                }
+                .pickerStyle(.menu)
+                .labelsHidden()
+                .controlSize(.small)
+                .fixedSize()
+            }
 
-            if let today {
+            if let summary, !summary.isEmpty {
                 Text(DashboardPresentation.amount(
-                    micros: today.estimatedAmountMicros,
-                    currency: today.currency
+                    micros: summary.amountMicros,
+                    currency: summary.currency
                 ))
                 .font(.system(size: 26, weight: .semibold))
                 .monospacedDigit()
 
-                Text("\(today.totalTokens.formatted()) tokens")
+                Text("\(summary.totalTokens.formatted()) tokens")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .monospacedDigit()
 
-                Text(comparison.text)
+                Text(summary.comparison.text)
                     .font(.caption)
                     .foregroundStyle(
-                        comparison.isAbove.map { $0 ? Color.orange : Color.green } ?? Color.secondary
+                        summary.comparison.isAbove.map { $0 ? Color.orange : Color.green }
+                            ?? Color.secondary
                     )
+
+                // Said out loud whenever the scan reaches back less far than the
+                // period does, so a fortnight on a fresh install cannot pass for
+                // a year.
+                if let coverageText = summary.coverageText {
+                    Text(coverageText)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
             } else {
-                Text("Nothing recorded on this Mac today.")
+                Text(summary?.emptyText ?? "Nothing recorded on this Mac \(spendPeriod.windowPhrase).")
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }
