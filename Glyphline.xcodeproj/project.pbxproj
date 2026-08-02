@@ -118,11 +118,13 @@
 		D2B18F77CE6A271F859A2598 /* SceneLightTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80ED211E069178416163921B /* SceneLightTests.swift */; };
 		D39587DE951EAE8214D46323 /* DailyUsageSeries.swift in Sources */ = {isa = PBXBuildFile; fileRef = F14BBDE367E8BE177C79F8B4 /* DailyUsageSeries.swift */; };
 		D431B81BDD73F738ECC79DCA /* QuotaCardModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12013027711B198DBAD1759B /* QuotaCardModelTests.swift */; };
+		D6C6EFD868EB96D460BFCC5A /* SettingsScene.swift in Sources */ = {isa = PBXBuildFile; fileRef = A45728EFB1E15D3769095844 /* SettingsScene.swift */; };
 		D8B77926E2F0A8CA8B0916E2 /* UsageModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE8DBF95730F8FD235AFAC47 /* UsageModels.swift */; };
 		DB6A9090D4D818A7DA838E14 /* LocalUsageStatisticsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8ACB43E390F384515433FB04 /* LocalUsageStatisticsTests.swift */; };
 		DD2396AD5BE685E977AB9FAD /* UserPlaceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8436B59B839E014CC6FDD206 /* UserPlaceTests.swift */; };
 		DEEC75CD07A6940D1C3F15A0 /* DashboardDestinationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40B916FD637B1CDC8A81CAFC /* DashboardDestinationTests.swift */; };
 		DF165E242EA15AA2635A186F /* AgentverseModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9AD08F137C04548B835D868 /* AgentverseModelTests.swift */; };
+		DF49EDD49C8C91F912F5235F /* SettingsSceneTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA04191187AA7B6F4C1908E3 /* SettingsSceneTests.swift */; };
 		E070D0F406645BA4C9DDA77A /* WeatherService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93998924B14DDD73F3240DEA /* WeatherService.swift */; };
 		E26E4CED2DF7349EFDE10AEA /* AccountDeletionFormatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93FBE86612C30FFEEC2EE1FD /* AccountDeletionFormatting.swift */; };
 		E4F7AE192ECCD2D4A0E3EC80 /* AccountsViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E9A1292C4590819749AE424 /* AccountsViewTests.swift */; };
@@ -239,6 +241,7 @@
 		9BD3C2C540C231D67EC5F063 /* AgentSessionScannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentSessionScannerTests.swift; sourceTree = "<group>"; };
 		9D3C73941B3DC3E54BAB1EB4 /* OfficeLightingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfficeLightingTests.swift; sourceTree = "<group>"; };
 		A452BABCF11A72A0A23A41AE /* AgentverseParkedStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentverseParkedStoreTests.swift; sourceTree = "<group>"; };
+		A45728EFB1E15D3769095844 /* SettingsScene.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsScene.swift; sourceTree = "<group>"; };
 		A63DE4BE6B1E5DD6EBDEC233 /* AddAccountView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddAccountView.swift; sourceTree = "<group>"; };
 		A8169F2BD942F98645929BDD /* DashboardPresentationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardPresentationTests.swift; sourceTree = "<group>"; };
 		A81C1F539EBD6824C59FADB0 /* AddAccountFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddAccountFlow.swift; sourceTree = "<group>"; };
@@ -277,6 +280,7 @@
 		D6BD6C14C75AEFB9B82A4095 /* AgentRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentRow.swift; sourceTree = "<group>"; };
 		D77D1A5B95F10AFA61A5E3DB /* DatastreamScene.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatastreamScene.swift; sourceTree = "<group>"; };
 		D968A135D66AE439311BECFE /* ClaudeUsageQuotaDTOs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeUsageQuotaDTOs.swift; sourceTree = "<group>"; };
+		DA04191187AA7B6F4C1908E3 /* SettingsSceneTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsSceneTests.swift; sourceTree = "<group>"; };
 		E098575A9DAE4BCF0C1DB381 /* WeatherServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeatherServiceTests.swift; sourceTree = "<group>"; };
 		E2ACCDCE077861E9661ECBFF /* LedgerStoreFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LedgerStoreFactory.swift; sourceTree = "<group>"; };
 		E3CEC45B8BEB8CB7E837BC96 /* BreakRoom.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BreakRoom.swift; sourceTree = "<group>"; };
@@ -497,6 +501,7 @@
 				1923CB6870F90CE15FC576F9 /* RateWindowStoreTests.swift */,
 				CA6C8BEB41F3B3EE32D28A76 /* RateWindowTests.swift */,
 				80ED211E069178416163921B /* SceneLightTests.swift */,
+				DA04191187AA7B6F4C1908E3 /* SettingsSceneTests.swift */,
 				B5287B8477F8EF75ABA938B2 /* SnapshotSummaryTests.swift */,
 				39F2CB017DCE303DF2074D0E /* SpendSummaryTests.swift */,
 				F4E1FE1146583F38A8203043 /* SunPositionTests.swift */,
@@ -555,6 +560,7 @@
 		9F6DE687DF84CC3578391EEA /* Settings */ = {
 			isa = PBXGroup;
 			children = (
+				A45728EFB1E15D3769095844 /* SettingsScene.swift */,
 				68867B1F76ECF4DE1E6FA098 /* SettingsView.swift */,
 			);
 			path = Settings;
@@ -789,6 +795,7 @@
 				9442C7847482BDAC9B50C660 /* RateWindowStoreTests.swift in Sources */,
 				F56211A4FDCF96FDAFB59C92 /* RateWindowTests.swift in Sources */,
 				D2B18F77CE6A271F859A2598 /* SceneLightTests.swift in Sources */,
+				DF49EDD49C8C91F912F5235F /* SettingsSceneTests.swift in Sources */,
 				AC776B32695D0B125B30B305 /* SnapshotSummaryTests.swift in Sources */,
 				267FC40CA71C733DD3833754 /* SpendSummaryTests.swift in Sources */,
 				84A54ADAC7F03FF978AB6A90 /* SunPositionTests.swift in Sources */,
@@ -864,6 +871,7 @@
 				8A3BE7918F84E156A45F3259 /* RateWindowSource.swift in Sources */,
 				2F9FA3A87CCE4D32C5E562FB /* SceneLight.swift in Sources */,
 				98A65AA989758D13E3FA0152 /* SessionPalette.swift in Sources */,
+				D6C6EFD868EB96D460BFCC5A /* SettingsScene.swift in Sources */,
 				C188981DAC4E75CE72DC3B58 /* SettingsView.swift in Sources */,
 				B077494A20202025E2ABBE46 /* SnapshotIdentity.swift in Sources */,
 				186E065E85D963E98285E6AF /* SpendPeriod.swift in Sources */,
