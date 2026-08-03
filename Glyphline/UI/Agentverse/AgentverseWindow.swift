@@ -40,6 +40,34 @@ enum AgentverseRefreshSchedule {
     /// call sits on. Anything faster would hammer the network from a machine
     /// that has none.
     static let weatherInterval: TimeInterval = WeatherService.minimumInterval
+
+    /// How many distinct pictures a second the scene can express.
+    ///
+    /// The scene is a pure function of an integer frame index, and that index is
+    /// derived from the clock at this rate. Sixty is the whole resolution the
+    /// model has: two moments inside the same sixtieth of a second produce the
+    /// same index and therefore, by construction, the same picture.
+    static let framesPerSecond: Double = 60
+
+    /// The shortest gap worth asking the timeline for.
+    ///
+    /// `TimelineView(.animation)` without one runs at the display's refresh rate.
+    /// On a 120 Hz screen that asked for twice as many frames as the model can
+    /// tell apart: every other tick rebuilt the whole scene and rasterised it to
+    /// produce a picture identical to the one already there. Measured at the
+    /// window's real size, the datastream view costs about 6 ms a frame at six
+    /// sessions and 8.6 ms at twelve, against an 8.3 ms budget at 120 Hz — so the
+    /// half that was thrown away was the half that made it stutter.
+    static var frameInterval: TimeInterval { 1 / framesPerSecond }
+
+    /// Which picture the scene should be showing at `date`.
+    ///
+    /// Here rather than inline in the view so that the timeline's rate and the
+    /// index derived from it cannot drift apart — they are the same number, and a
+    /// test holds them to it.
+    static func frameIndex(at date: Date) -> Int {
+        Int(date.timeIntervalSinceReferenceDate * framesPerSecond)
+    }
 }
 
 /// What the sun and weather loops are keyed on: they have to restart both when
@@ -180,7 +208,11 @@ struct AgentverseWindow: View {
         // would tie the picture to when it was drawn.
         let hovered = hoveredSessionID
         let lighting = lighting
-        TimelineView(.animation) { timeline in
+        // Capped at the rate the scene can actually express. Left uncapped, the
+        // timeline runs at the display's refresh rate, and on a 120 Hz screen
+        // half of those ticks recomputed and rasterised a picture identical to
+        // the one already on screen.
+        TimelineView(.animation(minimumInterval: AgentverseRefreshSchedule.frameInterval)) { timeline in
             AgentverseScene(
                 sessions: coordinator.onTrack,
                 parked: coordinator.parked,
@@ -188,7 +220,7 @@ struct AgentverseWindow: View {
                 hovered: hovered,
                 // The clock enters here and nowhere below: the scene itself is
                 // a pure function of its inputs, so a test can pin the frame.
-                frame: Int(timeline.date.timeIntervalSinceReferenceDate * 60),
+                frame: AgentverseRefreshSchedule.frameIndex(at: timeline.date),
                 lighting: lighting,
                 view: settings.agentverseView
             )
