@@ -10,7 +10,6 @@ enum AppMode: String, CaseIterable, Identifiable {
 
     case menuBarOnly
     case windowOnly
-    case menuBarAndWindow
 
     var id: String { rawValue }
 
@@ -20,20 +19,24 @@ enum AppMode: String, CaseIterable, Identifiable {
             "Menu Bar"
         case .windowOnly:
             "Window"
-        case .menuBarAndWindow:
-            "Both"
         }
     }
 
     var showsMenuBarExtra: Bool {
-        self != .windowOnly
+        self == .menuBarOnly
     }
 
-    var showsDashboardWindow: Bool {
-        self != .menuBarOnly
-    }
-
-    func requiresDashboardOpen(afterTransitioningFrom previousMode: AppMode) -> Bool {
-        showsDashboardWindow && !previousMode.showsDashboardWindow
+    /// Whether the dashboard comes up on its own at launch.
+    ///
+    /// This is all that is left of the removed `menuBarAndWindow` case. Once the
+    /// Dock icon follows the open windows rather than the mode, "has a window"
+    /// stopped being a property of the mode at all — the dashboard is openable
+    /// in both — and the only thing still separating the two is whether it
+    /// arrives without being asked for.
+    ///
+    /// `windowOnly` must, because it carries no menu bar extra: launching it
+    /// without a window would leave the app with no surface to reach it by.
+    var opensDashboardAtLaunch: Bool {
+        self == .windowOnly
     }
 }

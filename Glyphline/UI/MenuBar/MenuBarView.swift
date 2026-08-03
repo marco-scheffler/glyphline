@@ -9,7 +9,6 @@ struct MenuBarView: View {
     static let panelPadding: CGFloat = 12
 
     @Environment(\.openWindow) private var openWindow
-    @EnvironmentObject private var settings: AppSettingsStore
     @EnvironmentObject private var coordinator: SyncCoordinator
 
     var body: some View {
@@ -88,13 +87,7 @@ struct MenuBarView: View {
     }
 
     private func openDashboard() {
-        if !settings.appMode.showsDashboardWindow {
-            settings.appMode = .menuBarAndWindow
-        }
-
-        AppActivationController.apply(mode: settings.appMode)
-        openWindow(id: AppMode.dashboardWindowID)
-        NSApp.activate(ignoringOtherApps: true)
+        DashboardLauncher.open(using: openWindow)
     }
 }
 

@@ -2,21 +2,24 @@ import AppKit
 
 enum AppActivationController {
     @MainActor
-    static func apply(mode: AppMode) {
-        set(policy(for: mode, hasWindowNeedingRegularApp: hasWindowNeedingRegularApp()))
+    static func apply(mode: AppMode, excluding closing: NSWindow? = nil) {
+        set(policy(
+            for: mode,
+            hasWindowNeedingRegularApp: hasWindowNeedingRegularApp(excluding: closing)
+        ))
     }
 
     /// Which policy a mode asks for, as arithmetic rather than as a side effect.
     ///
-    /// The agentverse window overrides the stored mode. It opens in either mode
-    /// and never writes `appMode`, so without this the mode's own policy would
-    /// demote the app back to `.accessory` under a window that is still on screen
-    /// — taking away its Dock icon and any way back to it.
+    /// The mode alone stopped being the answer when the Dock icon started
+    /// following the windows. `windowOnly` is unconditionally regular — it has
+    /// no menu bar extra, so the Dock icon is the only way back to it. The
+    /// default mode is an accessory exactly while nothing is on screen.
     static func policy(
         for mode: AppMode,
         hasWindowNeedingRegularApp: Bool
     ) -> NSApplication.ActivationPolicy {
-        mode == .menuBarOnly && !hasWindowNeedingRegularApp ? .accessory : .regular
+        mode == .windowOnly || hasWindowNeedingRegularApp ? .regular : .accessory
     }
 
     /// Sets the policy only when it is not already the one wanted.
@@ -55,9 +58,18 @@ enum AppActivationController {
     }
 
     /// Whether a window is on screen that the app has to stay `.regular` for.
+    ///
+    /// `excluding` is what makes this usable from a close notification.
+    /// `NSWindow.willCloseNotification` fires while the window is still in
+    /// `NSApp.windows` and still reports `isVisible == true`, so an unfiltered
+    /// walk finds the window that is going away and holds the app regular
+    /// forever — the Dock icon would arrive with the first window and never
+    /// leave again.
     @MainActor
-    static func hasWindowNeedingRegularApp() -> Bool {
-        NSApp.windows.contains { $0.isVisible && isWindowNeedingRegularApp($0) }
+    static func hasWindowNeedingRegularApp(excluding closing: NSWindow? = nil) -> Bool {
+        NSApp.windows.contains {
+            $0 !== closing && $0.isVisible && isWindowNeedingRegularApp($0)
+        }
     }
 
     /// The settings window, as claimed by its own content view.
@@ -104,15 +116,16 @@ enum AppActivationController {
     /// scene id and appends its own counter — the agentverse window comes up as
     /// `agentverse-AppWindow-1`, verified against a built app rather than assumed.
     ///
-    /// The settings window is here for both of the things this predicate decides.
-    /// It opens in every mode, including `.menuBarOnly` where the app is an
-    /// accessory — so the app has to stay regular while it is up. And it carries
-    /// the app-mode picker: without the exemption, switching to Menu Bar from
-    /// inside settings would have the dashboard's window sweep close the very
-    /// window the user was working in.
+    /// All three of the app's windows are here, and for one reason: each of them
+    /// opens in every mode, including `.menuBarOnly` where the app is an
+    /// accessory, and an accessory app's window never becomes key. So the app
+    /// has to stay regular for as long as any of them is up. This predicate now
+    /// decides that and nothing else — the dashboard's window sweep, which it
+    /// used to exempt windows from as well, is gone.
     static func isWindowNeedingRegularApp(identifier: String?) -> Bool {
         guard let identifier else { return false }
         return identifier.hasPrefix(AppMode.agentverseWindowID)
+            || identifier.hasPrefix(AppMode.dashboardWindowID)
             || identifier.hasPrefix(settingsWindowID)
     }
 }

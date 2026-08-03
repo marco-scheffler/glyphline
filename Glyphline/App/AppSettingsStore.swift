@@ -8,6 +8,20 @@ final class AppSettingsStore: ObservableObject {
         }
     }
 
+    /// Whether the dashboard has ever been on screen on this installation.
+    ///
+    /// A property of the installation rather than of the mode, which is why it
+    /// does not live on `AppMode`. It buys exactly one thing: a fresh install
+    /// opens the dashboard once. Without it, launching a newly installed
+    /// Glyphline in the default mode produces no window and no Dock icon —
+    /// nothing but an unfamiliar symbol in the menu bar that the user has to
+    /// find before the app has shown them anything.
+    @Published var hasShownDashboardOnce: Bool {
+        didSet {
+            defaults.set(hasShownDashboardOnce, forKey: Self.hasShownDashboardOnceKey)
+        }
+    }
+
     @Published var automaticSyncEnabled: Bool {
         didSet {
             defaults.set(automaticSyncEnabled, forKey: Self.automaticSyncEnabledKey)
@@ -90,6 +104,15 @@ final class AppSettingsStore: ObservableObject {
                                      source: .manual)
     }
 
+    /// Whether this launch puts the dashboard on screen by itself.
+    ///
+    /// The two halves are deliberately separate: the mode's answer is about the
+    /// mode, the flag's answer is about this installation having never shown
+    /// anything yet.
+    var opensDashboardAtLaunch: Bool {
+        appMode.opensDashboardAtLaunch || !hasShownDashboardOnce
+    }
+
     /// The sky to draw with right now: the stored reading, or clear if there has
     /// never been one.
     var currentWeather: Weather {
@@ -98,6 +121,7 @@ final class AppSettingsStore: ObservableObject {
 
     private let defaults: UserDefaults
     private static let appModeKey = "appMode"
+    private static let hasShownDashboardOnceKey = "hasShownDashboardOnce"
     private static let automaticSyncEnabledKey = "automaticSyncEnabled"
     private static let syncIntervalMinutesKey = "syncIntervalMinutes"
     private static let lastWeatherKey = "lastWeather"
@@ -115,8 +139,12 @@ final class AppSettingsStore: ObservableObject {
            let storedMode = AppMode(rawValue: rawValue) {
             appMode = storedMode
         } else {
-            appMode = .menuBarAndWindow
+            appMode = .menuBarOnly
         }
+
+        // `defaults.bool` reports `false` for an absent key, which is exactly the
+        // wanted answer for a fresh install, so no presence check is needed here.
+        hasShownDashboardOnce = defaults.bool(forKey: Self.hasShownDashboardOnceKey)
 
         // `defaults.bool` reports false for an absent key, so the explicit
         // presence check is what makes "enabled by default" survive a fresh install.

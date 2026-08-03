@@ -15,29 +15,26 @@ import XCTest
 /// reason. It reads `NSApp`, and a test that exercised it would be changing the
 /// suite's own process. What is held here is the decision it is handed.
 final class AppActivationPolicyTests: XCTestCase {
-    /// The menu-bar-only mode is the only one that gives up the Dock icon.
-    func testOnlyMenuBarOnlyAsksForAccessory() {
-        XCTAssertEqual(
-            AppActivationController.policy(for: .menuBarOnly, hasWindowNeedingRegularApp: false),
-            .accessory
-        )
-        XCTAssertEqual(
-            AppActivationController.policy(for: .menuBarAndWindow, hasWindowNeedingRegularApp: false),
-            .regular
-        )
+    /// The mode alone no longer decides. `windowOnly` is a regular app whether
+    /// or not a window happens to be open — its Dock icon is the only way back
+    /// to it, since it carries no menu bar extra.
+    func testWindowOnlyIsAlwaysRegular() {
         XCTAssertEqual(
             AppActivationController.policy(for: .windowOnly, hasWindowNeedingRegularApp: false),
             .regular
         )
+        XCTAssertEqual(
+            AppActivationController.policy(for: .windowOnly, hasWindowNeedingRegularApp: true),
+            .regular
+        )
     }
 
-    /// A window that needs a regular app overrides the mode.
-    ///
-    /// The agentverse and settings windows open in every mode and never write
-    /// `appMode`. Without this the mode's own policy would demote the app to
-    /// `.accessory` under a window that is still on screen, taking away its Dock
-    /// icon and every way back to it.
-    func testAWindowOnScreenKeepsTheAppRegularEvenInMenuBarOnly() {
+    /// The default mode gives up the Dock icon exactly when nothing is on screen.
+    func testMenuBarOnlyIsAccessoryOnlyWithNoWindowOpen() {
+        XCTAssertEqual(
+            AppActivationController.policy(for: .menuBarOnly, hasWindowNeedingRegularApp: false),
+            .accessory
+        )
         XCTAssertEqual(
             AppActivationController.policy(for: .menuBarOnly, hasWindowNeedingRegularApp: true),
             .regular

@@ -139,13 +139,7 @@ struct SettingsView: View {
     private var appModeBinding: Binding<AppMode> {
         Binding(
             get: { settings.appMode },
-            set: { newMode in
-                let previousMode = settings.appMode
-                settings.appMode = newMode
-                if newMode.requiresDashboardOpen(afterTransitioningFrom: previousMode) {
-                    openWindow(id: AppMode.dashboardWindowID)
-                }
-            }
+            set: { settings.appMode = $0 }
         )
     }
 
@@ -155,8 +149,6 @@ struct SettingsView: View {
             return "Glyphline stays in the menu bar and closes the dashboard window."
         case .windowOnly:
             return "Glyphline behaves like a standard macOS app without a menu bar extra."
-        case .menuBarAndWindow:
-            return "Glyphline keeps both the dashboard window and menu bar extra available."
         }
     }
 }
