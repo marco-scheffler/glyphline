@@ -57,6 +57,11 @@ def main() -> int:
     p.add_argument("--tag", required=True, help="Git-Tag des Releases, z. B. v1.2")
     p.add_argument("--zip-name", required=True)
     p.add_argument("--minimum-system-version", default="26.0")
+    p.add_argument(
+        "--notes-file",
+        help="HTML-Schnipsel mit den Release Notes. Wird in den Feed eingebettet, "
+        "statt auf eine Webseite zu verweisen.",
+    )
     args = p.parse_args()
 
     if os.path.exists(args.appcast):
@@ -95,9 +100,32 @@ def main() -> int:
     ET.SubElement(
         item, f"{{{SPARKLE_NS}}}minimumSystemVersion"
     ).text = args.minimum_system_version
-    ET.SubElement(
-        item, f"{{{SPARKLE_NS}}}releaseNotesLink"
-    ).text = f"{REPO_URL}/releases/tag/{args.tag}"
+    # Die Notizen gehören in den Feed, nicht hinter einen Link.
+    #
+    # `releaseNotesLink` klingt naheliegender, und es war zuerst auch so gebaut:
+    # ein Verweis auf die GitHub-Release-Seite. Sparkle lädt diese URL aber in
+    # eine WebView im Update-Fenster — und was dort ankommt, ist die *ganze*
+    # Seite: GitHub-Kopfzeile, Navigation, "Sign in"-Knopf, Reiter für Code und
+    # Issues, in einem 500 Punkte breiten Ausschnitt. Von den Release Notes ist
+    # nichts zu sehen, ohne zu scrollen.
+    #
+    # Eingebettet steht stattdessen genau das im Fenster, was drinstehen soll,
+    # und es braucht dafür keine Netzverbindung. HTML wird beim Schreiben
+    # maskiert; das ist die übliche RSS-Form, und Sparkle rendert sie als HTML.
+    if args.notes_file:
+        with open(args.notes_file, encoding="utf-8") as f:
+            ET.SubElement(item, "description").text = f.read().strip()
+    else:
+        # Kein Notizen-Schnipsel: lieber der Link als gar nichts, aber mit einem
+        # Hinweis, weil das die schlechtere von beiden Anzeigen ist.
+        print(
+            f"WARNUNG: keine Release Notes für {args.version} — das Update-Fenster "
+            "zeigt die GitHub-Seite statt der Notizen.",
+            file=sys.stderr,
+        )
+        ET.SubElement(
+            item, f"{{{SPARKLE_NS}}}releaseNotesLink"
+        ).text = f"{REPO_URL}/releases/tag/{args.tag}"
     ET.SubElement(
         item,
         "enclosure",
