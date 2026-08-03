@@ -1,0 +1,18 @@
+<?xml version='1.0' encoding='utf-8'?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+  <channel>
+    <title>Glyphline</title>
+    <link>https://raw.githubusercontent.com/marco-scheffler/glyphline/main/appcast.xml</link>
+    <description>Updates für Glyphline</description>
+    <language>en</language>
+    <item>
+      <title>1.2</title>
+      <pubDate>Mon, 03 Aug 2026 05:51:26 +0000</pubDate>
+      <sparkle:version>3</sparkle:version>
+      <sparkle:shortVersionString>1.2</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+      <sparkle:releaseNotesLink>https://github.com/marco-scheffler/glyphline/releases/tag/v1.2</sparkle:releaseNotesLink>
+      <enclosure url="https://github.com/marco-scheffler/glyphline/releases/download/v1.2/Glyphline-1.2.zip" length="6097077" type="application/octet-stream" sparkle:edSignature="sgoAI6+etONoOHIhsWU1YeG1b3BBtdBv5Rm+0Mx3anRIr5JanCa7iBav5Y8hag1rTUHF5WinW1RXzcmM/PS/BA==" />
+    </item>
+  </channel>
+</rss>
