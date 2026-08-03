@@ -39,9 +39,21 @@ enum AppActivationController {
     /// no change at all.
     @MainActor
     private static func set(_ policy: NSApplication.ActivationPolicy) {
-        guard NSApp.activationPolicy() != policy else { return }
-        NSApp.setActivationPolicy(policy)
+        guard app.activationPolicy() != policy else { return }
+        app.setActivationPolicy(policy)
     }
+
+    /// The application object, created if SwiftUI has not created it yet.
+    ///
+    /// Not decorative, and deliberately here rather than at a call site: this
+    /// type is reachable from `App.init`, which SwiftUI calls before the global
+    /// `NSApp` has been populated, and `NSApp` is implicitly unwrapped — reading
+    /// it there is a crash at launch, observed rather than theoretical.
+    /// `NSApplication.shared` creates the instance and sets `NSApp` as a side
+    /// effect, and returns the existing one afterwards. Guarding one call site
+    /// instead would only hold for as long as nobody reorders `App.init`.
+    @MainActor
+    private static var app: NSApplication { NSApplication.shared }
 
     /// Make the app behave like an app with a window, without touching the stored
     /// `appMode`.
@@ -67,7 +79,7 @@ enum AppActivationController {
     /// leave again.
     @MainActor
     static func hasWindowNeedingRegularApp(excluding closing: NSWindow? = nil) -> Bool {
-        NSApp.windows.contains {
+        app.windows.contains {
             $0 !== closing && $0.isVisible && isWindowNeedingRegularApp($0)
         }
     }

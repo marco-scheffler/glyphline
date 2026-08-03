@@ -129,7 +129,6 @@ struct GlyphlineApp: App {
         MenuBarExtra(isInserted: menuBarExtraInsertion) {
             ModeAwareMenuBarRoot(settings: settings) {
                 MenuBarView()
-                    .environmentObject(settings)
                     .environmentObject(coordinator)
             }
         } label: {
@@ -210,7 +209,14 @@ private struct ModeAwareWindowRoot<Content: View>: View {
                 // Recorded the moment the window is actually on screen, which is
                 // the only thing that makes the first-launch exception true
                 // exactly once. A suppressed scene never reaches this.
-                settings.hasShownDashboardOnce = true
+                //
+                // Guarded because the `didSet` has no equality check of its own:
+                // an unguarded write on every reopening writes to `UserDefaults`
+                // and publishes `objectWillChange` on the store, which
+                // re-evaluates `App.body` for a value that did not change.
+                if !settings.hasShownDashboardOnce {
+                    settings.hasShownDashboardOnce = true
+                }
                 // Not `apply(mode:)`. This runs before the window is visible, so
                 // the walk over `NSApp.windows` finds nothing and demotes the app
                 // underneath the very window that is appearing. The dashboard
@@ -222,9 +228,11 @@ private struct ModeAwareWindowRoot<Content: View>: View {
                 // window closes.
                 AppActivationController.regulariseForWindow()
             }
-            .onChange(of: settings.appMode) { _, newValue in
-                AppActivationController.apply(mode: newValue)
-            }
+        // No `onChange(of: settings.appMode)`: `WindowActivationObserver`
+        // subscribes to the mode for the life of the process, so a handler here
+        // would be a second mechanism for one job — and it could only ever cover
+        // the modes in which this view exists, which is the hole the observer was
+        // widened to close.
     }
 }
 
@@ -237,8 +245,6 @@ private struct ModeAwareMenuBarRoot<Content: View>: View {
             .onAppear {
                 AppActivationController.apply(mode: settings.appMode)
             }
-            .onChange(of: settings.appMode) { _, newValue in
-                AppActivationController.apply(mode: newValue)
-            }
+        // Mode changes are `WindowActivationObserver`'s, as above.
     }
 }

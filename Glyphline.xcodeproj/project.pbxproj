@@ -174,6 +174,7 @@
 		F56211A4FDCF96FDAFB59C92 /* RateWindowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA6C8BEB41F3B3EE32D28A76 /* RateWindowTests.swift */; };
 		F731A9E0E7F227918984E8BA /* claude-usage.json in Resources */ = {isa = PBXBuildFile; fileRef = 71F686E68C6AD2A919ECD797 /* claude-usage.json */; };
 		F8F8163B0CC89AA5FA267BFA /* IsoProjectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CABF3285E03EB09C5D9394E3 /* IsoProjectionTests.swift */; };
+		F9E695F2D682FA36D98FA962 /* WindowActivationObserverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13262C6395892E8101B0073A /* WindowActivationObserverTests.swift */; };
 		FA0E6D06248BF58C8ECC4787 /* ClaudeOrganizationsDTOs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24490E8A33CB8C3CE1EFFAA3 /* ClaudeOrganizationsDTOs.swift */; };
 		FA24F260992AEF7BAABB68BE /* OfficeRendererShell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 294A09533288129B01331D6A /* OfficeRendererShell.swift */; };
 		FAAB4935C3A53DB6331C5F42 /* DashboardOverview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A8FE605EF3B33F256650E43 /* DashboardOverview.swift */; };
@@ -210,6 +211,7 @@
 		11D41DE98E9E03A2433764CC /* RateWindowSourceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RateWindowSourceTests.swift; sourceTree = "<group>"; };
 		12013027711B198DBAD1759B /* QuotaCardModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuotaCardModelTests.swift; sourceTree = "<group>"; };
 		12E48ACC872A23A3B329B354 /* AppMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppMode.swift; sourceTree = "<group>"; };
+		13262C6395892E8101B0073A /* WindowActivationObserverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowActivationObserverTests.swift; sourceTree = "<group>"; };
 		13C2A5ABB0A8E43A39707DB6 /* UpdateController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateController.swift; sourceTree = "<group>"; };
 		15AE8CE25E9DFB53944DBD13 /* ClaudeWebQuotaSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeWebQuotaSource.swift; sourceTree = "<group>"; };
 		1923CB6870F90CE15FC576F9 /* RateWindowStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RateWindowStoreTests.swift; sourceTree = "<group>"; };
@@ -605,6 +607,7 @@
 				6038A4E395A2847039481F0D /* UsageModelsTests.swift */,
 				8436B59B839E014CC6FDD206 /* UserPlaceTests.swift */,
 				E098575A9DAE4BCF0C1DB381 /* WeatherServiceTests.swift */,
+				13262C6395892E8101B0073A /* WindowActivationObserverTests.swift */,
 				95CD64829F4A19BE7CB0CACB /* Fixtures */,
 			);
 			path = GlyphlineTests;
@@ -939,6 +942,7 @@
 				B8B5DF46E5F52175C3B0C9F8 /* UsageModelsTests.swift in Sources */,
 				DD2396AD5BE685E977AB9FAD /* UserPlaceTests.swift in Sources */,
 				798F27EB96BD8D11CAF2AEE8 /* WeatherServiceTests.swift in Sources */,
+				F9E695F2D682FA36D98FA962 /* WindowActivationObserverTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
