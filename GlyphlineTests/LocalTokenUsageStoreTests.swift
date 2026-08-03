@@ -356,6 +356,39 @@ final class LocalTokenUsageStoreTests: XCTestCase {
                     ),
                 ]
             ),
+            // The apply's own prune is the thing under test here: production
+            // never calls `pruneSeenMessages` by hand, so a test that did would
+            // stay green with the call site deleted.
+            now: now
+        )
+
+        XCTAssertEqual(
+            try store.fetchSeenMessageIDs(), ["fresh"],
+            "past the window goes, inside it stays — pruned by the apply itself"
+        )
+    }
+
+    /// The standalone entry point does the same thing on its own, so the window
+    /// stays testable apart from a scan.
+    func testPruningThroughTheStandaloneEntryPointDropsIdsPastTheWindow() throws {
+        let store = try makeStore()
+        let now = day
+
+        try store.applyLocalScan(
+            LocalScanResult(
+                usage: [],
+                watermarks: [],
+                seenMessages: [
+                    LocalSeenMessage(
+                        messageID: "stale",
+                        seenAt: now - LocalSeenMessageRetention.window - 60
+                    ),
+                    LocalSeenMessage(
+                        messageID: "fresh",
+                        seenAt: now - LocalSeenMessageRetention.window + 60
+                    ),
+                ]
+            ),
             // Before the window elapses, so the apply itself prunes nothing.
             now: now - LocalSeenMessageRetention.window
         )
@@ -363,10 +396,7 @@ final class LocalTokenUsageStoreTests: XCTestCase {
 
         try store.pruneSeenMessages(now: now)
 
-        XCTAssertEqual(
-            try store.fetchSeenMessageIDs(), ["fresh"],
-            "past the window goes, inside it stays"
-        )
+        XCTAssertEqual(try store.fetchSeenMessageIDs(), ["fresh"])
     }
 
     /// The watermark of a successful apply really does advance, so the next scan

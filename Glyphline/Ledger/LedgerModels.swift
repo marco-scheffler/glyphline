@@ -132,7 +132,9 @@ struct LocalSeenMessage: Equatable, Sendable {
 /// max=111.9h — 99.9% within 24 hours and 100% within 7 days. Forks copy
 /// *recent* history. Fourteen days covers the worst observed case with three
 /// times the margin and still bounds the table: at roughly 18k usage-carrying
-/// messages a day that is about 250k rows, single-digit megabytes.
+/// messages a day that is about 250k rows — on the order of 20-30 MB on disk
+/// with the index, and a comparable amount of heap while the set of ids is
+/// loaded for a scan.
 ///
 /// Too short and a fork of an older session double-counts again; too long and
 /// the table grows without ever buying anything.
