@@ -239,6 +239,18 @@ TAG="v$VERSION"
 SIGNATURE="$("$SPARKLE_BIN/sign_update" -p "$ZIP")"
 LENGTH="$(/usr/bin/stat -f%z "$ZIP")"
 
+# Die Release Notes stehen als HTML-Schnipsel im Repo, eine Datei pro Version.
+# Dieselbe Datei füttert das Update-Fenster und die GitHub-Release-Seite, damit
+# die beiden nicht auseinanderlaufen.
+NOTES="$REPO/docs/release-notes/$VERSION.html"
+NOTES_ARG=()
+if [ -f "$NOTES" ]; then
+    NOTES_ARG=(--notes-file "$NOTES")
+else
+    echo "WARNUNG: $NOTES fehlt — das Update-Fenster zeigt dann die GitHub-Seite," >&2
+    echo "         also Kopfzeile, Navigation und Anmeldeknopf statt der Notizen." >&2
+fi
+
 "$REPO/scripts/appcast.py" \
     --appcast "$APPCAST" \
     --version "$VERSION" \
@@ -246,7 +258,8 @@ LENGTH="$(/usr/bin/stat -f%z "$ZIP")"
     --signature "$SIGNATURE" \
     --length "$LENGTH" \
     --tag "$TAG" \
-    --zip-name "$(basename "$ZIP")"
+    --zip-name "$(basename "$ZIP")" \
+    "${NOTES_ARG[@]}"
 
 echo
 echo "Fertig: $ZIP"

@@ -1,0 +1,41 @@
+<h2>A calmer menu bar</h2>
+
+<p>Three things the app was doing that it did not need to do.</p>
+
+<h3>The panel no longer rescrapes the web every time you open it</h3>
+
+<p>Reading a quota means loading an account's page in a web view and running a
+script against the rendered document — a real browser navigation, per account.
+The menu bar panel asked for one <strong>every time it opened</strong>, so with
+three accounts that was three page renders per click, on the thread that draws
+the panel you are standing in.</p>
+
+<p>There is now a sixty second floor, far below the rate a five-hour or weekly
+window can move, and a scheduled refresh counts towards it.</p>
+
+<h3>It no longer re-asserts its activation policy on every open</h3>
+
+<p>Opening the panel re-set the app's activation policy even when it already was
+what the setting asked for. That turns a no-op into a real state change: macOS
+re-evaluates app activation underneath a panel that is in the middle of opening,
+which can make it flicker, close, or come back twice — and it is worse with more
+than one display.</p>
+
+<h3>The Agentverse stops drawing frames it cannot tell apart</h3>
+
+<p>The scene is computed from a frame counter that advances 60 times a second,
+but the animation ran at the display's refresh rate. On a 120 Hz screen every
+other frame rebuilt the entire scene and rasterised it to produce a picture
+identical to the one already on screen.</p>
+
+<p>Measured at the window's real size, the datastream view costs 6.2 ms a frame
+with six sessions against an 8.3 ms budget at 120 Hz — so the half being
+discarded was the half that made it stutter.</p>
+
+<h3>Also</h3>
+
+<p>This update window now shows these notes rather than the GitHub page they used
+to be linked to, which arrived complete with header, navigation and a sign-in
+button in a 500 point wide frame.</p>
+
+<p>Requires macOS 26.</p>

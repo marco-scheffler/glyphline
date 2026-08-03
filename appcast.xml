@@ -11,7 +11,47 @@
       <sparkle:version>5</sparkle:version>
       <sparkle:shortVersionString>1.4</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
-      <sparkle:releaseNotesLink>https://github.com/marco-scheffler/glyphline/releases/tag/v1.4</sparkle:releaseNotesLink>
+      <description>&lt;h2&gt;A calmer menu bar&lt;/h2&gt;
+
+&lt;p&gt;Three things the app was doing that it did not need to do.&lt;/p&gt;
+
+&lt;h3&gt;The panel no longer rescrapes the web every time you open it&lt;/h3&gt;
+
+&lt;p&gt;Reading a quota means loading an account's page in a web view and running a
+script against the rendered document — a real browser navigation, per account.
+The menu bar panel asked for one &lt;strong&gt;every time it opened&lt;/strong&gt;, so with
+three accounts that was three page renders per click, on the thread that draws
+the panel you are standing in.&lt;/p&gt;
+
+&lt;p&gt;There is now a sixty second floor, far below the rate a five-hour or weekly
+window can move, and a scheduled refresh counts towards it.&lt;/p&gt;
+
+&lt;h3&gt;It no longer re-asserts its activation policy on every open&lt;/h3&gt;
+
+&lt;p&gt;Opening the panel re-set the app's activation policy even when it already was
+what the setting asked for. That turns a no-op into a real state change: macOS
+re-evaluates app activation underneath a panel that is in the middle of opening,
+which can make it flicker, close, or come back twice — and it is worse with more
+than one display.&lt;/p&gt;
+
+&lt;h3&gt;The Agentverse stops drawing frames it cannot tell apart&lt;/h3&gt;
+
+&lt;p&gt;The scene is computed from a frame counter that advances 60 times a second,
+but the animation ran at the display's refresh rate. On a 120 Hz screen every
+other frame rebuilt the entire scene and rasterised it to produce a picture
+identical to the one already on screen.&lt;/p&gt;
+
+&lt;p&gt;Measured at the window's real size, the datastream view costs 6.2 ms a frame
+with six sessions against an 8.3 ms budget at 120 Hz — so the half being
+discarded was the half that made it stutter.&lt;/p&gt;
+
+&lt;h3&gt;Also&lt;/h3&gt;
+
+&lt;p&gt;This update window now shows these notes rather than the GitHub page they used
+to be linked to, which arrived complete with header, navigation and a sign-in
+button in a 500 point wide frame.&lt;/p&gt;
+
+&lt;p&gt;Requires macOS 26.&lt;/p&gt;</description>
       <enclosure url="https://github.com/marco-scheffler/glyphline/releases/download/v1.4/Glyphline-1.4.zip" length="6122659" type="application/octet-stream" sparkle:edSignature="31JeXsBmSC5kkCwaMt6Ic6e9l0r+FN/xmJLcQuz13Tx/Nl+JyBK/Qy24UXyWpnxTsqhXMCn0w5rLcinDnmkQDg==" />
     </item>
     <item>
