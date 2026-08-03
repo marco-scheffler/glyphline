@@ -5,6 +5,14 @@ import XCTest
 /// `SyncScheduleController`, and these tests pin the one thing that can break
 /// there without breaking anything else: the sink must read the values Combine
 /// hands it, not the values still sitting in the store.
+///
+/// Every test below asserts on the coordinator immediately after assigning to a
+/// setting, which assumes the sink runs synchronously on the assigning call
+/// stack. That holds because the chain in `SyncScheduleController` is
+/// `$a.combineLatest($b).sink` and nothing else. Adding a `receive(on:)`, a
+/// `debounce` or a `throttle` there would take these tests red for a reason the
+/// failure text will not mention — the assertions would be reading the schedule
+/// before the sink has run, not reading a wrong schedule.
 @MainActor
 final class SyncScheduleControllerTests: XCTestCase {
     private func makeDefaults() -> UserDefaults {
@@ -16,10 +24,13 @@ final class SyncScheduleControllerTests: XCTestCase {
         return defaults
     }
 
-    /// Never returns, so the scheduler loop parks in its first sleep instead of
-    /// spinning through collections while the test looks at the schedule.
+    /// `sleepForSeconds` never returns, so the scheduler loop parks in its first
+    /// sleep instead of spinning through collections while the test looks at the
+    /// schedule. The teardown stops it again: releasing the controller cancels
+    /// the subscription but not the coordinator's task, which would otherwise sit
+    /// in that sleep for the rest of the test process.
     private func makeCoordinator() -> SyncCoordinator {
-        SyncCoordinator(
+        let coordinator = SyncCoordinator(
             ledger: nil,
             credentials: InMemoryCredentialStore(),
             registry: ProviderAdapterRegistry(),
@@ -27,6 +38,10 @@ final class SyncScheduleControllerTests: XCTestCase {
                 try await Task.sleep(for: .seconds(3_600))
             }
         )
+        addTeardownBlock { @MainActor in
+            coordinator.stopScheduler()
+        }
+        return coordinator
     }
 
     /// `combineLatest` emits once on subscription, so constructing the
@@ -40,8 +55,14 @@ final class SyncScheduleControllerTests: XCTestCase {
 
         let controller = SyncScheduleController(settings: settings, coordinator: coordinator)
         withExtendedLifetime(controller) {
-            XCTAssertTrue(coordinator.isSchedulerRunning)
-            XCTAssertEqual(coordinator.currentIntervalSeconds, 900)
+            XCTAssertTrue(
+                coordinator.isSchedulerRunning,
+                "constructing the controller must subscribe and apply at once; a scheduler that is not running here means the first emission never arrived"
+            )
+            XCTAssertEqual(
+                coordinator.currentIntervalSeconds, 900,
+                "the first emission must carry the settings as they stand, not a later change"
+            )
         }
     }
 
@@ -57,7 +78,10 @@ final class SyncScheduleControllerTests: XCTestCase {
 
         let controller = SyncScheduleController(settings: settings, coordinator: coordinator)
         withExtendedLifetime(controller) {
-            XCTAssertTrue(coordinator.isSchedulerRunning)
+            XCTAssertTrue(
+                coordinator.isSchedulerRunning,
+                "precondition: the schedule has to be running before switching it off can mean anything"
+            )
 
             settings.automaticSyncEnabled = false
 
@@ -71,6 +95,11 @@ final class SyncScheduleControllerTests: XCTestCase {
 
     /// The same lag, in the other direction: switching automatic syncing back on
     /// has to start the loop, not re-apply the `false` that is being replaced.
+    ///
+    /// Deliberately kept even though no edit reddens it alone — it is the mirror
+    /// of the test above, and it is the direction a user actually notices,
+    /// because a schedule that fails to start looks exactly like an app with
+    /// nothing to report. It is a second reading of one guard, not a fourth one.
     func testTurningAutomaticSyncOnStartsTheScheduler() {
         let settings = AppSettingsStore(defaults: makeDefaults())
         settings.automaticSyncEnabled = false
@@ -83,8 +112,14 @@ final class SyncScheduleControllerTests: XCTestCase {
 
             settings.automaticSyncEnabled = true
 
-            XCTAssertTrue(coordinator.isSchedulerRunning)
-            XCTAssertEqual(coordinator.currentIntervalSeconds, 1_200)
+            XCTAssertTrue(
+                coordinator.isSchedulerRunning,
+                "switching automatic syncing on must start the loop, not re-apply the false being replaced"
+            )
+            XCTAssertEqual(
+                coordinator.currentIntervalSeconds, 1_200,
+                "the interval must come along with the enabling emission"
+            )
         }
     }
 
@@ -106,6 +141,26 @@ final class SyncScheduleControllerTests: XCTestCase {
                 coordinator.currentIntervalSeconds, 2_700,
                 "the interval is minutes in the settings and seconds at the coordinator"
             )
+        }
+    }
+
+    /// Both inputs are re-sent on every emission, so an interval change while
+    /// automatic syncing is off must not be read as a reason to start.
+    func testAnIntervalChangeWhileAutomaticSyncIsOffLeavesTheSchedulerStopped() {
+        let settings = AppSettingsStore(defaults: makeDefaults())
+        settings.automaticSyncEnabled = false
+        settings.syncIntervalMinutes = 15
+        let coordinator = makeCoordinator()
+
+        let controller = SyncScheduleController(settings: settings, coordinator: coordinator)
+        withExtendedLifetime(controller) {
+            settings.syncIntervalMinutes = 45
+
+            XCTAssertFalse(
+                coordinator.isSchedulerRunning,
+                "an interval change is not a reason to start a schedule the user has switched off"
+            )
+            XCTAssertNil(coordinator.currentIntervalSeconds)
         }
     }
 }
