@@ -6,6 +6,15 @@
     <description>Updates für Glyphline</description>
     <language>en</language>
     <item>
+      <title>1.4</title>
+      <pubDate>Mon, 03 Aug 2026 08:03:51 +0000</pubDate>
+      <sparkle:version>5</sparkle:version>
+      <sparkle:shortVersionString>1.4</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+      <sparkle:releaseNotesLink>https://github.com/marco-scheffler/glyphline/releases/tag/v1.4</sparkle:releaseNotesLink>
+      <enclosure url="https://github.com/marco-scheffler/glyphline/releases/download/v1.4/Glyphline-1.4.zip" length="6122659" type="application/octet-stream" sparkle:edSignature="31JeXsBmSC5kkCwaMt6Ic6e9l0r+FN/xmJLcQuz13Tx/Nl+JyBK/Qy24UXyWpnxTsqhXMCn0w5rLcinDnmkQDg==" />
+    </item>
+    <item>
       <title>1.3</title>
       <pubDate>Mon, 03 Aug 2026 06:55:53 +0000</pubDate>
       <sparkle:version>4</sparkle:version>
