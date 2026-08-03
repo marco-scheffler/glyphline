@@ -139,16 +139,37 @@ struct SettingsView: View {
     private var appModeBinding: Binding<AppMode> {
         Binding(
             get: { settings.appMode },
-            set: { settings.appMode = $0 }
+            set: { newMode in
+                settings.appMode = newMode
+                // Window mode carries no menu bar extra, so switching into it
+                // with nothing on screen would leave the app with no surface
+                // at all — the settings window the user is standing in is not
+                // one, since closing it would strand them.
+                //
+                // The other direction closes nothing: an open dashboard stays
+                // open, and the Dock icon with it, until the user closes it.
+                if newMode.opensDashboardAtLaunch,
+                   !AppActivationController.hasWindowNeedingRegularApp(
+                       excluding: AppActivationController.claimedSettingsWindow
+                   ) {
+                    DashboardLauncher.open(using: openWindow)
+                }
+            }
         )
     }
 
     private var modeDescription: String {
         switch settings.appMode {
         case .menuBarOnly:
-            return "Glyphline stays in the menu bar and closes the dashboard window."
+            return String(
+                localized: "Glyphline lives in the menu bar. It appears in the Dock only while the dashboard or the Agentverse is open.",
+                comment: "Settings, App Mode section: what the menu bar mode does. Shown under the picker."
+            )
         case .windowOnly:
-            return "Glyphline behaves like a standard macOS app without a menu bar extra."
+            return String(
+                localized: "Glyphline behaves like a standard Mac app: always in the Dock, with no menu bar extra.",
+                comment: "Settings, App Mode section: what the window mode does. Shown under the picker."
+            )
         }
     }
 }

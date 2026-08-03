@@ -236,6 +236,65 @@ final class LocalizedLayoutTests: XCTestCase {
         }
     }
 
+    // MARK: - The settings window's app mode picker
+
+    /// A segmented control given less width than it asks for truncates its
+    /// segments and reports nothing. Two segments is more forgiving than the
+    /// three this replaced, but the labels only became translatable with this
+    /// change, so no language but English has ever been measured here.
+    ///
+    /// The bound is `SettingsRootView.minimumContentWidth` — the floor
+    /// production puts on the settings window, and the only width in this app
+    /// that the settings form is guaranteed to have. It is deliberately the
+    /// number production enforces rather than a measurement of the control
+    /// column inside it: the form's own insets take some of it, and this suite
+    /// cannot host `SettingsView` to find out how much (it wants an
+    /// `UpdateController`, which starts Sparkle). A number invented to sit
+    /// where that measurement should be is the failure this file exists to
+    /// prevent, so the assertion stays on the width that is real.
+    ///
+    /// Would catch: a translation of "Menu Bar" long enough that the settings
+    /// form squeezes the control.
+    func testTheAppModePickerGetsTheWidthItsSegmentsAskFor() throws {
+        for language in Self.languages {
+            let table = try table(language)
+            let titles: (AppMode) -> String = { mode in
+                let key = mode == .menuBarOnly ? "Menu Bar" : "Window"
+                return table[key] ?? key
+            }
+
+            let wanted = width(
+                of: Picker("Presentation", selection: .constant(AppMode.menuBarOnly)) {
+                    ForEach(AppMode.allCases) { mode in
+                        Text(verbatim: titles(mode)).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden(),
+                in: language
+            )
+
+            XCTAssertGreaterThan(wanted, 0, "\(language) laid out to nothing")
+            XCTAssertLessThanOrEqual(
+                wanted,
+                SettingsRootView.minimumContentWidth,
+                "the app mode picker wants \(wanted) in \(language)"
+            )
+        }
+    }
+
+    /// And that the segments really are the app's own, in the language being
+    /// measured — the titles above come out of the compiled table by key, so a
+    /// renamed key would silently fall back to English and measure nothing.
+    func testTheAppModeSegmentsAreTheOnesThePickerDraws() throws {
+        XCTAssertEqual(AppMode.allCases.map(\.displayName), ["Menu Bar", "Window"])
+        for language in Self.languages {
+            let table = try table(language)
+            XCTAssertNotNil(table["Menu Bar"], "\(language) has no app mode segment for Menu Bar")
+            XCTAssertNotNil(table["Window"], "\(language) has no app mode segment for Window")
+        }
+    }
+
     // MARK: - The Agentverse's painted signs
 
     /// The office scene's signs are drawn into a `Canvas`, which clips nothing

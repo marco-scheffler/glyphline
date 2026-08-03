@@ -11,6 +11,11 @@ import SwiftUI
 struct SettingsRootView: View {
     @EnvironmentObject private var settings: AppSettingsStore
 
+    /// The narrowest the settings window is ever laid out at — see the floor on
+    /// the frame below. Named so a layout test can measure against the number
+    /// production enforces rather than against one somebody guessed.
+    static let minimumContentWidth: CGFloat = 640
+
     var body: some View {
         TabView {
             SettingsView()
@@ -29,7 +34,7 @@ struct SettingsRootView: View {
         // A settings window sizes itself to its content, and the accounts tab is
         // a list that can be empty. Without a floor the window would open at the
         // size of an empty-state placeholder.
-        .frame(minWidth: 640, minHeight: 520)
+        .frame(minWidth: Self.minimumContentWidth, minHeight: 520)
         // The window says who it is, so nothing downstream has to guess from a
         // framework-internal identifier.
         .background(SettingsWindowClaim())
