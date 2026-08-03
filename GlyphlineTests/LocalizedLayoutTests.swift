@@ -117,9 +117,12 @@ final class LocalizedLayoutTests: XCTestCase {
     ///
     /// The translator chose "Neu laden" over "Aktualisieren" for `Refresh`
     /// specifically to protect this row, on judgement rather than on a
-    /// measurement. The judgement was right and the row was never in danger:
-    /// German is the widest at 266 against the 296 available, 30 points clear.
-    /// The number is worth having rather than the reasoning.
+    /// measurement. The judgement was right and the row was never in danger.
+    ///
+    /// The margin has since been spent on legibility: loosening the footer's
+    /// spacing from 6 to 10 to stop the buttons reading as one bar took German
+    /// from 266 to 278 against the 296 available. Eighteen points clear, where it
+    /// was thirty — which makes this test load-bearing rather than reassuring.
     ///
     /// Would catch: a translation long enough to overflow. Putting
     /// "Aktualisieren" in `Refresh`'s place is not enough on its own — that row
