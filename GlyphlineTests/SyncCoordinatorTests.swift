@@ -703,6 +703,131 @@ final class SyncCoordinatorTests: XCTestCase {
         XCTAssertTrue(coordinator.quotaStates.contains { $0.accountID == survivor.id })
     }
 
+    // MARK: - Carrying a rename to the states without a sync
+
+    /// The reported bug: renaming wrote the ledger and refreshed the Accounts
+    /// list, and the cards and the menu bar kept the old name until the next
+    /// network round trip. Deliberately no sync between the rename and the
+    /// assertion — that is the whole point.
+    func testARenameReachesTheQuotaStatesWithoutASync() async throws {
+        let (_, ledger) = try makeLedger()
+        let now = Self.now
+        let alpha = try saveAccount("Alpha", in: ledger)
+        let bravo = try saveAccount("Bravo", in: ledger)
+
+        let coordinator = SyncCoordinator(
+            ledger: ledger,
+            credentials: InMemoryCredentialStore(),
+            registry: ProviderAdapterRegistry(),
+            now: { now },
+            rateWindowSourceProvider: { _ in nil }
+        )
+        await coordinator.collectRateWindows()
+        XCTAssertEqual(
+            coordinator.quotaStates.first { $0.accountID == bravo.id }?.displayName,
+            "Bravo",
+            "precondition: the sync stamped the old name"
+        )
+
+        try ledger.renameAccount(accountID: bravo.id, to: "Work")
+        coordinator.refreshAccountNames()
+
+        XCTAssertEqual(
+            coordinator.quotaStates.first { $0.accountID == bravo.id }?.displayName,
+            "Work"
+        )
+        XCTAssertEqual(
+            coordinator.quotaStates.first { $0.accountID == alpha.id }?.displayName,
+            "Alpha",
+            "the account nobody renamed keeps its name"
+        )
+    }
+
+    /// The half that is easy to forget. `quotaStates` is sorted by display name
+    /// so the menu and the cards do not reorder themselves between ticks, so a
+    /// rename that only re-stamps the name leaves the renamed account sitting
+    /// where its *old* name sorted.
+    ///
+    /// The precondition pins the order before the rename, so an implementation
+    /// that never re-sorts cannot pass this by accident.
+    func testARenameReordersTheQuotaStates() async throws {
+        let (_, ledger) = try makeLedger()
+        let now = Self.now
+        let alpha = try saveAccount("Alpha", in: ledger)
+        let bravo = try saveAccount("Bravo", in: ledger)
+
+        let coordinator = SyncCoordinator(
+            ledger: ledger,
+            credentials: InMemoryCredentialStore(),
+            registry: ProviderAdapterRegistry(),
+            now: { now },
+            rateWindowSourceProvider: { _ in nil }
+        )
+        await coordinator.collectRateWindows()
+        XCTAssertEqual(
+            coordinator.quotaStates.map(\.accountID),
+            [alpha.id, bravo.id],
+            "precondition: the sync sorted Alpha before Bravo"
+        )
+
+        // Sorts before "Alpha", so the renamed account has to move to the front.
+        try ledger.renameAccount(accountID: bravo.id, to: "Aardvark")
+        coordinator.refreshAccountNames()
+
+        XCTAssertEqual(coordinator.quotaStates.map(\.accountID), [bravo.id, alpha.id])
+        XCTAssertEqual(coordinator.quotaStates.map(\.displayName), ["Aardvark", "Alpha"])
+    }
+
+    /// Only the name and the order change here. Windows, messages and failure
+    /// codes are the sync's, and this is not a sync — a method that rebuilt the
+    /// state from scratch would drop them.
+    func testARenameLeavesEverythingElseOnTheStateAlone() async throws {
+        let (_, ledger) = try makeLedger()
+        let now = Self.now
+        let account = try saveAccount("Alpha", in: ledger)
+
+        let coordinator = SyncCoordinator(
+            ledger: ledger,
+            credentials: InMemoryCredentialStore(),
+            registry: ProviderAdapterRegistry(),
+            now: { now },
+            rateWindowSourceProvider: { _ in TalkativeQuotaSource() }
+        )
+        await coordinator.collectRateWindows()
+
+        let before = try XCTUnwrap(coordinator.quotaStates.first)
+        // Without these the comparisons below would hold for a state carrying
+        // nothing at all.
+        XCTAssertFalse(before.windows.isEmpty, "precondition: the tick recorded a window")
+        XCTAssertNotNil(before.message, "precondition: the tick recorded a message")
+        XCTAssertNotNil(before.failureCode, "precondition: the tick recorded a failure code")
+
+        try ledger.renameAccount(accountID: account.id, to: "Work")
+        coordinator.refreshAccountNames()
+
+        let after = try XCTUnwrap(coordinator.quotaStates.first)
+        XCTAssertEqual(after.displayName, "Work")
+        XCTAssertEqual(after.windows, before.windows)
+        XCTAssertEqual(after.message, before.message)
+        XCTAssertEqual(after.failureCode, before.failureCode)
+    }
+
+    /// No ledger is a supported state everywhere else in this coordinator, and a
+    /// rename cannot be the one call that trips over it. It is also not a sync,
+    /// so it may not report one as having failed.
+    func testRefreshingNamesWithoutALedgerDoesNothing() {
+        let coordinator = SyncCoordinator(
+            ledger: nil,
+            credentials: InMemoryCredentialStore(),
+            registry: ProviderAdapterRegistry()
+        )
+
+        coordinator.refreshAccountNames()
+
+        XCTAssertTrue(coordinator.quotaStates.isEmpty)
+        XCTAssertNil(coordinator.syncFailureMessage)
+    }
+
     /// The notify-once flag is private, so it is covered through behaviour: an
     /// account whose expiry has already been announced is forgotten, and the
     /// very next expired tick must announce again. If `forgetAccount` failed to
@@ -896,6 +1021,25 @@ final class RecordingQuotaNotifier: QuotaNotifier {
 
     nonisolated func notifySessionExpired(accountDisplayName: String) async {
         await MainActor.run { sentNames.append(accountDisplayName) }
+    }
+}
+
+/// A source that answers with a window *and* something to say about it, so a
+/// single tick leaves all three of the fields a rename must not touch populated.
+private struct TalkativeQuotaSource: RateWindowSource {
+    func fetchWindows(account: Account, secret: String?) async throws -> RateWindowResult {
+        RateWindowResult(
+            windows: [
+                RateWindow(
+                    kind: .rollingFiveHours, usedFraction: 0.4,
+                    resetAt: Date(timeIntervalSince1970: 1_800_003_600),
+                    observedAt: Date(timeIntervalSince1970: 1_800_000_000)
+                ),
+            ],
+            dataQuality: .exact,
+            message: RateWindowSourceError.transportFailure.message,
+            failureCode: RateWindowSourceError.transportFailure.code
+        )
     }
 }
 
