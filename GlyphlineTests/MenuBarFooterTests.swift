@@ -32,25 +32,30 @@ final class MenuBarFooterTests: XCTestCase {
         )
     }
 
-    /// The settings entry itself. `SettingsLink` renders as a control of its own,
-    /// so a row without it is measurably narrower — which is the only handle a
-    /// test has on "the way into settings is present", short of driving the menu.
+    /// The settings entry itself. `SettingsLink` holds a column of its own, so a
+    /// grid without it is one column narrower — which is the only handle a test
+    /// has on "the way into settings is present", short of driving the menu.
+    ///
+    /// The comparison is the same grid minus that one cell, not a different
+    /// layout that happens to be narrower: measured against a hand-built stack it
+    /// would keep passing after the footer stopped being a grid at all.
     func testTheFooterCarriesTheSettingsEntry() {
         let withLink = NSHostingView(rootView: AnyView(footer()))
         withLink.layoutSubtreeIfNeeded()
 
         let withoutLink = NSHostingView(
             rootView: AnyView(
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack(spacing: 6) {
-                        Button("Dashboard") {}
-                        Button("Agentverse") {}
-                        Spacer(minLength: 0)
+                Grid(
+                    horizontalSpacing: MenuBarFooter.controlSpacing,
+                    verticalSpacing: MenuBarFooter.rowSpacing
+                ) {
+                    GridRow {
+                        Button("Dashboard") {}.frame(maxWidth: .infinity)
+                        Button("Agentverse") {}.frame(maxWidth: .infinity)
                     }
-                    HStack(spacing: 6) {
-                        Button("Refresh") {}
-                        Spacer(minLength: 0)
-                        Button("Quit") {}
+                    GridRow {
+                        Button("Refresh") {}.frame(maxWidth: .infinity)
+                        Button("Quit") {}.frame(maxWidth: .infinity)
                     }
                 }
                 .buttonStyle(.bordered)

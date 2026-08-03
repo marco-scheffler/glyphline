@@ -180,26 +180,43 @@ struct MenuBarFooter: View {
     /// five things rather than one bar, tight enough that the widest translation
     /// still fits.
     ///
-    /// It costs headroom, and the honest number is worth writing down: German is
-    /// the widest at 278 points against the 296 the panel has, where at a spacing
-    /// of 6 it was 266. Eighteen points is one longer word away from clipping, so
-    /// a sixth control or a wordier translation is now the change that overflows
-    /// this row — `LocalizedLayoutTests` re-measures every language and is what
-    /// will say so.
+    /// What the row costs is now set by its widest *single* label rather than by
+    /// the sum of five: three equal columns measure three times the widest plus
+    /// two gaps. German is the widest at 268 points against the 296 the panel
+    /// has — 28 clear, where the ragged version at this spacing needed 278.
+    ///
+    /// That also moves what would break it. A longer word in any one language now
+    /// costs three columns rather than one button, so the margin goes three times
+    /// as fast. `LocalizedLayoutTests` re-measures every language against the
+    /// panel and is what will say so, because the panel itself clips from the
+    /// trailing edge without a word.
     static let controlSpacing: CGFloat = 10
     static let rowSpacing: CGFloat = 8
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Self.rowSpacing) {
-            // Two rows, not one. Five controls in 320 points overflow by about
-            // 58 of them, and a menu bar panel clips what does not fit from the
-            // trailing edge without a word — which is where Quit sits.
-            //
-            // Split by kind rather than to even the rows out: the top row opens
-            // something, the bottom row acts on the app.
-            HStack(spacing: Self.controlSpacing) {
+        // A grid of three equal columns, not two rows of natural widths.
+        //
+        // Two rows, not one, because five controls in 320 points overflow by
+        // about 58 of them and a menu bar panel clips what does not fit from the
+        // trailing edge without a word — which is where Quit sits.
+        //
+        // Equal columns because natural widths left the row ragged: five buttons
+        // of five widths, packed against the leading edge, with a hole in the
+        // second row where the eye expected something. Columns give the two rows
+        // the same rhythm — Dashboard and Refresh start on one line, Settings and
+        // Quit end on another — and the gap in the middle of the second row reads
+        // as a cell rather than as forgotten space.
+        //
+        // Split by kind rather than to even the rows out: the top row opens
+        // something, the bottom row acts on the app. That split is also what
+        // keeps Quit out of arm's reach of Refresh, on a panel people click at
+        // a glance.
+        Grid(horizontalSpacing: Self.controlSpacing, verticalSpacing: Self.rowSpacing) {
+            GridRow {
                 Button("Dashboard", action: openDashboard)
+                    .frame(maxWidth: .infinity)
                 Button("Agentverse", action: openAgentverse)
+                    .frame(maxWidth: .infinity)
 
                 // `SettingsLink`, not the `openSettings` environment action. In
                 // `.menuBarOnly` the app runs as an accessory: it has no app
@@ -211,18 +228,22 @@ struct MenuBarFooter: View {
                 SettingsLink {
                     Text("Settings")
                 }
-
-                Spacer(minLength: 0)
+                .frame(maxWidth: .infinity)
             }
 
-            HStack(spacing: Self.controlSpacing) {
+            GridRow {
                 Button("Refresh", action: refresh)
+                    .frame(maxWidth: .infinity)
 
-                Spacer(minLength: 0)
+                // The empty middle cell. It is what holds the third column open
+                // so Quit lands under Settings instead of beside Refresh.
+                Color.clear
+                    .frame(height: 1)
 
                 Button("Quit") {
                     NSApp.terminate(nil)
                 }
+                .frame(maxWidth: .infinity)
             }
         }
         .buttonStyle(.bordered)
