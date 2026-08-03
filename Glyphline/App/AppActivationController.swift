@@ -3,12 +3,40 @@ import AppKit
 enum AppActivationController {
     @MainActor
     static func apply(mode: AppMode) {
-        // The agentverse window overrides the stored mode. It opens in either
-        // mode and never writes `appMode`, so without this the mode's own policy
-        // would demote the app back to `.accessory` under a window that is still
-        // on screen — taking away its Dock icon and any way back to it.
-        let policy: NSApplication.ActivationPolicy =
-            mode == .menuBarOnly && !hasWindowNeedingRegularApp() ? .accessory : .regular
+        set(policy(for: mode, hasWindowNeedingRegularApp: hasWindowNeedingRegularApp()))
+    }
+
+    /// Which policy a mode asks for, as arithmetic rather than as a side effect.
+    ///
+    /// The agentverse window overrides the stored mode. It opens in either mode
+    /// and never writes `appMode`, so without this the mode's own policy would
+    /// demote the app back to `.accessory` under a window that is still on screen
+    /// — taking away its Dock icon and any way back to it.
+    static func policy(
+        for mode: AppMode,
+        hasWindowNeedingRegularApp: Bool
+    ) -> NSApplication.ActivationPolicy {
+        mode == .menuBarOnly && !hasWindowNeedingRegularApp ? .accessory : .regular
+    }
+
+    /// Sets the policy only when it is not already the one wanted.
+    ///
+    /// The guard is the point. Every caller here expresses an intent — "be what
+    /// this mode asks for" — and for most calls the answer is "you already are".
+    /// Without the check, that no-op intent became a real state change: the menu
+    /// bar panel's `onAppear` runs on *every* opening, so every click on the
+    /// status item re-asserted the activation policy. Re-setting it makes AppKit
+    /// re-evaluate app activation underneath a panel that is in the middle of
+    /// being presented, which is a way to make the panel flicker, close, or come
+    /// back twice — and it is worse with more than one display, where the menu
+    /// bar itself has to be re-resolved.
+    ///
+    /// `setActivationPolicy` is also a synchronous round trip to the window
+    /// server, which is not something to do on the main thread on every click for
+    /// no change at all.
+    @MainActor
+    private static func set(_ policy: NSApplication.ActivationPolicy) {
+        guard NSApp.activationPolicy() != policy else { return }
         NSApp.setActivationPolicy(policy)
     }
 
@@ -23,7 +51,7 @@ enum AppActivationController {
     /// like a button that does nothing.
     @MainActor
     static func regulariseForWindow() {
-        NSApp.setActivationPolicy(.regular)
+        set(.regular)
     }
 
     /// Whether a window is on screen that the app has to stay `.regular` for.

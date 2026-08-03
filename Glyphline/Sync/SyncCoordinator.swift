@@ -99,10 +99,38 @@ final class SyncCoordinator: ObservableObject {
         (currentIntervalSeconds ?? 1_800) * 2
     }
 
+    /// The shortest gap between two collections asked for by a view.
+    ///
+    /// A collection is not cheap. Every account is read by loading its page in a
+    /// `WKWebView` and running one script against the rendered document — a real
+    /// browser navigation, with the layout and compositing that come with it, and
+    /// all of it on the main actor because that is where WebKit lives.
+    ///
+    /// The menu bar panel asks for one every time it opens. Without a floor,
+    /// opening it four times in a row was twelve page renders, and the panel one
+    /// is standing in is the surface that stutters. Sixty seconds is far below
+    /// the rate at which a five-hour or weekly window can move, so nothing on
+    /// screen is meaningfully older for it.
+    static let onDemandRefreshInterval: TimeInterval = 60
+
+    /// When the last collection was *started*, whoever asked for it. Started
+    /// rather than finished, so a slow collection cannot be piled onto by every
+    /// panel opening that happens while it runs.
+    private var lastCollectionStartedAt: Date?
+
     /// Called when the menu opens, so the figure is current at the moment it is
-    /// read. The in-flight guard inside `collectRateWindows` keeps this from
-    /// racing a scheduled tick.
+    /// read — but no more often than `onDemandRefreshInterval`.
+    ///
+    /// The in-flight guard inside `collectRateWindows` is not enough on its own:
+    /// it refuses a *concurrent* fetch for an account already being fetched, and
+    /// says nothing about a fetch that starts a second after the last one
+    /// finished. Opening a menu is not a request for fresh data at any cost.
     func refreshRateWindowsOnDemand() async {
+        if let lastCollectionStartedAt,
+           now().timeIntervalSince(lastCollectionStartedAt) < Self.onDemandRefreshInterval {
+            return
+        }
+
         await collectRateWindows()
     }
 
@@ -360,6 +388,11 @@ final class SyncCoordinator: ObservableObject {
     /// `rateWindowMessages`. `syncFailureMessage` is reserved for the conditions
     /// that stop the whole collection before any account is reached.
     func collectRateWindows() async {
+        // Stamped here rather than in `refreshRateWindowsOnDemand`, so a
+        // scheduled tick also satisfies the panel: opening the menu one second
+        // after the scheduler collected must not collect again.
+        lastCollectionStartedAt = now()
+
         guard let ledger else {
             syncFailureMessage = Self.ledgerUnavailableMessage
             return

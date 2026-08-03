@@ -74,6 +74,84 @@ final class SyncCoordinatorTests: XCTestCase {
         XCTAssertNil(healthy.syncFailureMessage)
     }
 
+    // MARK: - The refresh the menu asks for
+
+    /// What a collection actually costs is one browser navigation per account:
+    /// a `WKWebView` loads the page, renders it, and a script reads the document,
+    /// all on the main actor. The menu bar panel asks for one every time it
+    /// opens, so without a floor, clicking the icon repeatedly renders the web
+    /// once per account per click — and the surface that stutters for it is the
+    /// panel the user is standing in.
+    ///
+    /// Would catch: removing the interval check, which puts this back to one
+    /// full collection per opening.
+    private func makeThrottleFixture(
+        clock: MovableClock,
+        counter: FetchCounter
+    ) throws -> SyncCoordinator {
+        let (_, ledger) = try makeLedger()
+        try saveAccount("Max #1", in: ledger)
+
+        return SyncCoordinator(
+            ledger: ledger,
+            credentials: InMemoryCredentialStore(),
+            registry: ProviderAdapterRegistry(),
+            now: { clock.date },
+            rateWindowSourceProvider: { _ in
+                SignallingRateWindowSource(
+                    window: RateWindow(
+                        kind: .rollingFiveHours,
+                        usedFraction: 0.25,
+                        resetAt: clock.date.addingTimeInterval(1_800),
+                        observedAt: clock.date
+                    ),
+                    onFetch: { counter.increment() }
+                )
+            }
+        )
+    }
+
+    func testOpeningTheMenuAgainWithinTheIntervalDoesNotCollectAgain() async throws {
+        let clock = MovableClock(Self.now)
+        let fetches = FetchCounter()
+        let coordinator = try makeThrottleFixture(clock: clock, counter: fetches)
+
+        await coordinator.refreshRateWindowsOnDemand()
+        await coordinator.refreshRateWindowsOnDemand()
+        await coordinator.refreshRateWindowsOnDemand()
+
+        XCTAssertEqual(fetches.value, 1, "three openings cost three collections")
+    }
+
+    /// And it is a floor, not a lock: once the interval has passed, the next
+    /// opening collects. A throttle that never releases is a panel showing the
+    /// figure it happened to have at launch.
+    func testOpeningTheMenuAfterTheIntervalCollectsAgain() async throws {
+        let clock = MovableClock(Self.now)
+        let fetches = FetchCounter()
+        let coordinator = try makeThrottleFixture(clock: clock, counter: fetches)
+
+        await coordinator.refreshRateWindowsOnDemand()
+        clock.advance(by: SyncCoordinator.onDemandRefreshInterval + 1)
+        await coordinator.refreshRateWindowsOnDemand()
+
+        XCTAssertEqual(fetches.value, 2)
+    }
+
+    /// A scheduled tick satisfies the panel too. The point is how old the figure
+    /// on screen is, not who fetched it — collecting again one second after the
+    /// scheduler did buys nothing and costs a page render per account.
+    func testAScheduledCollectionAlsoSatisfiesTheMenu() async throws {
+        let clock = MovableClock(Self.now)
+        let fetches = FetchCounter()
+        let coordinator = try makeThrottleFixture(clock: clock, counter: fetches)
+
+        await coordinator.collectRateWindows()
+        await coordinator.refreshRateWindowsOnDemand()
+
+        XCTAssertEqual(fetches.value, 1)
+    }
+
     // MARK: - The scheduler
 
     func testSchedulerRepeatsUntilStopped() async throws {
@@ -902,6 +980,47 @@ private struct StableRateWindowSource: RateWindowSource {
 
     func fetchWindows(account: Account, secret: String?) async throws -> RateWindowResult {
         RateWindowResult(windows: [window], dataQuality: .partial, message: nil)
+    }
+}
+
+/// Counts fetches from whichever thread the collection runs on.
+private final class FetchCounter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var count = 0
+
+    func increment() {
+        lock.lock()
+        count += 1
+        lock.unlock()
+    }
+
+    var value: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return count
+    }
+}
+
+/// A clock a test can move, for the same reason `now` is injectable at all: the
+/// alternative is sleeping through the real interval.
+private final class MovableClock: @unchecked Sendable {
+    private let lock = NSLock()
+    private var instant: Date
+
+    init(_ instant: Date) {
+        self.instant = instant
+    }
+
+    var date: Date {
+        lock.lock()
+        defer { lock.unlock() }
+        return instant
+    }
+
+    func advance(by interval: TimeInterval) {
+        lock.lock()
+        instant += interval
+        lock.unlock()
     }
 }
 
