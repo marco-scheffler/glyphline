@@ -41,6 +41,15 @@
        pushed — which is fine, and better than an outage nobody notices. -->
   <key>SUFeedURL</key>
   <string>https://raw.githubusercontent.com/marco-scheffler/glyphline/main/appcast.xml</string>
+  <!-- The public half of the key every update is signed with. Public on purpose:
+       it belongs in every copy of the app, because it is what a copy uses to
+       check that a download really came from here. The private half lives in
+       the maintainer's Keychain and appears in no file in this repository —
+       whoever holds it can hand any Glyphline user arbitrary code, past Apple's
+       notarisation, so a leak of it is not a bug in this app but a compromise of
+       everyone running it. -->
+  <key>SUPublicEDKey</key>
+  <string>tKT5C8wnbAp6bhQhMr901+MJ82Es9Hq0++5HuBzqQRg=</string>
   <!-- Once a day. Sparkle's own default is a week, which for an app that ships
        fixes to a menu bar someone watches all day is too slow to be useful. -->
   <key>SUScheduledCheckInterval</key>
