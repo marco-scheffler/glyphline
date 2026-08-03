@@ -178,6 +178,26 @@ private struct QuotaWindowRow: View {
                 Text(card.paceText ?? card.headroomText)
                     .font(.caption)
             }
+
+            // Its own line, indented past the dot to sit under the status text
+            // rather than under the dot — 7 points of circle plus 7 of spacing.
+            //
+            // Under the status line and quieter than it, because the two say
+            // different kinds of thing: the status line is the urgent statement
+            // and carries the tint, the reset is the background fact. Appending
+            // it to the status line instead would put the card's longest text on
+            // the line that has to survive three cards side by side.
+            //
+            // Monospaced digits so the three cards in a row do not shift against
+            // each other as the countdown ticks.
+            if let resetText = card.resetText {
+                Text(resetText)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+                    .padding(.leading, 14)
+                    .padding(.top, 3)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }

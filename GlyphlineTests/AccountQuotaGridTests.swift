@@ -138,4 +138,27 @@ final class AccountQuotaGridTests: XCTestCase {
         XCTAssertGreaterThan(tallAlone, shortAlone)
         XCTAssertEqual(row, tallAlone, accuracy: 1)
     }
+
+    /// The reset line is a line, so it costs height — and a card that drops it
+    /// silently is the failure worth catching, because the card still looks
+    /// perfectly reasonable without it.
+    func testTheResetLineCostsHeightAndIsLeftOutWhenThereIsNoReset() {
+        let withReset = account("Claude", windows: 2)
+
+        var withoutReset = withReset
+        withoutReset.cards = withReset.cards.map { card in
+            var stripped = card
+            stripped.resetText = nil
+            return stripped
+        }
+
+        let tall = height(of: AccountQuotaGrid(accounts: [withReset]), width: oneColumnWidth)
+        let short = height(of: AccountQuotaGrid(accounts: [withoutReset]), width: oneColumnWidth)
+
+        XCTAssertGreaterThan(
+            tall,
+            short,
+            "the reset line is drawing at zero height, or not drawing at all"
+        )
+    }
 }

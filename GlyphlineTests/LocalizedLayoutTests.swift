@@ -193,6 +193,60 @@ final class LocalizedLayoutTests: XCTestCase {
         XCTAssertEqual(RateWindowKind.allCases.map(\.shortName), ["5h", "Week", "Cycle"])
     }
 
+    /// The reset line is the longest text on a quota card, and a card clips from
+    /// the trailing edge without a word.
+    ///
+    /// Composed out of the compiled table rather than by calling
+    /// `QuotaIndicator.resetText`: the suite is pinned to English, so a runtime
+    /// call would measure English eight times and pass in every language.
+    ///
+    /// Would catch: a translation of "resets in %@" long enough to overflow the
+    /// narrowest card the grid will lay out.
+    func testTheResetLineFitsTheNarrowestCardInEveryLanguage() throws {
+        // 300 minus the card's 16-point padding on each side, minus the
+        // 14-point indent that aligns the line under the status text.
+        let available = AccountQuotaGrid.minimumCardWidth - 32 - 14
+
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        // Two days and four hours out: a weekly window early in its life, which
+        // is the widest the duration gets — "2d 4h" rather than "45m".
+        let resetAt = now.addingTimeInterval(2 * 24 * 60 * 60 + 4 * 60 * 60)
+
+        for language in Self.languages {
+            let countdown = String(
+                format: try translation(of: "resets in %@", in: language),
+                "2d 4h"
+            )
+            let instant = QuotaIndicator.instantText(
+                resetAt,
+                now: now,
+                formatting: QuotaFormatting(
+                    locale: Locale(identifier: language),
+                    timeZone: TimeZone(identifier: "UTC")!
+                )
+            )
+            let line = String(
+                format: try translation(of: "%@ (%@)", in: language),
+                countdown,
+                instant
+            )
+
+            let measured = width(
+                of: Text(verbatim: line).font(.caption).monospacedDigit(),
+                in: language
+            )
+            XCTAssertGreaterThan(measured, 0, "\(language) laid out to nothing")
+            XCTAssertLessThanOrEqual(
+                measured,
+                available,
+                """
+                \(language)'s "\(line)" measures \(measured) against the \
+                \(available) points the narrowest card has
+                """
+            )
+        }
+    }
+
     // MARK: - The chart's period picker
 
     /// A segmented control truncates its segments when it is given less width
