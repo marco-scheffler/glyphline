@@ -119,10 +119,15 @@ final class LocalizedLayoutTests: XCTestCase {
     /// specifically to protect this row, on judgement rather than on a
     /// measurement. The judgement was right and the row was never in danger.
     ///
-    /// The margin has since been spent on legibility: loosening the footer's
-    /// spacing from 6 to 10 to stop the buttons reading as one bar took German
-    /// from 266 to 278 against the 296 available. Eighteen points clear, where it
-    /// was thirty — which makes this test load-bearing rather than reassuring.
+    /// The row is three equal columns now, so what it costs is three times the
+    /// widest single label rather than the sum of five natural widths. German is
+    /// the widest at 268 against the 296 available, 28 points clear.
+    ///
+    /// Which changes what would break it, and makes this test load-bearing rather
+    /// than reassuring: a label only has to be the widest *one* to set all three
+    /// columns, so a single long word now costs three times what it used to. The
+    /// translator's caution over `Refresh` applies to every label in the row now,
+    /// not just to the one that shared a line with `Quit`.
     ///
     /// Would catch: a translation long enough to overflow. Putting
     /// "Aktualisieren" in `Refresh`'s place is not enough on its own — that row
