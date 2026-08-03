@@ -276,6 +276,99 @@ final class LocalTokenUsageStoreTests: XCTestCase {
         )
     }
 
+    /// The counterpart of the watermark case, and worse if it goes wrong: an id
+    /// recorded without its tokens suppresses a real record on the next fork and
+    /// under-counts *permanently*, because the id is the only thing standing
+    /// between that message and being counted.
+    func testAFailedApplyLocalScanWritesNeitherIdsNorTokens() throws {
+        let dbQueue = try DatabaseQueueFactory.makeInMemory()
+        try Migrations.migrate(dbQueue)
+        let store = LedgerStore(dbQueue: dbQueue)
+
+        // Fail the watermark half, which runs after both the tokens and the ids
+        // inside the same transaction.
+        try dbQueue.write { db in
+            try db.execute(
+                sql: """
+                    CREATE TRIGGER blockWatermarks
+                    BEFORE INSERT ON \(LedgerTable.localScanWatermarks)
+                    BEGIN SELECT RAISE(ABORT, 'watermark write failed'); END
+                    """
+            )
+        }
+
+        XCTAssertThrowsError(
+            try store.applyLocalScan(
+                LocalScanResult(
+                    usage: [scanUsage(input: 7)],
+                    watermarks: [scanWatermark(byteOffset: 1_024)],
+                    seenMessages: [LocalSeenMessage(messageID: "msg_1", seenAt: day)]
+                )
+            )
+        )
+
+        XCTAssertTrue(
+            try store.fetchLocalTokenUsage(since: nil).isEmpty,
+            "the failed scan's tokens must be rolled back"
+        )
+        XCTAssertTrue(
+            try store.fetchSeenMessageIDs().isEmpty,
+            "an id kept from a failed scan would suppress that message forever"
+        )
+    }
+
+    /// Ids and tokens land together on the way in, too — the successful case of
+    /// the same invariant.
+    func testApplyLocalScanRecordsTheIdsAlongsideTheTokens() throws {
+        let store = try makeStore()
+
+        try store.applyLocalScan(
+            LocalScanResult(
+                usage: [scanUsage(input: 7)],
+                watermarks: [scanWatermark(byteOffset: 1_024)],
+                seenMessages: [LocalSeenMessage(messageID: "msg_1", seenAt: day)]
+            )
+        )
+
+        XCTAssertEqual(try store.fetchLocalTokenUsage(since: nil).first?.inputTokens, 7)
+        XCTAssertEqual(try store.fetchSeenMessageIDs(), ["msg_1"])
+    }
+
+    /// The window is what bounds the table. Measured, a message is only ever
+    /// re-copied within days of being written, so an id older than the window
+    /// buys nothing and is dropped; an id inside it still has work to do.
+    func testPruningDropsIdsPastTheWindowAndKeepsIdsInsideIt() throws {
+        let store = try makeStore()
+        let now = day
+
+        try store.applyLocalScan(
+            LocalScanResult(
+                usage: [],
+                watermarks: [],
+                seenMessages: [
+                    LocalSeenMessage(
+                        messageID: "stale",
+                        seenAt: now - LocalSeenMessageRetention.window - 60
+                    ),
+                    LocalSeenMessage(
+                        messageID: "fresh",
+                        seenAt: now - LocalSeenMessageRetention.window + 60
+                    ),
+                ]
+            ),
+            // Before the window elapses, so the apply itself prunes nothing.
+            now: now - LocalSeenMessageRetention.window
+        )
+        XCTAssertEqual(try store.fetchSeenMessageIDs(), ["stale", "fresh"])
+
+        try store.pruneSeenMessages(now: now)
+
+        XCTAssertEqual(
+            try store.fetchSeenMessageIDs(), ["fresh"],
+            "past the window goes, inside it stays"
+        )
+    }
+
     /// The watermark of a successful apply really does advance, so the next scan
     /// resumes past what was already counted instead of adding it twice.
     func testASecondApplyResumesFromTheAdvancedWatermark() throws {
