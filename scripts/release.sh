@@ -168,8 +168,23 @@ echo "    Architekturen: $(lipo -archs "$APP/Contents/MacOS/Glyphline")"
 echo "==> Zur Notarisierung einreichen (das dauert; --wait blockiert bis fertig)"
 # ditto statt zip: ein App-Bundle ist ein Verzeichnis mit Symlinks und
 # Ausführungsrechten, und `zip` verliert beides.
+#
+# --sequesterRsrc ist nicht kosmetisch, es war drei Releases lang der Fehler.
+# macOS hängt an jede Datei im Bundle ein `com.apple.provenance`-Attribut, und
+# ditto speichert erweiterte Attribute im ZIP als AppleDouble-Dateien ("._foo").
+# Ohne diese Flagge liegen sie *neben* der Datei, zu der sie gehören — also im
+# Bundle. Apples eigene Entpacker setzen sie wieder als Attribute ein und
+# löschen die Dateien; jeder andere (`unzip`, The Unarchiver, alles unter
+# Windows) legt sie als echte Dateien ab. Damit enthält das Bundle 153 Dateien,
+# die beim Signieren nicht versiegelt wurden, die Signatur ist ungültig, und der
+# Nutzer bekommt "Apple konnte nicht überprüfen, ob Glyphline frei von
+# Schadsoftware ist" — bei einer App, die einwandfrei notarisiert ist.
+#
+# Mit der Flagge sammelt ditto sie unter __MACOSX/ am Wurzelverzeichnis. Ein
+# fremder Entpacker legt dann einen unnützen Ordner neben die App und lässt das
+# Bundle in Ruhe.
 rm -f "$ZIP"
-ditto -c -k --keepParent "$APP" "$ZIP"
+ditto -c -k --sequesterRsrc --keepParent "$APP" "$ZIP"
 xcrun notarytool submit "$ZIP" --keychain-profile "$NOTARY_PROFILE" --wait
 
 echo "==> Ticket antackern"
@@ -180,10 +195,40 @@ xcrun stapler validate "$APP"
 
 echo "==> Neu paketieren (das ZIP oben enthält die App noch ohne Ticket)"
 rm -f "$ZIP"
-ditto -c -k --keepParent "$APP" "$ZIP"
+ditto -c -k --sequesterRsrc --keepParent "$APP" "$ZIP"
 
 echo "==> Gegenprobe, wie Gatekeeper sie beim Empfänger sieht"
 spctl -a -vvv -t exec "$APP"
+
+# Und die Gegenprobe, die drei Releases lang gefehlt hat: nicht die App prüfen,
+# die hier gebaut wurde, sondern die, die aus dem ZIP herausfällt — mit einem
+# Entpacker, der nicht von Apple ist. Alles darüber (codesign, stapler, spctl)
+# lief auf dem Bundle im Build-Verzeichnis und war deshalb blind für alles, was
+# erst beim Auspacken passiert.
+echo "==> Auspacken wie ein fremdes Werkzeug es tut"
+UNPACK="$(mktemp -d)"
+trap 'rm -rf "$UNPACK"' EXIT
+(cd "$UNPACK" && unzip -q "$ZIP")
+UNPACKED="$UNPACK/Glyphline.app"
+
+STRAY="$(find "$UNPACKED" \( -name '._*' -o -name '.__*' \) | wc -l | tr -d ' ')"
+if [ "$STRAY" != "0" ]; then
+    echo "FEHLER: $STRAY AppleDouble-Dateien sind im Bundle gelandet." >&2
+    echo "        Die Signatur ist damit beim Empfänger ungültig, obwohl die App" >&2
+    echo "        hier notarisiert ist. Fehlt --sequesterRsrc am ditto oben?" >&2
+    exit 1
+fi
+
+if ! codesign --verify --strict --deep "$UNPACKED" 2>&1; then
+    echo "FEHLER: Die ausgepackte App besteht ihre eigene Signaturprüfung nicht." >&2
+    exit 1
+fi
+
+if ! spctl -a -vvv -t exec "$UNPACKED" 2>&1 | grep -q "accepted"; then
+    echo "FEHLER: Gatekeeper lehnt die ausgepackte App ab." >&2
+    exit 1
+fi
+echo "    ausgepackt gültig, keine Fremddateien im Bundle"
 
 # Erst jetzt, nach dem Tackern und dem letzten Paketieren: signiert wird genau
 # die Datei, die hochgeladen wird. Ein zwischendurch neu gepacktes ZIP hätte
