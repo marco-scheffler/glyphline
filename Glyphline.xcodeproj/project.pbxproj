@@ -40,6 +40,7 @@
 		28C11321FB7E815ECD239AE1 /* PricingCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D596EC370B13AA593C32D79 /* PricingCatalog.swift */; };
 		29DAC97DF9CC2CB3A0D01784 /* AppSettingsStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD5F66FB95D8BBD93EFCBE00 /* AppSettingsStoreTests.swift */; };
 		2A7289DD211158D42C26C9DE /* MenuBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB947F271F18142FE2CD64DB /* MenuBarView.swift */; };
+		2A94664FC19185B39CDF60D2 /* SyncScheduleControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9936C835044A5657A16186E5 /* SyncScheduleControllerTests.swift */; };
 		2BDACE3AAE0A202FCB9520BC /* AppSettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E78F87ED03A83F2D193EF8B /* AppSettingsStore.swift */; };
 		2D04AC8654DED4BFB14D9852 /* ModelMixTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AE1DEF7F5A645B5A545E3F8 /* ModelMixTests.swift */; };
 		2DF42C50602C384C26283736 /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = C1D17CF7506CDB47E08BD82A /* GRDB */; };
@@ -305,6 +306,7 @@
 		93FBE86612C30FFEEC2EE1FD /* AccountDeletionFormatting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountDeletionFormatting.swift; sourceTree = "<group>"; };
 		979B2CFA8C52D4A2693A102A /* Migrations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Migrations.swift; sourceTree = "<group>"; };
 		97C425B4A5612D534BA5FECC /* AccountCredentialReferenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountCredentialReferenceTests.swift; sourceTree = "<group>"; };
+		9936C835044A5657A16186E5 /* SyncScheduleControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncScheduleControllerTests.swift; sourceTree = "<group>"; };
 		9BD3C2C540C231D67EC5F063 /* AgentSessionScannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentSessionScannerTests.swift; sourceTree = "<group>"; };
 		9D3C73941B3DC3E54BAB1EB4 /* OfficeLightingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfficeLightingTests.swift; sourceTree = "<group>"; };
 		A1AADE473E53A645F034AE62 /* AccountAttentionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountAttentionTests.swift; sourceTree = "<group>"; };
@@ -598,6 +600,7 @@
 				F4E1FE1146583F38A8203043 /* SunPositionTests.swift */,
 				AB71829869D2BDC5C53A536A /* SyncCoordinatorLocalUsageTests.swift */,
 				62C5666D45C5D74DC69F722E /* SyncCoordinatorTests.swift */,
+				9936C835044A5657A16186E5 /* SyncScheduleControllerTests.swift */,
 				E9C0687AA9C44DF758152726 /* UpdateConfigurationTests.swift */,
 				6038A4E395A2847039481F0D /* UsageModelsTests.swift */,
 				8436B59B839E014CC6FDD206 /* UserPlaceTests.swift */,
@@ -931,6 +934,7 @@
 				84A54ADAC7F03FF978AB6A90 /* SunPositionTests.swift in Sources */,
 				383C6EC1087E7FC1D05F6919 /* SyncCoordinatorLocalUsageTests.swift in Sources */,
 				AA9559C25108258EBA10DC8A /* SyncCoordinatorTests.swift in Sources */,
+				2A94664FC19185B39CDF60D2 /* SyncScheduleControllerTests.swift in Sources */,
 				FE474D5271F781AEA57A17F9 /* UpdateConfigurationTests.swift in Sources */,
 				B8B5DF46E5F52175C3B0C9F8 /* UsageModelsTests.swift in Sources */,
 				DD2396AD5BE685E977AB9FAD /* UserPlaceTests.swift in Sources */,
