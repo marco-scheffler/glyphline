@@ -1041,4 +1041,71 @@ final class QuotaIndicatorTests: XCTestCase {
             )
         }
     }
+
+    /// The card's reset line is the two existing halves and nothing else. If it
+    /// ever computes its own duration or its own clock time, this fails — which
+    /// is the point, because a second implementation is how two surfaces start
+    /// disagreeing about when a window comes back.
+    func testResetTextIsExactlyItsTwoHalves() throws {
+        let formatting = QuotaFormatting(
+            locale: Locale(identifier: "en_US"),
+            timeZone: TimeZone(identifier: "UTC")!
+        )
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let resetAt = now.addingTimeInterval(2 * 24 * 60 * 60 + 4 * 60 * 60)
+        let window = RateWindow(
+            kind: .weekly,
+            usedFraction: 0.5,
+            resetAt: resetAt,
+            observedAt: now
+        )
+
+        let text = try XCTUnwrap(
+            QuotaIndicator.resetText(for: window, now: now, formatting: formatting)
+        )
+
+        let remaining = QuotaIndicator.remainingText(until: resetAt, now: now, verb: .resets)
+        let instant = QuotaIndicator.instantText(resetAt, now: now, formatting: formatting)
+        XCTAssertTrue(text.contains(remaining), "\(text) lost the countdown")
+        XCTAssertTrue(text.contains(instant), "\(text) lost the clock time")
+    }
+
+    /// A subscription term ends and returns no capacity, so it must not say it
+    /// resets. The verb comes from `labelAndVerb`, which every other surface
+    /// already reads, rather than from a switch here.
+    func testTheBillingCycleEndsRatherThanResets() throws {
+        let formatting = QuotaFormatting(
+            locale: Locale(identifier: "en_US"),
+            timeZone: TimeZone(identifier: "UTC")!
+        )
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let resetAt = now.addingTimeInterval(4 * 24 * 60 * 60)
+        let window = RateWindow(
+            kind: .billingCycle,
+            usedFraction: 0.5,
+            resetAt: resetAt,
+            observedAt: now
+        )
+
+        let text = try XCTUnwrap(
+            QuotaIndicator.resetText(for: window, now: now, formatting: formatting)
+        )
+        XCTAssertTrue(
+            text.contains(QuotaIndicator.remainingText(until: resetAt, now: now, verb: .ends)),
+            "\(text) used the wrong verb"
+        )
+    }
+
+    /// No reset instant, no line. A window that is not running has no return to
+    /// announce, and borrowing the verb would invent one.
+    func testAWindowWithoutAResetHasNoResetText() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let window = RateWindow(
+            kind: .rollingFiveHours,
+            usedFraction: 0.5,
+            resetAt: nil,
+            observedAt: now
+        )
+        XCTAssertNil(QuotaIndicator.resetText(for: window, now: now))
+    }
 }
