@@ -42,8 +42,12 @@ targets:
         product: Sparkle
     settings:
       PRODUCT_BUNDLE_IDENTIFIER: com.marcoscheffler.glyphline
-      MARKETING_VERSION: "1.1"
-      CURRENT_PROJECT_VERSION: "2"
+      MARKETING_VERSION: "1.2"
+      # Die Zahl, die Sparkle vergleicht — nicht MARKETING_VERSION. Sie muss bei
+      # jedem Release steigen, sonst wird das Update gebaut, notarisiert,
+      # hochgeladen und niemandem angeboten. release.sh prüft das gegen
+      # appcast.xml, bevor der Build losläuft.
+      CURRENT_PROJECT_VERSION: "3"
       INFOPLIST_FILE: Glyphline/Info.plist
       SWIFT_VERSION: 6.0
       CODE_SIGN_STYLE: Automatic
