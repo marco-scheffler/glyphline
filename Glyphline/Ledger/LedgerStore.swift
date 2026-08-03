@@ -454,16 +454,80 @@ final class LedgerStore {
     /// not, the next scan reads those bytes again and double-counts them; if the
     /// watermarks land and the tokens do not, those bytes are never read again
     /// and the totals understate for good. One transaction: all of it, or none.
-    func applyLocalScan(_ result: LocalScanResult) throws {
-        guard !result.usage.isEmpty || !result.sessionUsage.isEmpty || !result.watermarks.isEmpty
+    func applyLocalScan(_ result: LocalScanResult, now: Date = Date()) throws {
+        guard !result.usage.isEmpty || !result.sessionUsage.isEmpty
+            || !result.watermarks.isEmpty || !result.seenMessages.isEmpty
         else { return }
 
         try dbQueue.write { db in
             try Self.addLocalTokenUsage(result.usage, in: db)
             try Self.addLocalSessionTokens(result.sessionUsage, in: db)
+            // In the same transaction as the tokens, for the same reason the
+            // watermarks are: an id stored without its tokens suppresses a real
+            // record on the next fork and under-counts permanently, and tokens
+            // stored without their id are counted again by the next copy.
+            try Self.recordSeenMessages(result.seenMessages, in: db)
             for watermark in result.watermarks {
                 try Self.saveLocalScanWatermark(watermark, in: db)
             }
+            // Once per scan rather than once per insert: a delete by age over an
+            // indexed column costs nothing next to the scan that preceded it,
+            // and a table that only grows while new messages arrive is a table
+            // that stops growing when they stop.
+            try Self.pruneSeenMessages(before: now - LocalSeenMessageRetention.window, in: db)
+        }
+    }
+
+    private static func recordSeenMessages(_ rows: [LocalSeenMessage], in db: Database) throws {
+        for row in rows {
+            // Conflicts should not happen — the scan skips an id it has already
+            // seen — but if one does, the first sighting keeps its instant.
+            // Refreshing it would let a message that keeps being re-copied sit
+            // in the table forever, which is exactly what the window prevents.
+            try db.execute(
+                sql: """
+                    INSERT INTO \(LedgerTable.localSeenMessages) (
+                        \(LedgerColumn.messageID),
+                        \(LedgerColumn.seenAt)
+                    )
+                    VALUES (?, ?)
+                    ON CONFLICT(\(LedgerColumn.messageID)) DO NOTHING
+                    """,
+                arguments: [row.messageID, row.seenAt]
+            )
+        }
+    }
+
+    private static func pruneSeenMessages(before cutoff: Date, in db: Database) throws {
+        try db.execute(
+            sql: """
+                DELETE FROM \(LedgerTable.localSeenMessages)
+                WHERE \(LedgerColumn.seenAt) < ?
+                """,
+            arguments: [cutoff]
+        )
+    }
+
+    /// Drops remembered message ids older than the retention window.
+    ///
+    /// Exposed for its own sake so the window is testable; production prunes
+    /// through `applyLocalScan`, once per scan.
+    func pruneSeenMessages(now: Date = Date()) throws {
+        try dbQueue.write { db in
+            try Self.pruneSeenMessages(before: now - LocalSeenMessageRetention.window, in: db)
+        }
+    }
+
+    /// Every message id the scan has already counted and not yet pruned.
+    ///
+    /// Read whole, once per scan: the alternative is a query per transcript
+    /// line, and a cold start reads millions of them.
+    func fetchSeenMessageIDs() throws -> Set<String> {
+        try dbQueue.read { db in
+            try String.fetchSet(
+                db,
+                sql: "SELECT \(LedgerColumn.messageID) FROM \(LedgerTable.localSeenMessages)"
+            )
         }
     }
 

@@ -13,6 +13,9 @@ import Foundation
 /// machine-wide and has no account to key its resume point by.
 protocol LocalScanWatermarkStoring: AnyObject {
     func fetchLocalScanWatermark(sourceKey: String) throws -> LocalScanWatermark?
+    /// Ids of the assistant messages already counted, so a copy of one in a
+    /// forked transcript is not counted a second time.
+    func fetchSeenMessageIDs() throws -> Set<String>
 }
 
 extension LedgerStore: LocalScanWatermarkStoring {}
@@ -29,6 +32,11 @@ struct LocalScanResult: Equatable, Sendable {
     /// same pass from the same records, so the two can never disagree.
     var sessionUsage: [LocalSessionTokenUsage] = []
     var watermarks: [LocalScanWatermark]
+    /// The ids of the messages whose tokens are in `usage`. Inseparable from it
+    /// for the same reason the watermarks are: recorded without their tokens
+    /// they suppress a real record forever, and the tokens recorded without them
+    /// are counted again by the next fork.
+    var seenMessages: [LocalSeenMessage] = []
 }
 
 /// One assistant record in a Claude Code transcript. Records that are not
@@ -49,6 +57,9 @@ private struct ClaudeCodeLogRecord: Decodable {
             }
         }
 
+        /// The API's message id. Stable across every copy of the message, which
+        /// is what makes deduplication possible at all.
+        var id: String?
         var model: String?
         var usage: Usage?
     }
@@ -109,6 +120,25 @@ final class ClaudeCodeLogReader: @unchecked Sendable {
         return placeholderModelNames.contains(model)
     }
 
+    /// Whether this record's tokens have already been counted, remembering it if
+    /// they have not.
+    ///
+    /// A record with no `message.id` cannot be deduplicated, so it is counted —
+    /// exactly as before this guard existed, and again if it recurs. That is a
+    /// deliberate limit: silently dropping usage that cannot be identified would
+    /// trade an over-count for an under-count, which is the worse of the two
+    /// because nothing would ever reveal it.
+    private static func isAlreadyCounted(
+        _ messageID: String?,
+        seen: inout Set<String>,
+        newlySeen: inout [LocalSeenMessage]
+    ) -> Bool {
+        guard let messageID, !messageID.isEmpty else { return false }
+        guard seen.insert(messageID).inserted else { return true }
+        newlySeen.append(LocalSeenMessage(messageID: messageID, seenAt: Date()))
+        return false
+    }
+
     private struct BucketKey: Hashable {
         var dayStart: Date
         var model: String?
@@ -142,9 +172,16 @@ final class ClaudeCodeLogReader: @unchecked Sendable {
         // expensive to construct and `read` parses millions of lines on a cold start.
         let dates = TranscriptTimestampParser()
 
+        // Read once per scan, not once per line. The set carries the ids from
+        // every previous scan — which is the whole point, since a fork's parent
+        // was consumed in an earlier pass — and grows as this scan counts more,
+        // so a message copied into two files within one scan is also caught.
+        var seen = try watermarkStore.fetchSeenMessageIDs()
+        var newlySeen: [LocalSeenMessage] = []
+
         for file in transcriptURLs() {
             try consume(file, dates: dates, into: &totals, sessions: &sessionTotals,
-                        watermarks: &watermarks)
+                        watermarks: &watermarks, seen: &seen, newlySeen: &newlySeen)
         }
 
         let usage = totals.map { key, value in
@@ -171,7 +208,12 @@ final class ClaudeCodeLogReader: @unchecked Sendable {
         }
         .sorted { ($0.sessionID, $0.modelKey) < ($1.sessionID, $1.modelKey) }
 
-        return LocalScanResult(usage: usage, sessionUsage: sessionUsage, watermarks: watermarks)
+        return LocalScanResult(
+            usage: usage,
+            sessionUsage: sessionUsage,
+            watermarks: watermarks,
+            seenMessages: newlySeen
+        )
     }
 
     private func transcriptURLs() -> [URL] {
@@ -187,7 +229,9 @@ final class ClaudeCodeLogReader: @unchecked Sendable {
         dates: TranscriptTimestampParser,
         into totals: inout [BucketKey: Totals],
         sessions: inout [SessionKey: Totals],
-        watermarks: inout [LocalScanWatermark]
+        watermarks: inout [LocalScanWatermark],
+        seen: inout Set<String>,
+        newlySeen: inout [LocalSeenMessage]
     ) throws {
         let attributes = try? fileManager.attributesOfItem(atPath: file.path)
         let size = (attributes?[.size] as? NSNumber)?.int64Value ?? 0
@@ -242,7 +286,8 @@ final class ClaudeCodeLogReader: @unchecked Sendable {
             if let record = try? decoder.decode(ClaudeCodeLogRecord.self, from: Data(line)),
                let usage = record.message?.usage,
                let timestamp = dates.date(from: record.timestamp),
-               !Self.isPlaceholderModel(record.message?.model) {
+               !Self.isPlaceholderModel(record.message?.model),
+               !Self.isAlreadyCounted(record.message?.id, seen: &seen, newlySeen: &newlySeen) {
                 let dayStart = calendar.startOfDay(for: timestamp)
                 let key = BucketKey(dayStart: dayStart, model: record.message?.model)
                 var bucket = totals[key] ?? Totals()

@@ -25,9 +25,13 @@ final class ClaudeCodeLogReaderTests: XCTestCase {
         try super.tearDownWithError()
     }
 
-    private func line(model: String, input: Int, cacheWrite: Int, cacheRead: Int, output: Int, timestamp: String) -> String {
-        """
-        {"type":"assistant","timestamp":"\(timestamp)","message":{"model":"\(model)","usage":{"input_tokens":\(input),"cache_creation_input_tokens":\(cacheWrite),"cache_read_input_tokens":\(cacheRead),"output_tokens":\(output)}}}
+    /// `id` defaults to absent, which is what most of these tests want: a record
+    /// that cannot be deduplicated is counted every time it is read, so a fixture
+    /// without ids behaves exactly as it did before deduplication existed.
+    private func line(model: String, input: Int, cacheWrite: Int, cacheRead: Int, output: Int, timestamp: String, id: String? = nil) -> String {
+        let identity = id.map { "\"id\":\"\($0)\"," } ?? ""
+        return """
+        {"type":"assistant","timestamp":"\(timestamp)","message":{\(identity)"model":"\(model)","usage":{"input_tokens":\(input),"cache_creation_input_tokens":\(cacheWrite),"cache_read_input_tokens":\(cacheRead),"output_tokens":\(output)}}}
         """
     }
 
@@ -449,5 +453,82 @@ final class ClaudeCodeLogReaderTests: XCTestCase {
 
         XCTAssertEqual(result.usage.first?.totalTokens, 15, "the day still sees it")
         XCTAssertTrue(result.sessionUsage.isEmpty)
+    }
+
+    /// The bug this task exists for, stated as a test.
+    ///
+    /// Resuming or forking a session makes Claude Code write a *new* transcript
+    /// with the preceding history copied into it, so the same assistant message —
+    /// same id, same usage block — sits in both files. The naive per-line sum
+    /// counts it twice.
+    ///
+    /// Scanned in two passes on purpose: that is the shape the per-file
+    /// watermarks force. The parent was fully consumed in the first pass, the
+    /// fork is new in the second and is read from byte zero, so a set living only
+    /// for one scan would not remember M1 or M2 at all.
+    func testAMessageCopiedIntoAForkedTranscriptIsCountedOnce() throws {
+        let parent = [
+            line(model: "sonnet", input: 100, cacheWrite: 0, cacheRead: 0, output: 10,
+                 timestamp: "2026-07-30T10:00:00.000Z", id: "msg_1"),
+            line(model: "sonnet", input: 200, cacheWrite: 0, cacheRead: 0, output: 20,
+                 timestamp: "2026-07-30T10:05:00.000Z", id: "msg_2"),
+        ].joined(separator: "\n") + "\n"
+
+        try write(parent, to: "parent.jsonl")
+        try ledger.applyLocalScan(try makeReader().read())
+
+        // The fork: the parent's history copied verbatim, then one new turn.
+        try write(
+            parent + line(model: "sonnet", input: 5, cacheWrite: 0, cacheRead: 0, output: 1,
+                          timestamp: "2026-07-30T10:10:00.000Z", id: "msg_3") + "\n",
+            to: "fork.jsonl"
+        )
+        try ledger.applyLocalScan(try makeReader().read())
+
+        let total = try ledger.fetchLocalTokenUsage(since: nil)
+            .reduce(Int64(0)) { $0 + $1.totalTokens }
+        XCTAssertEqual(
+            total, 336,
+            "msg_1 + msg_2 + msg_3 counted once each; the naive per-line sum is 666"
+        )
+    }
+
+    /// The guard must not swallow real usage: an id nobody has counted yet is
+    /// counted, however late it turns up.
+    func testANewMessageIDInALaterScanIsStillCounted() throws {
+        try write(
+            line(model: "sonnet", input: 100, cacheWrite: 0, cacheRead: 0, output: 0,
+                 timestamp: "2026-07-30T10:00:00.000Z", id: "msg_1") + "\n",
+            to: "a.jsonl"
+        )
+        try ledger.applyLocalScan(try makeReader().read())
+
+        try append(
+            line(model: "sonnet", input: 7, cacheWrite: 0, cacheRead: 0, output: 0,
+                 timestamp: "2026-07-30T11:00:00.000Z", id: "msg_2") + "\n",
+            to: "a.jsonl"
+        )
+        let second = try makeReader().read()
+
+        XCTAssertEqual(second.usage.first?.totalTokens, 7, "the new message is not suppressed")
+        XCTAssertEqual(second.seenMessages.map(\.messageID), ["msg_2"])
+    }
+
+    /// A record with no `message.id` cannot be deduplicated, so it is counted —
+    /// and counted again if the same content recurs in a fork. That is the
+    /// accepted limit of this fix, pinned here so it stays deliberate: dropping
+    /// usage that cannot be identified would trade the over-count for an
+    /// under-count nothing would ever reveal.
+    func testARecordWithoutAMessageIDIsCountedEveryTimeItIsSeen() throws {
+        let anonymous = line(model: "sonnet", input: 100, cacheWrite: 0, cacheRead: 0,
+                             output: 0, timestamp: "2026-07-30T10:00:00.000Z") + "\n"
+
+        try write(anonymous, to: "parent.jsonl")
+        try ledger.applyLocalScan(try makeReader().read())
+        try write(anonymous, to: "fork.jsonl")
+        let second = try makeReader().read()
+
+        XCTAssertEqual(second.usage.first?.totalTokens, 100, "counted again, knowingly")
+        XCTAssertTrue(second.seenMessages.isEmpty, "there is no id to remember it by")
     }
 }

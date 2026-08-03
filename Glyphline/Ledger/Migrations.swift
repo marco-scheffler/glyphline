@@ -13,6 +13,7 @@ enum LedgerTable {
     static let localScanWatermarks = "localScanWatermarks"
     static let localSessionTokens = "localSessionTokens"
     static let agentverseParked = "agentverseParked"
+    static let localSeenMessages = "localSeenMessages"
 }
 
 enum LedgerColumn {
@@ -68,6 +69,8 @@ enum LedgerColumn {
     static let parkedAt = "parkedAt"
     static let aiTitle = "aiTitle"
     static let slug = "slug"
+    static let messageID = "messageID"
+    static let seenAt = "seenAt"
 }
 
 enum Migrations {
@@ -465,6 +468,37 @@ enum Migrations {
             try db.alter(table: LedgerTable.accounts) { table in
                 table.add(column: LedgerColumn.customName, .text)
             }
+        }
+
+        migrator.registerMigration("v14_local_seen_messages") { db in
+            // Every assistant message already counted, by its `message.id`.
+            //
+            // Claude Code copies a session's history into a new file when a
+            // session is resumed or forked, so the same message — same id, same
+            // usage block — sits in several transcripts. Measured over this
+            // machine's transcript directory: 104,306 distinct ids against
+            // 91,095 duplicate occurrences, which made the totals 2.19x too high.
+            //
+            // Persisted rather than held for the length of one scan, because the
+            // scan is incremental: a fork file is new, has no watermark and is
+            // read whole, while its parent was consumed in an *earlier* pass. A
+            // set living for one scan would have no memory of the parent's ids
+            // and would catch almost nothing in the steady state.
+            //
+            // Account-free like the rest of the local scan: a transcript carries
+            // no marker of which subscription produced it.
+            try db.create(table: LedgerTable.localSeenMessages) { table in
+                table.column(LedgerColumn.messageID, .text).primaryKey()
+                table.column(LedgerColumn.seenAt, .datetime).notNull()
+            }
+
+            // Pruning is the only query that does not go through the primary
+            // key: it deletes by age, and without this it would scan the table.
+            try db.create(
+                index: "index_localSeenMessages_on_seenAt",
+                on: LedgerTable.localSeenMessages,
+                columns: [LedgerColumn.seenAt]
+            )
         }
 
         return migrator

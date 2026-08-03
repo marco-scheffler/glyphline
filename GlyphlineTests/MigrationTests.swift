@@ -597,4 +597,52 @@ final class MigrationTests: XCTestCase {
         XCTAssertNil(account.customName, "an account written before v13 was never renamed")
         XCTAssertEqual(account.resolvedName, "Claude personal")
     }
+
+    /// v14 adds the table that stops an assistant message being counted once per
+    /// transcript. The case a naive migration test misses is the one that matters
+    /// here: `localTokenUsage` is populated long before v14, and those totals are
+    /// the user's history. The migration must add the table and leave every
+    /// counted token exactly where it was.
+    func testV14AddsTheSeenMessageTableWithoutDisturbingTheCountedTokens() throws {
+        let dbQueue = try DatabaseQueueFactory.makeInMemory()
+        let migrator = Migrations.makeMigrator()
+        try migrator.migrate(dbQueue, upTo: "v13_account_custom_name")
+
+        let bucketStart = Date(timeIntervalSince1970: 1_800_000_000)
+        try dbQueue.write { db in
+            try db.execute(
+                sql: """
+                    INSERT INTO localTokenUsage
+                        (bucketStart, modelKey, model, inputTokens, cacheCreationTokens,
+                         cacheReadTokens, outputTokens, requests)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                arguments: [bucketStart, "sonnet", "sonnet", 10, 20, 30, 40, 1]
+            )
+        }
+
+        try migrator.migrate(dbQueue)
+
+        let store = LedgerStore(dbQueue: dbQueue)
+        let rows = try store.fetchLocalTokenUsage(since: nil)
+        XCTAssertEqual(rows.count, 1, "the pre-migration totals must survive")
+        XCTAssertEqual(rows[0].bucketStart, bucketStart)
+        XCTAssertEqual(rows[0].inputTokens, 10)
+        XCTAssertEqual(rows[0].cacheCreationTokens, 20)
+        XCTAssertEqual(rows[0].cacheReadTokens, 30)
+        XCTAssertEqual(rows[0].outputTokens, 40)
+
+        XCTAssertTrue(
+            try store.fetchSeenMessageIDs().isEmpty,
+            "a ledger migrated to v14 has counted nothing it can name yet"
+        )
+        try store.applyLocalScan(
+            LocalScanResult(
+                usage: [],
+                watermarks: [],
+                seenMessages: [LocalSeenMessage(messageID: "msg_1", seenAt: bucketStart)]
+            )
+        )
+        XCTAssertEqual(try store.fetchSeenMessageIDs(), ["msg_1"])
+    }
 }

@@ -115,6 +115,31 @@ struct LocalSessionTokenUsage: Equatable, Sendable {
     }
 }
 
+/// One assistant message whose usage has already been counted.
+///
+/// The id is Claude Code's `message.id`. `seenAt` exists only so the row can be
+/// pruned; it is the instant the scan recorded it, not the instant the message
+/// was written.
+struct LocalSeenMessage: Equatable, Sendable {
+    var messageID: String
+    var seenAt: Date
+}
+
+/// How long a counted message id is remembered.
+///
+/// Measured on this machine's transcripts: when a message gets copied into a
+/// later file, its age at that moment is p50=0.0h, p90=0.0h, p99=0.1h,
+/// max=111.9h — 99.9% within 24 hours and 100% within 7 days. Forks copy
+/// *recent* history. Fourteen days covers the worst observed case with three
+/// times the margin and still bounds the table: at roughly 18k usage-carrying
+/// messages a day that is about 250k rows, single-digit megabytes.
+///
+/// Too short and a fork of an older session double-counts again; too long and
+/// the table grows without ever buying anything.
+enum LocalSeenMessageRetention {
+    static let window: TimeInterval = 14 * 24 * 60 * 60
+}
+
 /// Resume point for the machine-wide transcript scan. `SyncWatermark` minus its
 /// account, because the scan has none.
 struct LocalScanWatermark: Equatable, Sendable {
