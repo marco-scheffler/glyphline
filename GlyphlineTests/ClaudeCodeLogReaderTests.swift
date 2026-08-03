@@ -493,6 +493,38 @@ final class ClaudeCodeLogReaderTests: XCTestCase {
         )
     }
 
+    /// The same bug on a fresh install, which is a different code path.
+    ///
+    /// On a first run nothing is persisted and every file is new, so one scan
+    /// sees the parent and the fork *together*. Nothing in the table catches the
+    /// copy — only the `seen` set growing as the scan counts does. The two-pass
+    /// test above cannot reach that path, because there the parent's ids come
+    /// back from the ledger.
+    func testAMessageCopiedIntoAForkIsCountedOnceWhenBothAreScannedInOnePass() throws {
+        let parent = [
+            line(model: "sonnet", input: 100, cacheWrite: 0, cacheRead: 0, output: 10,
+                 timestamp: "2026-07-30T10:00:00.000Z", id: "msg_1"),
+            line(model: "sonnet", input: 200, cacheWrite: 0, cacheRead: 0, output: 20,
+                 timestamp: "2026-07-30T10:05:00.000Z", id: "msg_2"),
+        ].joined(separator: "\n") + "\n"
+
+        try write(parent, to: "parent.jsonl")
+        try write(
+            parent + line(model: "sonnet", input: 5, cacheWrite: 0, cacheRead: 0, output: 1,
+                          timestamp: "2026-07-30T10:10:00.000Z", id: "msg_3") + "\n",
+            to: "fork.jsonl"
+        )
+
+        try ledger.applyLocalScan(try makeReader().read())
+
+        let total = try ledger.fetchLocalTokenUsage(since: nil)
+            .reduce(Int64(0)) { $0 + $1.totalTokens }
+        XCTAssertEqual(
+            total, 336,
+            "one pass over both files, msg_1 + msg_2 + msg_3 once each; naive is 666"
+        )
+    }
+
     /// The guard must not swallow real usage: an id nobody has counted yet is
     /// counted, however late it turns up.
     func testANewMessageIDInALaterScanIsStillCounted() throws {
