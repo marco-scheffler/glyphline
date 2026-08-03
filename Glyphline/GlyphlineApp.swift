@@ -8,6 +8,11 @@ struct GlyphlineApp: App {
     @StateObject private var agentverse: AgentverseCoordinator
     @StateObject private var updates: UpdateController
 
+    // Not `@StateObject`: neither publishes anything a view reads, and making
+    // them observable would invite a view to depend on one.
+    private let schedule: SyncScheduleController
+    private let windowActivation: WindowActivationObserver
+
     init() {
         let settings = AppSettingsStore()
         _settings = StateObject(wrappedValue: settings)
@@ -30,13 +35,15 @@ struct GlyphlineApp: App {
         // Deliberately no in-memory stand-in when the on-disk ledger cannot be
         // opened: the coordinator refuses to collect without a durable ledger and
         // says so, rather than crashing at launch or writing to a scratch file.
-        _coordinator = StateObject(
-            wrappedValue: SyncCoordinator(
-                ledger: ledger,
-                credentials: KeychainStore(),
-                registry: ProviderAdapterRegistry()
-            )
+        //
+        // Built as a local before it is wrapped: the schedule controller needs
+        // the same instance, not a second one.
+        let coordinator = SyncCoordinator(
+            ledger: ledger,
+            credentials: KeychainStore(),
+            registry: ProviderAdapterRegistry()
         )
+        _coordinator = StateObject(wrappedValue: coordinator)
 
         // Owned here rather than by the window on purpose. The park rule needs a
         // sweep to remember whom the previous sweep had on track; a coordinator
@@ -45,11 +52,15 @@ struct GlyphlineApp: App {
         _agentverse = StateObject(
             wrappedValue: AgentverseCoordinator(ledger: ledger)
         )
+
+        // Both are `@MainActor`, and `App.init` runs on the main actor.
+        schedule = SyncScheduleController(settings: settings, coordinator: coordinator)
+        windowActivation = WindowActivationObserver(settings: settings)
     }
 
     var body: some Scene {
         WindowGroup(id: AppMode.dashboardWindowID) {
-            ModeAwareWindowRoot(settings: settings, coordinator: coordinator) {
+            ModeAwareWindowRoot(settings: settings) {
                 DashboardView()
                     .environmentObject(settings)
                     .environmentObject(coordinator)
@@ -180,7 +191,6 @@ private struct OpenAgentverseCommand: View {
 
 private struct ModeAwareWindowRoot<Content: View>: View {
     @ObservedObject var settings: AppSettingsStore
-    @ObservedObject var coordinator: SyncCoordinator
     let content: () -> Content
 
     var body: some View {
@@ -191,23 +201,10 @@ private struct ModeAwareWindowRoot<Content: View>: View {
                 // exactly once. A suppressed scene never reaches this.
                 settings.hasShownDashboardOnce = true
                 AppActivationController.apply(mode: settings.appMode)
-                applyScheduler()
             }
-            .onChange(of: settings.automaticSyncEnabled) { _, _ in applyScheduler() }
-            .onChange(of: settings.syncIntervalMinutes) { _, _ in applyScheduler() }
             .onChange(of: settings.appMode) { _, newValue in
                 AppActivationController.apply(mode: newValue)
             }
-    }
-
-    /// The coordinator ignores a re-application of the schedule it is already
-    /// running, so `onAppear` firing again on scene recreation cannot push the
-    /// next sync out by another full interval.
-    private func applyScheduler() {
-        coordinator.applySchedule(
-            enabled: settings.automaticSyncEnabled,
-            intervalSeconds: TimeInterval(settings.syncIntervalMinutes * 60)
-        )
     }
 }
 
