@@ -472,12 +472,7 @@ final class SyncCoordinator: ObservableObject {
         // Sorted by display name rather than left in ledger order, so the menu
         // and the cards do not reorder themselves between ticks.
         quotaStates = accounts
-            .sorted {
-                let byName = $0.resolvedName.localizedStandardCompare($1.resolvedName)
-                return byName == .orderedSame
-                    ? $0.id.uuidString < $1.id.uuidString
-                    : byName == .orderedAscending
-            }
+            .sorted { Self.precedes($0.resolvedName, $0.id, $1.resolvedName, $1.id) }
             .map { account in
                 let confirmations = rateWindowConfirmations[account.id] ?? [:]
                 let latest = (try? ledger.fetchLatestRateWindows(accountID: account.id)) ?? []
@@ -526,6 +521,47 @@ final class SyncCoordinator: ObservableObject {
             forgetAccount(id: account.id)
         }
         return outcome
+    }
+
+    /// The one order every quota surface is rendered in: by display name, with
+    /// the account id as a tie-break so two accounts sharing a name still have a
+    /// stable place between ticks.
+    ///
+    /// A single definition rather than a copy at each site that orders
+    /// `quotaStates`. Two comparators for one order is how the menu and the
+    /// cards start disagreeing.
+    static func precedes(_ lhsName: String, _ lhsID: UUID, _ rhsName: String, _ rhsID: UUID) -> Bool {
+        let byName = lhsName.localizedStandardCompare(rhsName)
+        return byName == .orderedSame
+            ? lhsID.uuidString < rhsID.uuidString
+            : byName == .orderedAscending
+    }
+
+    /// Re-stamps the names `quotaStates` carries, and puts them back in order.
+    ///
+    /// Every surface but the Accounts list draws from `quotaStates`, whose
+    /// `displayName` is a copy taken when a sync built it. Without this a rename
+    /// is invisible until the next network round trip or a restart.
+    ///
+    /// Read from the ledger rather than taken as an argument: the caller holds a
+    /// copy of the account that may be a tick out of date, and re-reading is what
+    /// makes one call correct after several renames.
+    ///
+    /// Only the name and the order change. Windows, messages and failure codes
+    /// belong to the sync, and this is not one.
+    func refreshAccountNames() {
+        guard let ledger, let accounts = try? ledger.fetchAccounts() else { return }
+
+        let names = Dictionary(accounts.map { ($0.id, $0.resolvedName) }) { _, latest in latest }
+
+        quotaStates = quotaStates
+            .map { state in
+                guard let name = names[state.accountID] else { return state }
+                var renamed = state
+                renamed.displayName = name
+                return renamed
+            }
+            .sorted { Self.precedes($0.displayName, $0.accountID, $1.displayName, $1.accountID) }
     }
 
     /// Drops everything this coordinator remembers about an account.

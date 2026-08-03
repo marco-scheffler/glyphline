@@ -85,6 +85,11 @@ private struct SettingsWindowClaim: NSViewRepresentable {
 /// `.menuBarOnly` the dashboard never opens at all — so a list fed from the
 /// dashboard's state would be empty exactly where it is the only way in.
 struct AccountsSettingsView: View {
+    /// Injected by `GlyphlineApp` into the settings scene, the same coordinator
+    /// every other surface reads. Held here rather than reached from
+    /// `AccountsView.commitRename`, which tests call directly on a view that was
+    /// never hosted — an environment object read there would trap.
+    @EnvironmentObject private var coordinator: SyncCoordinator
     @State private var accounts: [AccountUsageSummary] = []
     @State private var loadError: String?
 
@@ -108,10 +113,19 @@ struct AccountsSettingsView: View {
                 ledgerStore: ledgerStore,
                 onDeleted: load,
                 onAdded: load,
-                onRenamed: load
+                onRenamed: accountRenamed
             )
         }
         .onAppear(perform: load)
+    }
+
+    /// A rename has to reach more than this list. The quota cards and the menu
+    /// bar panel render from `SyncCoordinator.quotaStates`, which stamps the name
+    /// when a sync builds it — so this reload alone left the old name everywhere
+    /// else until the next network round trip.
+    private func accountRenamed() {
+        load()
+        coordinator.refreshAccountNames()
     }
 
     /// Not private: the reload after a save or a delete is the wiring that keeps
