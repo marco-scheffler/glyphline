@@ -47,6 +47,7 @@
 		31494C08A9507E7C43F21F0D /* MarginLabels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64901478B67C2791458CE994 /* MarginLabels.swift */; };
 		314BE108752F760302660DC4 /* AccountSummaryFormattingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 849077EF726D5E3F756B4805 /* AccountSummaryFormattingTests.swift */; };
 		315AA4ACC25D2F08B4DA83CA /* LocalTokenUsageStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D061EE64EFE518EB86B8570 /* LocalTokenUsageStoreTests.swift */; };
+		318F7EF86E9A1C38DC79BB52 /* MenuBarQuotaListTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3ED41678ADA7D92EC04BF44B /* MenuBarQuotaListTests.swift */; };
 		322C445210414991A9915FA1 /* AccountAttentionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1AADE473E53A645F034AE62 /* AccountAttentionTests.swift */; };
 		36548FF69B18205F3FA28F1D /* AgentSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25763F9DE4C82450A3834BDC /* AgentSession.swift */; };
 		37CFE0A06075136004EBA62F /* AppActivationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64891BE57A59E15EEFF1CD5F /* AppActivationController.swift */; };
@@ -235,6 +236,7 @@
 		3A189C19EFFD6B5EE8F139A8 /* LocalizationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalizationTests.swift; sourceTree = "<group>"; };
 		3B1D47E3EFDB4A47186A23AF /* .gitkeep */ = {isa = PBXFileReference; path = .gitkeep; sourceTree = "<group>"; };
 		3B3D3ECA1152729E0516F4B8 /* UserPlace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserPlace.swift; sourceTree = "<group>"; };
+		3ED41678ADA7D92EC04BF44B /* MenuBarQuotaListTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarQuotaListTests.swift; sourceTree = "<group>"; };
 		40D313DABDF65EC1DBCADDBD /* AddAccountFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddAccountFlowTests.swift; sourceTree = "<group>"; };
 		412F5489EA0C8B4EE160128C /* GlyphlineSmokeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlyphlineSmokeTests.swift; sourceTree = "<group>"; };
 		461DE0E81EA86DEF3F3E1A47 /* LedgerStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LedgerStore.swift; sourceTree = "<group>"; };
@@ -565,6 +567,7 @@
 				8ACB43E390F384515433FB04 /* LocalUsageStatisticsTests.swift */,
 				0134DD4D833802DA52513B15 /* MarginLabelTests.swift */,
 				E3DD33D0E2FF6D40D47CCD41 /* MenuBarFooterTests.swift */,
+				3ED41678ADA7D92EC04BF44B /* MenuBarQuotaListTests.swift */,
 				38CEA8D84FAB5879F7C9B70E /* MigrationTests.swift */,
 				7AE1DEF7F5A645B5A545E3F8 /* ModelMixTests.swift */,
 				55BA8694018F37636CBB9BF7 /* MoneyAmountTests.swift */,
@@ -892,6 +895,7 @@
 				A35BDBFD6FB0542A2D9499EF /* LocalizedLayoutTests.swift in Sources */,
 				997A00516E02E7218B94A6E1 /* MarginLabelTests.swift in Sources */,
 				8B5B67935A1260AA20266915 /* MenuBarFooterTests.swift in Sources */,
+				318F7EF86E9A1C38DC79BB52 /* MenuBarQuotaListTests.swift in Sources */,
 				FE115011C319F621E5E47A5E /* MigrationTests.swift in Sources */,
 				2D04AC8654DED4BFB14D9852 /* ModelMixTests.swift in Sources */,
 				E9F07FC2418C6707018C3666 /* MoneyAmountTests.swift in Sources */,
@@ -1033,7 +1037,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = 7YN7YUH475;
 				ENABLE_HARDENED_RUNTIME = YES;
 				INFOPLIST_FILE = Glyphline/Info.plist;
@@ -1042,7 +1046,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 1.2;
+				MARKETING_VERSION = 1.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.marcoscheffler.glyphline;
 				SDKROOT = macosx;
 				SWIFT_VERSION = 6.0;
@@ -1138,7 +1142,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = 7YN7YUH475;
 				ENABLE_HARDENED_RUNTIME = YES;
 				INFOPLIST_FILE = Glyphline/Info.plist;
@@ -1147,7 +1151,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 1.2;
+				MARKETING_VERSION = 1.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.marcoscheffler.glyphline;
 				SDKROOT = macosx;
 				SWIFT_VERSION = 6.0;
