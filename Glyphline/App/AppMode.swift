@@ -16,9 +16,15 @@ enum AppMode: String, CaseIterable, Identifiable {
     var displayName: String {
         switch self {
         case .menuBarOnly:
-            "Menu Bar"
+            String(
+                localized: "Menu Bar",
+                comment: "App mode picker segment: Glyphline lives in the menu bar."
+            )
         case .windowOnly:
-            "Window"
+            String(
+                localized: "Window",
+                comment: "App mode picker segment: Glyphline behaves like a standard Mac app."
+            )
         }
     }
 
