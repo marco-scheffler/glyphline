@@ -11,11 +11,10 @@ import XCTest
 final class SettingsSceneTests: XCTestCase {
     /// The settings window has to count as a window the app stays regular for.
     ///
-    /// Two failures ride on this one predicate. In `.menuBarOnly` the app is an
-    /// accessory, and an accessory app's window never becomes key. And the
-    /// app-mode picker lives *in* settings — the dashboard's window sweep closes
-    /// every visible window this predicate does not exempt, so without the
-    /// exemption switching to Menu Bar closes the window the user is standing in.
+    /// In `.menuBarOnly` the app is an accessory, and an accessory app's window
+    /// never becomes key. The app-mode picker lives *in* settings, so without
+    /// this the window the user is standing in while switching to Menu Bar would
+    /// be the one window the app was no longer regular for.
     func testTheSettingsWindowKeepsTheAppRegular() {
         XCTAssertTrue(
             AppActivationController.isWindowNeedingRegularApp(
@@ -29,8 +28,9 @@ final class SettingsSceneTests: XCTestCase {
                 identifier: AppActivationController.settingsWindowID + "-1"
             )
         )
-        // The dashboard is still swept, and still demotes the app.
-        XCTAssertFalse(
+        // The dashboard now keeps the app regular too — there is no window
+        // sweep left for it to be exempt from, only the activation policy.
+        XCTAssertTrue(
             AppActivationController.isWindowNeedingRegularApp(identifier: "dashboard-AppWindow-1")
         )
     }
@@ -48,16 +48,18 @@ final class SettingsSceneTests: XCTestCase {
 
         XCTAssertFalse(
             AppActivationController.isWindowNeedingRegularApp(renamed),
-            "an unclaimed window with an unknown identifier is still swept"
+            "an unclaimed window with an unknown identifier does not keep the app regular"
         )
 
         AppActivationController.claimSettingsWindow(renamed)
         XCTAssertTrue(AppActivationController.isWindowNeedingRegularApp(renamed))
 
         // The claim is about one window, not about a shape of window: a second
-        // one does not inherit it.
+        // one does not inherit it, even carrying the same foreign identifier —
+        // which names none of the app's scenes, so the claim is the only thing
+        // that could answer for either of them.
         let other = NSWindow()
-        other.identifier = NSUserInterfaceItemIdentifier("dashboard-AppWindow-1")
+        other.identifier = NSUserInterfaceItemIdentifier("com_apple_SwiftUI_SomethingElse")
         XCTAssertFalse(AppActivationController.isWindowNeedingRegularApp(other))
     }
 

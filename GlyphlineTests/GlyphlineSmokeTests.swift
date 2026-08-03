@@ -3,6 +3,6 @@ import XCTest
 
 final class GlyphlineSmokeTests: XCTestCase {
     func testAppModeDisplayNameIsStable() {
-        XCTAssertEqual(AppMode.menuBarAndWindow.displayName, "Both")
+        XCTAssertEqual(AppMode.menuBarOnly.displayName, "Menu Bar")
     }
 }

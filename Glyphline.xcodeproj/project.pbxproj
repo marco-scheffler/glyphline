@@ -92,6 +92,7 @@
 		798F27EB96BD8D11CAF2AEE8 /* WeatherServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E098575A9DAE4BCF0C1DB381 /* WeatherServiceTests.swift */; };
 		7A236834E440289A3C2FB2CD /* AgentverseWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AF1829AD2379CF1AA77C13C /* AgentverseWindow.swift */; };
 		7BB34FDDD9F07754C4B60EF3 /* AgentverseCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DA33CFDBB20825AB71AEEC4 /* AgentverseCoordinator.swift */; };
+		7E9A21A59FEC0C82F5F9F309 /* DashboardLauncher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DAA1C8BDB17BC1392DCC34E /* DashboardLauncher.swift */; };
 		7EE1E0DD0196D6F33CE6E4CE /* AddAccountFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A81C1F539EBD6824C59FADB0 /* AddAccountFlow.swift */; };
 		7FC11071D7C8C08A94F2921B /* LocalUsagePeriod.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4AC0AFC5C6676B8681635D9 /* LocalUsagePeriod.swift */; };
 		81A31CCE7A84A8263856A8DC /* Migrations.swift in Sources */ = {isa = PBXBuildFile; fileRef = 979B2CFA8C52D4A2693A102A /* Migrations.swift */; };
@@ -212,6 +213,7 @@
 		1A12C10E9B329DC6D4E86D94 /* ProviderAdapterRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderAdapterRegistry.swift; sourceTree = "<group>"; };
 		1AF1829AD2379CF1AA77C13C /* AgentverseWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentverseWindow.swift; sourceTree = "<group>"; };
 		1DA33CFDBB20825AB71AEEC4 /* AgentverseCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentverseCoordinator.swift; sourceTree = "<group>"; };
+		1DAA1C8BDB17BC1392DCC34E /* DashboardLauncher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardLauncher.swift; sourceTree = "<group>"; };
 		20FE4134115A8DD6825A45AF /* OfficeRendererDesks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfficeRendererDesks.swift; sourceTree = "<group>"; };
 		224A62075870B8FAF84E2274 /* AccountDeletionStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountDeletionStoreTests.swift; sourceTree = "<group>"; };
 		24490E8A33CB8C3CE1EFFAA3 /* ClaudeOrganizationsDTOs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeOrganizationsDTOs.swift; sourceTree = "<group>"; };
@@ -628,6 +630,7 @@
 				64891BE57A59E15EEFF1CD5F /* AppActivationController.swift */,
 				12E48ACC872A23A3B329B354 /* AppMode.swift */,
 				7E78F87ED03A83F2D193EF8B /* AppSettingsStore.swift */,
+				1DAA1C8BDB17BC1392DCC34E /* DashboardLauncher.swift */,
 				13C2A5ABB0A8E43A39707DB6 /* UpdateController.swift */,
 			);
 			path = App;
@@ -969,6 +972,7 @@
 				242AB864C1FDF71D404148A1 /* DailyUsageChartView.swift in Sources */,
 				D39587DE951EAE8214D46323 /* DailyUsageSeries.swift in Sources */,
 				2383783CD9C706F9225877DC /* DashboardBackground.swift in Sources */,
+				7E9A21A59FEC0C82F5F9F309 /* DashboardLauncher.swift in Sources */,
 				FAAB4935C3A53DB6331C5F42 /* DashboardOverview.swift in Sources */,
 				BD5B846500A1A1040E4F1418 /* DashboardPalette.swift in Sources */,
 				4FF372770903337C7E0AB24F /* DashboardPresentation.swift in Sources */,

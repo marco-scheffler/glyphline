@@ -149,7 +149,7 @@ struct GlyphlineApp: App {
                     return
                 }
 
-                settings.appMode = isInserted ? .menuBarAndWindow : .windowOnly
+                settings.appMode = isInserted ? .menuBarOnly : .windowOnly
             }
         )
     }
@@ -184,30 +184,20 @@ private struct ModeAwareWindowRoot<Content: View>: View {
     let content: () -> Content
 
     var body: some View {
-        Group {
-            if settings.appMode.showsDashboardWindow {
-                content()
-            } else {
-                EmptyView()
+        content()
+            .onAppear {
+                // Recorded the moment the window is actually on screen, which is
+                // the only thing that makes the first-launch exception true
+                // exactly once. A suppressed scene never reaches this.
+                settings.hasShownDashboardOnce = true
+                AppActivationController.apply(mode: settings.appMode)
+                applyScheduler()
             }
-        }
-        .onAppear {
-            AppActivationController.apply(mode: settings.appMode)
-            if !settings.appMode.showsDashboardWindow {
-                closeVisibleWindows()
+            .onChange(of: settings.automaticSyncEnabled) { _, _ in applyScheduler() }
+            .onChange(of: settings.syncIntervalMinutes) { _, _ in applyScheduler() }
+            .onChange(of: settings.appMode) { _, newValue in
+                AppActivationController.apply(mode: newValue)
             }
-            applyScheduler()
-        }
-        .onChange(of: settings.automaticSyncEnabled) { _, _ in applyScheduler() }
-        .onChange(of: settings.syncIntervalMinutes) { _, _ in applyScheduler() }
-        .onChange(of: settings.appMode) { _, newValue in
-            AppActivationController.apply(mode: newValue)
-            if !newValue.showsDashboardWindow {
-                closeVisibleWindows()
-            } else {
-                NSApp.activate(ignoringOtherApps: true)
-            }
-        }
     }
 
     /// The coordinator ignores a re-application of the schedule it is already
@@ -218,20 +208,6 @@ private struct ModeAwareWindowRoot<Content: View>: View {
             enabled: settings.automaticSyncEnabled,
             intervalSeconds: TimeInterval(settings.syncIntervalMinutes * 60)
         )
-    }
-
-    /// Closes the dashboard's windows when the mode says it has none.
-    ///
-    /// The agentverse window is exempt. It is not mode-aware — it opens in either
-    /// mode — so an unfiltered sweep here does not hide it, it destroys it, on
-    /// every switch to menu-bar-only and on every dashboard scene reappearance in
-    /// that mode.
-    private func closeVisibleWindows() {
-        for window in NSApp.windows
-        where window.isVisible
-            && !AppActivationController.isWindowNeedingRegularApp(window) {
-            window.close()
-        }
     }
 }
 

@@ -18,15 +18,72 @@ final class AppSettingsStoreTests: XCTestCase {
         }
     }
 
-    func testAppModeDefaultsToMenuBarAndWindow() {
+    func testAppModeDefaultsToMenuBarOnly() {
         let suiteName = "GlyphlineTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
-        defer {
-            defaults.removePersistentDomain(forName: suiteName)
-        }
+        defer { defaults.removePersistentDomain(forName: suiteName) }
 
         let store = AppSettingsStore(defaults: defaults)
-        XCTAssertEqual(store.appMode, .menuBarAndWindow)
+        XCTAssertEqual(store.appMode, .menuBarOnly)
+    }
+
+    /// Upgrading from 1.4. `menuBarAndWindow` is no longer a case, so its stored
+    /// string no longer parses and falls to the default — which is the new menu
+    /// bar default. No migration code: the fallback already does it, and this
+    /// test is what keeps that true if the fallback is ever changed.
+    func testAStoredMenuBarAndWindowReadsBackAsMenuBarOnly() {
+        let suiteName = "GlyphlineTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        defaults.set("menuBarAndWindow", forKey: "appMode")
+
+        let store = AppSettingsStore(defaults: defaults)
+        XCTAssertEqual(store.appMode, .menuBarOnly)
+    }
+
+    /// A deliberate `windowOnly` survives the upgrade untouched.
+    func testAStoredWindowOnlySurvivesTheUpgrade() {
+        let suiteName = "GlyphlineTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        defaults.set("windowOnly", forKey: "appMode")
+
+        let store = AppSettingsStore(defaults: defaults)
+        XCTAssertEqual(store.appMode, .windowOnly)
+    }
+
+    /// The first-launch exception belongs to the installation, not to the mode:
+    /// a fresh install shows the dashboard once so that launching a newly
+    /// installed app is not an empty screen and an unfamiliar menu bar symbol.
+    func testAFreshInstallOpensTheDashboardOnceAndThenStops() {
+        let suiteName = "GlyphlineTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let fresh = AppSettingsStore(defaults: defaults)
+        XCTAssertFalse(fresh.hasShownDashboardOnce)
+        XCTAssertTrue(fresh.opensDashboardAtLaunch)
+
+        fresh.hasShownDashboardOnce = true
+
+        let later = AppSettingsStore(defaults: defaults)
+        XCTAssertTrue(later.hasShownDashboardOnce)
+        XCTAssertFalse(later.opensDashboardAtLaunch)
+    }
+
+    /// `windowOnly` opens it every time regardless of the flag.
+    func testWindowOnlyOpensTheDashboardEveryLaunch() {
+        let suiteName = "GlyphlineTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let store = AppSettingsStore(defaults: defaults)
+        store.appMode = .windowOnly
+        store.hasShownDashboardOnce = true
+
+        XCTAssertTrue(store.opensDashboardAtLaunch)
     }
 
     func testSyncSettingsDefaultToThirtyMinutesEnabled() {
