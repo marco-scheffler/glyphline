@@ -21,7 +21,7 @@
       <sparkle:shortVersionString>1.2</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
       <sparkle:releaseNotesLink>https://github.com/marco-scheffler/glyphline/releases/tag/v1.2</sparkle:releaseNotesLink>
-      <enclosure url="https://github.com/marco-scheffler/glyphline/releases/download/v1.2/Glyphline-1.2.zip" length="6097077" type="application/octet-stream" sparkle:edSignature="sgoAI6+etONoOHIhsWU1YeG1b3BBtdBv5Rm+0Mx3anRIr5JanCa7iBav5Y8hag1rTUHF5WinW1RXzcmM/PS/BA==" />
+      <enclosure url="https://github.com/marco-scheffler/glyphline/releases/download/v1.2/Glyphline-1.2.zip" length="6119699" type="application/octet-stream" sparkle:edSignature="5bn+8QErurWeYTAZfGNZ1Jx//RQW59hYrteQ4Z+HTS44Ap1Jug9P6Pmg+TehX1TDRVg0eFeCxIgLkeVZ+QWqDg==" />
     </item>
   </channel>
 </rss>
