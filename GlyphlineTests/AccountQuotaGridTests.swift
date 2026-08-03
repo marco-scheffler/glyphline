@@ -31,6 +31,7 @@ final class AccountQuotaGridTests: XCTestCase {
             headroomText: "\(Int((1 - used) * 100))% left",
             pacePosition: 0.5,
             paceText: "on track",
+            resetText: "resets in 3h 20m (14:00)",
             state: .ok
         )
     }
