@@ -400,6 +400,41 @@ enum QuotaIndicator {
         }
     }
 
+    /// When the window comes back, as both a wait and a clock time.
+    ///
+    /// The card is the only surface that never said this. The menu bar rows and
+    /// the accounts list carry the countdown inside `barGroups`' detail line, so
+    /// a card reading "0% free" in red was the one place with nothing to say
+    /// about the thing a spent window actually raises.
+    ///
+    /// Both halves on purpose. The wait answers "how long do I sit here" without
+    /// arithmetic; the clock time answers "can I carry on after lunch" without
+    /// arithmetic in the other direction. They share a line because the card
+    /// already carries a second duration — `paceText`'s "empty in 1d 10h" — and
+    /// two similar-looking durations on separate lines are the pair a reader
+    /// confuses under exactly the pressure that makes them look.
+    ///
+    /// One catalog entry, and a verb-free one: the verb is already inside the
+    /// first placeholder and both halves arrive as whole phrases. That is the
+    /// rule `remainingText` states for itself — a translator handed a bare
+    /// "resets" cannot see the row it lands in.
+    static func resetText(
+        for window: RateWindow,
+        now: Date,
+        formatting: QuotaFormatting = .current
+    ) -> String? {
+        guard let resetAt = window.resetAt else { return nil }
+
+        let (_, verb) = labelAndVerb(for: window.kind)
+        let remaining = remainingText(until: resetAt, now: now, verb: verb)
+        let instant = instantText(resetAt, now: now, formatting: formatting)
+
+        return String(
+            localized: "\(remaining) (\(instant))",
+            comment: "Quota card reset line. Placeholders: a countdown phrase such as 'resets in 2d 4h', and a clock time or date such as '14:00'."
+        )
+    }
+
     /// How long the window itself spans, which is what makes its start
     /// derivable from its reset instant.
     ///
