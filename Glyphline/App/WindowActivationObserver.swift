@@ -2,7 +2,17 @@ import AppKit
 import Combine
 
 /// Puts the app back to `.accessory` when the last window that needed a regular
-/// app goes away, and sets the launch-time policy.
+/// app goes away, sets the launch-time policy, and applies every later change of
+/// `appMode`.
+///
+/// The mode subscription lives here rather than in a view because there are ways
+/// to change the mode with no view of ours on screen at all: ⌘-dragging the
+/// status item out of the menu bar runs `MenuBarExtra(isInserted:)`'s setter,
+/// and in the default mode with no window open the dashboard scene is suppressed
+/// and the menu bar panel's content does not exist. The app would be left an
+/// accessory with no menu bar extra, no Dock icon and no window — force-quit or
+/// nothing. This object is built in `App.init` and lives as long as the process,
+/// so it is there whether or not any scene is.
 ///
 /// The way back did not exist before. `regulariseForWindow()` set `.regular` and
 /// nothing took it back, except that the menu bar panel's `onAppear` happened to
@@ -19,30 +29,47 @@ import Combine
 /// non-`Sendable` `NSWindow` crossing an isolation boundary.
 @MainActor
 final class WindowActivationObserver {
-    private var cancellable: AnyCancellable?
+    private var cancellables: Set<AnyCancellable> = []
 
-    init(settings: AppSettingsStore) {
-        // The launch-time policy. A bundled app starts `.regular`, so without
-        // this the default mode carries a Dock icon from launch until the user
-        // first opens the menu bar panel.
+    /// - Parameter applyPolicy: the seam the tests stand in. Production passes
+    ///   nothing and gets `AppActivationController.apply(mode:excluding:)`; a
+    ///   test can record what reaches the policy layer without `NSApp` being
+    ///   driven, which matters because the test process pins itself to
+    ///   `.prohibited` so a run puts nothing on screen.
+    init(
+        settings: AppSettingsStore,
+        applyPolicy: @escaping @MainActor (AppMode, NSWindow?) -> Void = { mode, closing in
+            AppActivationController.apply(mode: mode, excluding: closing)
+        }
+    ) {
+        // `@Published` emits the current value on subscription, so this is also
+        // the launch-time policy — a bundled app starts `.regular`, and without
+        // it the default mode would carry a Dock icon from launch until the user
+        // first opened the menu bar panel. Initial application and every later
+        // change are one code path rather than two that can drift.
         //
-        // `NSApplication.shared` first, and it is not decorative: this runs from
-        // `App.init`, which SwiftUI calls before the global `NSApp` has been
-        // populated. Reading `NSApp.windows` there is a crash on an
-        // implicitly-unwrapped nil — observed, not theoretical. `shared` creates
-        // the instance and sets `NSApp` as a side effect.
-        _ = NSApplication.shared
-        AppActivationController.apply(mode: settings.appMode)
+        // The sink uses the value Combine hands it and never re-reads
+        // `settings.appMode`: `@Published` publishes on `willSet`, so a re-read
+        // sees the value being replaced and the policy would be one change
+        // behind forever. Same trap `SyncScheduleController` documents.
+        settings.$appMode
+            .sink { mode in
+                MainActor.assumeIsolated {
+                    applyPolicy(mode, nil)
+                }
+            }
+            .store(in: &cancellables)
 
-        cancellable = NotificationCenter.default
+        NotificationCenter.default
             .publisher(for: NSWindow.willCloseNotification)
             .sink { notification in
                 MainActor.assumeIsolated {
-                    AppActivationController.apply(
-                        mode: settings.appMode,
-                        excluding: notification.object as? NSWindow
+                    applyPolicy(
+                        settings.appMode,
+                        notification.object as? NSWindow
                     )
                 }
             }
+            .store(in: &cancellables)
     }
 }

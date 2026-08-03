@@ -188,8 +188,12 @@ private struct QuotaWindowRow: View {
             // it to the status line instead would put the card's longest text on
             // the line that has to survive three cards side by side.
             //
-            // Monospaced digits so the three cards in a row do not shift against
-            // each other as the countdown ticks.
+            // Monospaced digits so the three cards in a row keep their digits in
+            // the same columns as each other, and so a card does not shift when
+            // the text is recomputed with different digits. It does not tick:
+            // the string is snapshotted in `QuotaCardModel.make` and only
+            // rebuilt when `DashboardPresentation` does, on a coordinator
+            // publish.
             if let resetText = card.resetText {
                 Text(resetText)
                     .font(.caption)
