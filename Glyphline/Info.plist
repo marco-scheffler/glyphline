@@ -54,5 +54,11 @@
        fixes to a menu bar someone watches all day is too slow to be useful. -->
   <key>SUScheduledCheckInterval</key>
   <integer>86400</integer>
+  <!-- The app starts as an accessory and is promoted when a window opens,
+       rather than starting regular and being demoted. Without this the default
+       mode shows a Dock icon for the fraction of a second before the first
+       policy call, on every launch. -->
+  <key>LSUIElement</key>
+  <true/>
 </dict>
 </plist>

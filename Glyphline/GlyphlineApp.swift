@@ -71,6 +71,17 @@ struct GlyphlineApp: App {
             }
         }
         .windowStyle(.titleBar)
+        // Read once per launch. `windowOnly` has no menu bar extra and would
+        // otherwise start with no surface at all; the flag is the one-time
+        // exception that keeps a newly installed app from launching into
+        // nothing but an unfamiliar menu bar symbol.
+        //
+        // This is what removes the old window sweep. `menuBarOnly` used to let
+        // SwiftUI open the window and then close it again in `onAppear`, which
+        // ran on every scene reappearance rather than only at launch and needed
+        // an exemption list to keep from destroying the agentverse and settings
+        // windows along with it.
+        .defaultLaunchBehavior(settings.opensDashboardAtLaunch ? .presented : .suppressed)
 
         WindowGroup(id: AppMode.agentverseWindowID) {
             AgentverseWindow()
@@ -200,7 +211,16 @@ private struct ModeAwareWindowRoot<Content: View>: View {
                 // the only thing that makes the first-launch exception true
                 // exactly once. A suppressed scene never reaches this.
                 settings.hasShownDashboardOnce = true
-                AppActivationController.apply(mode: settings.appMode)
+                // Not `apply(mode:)`. This runs before the window is visible, so
+                // the walk over `NSApp.windows` finds nothing and demotes the app
+                // underneath the very window that is appearing. The dashboard
+                // appearing *is* the reason to be regular — the same call
+                // `DashboardLauncher` makes, for the same reason.
+                //
+                // Nothing is lost by not re-deriving here: `WindowActivationObserver`
+                // sets the launch-time policy, and takes it back when the last
+                // window closes.
+                AppActivationController.regulariseForWindow()
             }
             .onChange(of: settings.appMode) { _, newValue in
                 AppActivationController.apply(mode: newValue)
