@@ -47,13 +47,23 @@ struct QuotaCardModel: Identifiable, Equatable, Sendable {
     /// recomputed here — two surfaces with two implementations of one sentence
     /// is how an app starts disagreeing with itself about when it runs out.
     var paceText: String?
+    /// "resets in 2d 4h (Thu 14:00)", computed by `QuotaIndicator.resetText` and
+    /// not recomputed here, for the same reason `paceText` is not.
+    ///
+    /// `nil` for a window with no reset instant, which is what lets the card
+    /// leave the line out rather than print an empty one.
+    var resetText: String?
     var state: QuotaCardState
 
     var id: RateWindowKind { kind }
 
     /// `nil` when the window reports no consumed fraction: there is no bar to
     /// draw and no honest state to name. An unknown usage is not "nothing used".
-    static func make(for window: RateWindow, now: Date) -> QuotaCardModel? {
+    static func make(
+        for window: RateWindow,
+        now: Date,
+        formatting: QuotaFormatting = .current
+    ) -> QuotaCardModel? {
         guard let reported = window.usedFraction else { return nil }
 
         let used = min(max(reported, 0), 1)
@@ -76,6 +86,7 @@ struct QuotaCardModel: Identifiable, Equatable, Sendable {
             ),
             pacePosition: pace,
             paceText: QuotaIndicator.paceText(for: window, now: now),
+            resetText: QuotaIndicator.resetText(for: window, now: now, formatting: formatting),
             state: state(used: used, pace: pace)
         )
     }

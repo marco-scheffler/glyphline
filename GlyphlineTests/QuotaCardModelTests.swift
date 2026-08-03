@@ -124,6 +124,40 @@ final class QuotaCardModelTests: XCTestCase {
         }
     }
 
+    /// The same rule the pace text is held to: the card must not form a second
+    /// opinion about when the window comes back.
+    func testResetTextIsExactlyQuotaIndicatorsForTheSameInput() {
+        let formatting = QuotaFormatting(
+            locale: Locale(identifier: "en_US"),
+            timeZone: TimeZone(identifier: "UTC")!
+        )
+        let fixtures = [
+            window(used: 0.5, resetIn: fiveHours / 2),
+            window(.weekly, used: 0.75, resetIn: 24 * 60 * 60),
+            window(.billingCycle, used: 0.5, resetIn: 4 * 24 * 60 * 60),
+            window(used: 0.4, resetIn: -3600),
+            window(used: 0.5, resetIn: nil)
+        ]
+
+        for fixture in fixtures {
+            let card = QuotaCardModel.make(for: fixture, now: now, formatting: formatting)
+            XCTAssertEqual(
+                card?.resetText,
+                QuotaIndicator.resetText(for: fixture, now: now, formatting: formatting),
+                "reset text drifted for \(fixture)"
+            )
+        }
+    }
+
+    /// A window with no reset instant produces no line, which is what lets the
+    /// view leave the row out rather than print an empty one.
+    func testAWindowWithoutAResetProducesNoResetText() throws {
+        let card = try XCTUnwrap(
+            QuotaCardModel.make(for: window(used: 0.5, resetIn: nil), now: now)
+        )
+        XCTAssertNil(card.resetText)
+    }
+
     /// A billing cycle has no span the app may claim to know, so it gets no
     /// marker at all rather than a made-up one.
     func testBillingCycleHasNoMarker() throws {
