@@ -75,6 +75,7 @@
 		54B04C19F46485890B8DC28B /* AgentSessionScannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BD3C2C540C231D67EC5F063 /* AgentSessionScannerTests.swift */; };
 		56B581EF8FB7A7FF22E8D6D7 /* UpdateController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13C2A5ABB0A8E43A39707DB6 /* UpdateController.swift */; };
 		56B7FB0376CEC3F26127F083 /* AccountCredentialReference.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54DF3B50A77102C6E68EAC4C /* AccountCredentialReference.swift */; };
+		57B394016FAA3C7135C06C26 /* LocalScanScheduleControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D45A8DE0A0872640442583B /* LocalScanScheduleControllerTests.swift */; };
 		59022EBC301F5B43468F886F /* CostEstimatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10078AD9B1875C460A90C37 /* CostEstimatorTests.swift */; };
 		5B80D237FF5A7B0A61F4AFCA /* UserPlace.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B3D3ECA1152729E0516F4B8 /* UserPlace.swift */; };
 		5D6CC45BF8A924FA46602063 /* AgentRowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6DDC448405B7A5F2656A0419 /* AgentRowTests.swift */; };
@@ -142,6 +143,7 @@
 		B8E39029882A58F26CE7CD43 /* IsoProjection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CB2DAC06F09669AD3D864A7 /* IsoProjection.swift */; };
 		BBDA3E56C65D30F08B676158 /* BreakRoomTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6F34C90F48E9E13EA307991 /* BreakRoomTests.swift */; };
 		BD5B846500A1A1040E4F1418 /* DashboardPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = 066AC288053ED51852926BC8 /* DashboardPalette.swift */; };
+		BD7F93E2AE88212CDB9A1784 /* LocalScanScheduleController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F60DE06E44FE6FC9073E6AD /* LocalScanScheduleController.swift */; };
 		BE2B9EEEA941F5F4FDD5FDEA /* AppMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12E48ACC872A23A3B329B354 /* AppMode.swift */; };
 		BE67EB5CAE991232DEAA8FB2 /* LedgerModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F38FBB4EA721735BDC0A805 /* LedgerModels.swift */; };
 		BEFDE3C1BC20856FF8586BEC /* OfficeLighting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0083DE13F56B7B052A6DE142 /* OfficeLighting.swift */; };
@@ -210,6 +212,7 @@
 		06BB230F1D63495A95C6A003 /* SpendPeriod.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpendPeriod.swift; sourceTree = "<group>"; };
 		0CB2DAC06F09669AD3D864A7 /* IsoProjection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IsoProjection.swift; sourceTree = "<group>"; };
 		0D31897CD1062193BF63AE80 /* LocalUsagePeriodTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalUsagePeriodTests.swift; sourceTree = "<group>"; };
+		0D45A8DE0A0872640442583B /* LocalScanScheduleControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalScanScheduleControllerTests.swift; sourceTree = "<group>"; };
 		0D5247CB250C44F5D5A195E8 /* ClaudeWebSessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeWebSessionStore.swift; sourceTree = "<group>"; };
 		0F48F510183E929AF4EA4785 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		102E19DF99EBAC8A3C8BDC32 /* ClaudeSignInWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeSignInWindow.swift; sourceTree = "<group>"; };
@@ -265,6 +268,7 @@
 		4BB91452D402455F2ACA0690 /* DashboardPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardPresentation.swift; sourceTree = "<group>"; };
 		4C1B3C7C4B7D9B8FBFF1930F /* SyncScheduleController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncScheduleController.swift; sourceTree = "<group>"; };
 		4E9A1292C4590819749AE424 /* AccountsViewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountsViewTests.swift; sourceTree = "<group>"; };
+		4F60DE06E44FE6FC9073E6AD /* LocalScanScheduleController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalScanScheduleController.swift; sourceTree = "<group>"; };
 		4FF23487330689CD09F72F59 /* ClaudeTranscriptReaderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeTranscriptReaderTests.swift; sourceTree = "<group>"; };
 		52DCE9A9E59AD1B33F1AF2EF /* DashboardBackgroundTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardBackgroundTests.swift; sourceTree = "<group>"; };
 		5465BF81A3D7F440B3636E5B /* SunPosition.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SunPosition.swift; sourceTree = "<group>"; };
@@ -591,6 +595,7 @@
 				37E4A917CBBD3CF67291CD0C /* LocalHistoryRebuildTests.swift */,
 				3A189C19EFFD6B5EE8F139A8 /* LocalizationTests.swift */,
 				90593AA09366929E35BB6663 /* LocalizedLayoutTests.swift */,
+				0D45A8DE0A0872640442583B /* LocalScanScheduleControllerTests.swift */,
 				2D061EE64EFE518EB86B8570 /* LocalTokenUsageStoreTests.swift */,
 				0D31897CD1062193BF63AE80 /* LocalUsagePeriodTests.swift */,
 				8ACB43E390F384515433FB04 /* LocalUsageStatisticsTests.swift */,
@@ -656,6 +661,7 @@
 				7E78F87ED03A83F2D193EF8B /* AppSettingsStore.swift */,
 				1DAA1C8BDB17BC1392DCC34E /* DashboardLauncher.swift */,
 				03170CB58ED7E563713541AA /* LocalHistoryRebuildController.swift */,
+				4F60DE06E44FE6FC9073E6AD /* LocalScanScheduleController.swift */,
 				4C1B3C7C4B7D9B8FBFF1930F /* SyncScheduleController.swift */,
 				13C2A5ABB0A8E43A39707DB6 /* UpdateController.swift */,
 				7E41B47E7373EE9454B3F8DA /* WindowActivationObserver.swift */,
@@ -930,6 +936,7 @@
 				6F6854805AD8B45E9AB095BA /* KeychainStoreTests.swift in Sources */,
 				94709AE6F65A1DC6E85EADAE /* LedgerStoreTests.swift in Sources */,
 				75067962E928D1FE8BFE6710 /* LocalHistoryRebuildTests.swift in Sources */,
+				57B394016FAA3C7135C06C26 /* LocalScanScheduleControllerTests.swift in Sources */,
 				315AA4ACC25D2F08B4DA83CA /* LocalTokenUsageStoreTests.swift in Sources */,
 				FD2E6B0D841CAF9F824F9BB8 /* LocalUsagePeriodTests.swift in Sources */,
 				DB6A9090D4D818A7DA838E14 /* LocalUsageStatisticsTests.swift in Sources */,
@@ -1027,6 +1034,7 @@
 				AE112364391634387E44FB4A /* LocalHistoryRebuild.swift in Sources */,
 				F4440C12A5DB41ED5B54A5B8 /* LocalHistoryRebuildController.swift in Sources */,
 				3FADF8812E3914D4953848F4 /* LocalHistoryWriteGate.swift in Sources */,
+				BD7F93E2AE88212CDB9A1784 /* LocalScanScheduleController.swift in Sources */,
 				7FC11071D7C8C08A94F2921B /* LocalUsagePeriod.swift in Sources */,
 				17A602A14DA23148EB4494DC /* LocalUsageStatistics.swift in Sources */,
 				31494C08A9507E7C43F21F0D /* MarginLabels.swift in Sources */,
