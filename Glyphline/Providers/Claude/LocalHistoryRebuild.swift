@@ -4,13 +4,17 @@ import Foundation
 /// per-day decision needs.
 ///
 /// `scan` is the deduplicated truth — the same shape a normal scan produces, so
-/// it lands through the same one-transaction path. `naiveDailyTotals` is never
-/// written anywhere; it exists only to be compared against what is recorded.
+/// it lands through the same one-transaction path. The naive totals are never
+/// written anywhere; they exist only to be compared against what is recorded.
 struct LocalHistoryRebuildScan: Equatable, Sendable {
     var scan: LocalScanResult
     /// Total tokens per UTC day counting **every** occurrence, exactly as the
     /// scanner did before it deduplicated by `message.id`.
     var naiveDailyTotals: [Date: Int64] = [:]
+    /// The same figure per session id: every occurrence carrying that
+    /// `sessionId`, counted the way the old scanner counted it. Records without
+    /// a `sessionId` belong to no session and appear here in no entry.
+    var naiveSessionTotals: [String: Int64] = [:]
 }
 
 /// The one-time correction of a local history recorded by the counting bug.
@@ -20,8 +24,13 @@ struct LocalHistoryRebuildScan: Equatable, Sendable {
 /// session's history into a new file on resume or fork — 2.19x over-count on the
 /// reference machine. Fixing the scanner only fixed new scans.
 enum LocalHistoryRebuild {
-    /// The share of a day's recorded tokens the surviving transcripts must still
-    /// account for before that day may be replaced.
+    /// The share of a recorded figure the surviving transcripts must still
+    /// account for before it may be replaced.
+    ///
+    /// One number for both halves of the rebuild, deliberately. The rule is the
+    /// same whether the bucket is a UTC day or a session id — only the grouping
+    /// differs — and a second constant would be a second answer to the same
+    /// question, free to drift away from the one that was measured.
     ///
     /// Sum the day's usage from surviving transcripts *naively* — counting every
     /// occurrence, exactly as the old buggy scanner did. If that reproduces what
@@ -45,13 +54,14 @@ enum LocalHistoryRebuild {
     /// deduplicated count exactly; the 33rd was the current day, still accruing.
     static let replacementCoverageThreshold = 0.97
 
-    /// Whether a day's recorded figure may be replaced by the deduplicated one.
+    /// Whether a recorded figure may be replaced by the deduplicated one — for a
+    /// day, and unchanged for a session.
     ///
     /// Pure arithmetic over two numbers, so the safety property is testable
     /// without a database or a transcript.
     ///
-    /// A day with nothing recorded is not a correction — it is new data, and no
-    /// coverage ratio against zero is invented for it; it reports `false` here
+    /// A bucket with nothing recorded is not a correction — it is new data, and
+    /// no coverage ratio against zero is invented for it; it reports `false` here
     /// and is inserted rather than replaced.
     static func shouldReplace(recorded: Int64, naiveFromSurvivingFiles naive: Int64) -> Bool {
         guard recorded > 0 else { return false }

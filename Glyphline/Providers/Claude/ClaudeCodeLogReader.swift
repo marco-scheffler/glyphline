@@ -192,6 +192,7 @@ final class ClaudeCodeLogReader: @unchecked Sendable {
         var sessionTotals: [SessionKey: Totals] = [:]
         var watermarks: [LocalScanWatermark] = []
         var naiveDailyTotals: [Date: Int64] = [:]
+        var naiveSessionTotals: [String: Int64] = [:]
         // Built once per sync, not once per line: `ISO8601DateFormatter` is
         // expensive to construct and `read` parses millions of lines on a cold start.
         let dates = TranscriptTimestampParser()
@@ -210,6 +211,7 @@ final class ClaudeCodeLogReader: @unchecked Sendable {
         for file in transcriptURLs() {
             try consume(file, dates: dates, rebuilding: rebuilding, into: &totals,
                         sessions: &sessionTotals, naiveDaily: &naiveDailyTotals,
+                        naiveSessions: &naiveSessionTotals,
                         watermarks: &watermarks, seen: &seen, newlySeen: &newlySeen)
         }
 
@@ -244,7 +246,8 @@ final class ClaudeCodeLogReader: @unchecked Sendable {
                 watermarks: watermarks,
                 seenMessages: newlySeen
             ),
-            naiveDailyTotals: naiveDailyTotals
+            naiveDailyTotals: naiveDailyTotals,
+            naiveSessionTotals: naiveSessionTotals
         )
     }
 
@@ -263,6 +266,7 @@ final class ClaudeCodeLogReader: @unchecked Sendable {
         into totals: inout [BucketKey: Totals],
         sessions: inout [SessionKey: Totals],
         naiveDaily: inout [Date: Int64],
+        naiveSessions: inout [String: Int64],
         watermarks: inout [LocalScanWatermark],
         seen: inout Set<String>,
         newlySeen: inout [LocalSeenMessage]
@@ -331,6 +335,9 @@ final class ClaudeCodeLogReader: @unchecked Sendable {
                 // what the buggy scanner recorded for this day.
                 if rebuilding {
                     naiveDaily[dayStart, default: 0] += usage.totalTokens
+                    if let sessionID = record.sessionId {
+                        naiveSessions[sessionID, default: 0] += usage.totalTokens
+                    }
                 }
 
                 guard !Self.isAlreadyCounted(record.message?.id, seen: &seen, newlySeen: &newlySeen) else {
@@ -352,12 +359,15 @@ final class ClaudeCodeLogReader: @unchecked Sendable {
                 // disagree — which in an app about token counts is the worst
                 // kind of defect, plausible and wrong.
                 //
-                // Not gathered by a rebuild: `applyLocalHistoryRebuild` decides
-                // per day, has no per-session equivalent of that evidence, and so
-                // writes no session rows at all. Gathering figures nothing will
-                // read is work, and an invitation to write them one day without
-                // the rule that makes writing them safe.
-                if !rebuilding, let sessionID = record.sessionId {
+                // Gathered by a rebuild too, and for the same reason the day
+                // totals are: the per-day coverage rule transfers to sessions
+                // unchanged — group by `sessionId` instead of by day and the
+                // arithmetic is identical — so `applyLocalSessionTokenRebuild`
+                // has the evidence it needs to correct these as well.
+                //
+                // A record with no `sessionId` belongs to no session and simply
+                // does not participate, here or in the naive totals above.
+                if let sessionID = record.sessionId {
                     let sessionKey = SessionKey(sessionID: sessionID, model: record.message?.model)
                     var session = sessions[sessionKey] ?? Totals()
                     session.input += usage.inputTokens ?? 0

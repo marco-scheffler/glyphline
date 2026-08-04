@@ -219,9 +219,9 @@ final class LocalHistoryRebuildEndToEndTests: XCTestCase {
         )
     }
 
-    /// The rebuild writes no session rows, so it gathers none. The ordinary scan
-    /// still does.
-    func testTheRebuildDoesNotGatherSessionTotals() throws {
+    /// The rebuild gathers session totals too, deduplicated, alongside the naive
+    /// per-session sum its coverage rule needs.
+    func testTheRebuildGathersSessionTotalsAndTheirNaiveSum() throws {
         try write(
             [
                 """
@@ -232,10 +232,9 @@ final class LocalHistoryRebuildEndToEndTests: XCTestCase {
         )
 
         let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger)
-        XCTAssertTrue(try reader.readForRebuild().scan.sessionUsage.isEmpty)
-
-        let fresh = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger)
-        XCTAssertEqual(try fresh.read().sessionUsage.count, 1, "the ordinary scan still gathers them")
+        let rebuild = try reader.readForRebuild()
+        XCTAssertEqual(rebuild.scan.sessionUsage.count, 1)
+        XCTAssertEqual(rebuild.naiveSessionTotals, ["session-1": 100])
     }
 
     // MARK: - The rebuild against the ordinary scan
@@ -376,6 +375,320 @@ final class LocalHistoryRebuildEndToEndTests: XCTestCase {
         await controller.task?.value
 
         XCTAssertFalse(settings.hasRebuiltLocalHistory)
+    }
+}
+
+/// The per-session half of the same rebuild: the same coverage rule, grouped by
+/// `sessionId` instead of by day, under a marker of its own.
+///
+/// This is what `AgentverseCoordinator` reads through `fetchSessionWorkTokens`
+/// for the per-agent token column, so every one of these figures is on screen.
+@MainActor
+final class LocalSessionTokenRebuildTests: XCTestCase {
+    private var directory: URL!
+    private var ledger: LedgerStore!
+
+    override func setUpWithError() throws {
+        try super.setUpWithError()
+        directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("glyphline-session-rebuild-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: directory.appendingPathComponent("project-a", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+
+        let dbQueue = try DatabaseQueueFactory.makeInMemory()
+        try Migrations.migrate(dbQueue)
+        ledger = LedgerStore(dbQueue: dbQueue)
+    }
+
+    override func tearDownWithError() throws {
+        try? FileManager.default.removeItem(at: directory)
+        try super.tearDownWithError()
+    }
+
+    private func line(id: String, session: String?, input: Int, at timestamp: String) -> String {
+        let sessionField = session.map { "\"sessionId\":\"\($0)\"," } ?? ""
+        return """
+        {"type":"assistant",\(sessionField)"timestamp":"\(timestamp)","message":{"id":"\(id)","model":"claude-opus-4-8","usage":{"input_tokens":\(input),"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":0}}}
+        """
+    }
+
+    private func write(_ lines: [String], to name: String) throws {
+        try (lines.joined(separator: "\n") + "\n").write(
+            to: directory.appendingPathComponent("project-a/\(name)"),
+            atomically: true,
+            encoding: .utf8
+        )
+    }
+
+    /// The fork that caused all this. Both files carry the same `sessionId` — a
+    /// resume copies the session's history into a new file — so the old scanner
+    /// counted five lines for one session and recorded 500 where 300 were real.
+    private func writeParentAndFork() throws {
+        try write(
+            [
+                line(id: "msg-1", session: "session-1", input: 100, at: "2026-07-01T09:00:00.000Z"),
+                line(id: "msg-2", session: "session-1", input: 100, at: "2026-07-01T10:00:00.000Z"),
+            ],
+            to: "parent.jsonl"
+        )
+        try writeFork()
+    }
+
+    private func writeFork() throws {
+        try write(
+            [
+                line(id: "msg-1", session: "session-1", input: 100, at: "2026-07-01T09:00:00.000Z"),
+                line(id: "msg-2", session: "session-1", input: 100, at: "2026-07-01T10:00:00.000Z"),
+                line(id: "msg-3", session: "session-1", input: 100, at: "2026-07-01T11:00:00.000Z"),
+            ],
+            to: "fork.jsonl"
+        )
+    }
+
+    private func seedInflatedSession(_ tokens: Int64, sessionID: String = "session-1") throws {
+        try ledger.applyLocalScan(
+            LocalScanResult(
+                usage: [],
+                sessionUsage: [
+                    LocalSessionTokenUsage(
+                        sessionID: sessionID, model: "claude-opus-4-8", inputTokens: tokens
+                    ),
+                ],
+                watermarks: []
+            )
+        )
+    }
+
+    @discardableResult
+    private func runRebuild() throws -> Bool {
+        let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger)
+        return try ledger.applyLocalSessionTokenRebuild(reader.readForRebuild())
+    }
+
+    private func recordedTotal(_ sessionID: String = "session-1") throws -> Int64 {
+        try ledger.fetchSessionTokens(sessionIDs: [sessionID])[sessionID] ?? 0
+    }
+
+    // MARK: - The coverage rule, per session
+
+    func testFullCoverageReplacesTheInflatedSession() throws {
+        try writeParentAndFork()
+        try seedInflatedSession(500)
+
+        try runRebuild()
+
+        XCTAssertEqual(
+            try recordedTotal(), 300,
+            "the surviving files reproduce the recorded 500 naively, so the session is replaced"
+        )
+    }
+
+    /// The test that matters, and the per-session twin of the 4 Gtok case. The
+    /// parent's file is gone — as the `subagents/agent-*.jsonl` transcripts are on
+    /// every machine that has updated Claude Code — so the surviving fork accounts
+    /// for only 300 of the recorded 500. The recorded figure stands.
+    ///
+    /// A blanket rebuild that ignores coverage turns this red at 300.
+    func testKeepsTheRecordedFigureWhenFilesAreMissing() throws {
+        try writeFork()
+        try seedInflatedSession(500)
+
+        try runRebuild()
+
+        XCTAssertEqual(
+            try recordedTotal(), 500,
+            "coverage is 0.6; dropping to the fork's partial view would destroy real usage"
+        )
+    }
+
+    /// Nothing at all left to read for a recorded session: it never appears in the
+    /// scan's rows, so it is untouched by construction rather than zeroed.
+    func testKeepsASessionWithNoSurvivingTranscriptsAtAll() throws {
+        try seedInflatedSession(4_000_000)
+
+        try runRebuild()
+
+        XCTAssertEqual(try recordedTotal(), 4_000_000)
+    }
+
+    /// Coverage above 1.0 is a session the scanner had not finished recording, and
+    /// must replace like any other.
+    func testCoverageAboveOneReplaces() throws {
+        try writeParentAndFork()
+        try seedInflatedSession(418)
+
+        try runRebuild()
+
+        XCTAssertEqual(
+            try recordedTotal(), 300,
+            "500 naive against 418 recorded is 119.7% — a partial write, not a missing file"
+        )
+    }
+
+    /// A session with no recorded figure is new data, not a correction; no ratio
+    /// is computed against zero and the rows are inserted.
+    func testASessionWithNothingRecordedIsInserted() throws {
+        try writeParentAndFork()
+
+        try runRebuild()
+
+        XCTAssertEqual(try recordedTotal(), 300)
+    }
+
+    /// Records without a `sessionId` belong to no session and simply do not
+    /// participate — neither in the rows nor in the naive sums.
+    func testRecordsWithoutASessionIDDoNotParticipate() throws {
+        try write(
+            [
+                line(id: "msg-1", session: nil, input: 100, at: "2026-07-01T09:00:00.000Z"),
+                line(id: "msg-2", session: "session-1", input: 100, at: "2026-07-01T10:00:00.000Z"),
+            ],
+            to: "mixed.jsonl"
+        )
+
+        let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger)
+        let rebuild = try reader.readForRebuild()
+        XCTAssertEqual(rebuild.naiveSessionTotals, ["session-1": 100])
+
+        try ledger.applyLocalSessionTokenRebuild(rebuild)
+        XCTAssertEqual(try recordedTotal(), 100, "only the record that named a session counts")
+    }
+
+    // MARK: - Against the ordinary scan
+
+    /// The same collision the gate exists for, on the session rows: the ordinary
+    /// scan's `addLocalSessionTokens` accumulates, so a scan that reads before the
+    /// rebuild commits and writes after it would put its 300 on top of the 300 the
+    /// rebuild has just written and re-inflate the very column this fixes.
+    func testTheOrdinaryScanCannotAddOnTopOfTheSessionRebuild() async throws {
+        try writeParentAndFork()
+        try seedInflatedSession(500)
+
+        let ledger = ledger!
+        let directory = directory!
+        let gate = LocalHistoryWriteGate(rebuildIsOutstanding: true)
+
+        let scan = Task {
+            await gate.runScan {
+                let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger)
+                let result = try reader.read()
+                Thread.sleep(forTimeInterval: 0.2)
+                try ledger.applyLocalScan(result)
+            }
+        }
+
+        let rebuild = Task {
+            await gate.runRebuild {
+                let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger)
+                let scanned = try reader.readForRebuild()
+                let days = try ledger.applyLocalHistoryRebuild(scanned)
+                let sessions = try ledger.applyLocalSessionTokenRebuild(scanned)
+                return days && sessions
+            }
+        }
+
+        _ = await rebuild.value
+        _ = await scan.value
+
+        XCTAssertEqual(
+            try recordedTotal(), 300,
+            "the scan must not add its totals on top of the session the rebuild replaced"
+        )
+    }
+
+    // MARK: - The marker
+
+    private func makeSettings() -> AppSettingsStore {
+        let defaults = UserDefaults(suiteName: "glyphline-session-rebuild-\(UUID().uuidString)")!
+        return AppSettingsStore(defaults: defaults)
+    }
+
+    private func makeGate() -> LocalHistoryWriteGate {
+        LocalHistoryWriteGate(rebuildIsOutstanding: true)
+    }
+
+    /// The property the whole second marker exists for. 1.5 shipped and set
+    /// `hasRebuiltLocalHistory` on every machine that launched it, so a session
+    /// rebuild hung on that marker would never run for the users who need it.
+    func testRunsEvenWhereTheDayRebuildHasAlreadyRun() async throws {
+        let settings = makeSettings()
+        settings.hasRebuiltLocalHistory = true
+        XCTAssertFalse(settings.hasRebuiltLocalSessionTokens)
+
+        try writeParentAndFork()
+        try seedInflatedSession(500)
+
+        let ledger = ledger!
+        let directory = directory!
+        let controller = LocalHistoryRebuildController(
+            settings: settings, gate: makeGate(), ledger: ledger, directory: directory
+        )
+        await controller.task?.value
+
+        XCTAssertTrue(settings.hasRebuiltLocalSessionTokens)
+        XCTAssertEqual(try recordedTotal(), 300, "the session half ran on its own")
+    }
+
+    /// And it runs once. Re-reading every transcript on every launch is the
+    /// performance bug the marker exists to prevent.
+    func testTheSessionRebuildRunsOnce() async {
+        let settings = makeSettings()
+        settings.hasRebuiltLocalHistory = true
+        let runs = RebuildRunCounter()
+
+        let first = LocalHistoryRebuildController(settings: settings, gate: makeGate()) {
+            runs.increment()
+            return true
+        }
+        await first.task?.value
+        XCTAssertEqual(runs.value, 1)
+        XCTAssertTrue(settings.hasRebuiltLocalSessionTokens)
+
+        let second = LocalHistoryRebuildController(settings: settings, gate: makeGate()) {
+            runs.increment()
+            return true
+        }
+        await second.task?.value
+
+        XCTAssertEqual(runs.value, 1)
+    }
+
+    /// A crash mid-rebuild leaves both the figures and the marker untouched, so
+    /// the next launch simply runs it again.
+    func testACrashMidRebuildLeavesTheFiguresAndTheMarkerUntouched() async throws {
+        try writeParentAndFork()
+        try seedInflatedSession(500)
+
+        let settings = makeSettings()
+        settings.hasRebuiltLocalHistory = true
+        let ledger = ledger!
+        let directory = directory!
+
+        struct Boom: Error {}
+        let controller = LocalHistoryRebuildController(settings: settings, gate: makeGate()) {
+            let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger)
+            _ = try reader.readForRebuild()
+            throw Boom()
+        }
+        await controller.task?.value
+
+        XCTAssertFalse(settings.hasRebuiltLocalSessionTokens)
+        XCTAssertEqual(try recordedTotal(), 500, "nothing of an interrupted rebuild lands")
+    }
+
+    /// The single shot must not be spent by a launch that could read no
+    /// transcripts while there were sessions to correct.
+    func testAnUnreadableTranscriptDirectoryDoesNotSpendTheSingleShot() throws {
+        try seedInflatedSession(500)
+
+        let absent = FileManager.default.temporaryDirectory
+            .appendingPathComponent("glyphline-absent-\(UUID().uuidString)", isDirectory: true)
+        let reader = ClaudeCodeLogReader(directory: absent, watermarkStore: ledger)
+
+        XCTAssertFalse(try ledger.applyLocalSessionTokenRebuild(reader.readForRebuild()))
+        XCTAssertEqual(try recordedTotal(), 500)
     }
 }
 
