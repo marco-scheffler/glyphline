@@ -301,3 +301,94 @@ setting to be found.
   callable with an arbitrary freshness bound from inside the module. The class is
   closed at the view boundary — `quotaFreshness` is private and no view names a
   bound — but not at the type level.
+
+## Deferred out of the 1.5 / 1.6 branch
+
+Found in review while the window-mode and usage-counting work landed, and left
+open on purpose. None of them is a surprise, and none blocks a user today.
+
+### Two tests that read like cover
+
+- `GlyphlineTests/LocalizedLayoutTests.swift` — `testTheAppModePickerGetsTheWidthItsSegmentsAskFor`
+  measures against `SettingsRootView.minimumContentWidth` (640). No real
+  translation can breach that: the three-segment period picker in the same file
+  wants 221–234 points across all eight languages, so a two-segment picker wants
+  less, and a breaking translation would have to be roughly three times longer
+  than any plausible one. The `XCTAssertGreaterThan(wanted, 0)` half does earn
+  its keep — it proves every language renders through the compiled table — but
+  the width assertion is decorative. The real fix is to measure the settings form
+  column off a built app and replace the constant; it was not done because the
+  honest alternatives are worse (an invented tighter bound is exactly the failure
+  this file exists to prevent, and hosting `SettingsView` in the suite starts
+  Sparkle in the test process).
+
+- `GlyphlineTests/LocalizedLayoutTests.swift` — `testTheResetLineFitsTheNarrowestCardInEveryLanguage`
+  computes its budget as `AccountQuotaGrid.minimumCardWidth - 32 - 14`. Only the
+  300 is read from the view; the card's `.padding(16)` (`AccountQuotaCards.swift`)
+  and the reset line's `.padding(.leading, 14)` are bare literals with no
+  test-reachable constant. Grow either and the test keeps measuring against a
+  too-generous 254, stays green, and the line clips — the failure direction that
+  matters. Hoist both to `static let`s and derive the budget from them.
+
+### Session tokens have no independent expected-string coverage
+
+- `GlyphlineTests/QuotaCardModelTests.swift` — `testResetTextIsExactlyQuotaIndicatorsForTheSameInput`
+  is a delegation-equality test: it would still pass if `QuotaIndicator.resetText`
+  itself were wrong. Acceptable because that function carries its own coverage,
+  but the card's reset line is pinned only by agreement, not by an expected value.
+
+### The rebuild is silent
+
+- Nothing in the app says the one-time history rebuild ran. The release note is
+  the only signal that figures changed, so a user who skips it sees a step in
+  their charts with no explanation available anywhere in the UI.
+
+- `localSeenMessages` spikes well above its documented steady state for the
+  retention window after a rebuild, because the rebuild records an id for every
+  message in every surviving transcript at once. Bounded and self-clearing; only
+  the doc comment's sense of "normal size" is briefly wrong.
+
+### Invariants held by construction order rather than by type
+
+- `LocalHistoryWriteGate` — if `rebuildIsOutstanding` were ever true with nothing
+  dispatched to release it, every `runScan` would suspend forever and local usage
+  would silently never update again. `LocalHistoryRebuildController` now releases
+  it on every declining path, so this is unreachable; what remains is that nothing
+  *enforces* the pairing. A future maintainer who removes the controller and
+  leaves the gate gets a silent permanent hang with no error and no bound.
+
+- `AppActivationController` dereferences an implicitly-unwrapped `NSApp` through
+  a private accessor that forces `NSApplication.shared` first, so the launch-path
+  crash is structurally fixed. But `GlyphlineApp.init` constructs several
+  observers in sequence and their ordering is load-bearing in ways only comments
+  record.
+
+- `syncIntervalMinutes` is clamped to a positive value in `AppSettingsStore.init`
+  and the only runtime writer is the Settings picker (15/30/60), so a zero cannot
+  reach `LocalScanScheduleController`'s loop. Nothing at the point of use enforces
+  that; a zero would make the loop scan continuously. The same exposure exists in
+  `SyncCoordinator`'s scheduler, which is why it was not fixed in one place only.
+
+### Small behavioural rough edges
+
+- Changing the sync interval while a local scan is in flight cancels the old loop
+  while it still awaits that scan, and the new loop's first pass is a no-op via
+  `isScanningLocalUsage`. The first scan after the change is therefore skipped
+  until the next tick. Self-correcting, no leak.
+
+- `ja` and `zh-Hans` use ASCII parentheses in some catalog entries where those
+  locales conventionally take full-width ones. Pre-existing across the catalog
+  rather than new.
+
+### Verified by hand, not by a test
+
+- That the reset line's 14-point indent lands under the status *text* rather than
+  under the coloured dot. No test can see horizontal alignment; the height and
+  width tests only prove the line draws and fits.
+
+- That the menu bar panel reopens after being closed by the Dashboard or
+  Agentverse buttons. `MenuBarPanelDismisser` calls `close()`; if a build ever
+  fails to reopen the panel, `orderOut(nil)` is the one-word change. The panel is
+  reachable neither by the accessibility API nor in process — a SwiftUI
+  `MenuBarExtra` status button carries no target and no action — so this cannot
+  be automated.
