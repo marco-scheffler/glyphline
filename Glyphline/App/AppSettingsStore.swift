@@ -22,6 +22,20 @@ final class AppSettingsStore: ObservableObject {
         }
     }
 
+    /// Whether the one-time rebuild of the local usage history has run on this
+    /// installation.
+    ///
+    /// A property of the installation, like `hasShownDashboardOnce`, and durable
+    /// for the same reason: the rebuild re-reads every transcript on the machine
+    /// — twenty seconds and thousands of files on the reference machine — so one
+    /// that ran on every launch would be a performance bug, and one that never
+    /// ran would leave the inflated history it exists to correct.
+    @Published var hasRebuiltLocalHistory: Bool {
+        didSet {
+            defaults.set(hasRebuiltLocalHistory, forKey: Self.hasRebuiltLocalHistoryKey)
+        }
+    }
+
     @Published var automaticSyncEnabled: Bool {
         didSet {
             defaults.set(automaticSyncEnabled, forKey: Self.automaticSyncEnabledKey)
@@ -122,6 +136,7 @@ final class AppSettingsStore: ObservableObject {
     private let defaults: UserDefaults
     private static let appModeKey = "appMode"
     private static let hasShownDashboardOnceKey = "hasShownDashboardOnce"
+    private static let hasRebuiltLocalHistoryKey = "hasRebuiltLocalHistory"
     private static let automaticSyncEnabledKey = "automaticSyncEnabled"
     private static let syncIntervalMinutesKey = "syncIntervalMinutes"
     private static let lastWeatherKey = "lastWeather"
@@ -145,6 +160,10 @@ final class AppSettingsStore: ObservableObject {
         // `defaults.bool` reports `false` for an absent key, which is exactly the
         // wanted answer for a fresh install, so no presence check is needed here.
         hasShownDashboardOnce = defaults.bool(forKey: Self.hasShownDashboardOnceKey)
+
+        // Absent means "not yet", which is the wanted answer both for a fresh
+        // install and for the installation this rebuild exists to correct.
+        hasRebuiltLocalHistory = defaults.bool(forKey: Self.hasRebuiltLocalHistoryKey)
 
         // `defaults.bool` reports false for an absent key, so the explicit
         // presence check is what makes "enabled by default" survive a fresh install.

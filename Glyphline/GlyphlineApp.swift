@@ -12,6 +12,7 @@ struct GlyphlineApp: App {
     // them observable would invite a view to depend on one.
     private let schedule: SyncScheduleController
     private let windowActivation: WindowActivationObserver
+    private let localHistoryRebuild: LocalHistoryRebuildController
 
     init() {
         let settings = AppSettingsStore()
@@ -56,6 +57,11 @@ struct GlyphlineApp: App {
         // Both are `@MainActor`, and `App.init` runs on the main actor.
         schedule = SyncScheduleController(settings: settings, coordinator: coordinator)
         windowActivation = WindowActivationObserver(settings: settings)
+
+        // Here rather than on the dashboard's `task`, because in the default mode
+        // no window opens at launch — the correction has to happen whether or not
+        // one ever does. It starts detached work and returns immediately.
+        localHistoryRebuild = LocalHistoryRebuildController(settings: settings, ledger: ledger)
     }
 
     var body: some Scene {

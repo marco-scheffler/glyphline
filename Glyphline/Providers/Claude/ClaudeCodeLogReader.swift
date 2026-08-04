@@ -55,6 +55,11 @@ private struct ClaudeCodeLogRecord: Decodable {
                 case cacheReadInputTokens = "cache_read_input_tokens"
                 case outputTokens = "output_tokens"
             }
+
+            var totalTokens: Int64 {
+                (inputTokens ?? 0) + (cacheCreationInputTokens ?? 0)
+                    + (cacheReadInputTokens ?? 0) + (outputTokens ?? 0)
+            }
         }
 
         /// The API's message id. Stable across every copy of the message, which
@@ -165,9 +170,28 @@ final class ClaudeCodeLogReader: @unchecked Sendable {
     /// written in the same transaction as the rows, or the tokens between the
     /// old and the new resume point are lost for good.
     func read() throws -> LocalScanResult {
+        try scan(rebuilding: false).scan
+    }
+
+    /// Re-reads **every** surviving transcript from byte zero, ignoring the stored
+    /// resume points and the stored seen ids, and returns the deduplicated result
+    /// alongside the naive per-day totals the old scanner would have produced.
+    ///
+    /// Both aggregates come out of the one pass on purpose: the coverage ratio
+    /// that decides whether a day may be replaced compares them, and two figures
+    /// read from 1.86 GB of transcripts at different times could disagree.
+    ///
+    /// Nothing is persisted here. The result belongs to
+    /// `LedgerStore.applyLocalHistoryRebuild(_:)`, in one transaction.
+    func readForRebuild() throws -> LocalHistoryRebuildScan {
+        try scan(rebuilding: true)
+    }
+
+    private func scan(rebuilding: Bool) throws -> LocalHistoryRebuildScan {
         var totals: [BucketKey: Totals] = [:]
         var sessionTotals: [SessionKey: Totals] = [:]
         var watermarks: [LocalScanWatermark] = []
+        var naiveDailyTotals: [Date: Int64] = [:]
         // Built once per sync, not once per line: `ISO8601DateFormatter` is
         // expensive to construct and `read` parses millions of lines on a cold start.
         let dates = TranscriptTimestampParser()
@@ -176,11 +200,16 @@ final class ClaudeCodeLogReader: @unchecked Sendable {
         // every previous scan — which is the whole point, since a fork's parent
         // was consumed in an earlier pass — and grows as this scan counts more,
         // so a message copied into two files within one scan is also caught.
-        var seen = try watermarkStore.fetchSeenMessageIDs()
+        //
+        // A rebuild starts from an empty set instead: it re-reads every file
+        // whole, so every id it meets is one it is counting for the first time
+        // in this pass, and the stored set would suppress all of them.
+        var seen = rebuilding ? [] : try watermarkStore.fetchSeenMessageIDs()
         var newlySeen: [LocalSeenMessage] = []
 
         for file in transcriptURLs() {
-            try consume(file, dates: dates, into: &totals, sessions: &sessionTotals,
+            try consume(file, dates: dates, rebuilding: rebuilding, into: &totals,
+                        sessions: &sessionTotals, naiveDaily: &naiveDailyTotals,
                         watermarks: &watermarks, seen: &seen, newlySeen: &newlySeen)
         }
 
@@ -208,11 +237,14 @@ final class ClaudeCodeLogReader: @unchecked Sendable {
         }
         .sorted { ($0.sessionID, $0.modelKey) < ($1.sessionID, $1.modelKey) }
 
-        return LocalScanResult(
-            usage: usage,
-            sessionUsage: sessionUsage,
-            watermarks: watermarks,
-            seenMessages: newlySeen
+        return LocalHistoryRebuildScan(
+            scan: LocalScanResult(
+                usage: usage,
+                sessionUsage: sessionUsage,
+                watermarks: watermarks,
+                seenMessages: newlySeen
+            ),
+            naiveDailyTotals: naiveDailyTotals
         )
     }
 
@@ -227,8 +259,10 @@ final class ClaudeCodeLogReader: @unchecked Sendable {
     private func consume(
         _ file: URL,
         dates: TranscriptTimestampParser,
+        rebuilding: Bool,
         into totals: inout [BucketKey: Totals],
         sessions: inout [SessionKey: Totals],
+        naiveDaily: inout [Date: Int64],
         watermarks: inout [LocalScanWatermark],
         seen: inout Set<String>,
         newlySeen: inout [LocalSeenMessage]
@@ -237,7 +271,9 @@ final class ClaudeCodeLogReader: @unchecked Sendable {
         let size = (attributes?[.size] as? NSNumber)?.int64Value ?? 0
         let modified = attributes?[.modificationDate] as? Date ?? Date(timeIntervalSince1970: 0)
 
-        let stored = try watermarkStore.fetchLocalScanWatermark(sourceKey: file.path)
+        // A rebuild reads from byte zero regardless of where the last scan
+        // stopped; that is what makes its figures whole rather than a delta.
+        let stored = rebuilding ? nil : try watermarkStore.fetchLocalScanWatermark(sourceKey: file.path)
         // A file that shrank or moved backwards in time was rewritten; start over.
         // The ledger stores dates at millisecond precision and rounds, so an
         // unchanged file can come back a hair ahead of its own mtime; the
@@ -286,9 +322,22 @@ final class ClaudeCodeLogReader: @unchecked Sendable {
             if let record = try? decoder.decode(ClaudeCodeLogRecord.self, from: Data(line)),
                let usage = record.message?.usage,
                let timestamp = dates.date(from: record.timestamp),
-               !Self.isPlaceholderModel(record.message?.model),
-               !Self.isAlreadyCounted(record.message?.id, seen: &seen, newlySeen: &newlySeen) {
+               !Self.isPlaceholderModel(record.message?.model) {
                 let dayStart = calendar.startOfDay(for: timestamp)
+
+                // Counted before the deduplication guard, and therefore counting
+                // every copy — this is deliberately the arithmetic of the bug, so
+                // a rebuild can ask whether the surviving files still reproduce
+                // what the buggy scanner recorded for this day.
+                if rebuilding {
+                    naiveDaily[dayStart, default: 0] += usage.totalTokens
+                }
+
+                guard !Self.isAlreadyCounted(record.message?.id, seen: &seen, newlySeen: &newlySeen) else {
+                    consumable = lineEnd
+                    continue
+                }
+
                 let key = BucketKey(dayStart: dayStart, model: record.message?.model)
                 var bucket = totals[key] ?? Totals()
                 bucket.input += usage.inputTokens ?? 0
