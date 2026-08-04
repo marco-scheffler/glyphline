@@ -1,0 +1,35 @@
+<h2>Corrections to 1.5</h2>
+
+<p>Two figures 1.5 got wrong, and both are visible.</p>
+
+<h3>Local usage stopped updating</h3>
+
+<p>1.5 moved Glyphline into the menu bar, and the reading of
+<code>~/.claude/projects</code> was still wired to the dashboard window — which
+that release stopped opening at launch. So on a machine where the dashboard was
+never opened, "Usage on this Mac" never updated at all; and where it was opened,
+it was read once and then not again for as long as the app kept running.</p>
+
+<p>The reading now happens on its own, at launch and then on the same interval as
+the account sync, whether or not a window is open. It also re-reads when the Mac
+wakes, instead of waiting out an interval that elapsed while it slept.</p>
+
+<p>It is deliberately not tied to the "Sync automatically" switch: that switch is
+about network calls to your provider, and reading files on this Mac costs nothing
+outside it.</p>
+
+<h3>The Agentverse showed every agent at about twice its size</h3>
+
+<p>The per-session token totals behind the Agentverse carried the same double
+counting 1.5 fixed for the daily figures — the same assistant message counted
+once per transcript that contained it. 1.5 corrected the daily numbers and left
+these alone.</p>
+
+<p>They are corrected once now, on the first launch after updating, by the same
+rule: a session is recalculated only when the transcripts still on disk account
+for what was recorded for it. Where transcripts have gone — Claude Code used to
+keep subagent sessions in separate files and now records them inline — the
+recorded figure is left exactly as it was, rather than dropping to a partial view
+of itself.</p>
+
+<p>Requires macOS 26.</p>
