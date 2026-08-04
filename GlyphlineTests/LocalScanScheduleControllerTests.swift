@@ -1,3 +1,4 @@
+import AppKit
 import XCTest
 @testable import Glyphline
 
@@ -183,6 +184,158 @@ final class LocalScanScheduleControllerTests: XCTestCase {
                 "the loop must await the scan in flight rather than start another one on the next tick"
             )
         }
+    }
+
+    // MARK: - Wake
+
+    /// A sleeping Mac does not run the loop. Without an observer it comes back and
+    /// waits out the remainder of an interval that elapsed while it slept — the
+    /// figures are stale for up to a whole interval at exactly the moment the user
+    /// opens the lid and looks.
+    func testWakingTheMacScansAtOnce() async {
+        let settings = makeSettings(intervalMinutes: 15)
+        // Never returns from the first sleep, so the loop is parked and the only
+        // thing that can produce a second scan is the wake notification.
+        let sleeper = Sleeper(immediateReturns: 0)
+        let center = ObserverRecordingNotificationCenter()
+        let scans = ScanRecorder()
+        let scannedAtLaunch = expectation(description: "scanned at launch")
+        scans.onScan = { if $0 == 1 { scannedAtLaunch.fulfill() } }
+
+        let controller = LocalScanScheduleController(
+            settings: settings,
+            scan: { scans.record() },
+            sleepForSeconds: sleeper.sleep,
+            wakeNotificationCenter: center
+        )
+        await fulfillment(of: [scannedAtLaunch], timeout: 2)
+
+        let scannedOnWake = expectation(description: "scanned on wake")
+        scans.onScan = { if $0 == 2 { scannedOnWake.fulfill() } }
+        center.post(name: NSWorkspace.didWakeNotification, object: nil)
+        await fulfillment(of: [scannedOnWake], timeout: 2)
+
+        withExtendedLifetime(controller) {
+            XCTAssertEqual(
+                scans.count, 2,
+                "waking the Mac must refresh the figures rather than wait out the rest of an interval that elapsed while it slept"
+            )
+        }
+    }
+
+    /// The wake path and the loop share the same watermarks, and the reader adds
+    /// each file's growth past its watermark. Two passes reading the same growth
+    /// at the same time would add it twice, so a wake landing during a scan in
+    /// flight must be dropped rather than run alongside it.
+    func testWakingDuringAScanInFlightDoesNotStartASecondScan() async {
+        let settings = makeSettings(intervalMinutes: 15)
+        let sleeper = Sleeper(immediateReturns: 0)
+        let center = ObserverRecordingNotificationCenter()
+        let scans = ScanRecorder()
+        let started = expectation(description: "first scan started")
+        scans.onScan = { if $0 == 1 { started.fulfill() } }
+
+        let controller = LocalScanScheduleController(
+            settings: settings,
+            scan: {
+                scans.record()
+                // Never returns on its own; cancelled with the loop at teardown.
+                try? await Task.sleep(for: .seconds(3_600))
+            },
+            sleepForSeconds: sleeper.sleep,
+            wakeNotificationCenter: center
+        )
+        await fulfillment(of: [started], timeout: 2)
+
+        center.post(name: NSWorkspace.didWakeNotification, object: nil)
+        for _ in 0..<200 {
+            await Task.yield()
+        }
+
+        withExtendedLifetime(controller) {
+            XCTAssertEqual(
+                scans.count, 1,
+                "a wake arriving while a scan is in flight must not start a second one alongside it"
+            )
+        }
+    }
+
+    /// The notification centre owns the observer block, so a controller that never
+    /// removed it would leave a registration behind for the lifetime of the
+    /// process. Asserts the removal itself, not just that no scan follows — the
+    /// block captures `self` weakly, so "no scan after deinit" holds even with the
+    /// removal deleted.
+    func testTheWakeObserverIsRemovedWhenTheControllerGoesAway() async {
+        let settings = makeSettings(intervalMinutes: 15)
+        let sleeper = Sleeper(immediateReturns: 0)
+        let center = ObserverRecordingNotificationCenter()
+        let scans = ScanRecorder()
+        let scannedAtLaunch = expectation(description: "scanned at launch")
+        scans.onScan = { if $0 == 1 { scannedAtLaunch.fulfill() } }
+
+        var controller: LocalScanScheduleController? = LocalScanScheduleController(
+            settings: settings,
+            scan: { scans.record() },
+            sleepForSeconds: sleeper.sleep,
+            wakeNotificationCenter: center
+        )
+        await fulfillment(of: [scannedAtLaunch], timeout: 2)
+        XCTAssertNotNil(controller)
+        controller = nil
+
+        XCTAssertEqual(center.addedTokenCount, 1, "the controller registers exactly one wake observer")
+        XCTAssertEqual(
+            center.removedTokenCount, 1,
+            "the wake observer must be removed on deinit, or the centre keeps the registration for the life of the process"
+        )
+
+        center.post(name: NSWorkspace.didWakeNotification, object: nil)
+        for _ in 0..<200 {
+            await Task.yield()
+        }
+        XCTAssertEqual(scans.count, 1, "a wake after the controller is gone must not scan")
+    }
+}
+
+/// Counts the block observers added and removed, so a missing `removeObserver`
+/// is visible to a test.
+private final class ObserverRecordingNotificationCenter: NotificationCenter, @unchecked Sendable {
+    private let lock = NSLock()
+    private var added: [ObjectIdentifier] = []
+    private var removed: [ObjectIdentifier] = []
+
+    var addedTokenCount: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return added.count
+    }
+
+    var removedTokenCount: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return removed.count
+    }
+
+    override func addObserver(
+        forName name: NSNotification.Name?,
+        object obj: Any?,
+        queue: OperationQueue?,
+        using block: @escaping @Sendable (Notification) -> Void
+    ) -> any NSObjectProtocol {
+        let token = super.addObserver(forName: name, object: obj, queue: queue, using: block)
+        lock.lock()
+        added.append(ObjectIdentifier(token))
+        lock.unlock()
+        return token
+    }
+
+    override func removeObserver(_ observer: Any) {
+        if let object = observer as? AnyObject {
+            lock.lock()
+            removed.append(ObjectIdentifier(object))
+            lock.unlock()
+        }
+        super.removeObserver(observer)
     }
 }
 
