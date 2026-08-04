@@ -1,0 +1,36 @@
+<h2>Your local usage numbers change with this update</h2>
+
+<p>They go <strong>down</strong>, and on a heavy machine they can roughly halve.
+That is the fix, not a regression — the old figures were too high.</p>
+
+<h3>What was wrong</h3>
+
+<p>Glyphline reads the Claude Code transcripts under
+<code>~/.claude/projects</code>. Claude Code copies a session's history into a
+new file whenever the session is resumed or forked, so the same assistant
+message — same id, same usage block — sits in several files at once. The
+scanner summed the files line by line, which counted every one of those copies.
+On the machine this was measured on it recorded <strong>2.19&times;</strong> the
+real usage: 45.5 Gtok against 20.4 Gtok.</p>
+
+<p>Every message is now counted once, by its id.</p>
+
+<h3>What this update does to what was already recorded</h3>
+
+<p>Fixing the scanner only fixes new readings, so this update also corrects the
+history once, on the first launch after updating. It happens in the background
+and needs no window open.</p>
+
+<p>It does not simply throw the history away and read everything again, because
+that would lose real usage. Transcripts disappear: Claude Code used to write
+subagent sessions into their own files and now records them inline, and sessions
+run in git worktrees that were later removed leave nothing behind at all. On the
+reference machine 11.5 Gtok of genuinely recorded usage had no source left to
+read, and two days had no surviving transcript whatsoever.</p>
+
+<p>So each day is decided on evidence. If the transcripts still on disk account
+for what was recorded for that day, the corrected figure replaces it. If they
+fall short, files are missing, and the recorded figure is left exactly as it
+was.</p>
+
+<p>Requires macOS 26.</p>

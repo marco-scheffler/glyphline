@@ -478,6 +478,88 @@ final class LedgerStore {
         }
     }
 
+    /// Persists the one-time rebuild of the local history: per day, either the
+    /// recorded figure is replaced by the deduplicated one or it is left exactly
+    /// as it was — and in either case the resume points and seen ids that make
+    /// the next ordinary scan correct.
+    ///
+    /// One transaction, for the reason `applyLocalScan` is one: the rows, the
+    /// watermarks and the seen ids come from a single pass and are meaningless
+    /// apart. A partially applied rebuild would leave watermarks at the end of
+    /// every file with the old inflated figures still in place — unreadable bytes
+    /// and a history nothing can correct any more. Interrupted, this writes
+    /// nothing and simply runs again next launch.
+    ///
+    /// A day whose surviving transcripts no longer reproduce what was recorded is
+    /// never written. That is the entire safety property; see
+    /// `LocalHistoryRebuild.replacementCoverageThreshold`.
+    ///
+    /// `localSessionTokens` is deliberately untouched. The evidence rule is
+    /// per-day and there is no per-session equivalent, so overwriting a session
+    /// whose transcript has partly vanished would destroy exactly the data this
+    /// rule exists to protect.
+    func applyLocalHistoryRebuild(_ rebuild: LocalHistoryRebuildScan, now: Date = Date()) throws {
+        try dbQueue.write { db in
+            let recorded = try Self.recordedDailyTotals(in: db)
+            let rowsByDay = Dictionary(grouping: rebuild.scan.usage, by: \.bucketStart)
+
+            var daysToClear: [Date] = []
+            var rowsToWrite: [LocalTokenUsage] = []
+
+            for (day, rows) in rowsByDay {
+                let recordedTotal = recorded[day] ?? 0
+                if recordedTotal == 0 {
+                    // Nothing recorded for this day, so there is nothing to
+                    // correct and nothing to destroy — writing it is an insert.
+                    // Skipping it would lose it for good, because the watermarks
+                    // below put these bytes behind the next scan.
+                    rowsToWrite.append(contentsOf: rows)
+                } else if LocalHistoryRebuild.shouldReplace(
+                    recorded: recordedTotal,
+                    naiveFromSurvivingFiles: rebuild.naiveDailyTotals[day] ?? 0
+                ) {
+                    daysToClear.append(day)
+                    rowsToWrite.append(contentsOf: rows)
+                }
+                // Otherwise: files are missing behind this day. Leave it alone.
+            }
+
+            // A day recorded but with no surviving usage at all never appears in
+            // `rowsByDay`, so it is untouched by construction — which is the case
+            // that would otherwise have zeroed 4 Gtok on the reference machine.
+            for day in daysToClear {
+                try Self.deleteLocalTokenUsage(day: day, in: db)
+            }
+            try Self.addLocalTokenUsage(rowsToWrite, in: db)
+            try Self.recordSeenMessages(rebuild.scan.seenMessages, in: db)
+            for watermark in rebuild.scan.watermarks {
+                try Self.saveLocalScanWatermark(watermark, in: db)
+            }
+            try Self.pruneSeenMessages(before: now - LocalSeenMessageRetention.window, in: db)
+        }
+    }
+
+    /// What is recorded per day, summed across models — the denominator of the
+    /// coverage ratio.
+    private static func recordedDailyTotals(in db: Database) throws -> [Date: Int64] {
+        try LocalTokenUsageRecord
+            .fetchAll(db)
+            .reduce(into: [Date: Int64]()) { totals, record in
+                let usage = record.usage
+                totals[usage.bucketStart, default: 0] += usage.totalTokens
+            }
+    }
+
+    private static func deleteLocalTokenUsage(day: Date, in db: Database) throws {
+        try db.execute(
+            sql: """
+                DELETE FROM \(LedgerTable.localTokenUsage)
+                WHERE \(LedgerColumn.bucketStart) = ?
+                """,
+            arguments: [day]
+        )
+    }
+
     private static func recordSeenMessages(_ rows: [LocalSeenMessage], in db: Database) throws {
         for row in rows {
             // Conflicts should not happen — the scan skips an id it has already
