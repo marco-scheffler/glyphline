@@ -392,3 +392,42 @@ open on purpose. None of them is a surprise, and none blocks a user today.
   reachable neither by the accessibility API nor in process — a SwiftUI
   `MenuBarExtra` status button carries no target and no action — so this cannot
   be automated.
+
+### Side effects still wired to views
+
+Three times during the 1.5/1.6 work, something a running app needs turned out to
+hang on a SwiftUI view's `.task` or `.onAppear`, and each time it only surfaced
+because the menu bar default stopped that view from ever existing: the sync
+scheduler (now `SyncScheduleController`), the one-time history rebuild (now
+`LocalHistoryRebuildController`), and the local usage scan (now
+`LocalScanScheduleController`). The pattern is worth a deliberate pass rather
+than waiting for the next release to find the rest.
+
+What a survey of `Glyphline/UI/` turns up today:
+
+- **`DashboardView.swift:86` — `.task { await agentverse.refresh() }` has no
+  trigger outside a view at all.** `AgentverseCoordinator` schedules nothing of
+  its own, and no non-UI caller invokes `refresh()`. So the parked/on-track
+  session state — and `workTokens`, which feeds the per-agent token column — is
+  only ever swept when the dashboard or the map window is open. The comment on
+  that line reasons about *which* view should own the sweep; the question the
+  1.5/1.6 experience raises is whether a view should own it at all.
+
+- `DashboardView.swift:76` — `refreshRateWindowsOnDemand()` is genuinely
+  view-shaped (freshen quotas because someone is looking) and is also reached
+  from the menu bar panel and the scheduler, so it is not stranded. Listed to
+  say it was examined, not to imply it is wrong.
+
+- `DashboardView.swift:83` — `scanLocalUsage()` is now correct: the cadence lives
+  in `LocalScanScheduleController` and this call only makes an opened dashboard
+  show current figures rather than up-to-an-interval-old ones.
+
+- `AgentverseWindow.swift:148,165,181` — the render loop and the place/weather
+  tasks are keyed on window occlusion by design; those belong to the window and
+  should stay there.
+
+The test to apply to each remaining one: *if this view never exists for the whole
+life of the process, does the app still behave correctly?* Where the answer is
+no, the work belongs to an app-level controller constructed in `GlyphlineApp.init`
+— `SyncScheduleController` and `WindowActivationObserver` are the established
+shape.
