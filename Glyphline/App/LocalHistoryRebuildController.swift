@@ -11,7 +11,9 @@ import Foundation
 ///
 /// The work itself is off the main actor and off the launch path — it re-reads
 /// every transcript on the machine, about twenty seconds and 3,310 files on the
-/// reference machine.
+/// reference machine — and it goes through `LocalHistoryWriteGate`, which is what
+/// keeps the ordinary launch scan from adding its totals on top of the day this
+/// has just replaced.
 @MainActor
 final class LocalHistoryRebuildController {
     /// Exposed so a test can await the rebuild instead of polling for its
@@ -20,26 +22,24 @@ final class LocalHistoryRebuildController {
     let task: Task<Void, Never>?
 
     /// - Parameter rebuild: reads the transcripts and applies the result in one
-    ///   transaction. Throwing leaves the marker unset, so the next launch tries
-    ///   again — which is exactly what a half-finished run wants, because the
-    ///   transaction means nothing of it landed.
-    init(settings: AppSettingsStore, rebuild: (@Sendable () throws -> Void)?) {
+    ///   transaction, reporting whether the rebuild may be marked done. Throwing,
+    ///   or reporting `false`, leaves the marker unset so the next launch tries
+    ///   again — which is what a half-finished run wants, because the transaction
+    ///   means nothing of it landed, and what a launch that could not read the
+    ///   transcripts at all wants, because the single shot must not be spent on
+    ///   nothing.
+    init(
+        settings: AppSettingsStore,
+        gate: LocalHistoryWriteGate,
+        rebuild: (@Sendable () throws -> Bool)?
+    ) {
         guard !settings.hasRebuiltLocalHistory, let rebuild else {
             task = nil
             return
         }
 
         task = Task {
-            let succeeded = await Task.detached(priority: .utility) { () -> Bool in
-                do {
-                    try rebuild()
-                    return true
-                } catch {
-                    return false
-                }
-            }.value
-
-            if succeeded {
+            if await gate.runRebuild(rebuild) {
                 settings.hasRebuiltLocalHistory = true
             }
         }
@@ -49,16 +49,17 @@ final class LocalHistoryRebuildController {
     /// projects directory, and hand the result to the ledger whole.
     convenience init(
         settings: AppSettingsStore,
+        gate: LocalHistoryWriteGate,
         ledger: LedgerStore?,
         directory: URL = SyncCoordinator.claudeProjectsDirectory
     ) {
         guard let ledger else {
-            self.init(settings: settings, rebuild: nil)
+            self.init(settings: settings, gate: gate, rebuild: nil)
             return
         }
 
         let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger)
-        self.init(settings: settings) {
+        self.init(settings: settings, gate: gate) {
             try ledger.applyLocalHistoryRebuild(reader.readForRebuild())
         }
     }

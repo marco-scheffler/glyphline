@@ -494,13 +494,30 @@ final class LedgerStore {
     /// never written. That is the entire safety property; see
     /// `LocalHistoryRebuild.replacementCoverageThreshold`.
     ///
-    /// `localSessionTokens` is deliberately untouched. The evidence rule is
-    /// per-day and there is no per-session equivalent, so overwriting a session
-    /// whose transcript has partly vanished would destroy exactly the data this
-    /// rule exists to protect.
-    func applyLocalHistoryRebuild(_ rebuild: LocalHistoryRebuildScan, now: Date = Date()) throws {
+    /// `localSessionTokens` is deliberately untouched, and `readForRebuild` does
+    /// not even gather it. The evidence rule is per-day and there is no
+    /// per-session equivalent, so overwriting a session whose transcript has
+    /// partly vanished would destroy exactly the data this rule exists to
+    /// protect. Those totals therefore stay inflated, and the watermarks written
+    /// here mean nothing will correct them later — that needs an evidence rule of
+    /// its own and is not this.
+    /// - Returns: whether the rebuild may be marked done. `false` means it read
+    ///   nothing while there was a history to correct — `transcriptURLs()` returns
+    ///   an empty list for an absent or unreadable directory rather than throwing,
+    ///   so an external volume not yet mounted, a permissions prompt not yet
+    ///   answered or a machine mid-restore would otherwise spend the single shot
+    ///   on nothing and leave the inflated history uncorrectable. A genuinely
+    ///   empty install — nothing recorded, nothing to read — reports `true`:
+    ///   there is nothing to correct, and that is not a failure.
+    @discardableResult
+    func applyLocalHistoryRebuild(_ rebuild: LocalHistoryRebuildScan, now: Date = Date()) throws -> Bool {
         try dbQueue.write { db in
             let recorded = try Self.recordedDailyTotals(in: db)
+
+            guard !rebuild.scan.usage.isEmpty || recorded.isEmpty else {
+                return false
+            }
+
             let rowsByDay = Dictionary(grouping: rebuild.scan.usage, by: \.bucketStart)
 
             var daysToClear: [Date] = []
@@ -536,6 +553,7 @@ final class LedgerStore {
                 try Self.saveLocalScanWatermark(watermark, in: db)
             }
             try Self.pruneSeenMessages(before: now - LocalSeenMessageRetention.window, in: db)
+            return true
         }
     }
 

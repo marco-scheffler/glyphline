@@ -157,6 +157,10 @@ final class SyncCoordinator: ObservableObject {
     /// to resume from, in which case no scan is attempted at all.
     private let localScan: (@Sendable () throws -> LocalScanResult)?
 
+    /// Shared with `LocalHistoryRebuildController`, so the two things that read
+    /// the transcripts and write the local history cannot overlap.
+    private let localHistoryGate: LocalHistoryWriteGate
+
     /// Nil when the bundled pricing catalog could not be loaded; the screen then
     /// has tokens but no estimate, which is the honest rendering.
     private let costEstimator: CostEstimator?
@@ -198,16 +202,14 @@ final class SyncCoordinator: ObservableObject {
         defer { isScanningLocalUsage = false }
 
         // Off the main actor: the first scan reads gigabytes and would freeze
-        // the window for the whole of it.
-        let failed = await Task.detached(priority: .utility) { () -> Bool in
-            do {
-                let scan = try localScan()
-                try ledger.applyLocalScan(scan)
-                return false
-            } catch {
-                return true
-            }
-        }.value
+        // the window for the whole of it. Through the gate, which also holds it
+        // back behind the one-time history rebuild — reading before that rebuild
+        // commits and writing after it would add these totals on top of the days
+        // it had just replaced, because `applyLocalScan` accumulates.
+        let succeeded = await localHistoryGate.runScan {
+            try ledger.applyLocalScan(try localScan())
+        }
+        let failed = !succeeded
 
         if failed {
             localScanFailureMessage = Self.localScanFailedMessage
@@ -273,8 +275,12 @@ final class SyncCoordinator: ObservableObject {
         rateWindowSourceProvider: (@MainActor (Account) -> (any RateWindowSource)?)? = nil,
         quotaNotifier: any QuotaNotifier = UserNotificationQuotaNotifier(),
         localScan: (@Sendable () throws -> LocalScanResult)? = nil,
-        costEstimator: CostEstimator? = nil
+        costEstimator: CostEstimator? = nil,
+        // Defaults to a gate with no rebuild outstanding: a coordinator built
+        // without one has nothing to wait for.
+        localHistoryGate: LocalHistoryWriteGate = LocalHistoryWriteGate(rebuildIsOutstanding: false)
     ) {
+        self.localHistoryGate = localHistoryGate
         if let localScan {
             self.localScan = localScan
         } else if let ledger {

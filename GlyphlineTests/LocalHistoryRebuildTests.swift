@@ -128,9 +128,10 @@ final class LocalHistoryRebuildEndToEndTests: XCTestCase {
         ])
     }
 
-    private func runRebuild() throws {
+    @discardableResult
+    private func runRebuild() throws -> Bool {
         let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger)
-        try ledger.applyLocalHistoryRebuild(reader.readForRebuild())
+        return try ledger.applyLocalHistoryRebuild(reader.readForRebuild())
     }
 
     private func recordedTotal() throws -> Int64 {
@@ -218,6 +219,67 @@ final class LocalHistoryRebuildEndToEndTests: XCTestCase {
         )
     }
 
+    /// The rebuild writes no session rows, so it gathers none. The ordinary scan
+    /// still does.
+    func testTheRebuildDoesNotGatherSessionTotals() throws {
+        try write(
+            [
+                """
+                {"type":"assistant","sessionId":"session-1","timestamp":"2026-07-01T09:00:00.000Z","message":{"id":"msg-1","model":"claude-opus-4-8","usage":{"input_tokens":100,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":0}}}
+                """,
+            ],
+            to: "session.jsonl"
+        )
+
+        let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger)
+        XCTAssertTrue(try reader.readForRebuild().scan.sessionUsage.isEmpty)
+
+        let fresh = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger)
+        XCTAssertEqual(try fresh.read().sessionUsage.count, 1, "the ordinary scan still gathers them")
+    }
+
+    // MARK: - The rebuild against the ordinary scan
+
+    /// The collision the whole gate exists for. The ordinary launch scan starts
+    /// first and is slow — it walks thousands of files — so it reads before the
+    /// rebuild commits and would write after it. `applyLocalScan` accumulates, so
+    /// without the gate its 300 lands on top of the 300 the rebuild has just
+    /// replaced the inflated 500 with, and the day is inflated all over again on
+    /// exactly the installation this feature exists to correct.
+    func testTheOrdinaryScanCannotAddOnTopOfTheRebuild() async throws {
+        try writeParentAndFork()
+        try seedInflatedHistory(500)
+
+        let ledger = ledger!
+        let directory = directory!
+        let gate = LocalHistoryWriteGate(rebuildIsOutstanding: true)
+
+        // Started first, and deliberately slow between reading and writing.
+        let scan = Task {
+            await gate.runScan {
+                let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger)
+                let result = try reader.read()
+                Thread.sleep(forTimeInterval: 0.2)
+                try ledger.applyLocalScan(result)
+            }
+        }
+
+        let rebuild = Task {
+            await gate.runRebuild {
+                let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger)
+                return try ledger.applyLocalHistoryRebuild(reader.readForRebuild())
+            }
+        }
+
+        _ = await rebuild.value
+        _ = await scan.value
+
+        XCTAssertEqual(
+            try recordedTotal(), 300,
+            "the scan must not add its totals on top of the day the rebuild replaced"
+        )
+    }
+
     // MARK: - The marker
 
     private func makeSettings() -> AppSettingsStore {
@@ -225,17 +287,27 @@ final class LocalHistoryRebuildEndToEndTests: XCTestCase {
         return AppSettingsStore(defaults: defaults)
     }
 
+    private func makeGate() -> LocalHistoryWriteGate {
+        LocalHistoryWriteGate(rebuildIsOutstanding: true)
+    }
+
     func testTheRebuildRunsOnceAndMarksItself() async {
         let settings = makeSettings()
         let runs = RebuildRunCounter()
 
-        let first = LocalHistoryRebuildController(settings: settings) { runs.increment() }
+        let first = LocalHistoryRebuildController(settings: settings, gate: makeGate()) {
+            runs.increment()
+            return true
+        }
         await first.task?.value
 
         XCTAssertEqual(runs.value, 1)
         XCTAssertTrue(settings.hasRebuiltLocalHistory)
 
-        let second = LocalHistoryRebuildController(settings: settings) { runs.increment() }
+        let second = LocalHistoryRebuildController(settings: settings, gate: makeGate()) {
+            runs.increment()
+            return true
+        }
         await second.task?.value
 
         XCTAssertEqual(runs.value, 1, "a rebuild that runs on every launch is a performance bug")
@@ -250,13 +322,46 @@ final class LocalHistoryRebuildEndToEndTests: XCTestCase {
         let ledger = ledger!
         let directory = directory!
 
-        let controller = LocalHistoryRebuildController(settings: settings) {
+        let controller = LocalHistoryRebuildController(settings: settings, gate: makeGate()) {
             let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger)
-            try ledger.applyLocalHistoryRebuild(reader.readForRebuild())
+            return try ledger.applyLocalHistoryRebuild(reader.readForRebuild())
         }
         await controller.task?.value
 
         XCTAssertTrue(settings.hasRebuiltLocalHistory)
+    }
+
+    /// Nothing recorded and nothing to read is not a failure — there is nothing to
+    /// correct, so the single shot is spent rather than retried forever.
+    func testAGenuinelyEmptyInstallMarksDoneWithNoTranscriptsAtAll() throws {
+        XCTAssertTrue(try runRebuild())
+        XCTAssertEqual(try recordedTotal(), 0)
+    }
+
+    /// The single shot must not be burned on a launch that read nothing while
+    /// there was a history to correct — an unmounted volume, an unanswered
+    /// permissions prompt, a machine mid-restore. `transcriptURLs()` returns an
+    /// empty list for an unreadable directory rather than throwing, so nothing
+    /// else would notice.
+    func testAnUnreadableTranscriptDirectoryDoesNotSpendTheSingleShot() async throws {
+        try seedInflatedHistory(500)
+
+        let settings = makeSettings()
+        let ledger = ledger!
+        let absent = FileManager.default.temporaryDirectory
+            .appendingPathComponent("glyphline-absent-\(UUID().uuidString)", isDirectory: true)
+
+        let controller = LocalHistoryRebuildController(settings: settings, gate: makeGate()) {
+            let reader = ClaudeCodeLogReader(directory: absent, watermarkStore: ledger)
+            return try ledger.applyLocalHistoryRebuild(reader.readForRebuild())
+        }
+        await controller.task?.value
+
+        XCTAssertFalse(
+            settings.hasRebuiltLocalHistory,
+            "a launch that could not read the transcripts must leave the rebuild to the next one"
+        )
+        XCTAssertEqual(try recordedTotal(), 500, "and it must not have touched the history")
     }
 
     /// A failed rebuild leaves the marker unset, so the next launch tries again —
@@ -265,7 +370,9 @@ final class LocalHistoryRebuildEndToEndTests: XCTestCase {
         let settings = makeSettings()
 
         struct Boom: Error {}
-        let controller = LocalHistoryRebuildController(settings: settings) { throw Boom() }
+        let controller = LocalHistoryRebuildController(settings: settings, gate: makeGate()) {
+            throw Boom()
+        }
         await controller.task?.value
 
         XCTAssertFalse(settings.hasRebuiltLocalHistory)

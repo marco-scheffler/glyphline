@@ -351,7 +351,13 @@ final class ClaudeCodeLogReader: @unchecked Sendable {
                 // figures read from the same lines at different times could
                 // disagree — which in an app about token counts is the worst
                 // kind of defect, plausible and wrong.
-                if let sessionID = record.sessionId {
+                //
+                // Not gathered by a rebuild: `applyLocalHistoryRebuild` decides
+                // per day, has no per-session equivalent of that evidence, and so
+                // writes no session rows at all. Gathering figures nothing will
+                // read is work, and an invitation to write them one day without
+                // the rule that makes writing them safe.
+                if !rebuilding, let sessionID = record.sessionId {
                     let sessionKey = SessionKey(sessionID: sessionID, model: record.message?.model)
                     var session = sessions[sessionKey] ?? Totals()
                     session.input += usage.inputTokens ?? 0
