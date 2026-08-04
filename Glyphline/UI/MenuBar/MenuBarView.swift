@@ -45,7 +45,7 @@ struct MenuBarView: View {
 
             MenuBarFooter(
                 openDashboard: openDashboard,
-                openAgentverse: { AgentverseLauncher.open(using: openWindow) },
+                openAgentverse: openAgentverse,
                 refresh: {
                     Task {
                         await coordinator.refreshRateWindowsOnDemand()
@@ -87,7 +87,31 @@ struct MenuBarView: View {
     }
 
     private func openDashboard() {
-        DashboardLauncher.open(using: openWindow)
+        dismissingPanel {
+            DashboardLauncher.open(using: openWindow)
+        }
+    }
+
+    private func openAgentverse() {
+        dismissingPanel {
+            AgentverseLauncher.open(using: openWindow)
+        }
+    }
+
+    /// Both window buttons, and only they.
+    ///
+    /// Refresh deliberately does not go through here — the point of pressing it
+    /// is to watch the figures above it update in place, which a panel that
+    /// closed itself would make impossible. `SettingsLink` dismisses the panel on
+    /// its own, and Quit is moot.
+    ///
+    /// Here rather than inside the launchers: the panel is the menu bar's, and
+    /// the launchers are also called from the app menu and from the dashboard,
+    /// where there is no panel to close.
+    private func dismissingPanel(_ open: () -> Void) {
+        let panel = MenuBarPanelDismisser.capture()
+        open()
+        MenuBarPanelDismisser.close(panel)
     }
 }
 
