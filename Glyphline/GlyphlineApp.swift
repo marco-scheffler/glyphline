@@ -39,10 +39,19 @@ struct GlyphlineApp: App {
         //
         // Built as a local before it is wrapped: the schedule controller needs
         // the same instance, not a second one.
+        // Built before both users of it, and told here — synchronously, from the
+        // durable marker — whether a rebuild is coming. That is what makes the
+        // exclusion a fact rather than a race: the flag is already true before
+        // any window exists to start the ordinary scan.
+        let localHistoryGate = LocalHistoryWriteGate(
+            rebuildIsOutstanding: !settings.hasRebuiltLocalHistory
+        )
+
         let coordinator = SyncCoordinator(
             ledger: ledger,
             credentials: KeychainStore(),
-            registry: ProviderAdapterRegistry()
+            registry: ProviderAdapterRegistry(),
+            localHistoryGate: localHistoryGate
         )
         _coordinator = StateObject(wrappedValue: coordinator)
 
@@ -61,7 +70,11 @@ struct GlyphlineApp: App {
         // Here rather than on the dashboard's `task`, because in the default mode
         // no window opens at launch — the correction has to happen whether or not
         // one ever does. It starts detached work and returns immediately.
-        localHistoryRebuild = LocalHistoryRebuildController(settings: settings, ledger: ledger)
+        localHistoryRebuild = LocalHistoryRebuildController(
+            settings: settings,
+            gate: localHistoryGate,
+            ledger: ledger
+        )
     }
 
     var body: some Scene {
