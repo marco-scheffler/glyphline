@@ -6,6 +6,82 @@
     <description>Updates für Glyphline</description>
     <language>en</language>
     <item>
+      <title>1.5</title>
+      <pubDate>Tue, 04 Aug 2026 19:51:39 +0000</pubDate>
+      <sparkle:version>6</sparkle:version>
+      <sparkle:shortVersionString>1.5</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+      <description>&lt;h2&gt;Glyphline now lives in the menu bar&lt;/h2&gt;
+
+&lt;p&gt;After this update Glyphline starts into the menu bar. No window opens, and
+there is no Dock icon — the icon appears only while the dashboard or the
+Agentverse is actually open, and goes away again when you close it.&lt;/p&gt;
+
+&lt;p&gt;Nothing is missing. The dashboard is one click away in the menu bar panel,
+and it can be open as long as you like. If you would rather have the old
+behaviour — a window at launch and a permanent Dock icon — choose
+&lt;strong&gt;Window&lt;/strong&gt; under App Mode in Settings.&lt;/p&gt;
+
+&lt;p&gt;The App Mode setting has two options now instead of three. The one that was
+removed only decided whether the window opened by itself at launch, which is
+exactly what separates the two that remain.&lt;/p&gt;
+
+&lt;h2&gt;Quota cards say when a window comes back&lt;/h2&gt;
+
+&lt;p&gt;A card reading 0% free now tells you when it resets, as both a wait and a
+clock time — "resets in 2d 4h (Thu 14:00)". The menu bar panel and the accounts
+list already carried the countdown; the cards were the one place that stayed
+silent about the only question a spent window raises.&lt;/p&gt;
+
+&lt;h2&gt;Your local usage numbers change with this update&lt;/h2&gt;
+
+&lt;p&gt;They go &lt;strong&gt;down&lt;/strong&gt;, and on a heavy machine they can roughly halve.
+That is the fix, not a regression — the old figures were too high.&lt;/p&gt;
+
+&lt;h3&gt;What was wrong&lt;/h3&gt;
+
+&lt;p&gt;Glyphline reads the Claude Code transcripts under
+&lt;code&gt;~/.claude/projects&lt;/code&gt;. Claude Code copies a session's history into a
+new file whenever the session is resumed or forked, so the same assistant
+message — same id, same usage block — sits in several files at once. The
+scanner summed the files line by line, which counted every one of those copies.
+On the machine this was measured on it recorded &lt;strong&gt;2.19&amp;times;&lt;/strong&gt; the
+real usage: 45.5 Gtok against 20.4 Gtok.&lt;/p&gt;
+
+&lt;p&gt;Every message is now counted once, by its id.&lt;/p&gt;
+
+&lt;h3&gt;What this update does to what was already recorded&lt;/h3&gt;
+
+&lt;p&gt;Fixing the scanner only fixes new readings, so this update also corrects the
+history once, on the first launch after updating. It happens in the background
+and needs no window open.&lt;/p&gt;
+
+&lt;p&gt;It does not simply throw the history away and read everything again, because
+that would lose real usage. Transcripts disappear: Claude Code used to write
+subagent sessions into their own files and now records them inline, and sessions
+run in git worktrees that were later removed leave nothing behind at all. On the
+reference machine 11.5 Gtok of genuinely recorded usage had no source left to
+read, and two days had no surviving transcript whatsoever.&lt;/p&gt;
+
+&lt;p&gt;So each day is decided on evidence. If the transcripts still on disk account
+for what was recorded for that day, the corrected figure replaces it. If they
+fall short, files are missing, and the recorded figure is left exactly as it
+was.&lt;/p&gt;
+
+&lt;h2&gt;Fixes&lt;/h2&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;Renaming an account now reaches the dashboard cards and the menu bar
+      straight away. It used to show up only after the next sync or a
+      restart.&lt;/li&gt;
+  &lt;li&gt;The menu bar panel closes when you open the dashboard or the Agentverse
+      from it, instead of staying open over the window it just raised.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;Requires macOS 26.&lt;/p&gt;</description>
+      <enclosure url="https://github.com/marco-scheffler/glyphline/releases/download/v1.5/Glyphline-1.5.zip" length="6158746" type="application/octet-stream" sparkle:edSignature="zbT55M/C5s7zPqBCTAFGTqVcMKqNkNeQsPf+WqWjUxxJy4gdIq7sF3DdRTpgvZSN/RkzHa4E7HRZzn5ogkxADg==" />
+    </item>
+    <item>
       <title>1.4</title>
       <pubDate>Mon, 03 Aug 2026 08:03:51 +0000</pubDate>
       <sparkle:version>5</sparkle:version>
