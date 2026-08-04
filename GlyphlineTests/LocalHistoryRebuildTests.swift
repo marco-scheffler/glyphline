@@ -279,6 +279,39 @@ final class LocalHistoryRebuildEndToEndTests: XCTestCase {
         )
     }
 
+    /// The deadlock the gate could otherwise reach. `GlyphlineApp.init` arms the
+    /// gate from the durable markers, but the rebuild controller declines to run
+    /// when there is no ledger — and a gate armed with nobody left to open it
+    /// suspends every `runScan` forever, so local usage silently never updates
+    /// again with no error and no bound. The controller must open the gate on
+    /// every path where it declines. Expectation rather than a bare `await`, so
+    /// the regression fails this test instead of hanging the suite.
+    func testDecliningToRebuildOpensTheGateForOrdinaryScans() async {
+        let settings = makeSettings()
+        XCTAssertFalse(settings.hasRebuiltLocalHistory)
+        XCTAssertFalse(settings.hasRebuiltLocalSessionTokens)
+
+        // Armed exactly as `GlyphlineApp.init` arms it from those markers.
+        let gate = LocalHistoryWriteGate(rebuildIsOutstanding: true)
+        // No ledger: the controller declines, and nothing else can ever open the
+        // gate.
+        let controller = LocalHistoryRebuildController(
+            settings: settings, gate: gate, ledger: nil
+        )
+
+        let scanned = expectation(description: "the ordinary scan ran")
+        Task {
+            _ = await gate.runScan { scanned.fulfill() }
+        }
+        await fulfillment(of: [scanned], timeout: 5)
+
+        await controller.task?.value
+        XCTAssertFalse(
+            settings.hasRebuiltLocalHistory,
+            "declining to rebuild must not spend the single shot"
+        )
+    }
+
     // MARK: - The marker
 
     private func makeSettings() -> AppSettingsStore {

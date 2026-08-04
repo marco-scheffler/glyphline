@@ -17,8 +17,9 @@ import Foundation
 @MainActor
 final class LocalHistoryRebuildController {
     /// Exposed so a test can await the rebuild instead of polling for its
-    /// effects. Nil when the rebuild had already run, or when there was nothing
-    /// to run it against.
+    /// effects. Never nil: on the paths where no rebuild runs it is the task that
+    /// tells the gate so, and that release has to be awaitable for the same
+    /// reason the rebuild does.
     let task: Task<Void, Never>?
 
     /// - Parameter rebuild: reads the transcripts and applies the result in one
@@ -36,7 +37,17 @@ final class LocalHistoryRebuildController {
         let outstanding = !settings.hasRebuiltLocalHistory
             || !settings.hasRebuiltLocalSessionTokens
         guard outstanding, let rebuild else {
-            task = nil
+            // Every path that declines to rebuild must open the gate, because
+            // whoever armed it is not coming. The `!outstanding` half is the
+            // harmless one — the gate was never armed, so releasing it is a
+            // no-op. The `rebuild == nil` half is the hazard: with no ledger the
+            // markers are still unset, so `GlyphlineApp.init` armed the gate, and
+            // nothing else can ever open it. Every `runScan` would then suspend
+            // forever and local usage would silently stop updating, with no error
+            // and no bound. Releasing on both is one line and cannot weaken the
+            // exclusion: a rebuild that *is* running still holds the gate until
+            // its own `defer`.
+            task = Task { await gate.declineRebuild() }
             return
         }
 

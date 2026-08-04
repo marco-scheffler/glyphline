@@ -56,6 +56,21 @@ actor LocalHistoryWriteGate {
         }.value
     }
 
+    /// Opens the gate without running anything, for the object responsible for
+    /// the rebuild to call on every path where it declines to run one.
+    ///
+    /// Without it the gate's safety depends on a coincidence: the flag is
+    /// computed from the same markers the rebuild controller guards on, so today
+    /// an armed gate always gets a rebuild. Nothing enforced that. A gate armed
+    /// with nobody left to open it suspends every `runScan` forever — local usage
+    /// silently never updates again, with no bound and no error. Making the
+    /// decliner release it turns that from a coincidence into the shape of the
+    /// code. It cannot weaken the exclusion: a rebuild that *is* running still
+    /// holds the gate until its own `defer`.
+    func declineRebuild() {
+        releaseScans()
+    }
+
     /// Runs an ordinary scan, never before an outstanding rebuild has finished.
     /// Reports whether the work completed without throwing.
     func runScan(_ work: @escaping @Sendable () throws -> Void) async -> Bool {
