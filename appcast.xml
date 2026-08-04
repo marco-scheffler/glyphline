@@ -6,6 +6,49 @@
     <description>Updates für Glyphline</description>
     <language>en</language>
     <item>
+      <title>1.6</title>
+      <pubDate>Tue, 04 Aug 2026 21:46:12 +0000</pubDate>
+      <sparkle:version>7</sparkle:version>
+      <sparkle:shortVersionString>1.6</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+      <description>&lt;h2&gt;Corrections to 1.5&lt;/h2&gt;
+
+&lt;p&gt;Two figures 1.5 got wrong, and both are visible.&lt;/p&gt;
+
+&lt;h3&gt;Local usage stopped updating&lt;/h3&gt;
+
+&lt;p&gt;1.5 moved Glyphline into the menu bar, and the reading of
+&lt;code&gt;~/.claude/projects&lt;/code&gt; was still wired to the dashboard window — which
+that release stopped opening at launch. So on a machine where the dashboard was
+never opened, "Usage on this Mac" never updated at all; and where it was opened,
+it was read once and then not again for as long as the app kept running.&lt;/p&gt;
+
+&lt;p&gt;The reading now happens on its own, at launch and then on the same interval as
+the account sync, whether or not a window is open. It also re-reads when the Mac
+wakes, instead of waiting out an interval that elapsed while it slept.&lt;/p&gt;
+
+&lt;p&gt;It is deliberately not tied to the "Sync automatically" switch: that switch is
+about network calls to your provider, and reading files on this Mac costs nothing
+outside it.&lt;/p&gt;
+
+&lt;h3&gt;The Agentverse showed every agent at about twice its size&lt;/h3&gt;
+
+&lt;p&gt;The per-session token totals behind the Agentverse carried the same double
+counting 1.5 fixed for the daily figures — the same assistant message counted
+once per transcript that contained it. 1.5 corrected the daily numbers and left
+these alone.&lt;/p&gt;
+
+&lt;p&gt;They are corrected once now, on the first launch after updating, by the same
+rule: a session is recalculated only when the transcripts still on disk account
+for what was recorded for it. Where transcripts have gone — Claude Code used to
+keep subagent sessions in separate files and now records them inline — the
+recorded figure is left exactly as it was, rather than dropping to a partial view
+of itself.&lt;/p&gt;
+
+&lt;p&gt;Requires macOS 26.&lt;/p&gt;</description>
+      <enclosure url="https://github.com/marco-scheffler/glyphline/releases/download/v1.6/Glyphline-1.6.zip" length="6171630" type="application/octet-stream" sparkle:edSignature="Idn1xpbJiJ4IN7buIuib/0fAaBJFu8j7z0fZRP+hCzWT3npnx5KhBEDPlXxKdNmn00iEFAbUbZzPfVkfd8aqDg==" />
+    </item>
+    <item>
       <title>1.5</title>
       <pubDate>Tue, 04 Aug 2026 19:51:39 +0000</pubDate>
       <sparkle:version>6</sparkle:version>
