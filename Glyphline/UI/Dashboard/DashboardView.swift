@@ -74,10 +74,13 @@ struct DashboardView: View {
         // `refreshRateWindowsOnDemand` guards per account against a concurrent
         // fetch, so overlapping with a scheduled tick is safe.
         .task { await coordinator.refreshRateWindowsOnDemand() }
-        // Once per launch, alongside the quota collection and never from a
-        // detail view's own appearance: the first scan reads gigabytes across
-        // hundreds of project directories.
-        .task { await coordinator.scanLocalUsageOnceAtLaunch() }
+        // On the window's root, never from a detail view's own appearance, which
+        // fires on every sidebar navigation. The cadence lives in
+        // `LocalScanScheduleController`; this is here so opening the dashboard
+        // shows current figures rather than up-to-an-interval-old ones.
+        // `scanLocalUsage` refuses a scan while one is in flight, so the two
+        // triggers cannot overlap or pile up.
+        .task { await coordinator.scanLocalUsage() }
         // The Agents tile counts agents, so the dashboard needs a
         // sweep of its own — the map's window may never have been opened.
         .task { await agentverse.refresh() }

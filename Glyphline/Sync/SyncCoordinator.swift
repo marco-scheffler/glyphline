@@ -148,11 +148,6 @@ final class SyncCoordinator: ObservableObject {
     /// aggregates without polling the ledger on each render pass.
     @Published private(set) var localUsageRevision = 0
 
-    /// Guards the launch-time scan, so navigating back to the screen does not
-    /// start another one. Set before the scan, not after, so a refused scan is
-    /// not retried on every window opening either.
-    private var hasScannedLocalUsageAtLaunch = false
-
     /// Reads the not-yet-consumed transcript bytes. Nil when there is no ledger
     /// to resume from, in which case no scan is attempted at all.
     private let localScan: (@Sendable () throws -> LocalScanResult)?
@@ -175,15 +170,6 @@ final class SyncCoordinator: ObservableObject {
     static let localScanUnavailableMessage = "Ledger unavailable. Local usage was not scanned."
     static let localScanFailedMessage = "Could not read the local Claude Code transcripts."
 
-    /// Runs the scan once per launch. Called from the dashboard window's root
-    /// alongside the quota collection — deliberately not from the statistics
-    /// screen's appearance, which fires on every sidebar navigation.
-    func scanLocalUsageOnceAtLaunch() async {
-        guard !hasScannedLocalUsageAtLaunch else { return }
-        hasScannedLocalUsageAtLaunch = true
-        await scanLocalUsage()
-    }
-
     /// Reads the transcripts off the main actor and persists the result.
     ///
     /// The write goes through `applyLocalScan`, never through
@@ -197,6 +183,10 @@ final class SyncCoordinator: ObservableObject {
             return
         }
 
+        // Set before the gate is awaited, and it has to stay that way:
+        // `LocalScanScheduleController` ticks on a cadence, and a tick that
+        // arrives while the one-time rebuild is still holding the gate must
+        // return here rather than park a second waiter on it.
         guard !isScanningLocalUsage else { return }
         isScanningLocalUsage = true
         defer { isScanningLocalUsage = false }

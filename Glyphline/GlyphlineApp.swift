@@ -13,6 +13,7 @@ struct GlyphlineApp: App {
     private let schedule: SyncScheduleController
     private let windowActivation: WindowActivationObserver
     private let localHistoryRebuild: LocalHistoryRebuildController
+    private let localScanSchedule: LocalScanScheduleController
 
     init() {
         let settings = AppSettingsStore()
@@ -75,6 +76,14 @@ struct GlyphlineApp: App {
             gate: localHistoryGate,
             ledger: ledger
         )
+
+        // Same reason again, and the last side effect that was still riding on a
+        // view: the local scan hung off the dashboard's `task` and latched after
+        // one run. It goes through the gate above, so a tick during the rebuild
+        // waits rather than re-inflating the days it has just replaced.
+        localScanSchedule = LocalScanScheduleController(settings: settings) {
+            await coordinator.scanLocalUsage()
+        }
     }
 
     var body: some Scene {

@@ -151,9 +151,16 @@ final class SyncCoordinatorLocalUsageTests: XCTestCase {
         )
     }
 
-    // MARK: - Launch-time scan runs once
+    // MARK: - A scan in flight refuses a second one
 
-    func testTheLaunchScanRunsOnlyOnceHoweverOftenTheWindowOpens() async throws {
+    /// The scan is now on a cadence as well as on the dashboard's appearance, so
+    /// a tick can arrive while the one-time history rebuild still holds
+    /// `LocalHistoryWriteGate`. `isScanningLocalUsage` is set *before* the gate
+    /// is awaited, so that tick returns at once instead of parking a second
+    /// waiter behind the rebuild. The second call is awaited through an
+    /// expectation rather than directly, so losing that guard fails here in two
+    /// seconds instead of hanging the suite.
+    func testAScanThatArrivesWhileTheGateIsHeldReturnsInsteadOfWaiting() async throws {
         let (_, ledger) = try makeLedger()
         let counter = ScanCounter()
         let result = scanResult(
@@ -161,37 +168,39 @@ final class SyncCoordinatorLocalUsageTests: XCTestCase {
             model: "priced-model",
             inputTokens: 10
         )
-        let coordinator = makeCoordinator(ledger: ledger, scan: {
-            counter.increment()
-            return result
-        })
-
-        await coordinator.scanLocalUsageOnceAtLaunch()
-        await coordinator.scanLocalUsageOnceAtLaunch()
-        await coordinator.scanLocalUsageOnceAtLaunch()
-
-        XCTAssertEqual(counter.value, 1)
-    }
-
-    /// The button stays available: an on-demand scan is not covered by the
-    /// launch guard.
-    func testAnOnDemandScanStillRunsAfterTheLaunchScan() async throws {
-        let (_, ledger) = try makeLedger()
-        let counter = ScanCounter()
-        let result = scanResult(
-            bucketStart: day("2024-03-15T00:00:00Z"),
-            model: "priced-model",
-            inputTokens: 10
+        let gate = LocalHistoryWriteGate(rebuildIsOutstanding: true)
+        let coordinator = SyncCoordinator(
+            ledger: ledger,
+            credentials: InMemoryCredentialStore(),
+            registry: ProviderAdapterRegistry(),
+            localScan: {
+                counter.increment()
+                return result
+            },
+            costEstimator: makeEstimator(),
+            localHistoryGate: gate
         )
-        let coordinator = makeCoordinator(ledger: ledger, scan: {
-            counter.increment()
-            return result
-        })
 
-        await coordinator.scanLocalUsageOnceAtLaunch()
-        await coordinator.scanLocalUsage()
+        // Parks on the gate: the rebuild is outstanding and never runs here.
+        let held = Task { await coordinator.scanLocalUsage() }
+        while !coordinator.isScanningLocalUsage {
+            await Task.yield()
+        }
 
-        XCTAssertEqual(counter.value, 2)
+        // Returns rather than joining the queue behind the rebuild.
+        let returned = expectation(description: "the second scan returned without waiting")
+        Task {
+            await coordinator.scanLocalUsage()
+            returned.fulfill()
+        }
+        await fulfillment(of: [returned], timeout: 2)
+
+        XCTAssertEqual(counter.value, 0, "neither call may reach the scan while the gate is held")
+
+        // Let the held scan through, so nothing is left parked on the gate.
+        _ = await gate.runRebuild { true }
+        await held.value
+        XCTAssertEqual(counter.value, 1, "exactly one scan was ever waiting to run")
     }
 
     // MARK: - Statistics
