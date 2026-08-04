@@ -46,6 +46,7 @@ struct GlyphlineApp: App {
         // any window exists to start the ordinary scan.
         let localHistoryGate = LocalHistoryWriteGate(
             rebuildIsOutstanding: !settings.hasRebuiltLocalHistory
+                || !settings.hasRebuiltLocalSessionTokens
         )
 
         let coordinator = SyncCoordinator(

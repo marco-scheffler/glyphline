@@ -494,13 +494,9 @@ final class LedgerStore {
     /// never written. That is the entire safety property; see
     /// `LocalHistoryRebuild.replacementCoverageThreshold`.
     ///
-    /// `localSessionTokens` is deliberately untouched, and `readForRebuild` does
-    /// not even gather it. The evidence rule is per-day and there is no
-    /// per-session equivalent, so overwriting a session whose transcript has
-    /// partly vanished would destroy exactly the data this rule exists to
-    /// protect. Those totals therefore stay inflated, and the watermarks written
-    /// here mean nothing will correct them later — that needs an evidence rule of
-    /// its own and is not this.
+    /// `localSessionTokens` is not this function's business:
+    /// `applyLocalSessionTokenRebuild` corrects it, from the same scan, under the
+    /// same rule and its own marker.
     /// - Returns: whether the rebuild may be marked done. `false` means it read
     ///   nothing while there was a history to correct — `transcriptURLs()` returns
     ///   an empty list for an absent or unreadable directory rather than throwing,
@@ -555,6 +551,93 @@ final class LedgerStore {
             try Self.pruneSeenMessages(before: now - LocalSeenMessageRetention.window, in: db)
             return true
         }
+    }
+
+    /// Persists the one-time rebuild of `localSessionTokens`: per session, either
+    /// the recorded figure is replaced by the deduplicated one or it is left
+    /// exactly as it was.
+    ///
+    /// The per-day rule transfers unchanged. Coverage for a session is the naive
+    /// sum over the surviving transcripts for records carrying that `sessionId`,
+    /// divided by what is recorded for it — same numerator, same denominator,
+    /// same threshold, only the grouping differs. If the files still on disk
+    /// account for the recorded figure, the deduplicated figure is trustworthy;
+    /// if they fall short, files are gone and the recorded figure stays. Claude
+    /// Code moved subagent transcripts out of `<session>/subagents/agent-*.jsonl`
+    /// into inline `isSidechain` records, so plenty of sessions have no surviving
+    /// source at all — and a session with no surviving usage never appears in the
+    /// scan's rows, so it is untouched by construction.
+    ///
+    /// One transaction, for the reason `applyLocalHistoryRebuild` is one: the
+    /// deletes and the inserts are one correction, and a half-applied one would
+    /// leave sessions cleared but not rewritten. Interrupted, this writes nothing
+    /// and simply runs again next launch — its marker is set only after it
+    /// returns.
+    ///
+    /// Watermarks and seen ids are not written here. They belong to the pass as a
+    /// whole and `applyLocalHistoryRebuild` writes them; on an installation where
+    /// only this half is outstanding they are already where the day rebuild left
+    /// them.
+    /// - Returns: whether this half may be marked done — `false` when it read no
+    ///   session usage at all while sessions were recorded, for the same reason
+    ///   the per-day rebuild reports it: an unreadable transcript directory must
+    ///   not spend the single shot.
+    @discardableResult
+    func applyLocalSessionTokenRebuild(_ rebuild: LocalHistoryRebuildScan) throws -> Bool {
+        try dbQueue.write { db in
+            let recorded = try Self.recordedSessionTotals(in: db)
+
+            guard !rebuild.scan.sessionUsage.isEmpty || recorded.isEmpty else {
+                return false
+            }
+
+            let rowsBySession = Dictionary(grouping: rebuild.scan.sessionUsage, by: \.sessionID)
+
+            var sessionsToClear: [String] = []
+            var rowsToWrite: [LocalSessionTokenUsage] = []
+
+            for (sessionID, rows) in rowsBySession {
+                let recordedTotal = recorded[sessionID] ?? 0
+                if recordedTotal == 0 {
+                    // Nothing recorded for this session, so there is nothing to
+                    // correct and nothing to destroy — writing it is an insert.
+                    rowsToWrite.append(contentsOf: rows)
+                } else if LocalHistoryRebuild.shouldReplace(
+                    recorded: recordedTotal,
+                    naiveFromSurvivingFiles: rebuild.naiveSessionTotals[sessionID] ?? 0
+                ) {
+                    sessionsToClear.append(sessionID)
+                    rowsToWrite.append(contentsOf: rows)
+                }
+                // Otherwise: files are missing behind this session. Leave it alone.
+            }
+
+            for sessionID in sessionsToClear {
+                try Self.deleteLocalSessionTokens(sessionID: sessionID, in: db)
+            }
+            try Self.addLocalSessionTokens(rowsToWrite, in: db)
+            return true
+        }
+    }
+
+    /// What is recorded per session, summed across models — the denominator of
+    /// the per-session coverage ratio.
+    private static func recordedSessionTotals(in db: Database) throws -> [String: Int64] {
+        try LocalSessionTokenRecord
+            .fetchAll(db)
+            .reduce(into: [String: Int64]()) { totals, record in
+                totals[record.sessionID, default: 0] += record.usage.totalTokens
+            }
+    }
+
+    private static func deleteLocalSessionTokens(sessionID: String, in db: Database) throws {
+        try db.execute(
+            sql: """
+                DELETE FROM \(LedgerTable.localSessionTokens)
+                WHERE \(LedgerColumn.sessionID) = ?
+                """,
+            arguments: [sessionID]
+        )
     }
 
     /// What is recorded per day, summed across models — the denominator of the

@@ -33,14 +33,20 @@ final class LocalHistoryRebuildController {
         gate: LocalHistoryWriteGate,
         rebuild: (@Sendable () throws -> Bool)?
     ) {
-        guard !settings.hasRebuiltLocalHistory, let rebuild else {
+        let outstanding = !settings.hasRebuiltLocalHistory
+            || !settings.hasRebuiltLocalSessionTokens
+        guard outstanding, let rebuild else {
             task = nil
             return
         }
 
         task = Task {
             if await gate.runRebuild(rebuild) {
+                // Both markers, one verdict. The closure runs exactly the halves
+                // that were outstanding and reports whether that landed; a half
+                // already done is already marked, so setting it again is a no-op.
                 settings.hasRebuiltLocalHistory = true
+                settings.hasRebuiltLocalSessionTokens = true
             }
         }
     }
@@ -59,8 +65,22 @@ final class LocalHistoryRebuildController {
         }
 
         let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger)
+        // Read which halves are outstanding here, on the main actor, before the
+        // detached work starts — and run only those. One pass feeds both: two
+        // reads of 3,310 files would be forty seconds instead of twenty, and two
+        // figures read from the same lines at different times could disagree.
+        let rebuildsDays = !settings.hasRebuiltLocalHistory
+        let rebuildsSessions = !settings.hasRebuiltLocalSessionTokens
         self.init(settings: settings, gate: gate) {
-            try ledger.applyLocalHistoryRebuild(reader.readForRebuild())
+            let scan = try reader.readForRebuild()
+            var mayMarkDone = true
+            if rebuildsDays {
+                mayMarkDone = try ledger.applyLocalHistoryRebuild(scan) && mayMarkDone
+            }
+            if rebuildsSessions {
+                mayMarkDone = try ledger.applyLocalSessionTokenRebuild(scan) && mayMarkDone
+            }
+            return mayMarkDone
         }
     }
 }

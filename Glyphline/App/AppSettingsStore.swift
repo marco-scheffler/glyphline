@@ -36,6 +36,19 @@ final class AppSettingsStore: ObservableObject {
         }
     }
 
+    /// Whether the one-time rebuild of the per-session token totals has run on
+    /// this installation.
+    ///
+    /// A marker of its own rather than `hasRebuiltLocalHistory`, because that one
+    /// is already set on every machine that has launched 1.5 — which by now is
+    /// most of them — so anything hung on it would never run for the very users
+    /// whose session totals are still inflated.
+    @Published var hasRebuiltLocalSessionTokens: Bool {
+        didSet {
+            defaults.set(hasRebuiltLocalSessionTokens, forKey: Self.hasRebuiltLocalSessionTokensKey)
+        }
+    }
+
     @Published var automaticSyncEnabled: Bool {
         didSet {
             defaults.set(automaticSyncEnabled, forKey: Self.automaticSyncEnabledKey)
@@ -137,6 +150,7 @@ final class AppSettingsStore: ObservableObject {
     private static let appModeKey = "appMode"
     private static let hasShownDashboardOnceKey = "hasShownDashboardOnce"
     private static let hasRebuiltLocalHistoryKey = "hasRebuiltLocalHistory"
+    private static let hasRebuiltLocalSessionTokensKey = "hasRebuiltLocalSessionTokens"
     private static let automaticSyncEnabledKey = "automaticSyncEnabled"
     private static let syncIntervalMinutesKey = "syncIntervalMinutes"
     private static let lastWeatherKey = "lastWeather"
@@ -164,6 +178,11 @@ final class AppSettingsStore: ObservableObject {
         // Absent means "not yet", which is the wanted answer both for a fresh
         // install and for the installation this rebuild exists to correct.
         hasRebuiltLocalHistory = defaults.bool(forKey: Self.hasRebuiltLocalHistoryKey)
+
+        // Absent on every installation that predates this correction, including
+        // the ones that already ran the per-day rebuild — which is the point of
+        // it being a second key.
+        hasRebuiltLocalSessionTokens = defaults.bool(forKey: Self.hasRebuiltLocalSessionTokensKey)
 
         // `defaults.bool` reports false for an absent key, so the explicit
         // presence check is what makes "enabled by default" survive a fresh install.
