@@ -45,8 +45,7 @@ struct GlyphlineApp: App {
         // exclusion a fact rather than a race: the flag is already true before
         // any window exists to start the ordinary scan.
         let localHistoryGate = LocalHistoryWriteGate(
-            rebuildIsOutstanding: !settings.hasRebuiltLocalHistory
-                || !settings.hasRebuiltLocalSessionTokens
+            rebuildIsOutstanding: settings.localHistoryRebuildIsOutstanding
         )
 
         let coordinator = SyncCoordinator(

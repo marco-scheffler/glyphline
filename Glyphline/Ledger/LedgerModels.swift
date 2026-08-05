@@ -56,7 +56,10 @@ struct SyncWatermark: Equatable, Sendable {
 /// same `(bucketStart, modelKey)` is written repeatedly with only the newly-read
 /// tokens; the store adds it to what is already there.
 struct LocalTokenUsage: Equatable, Sendable {
-    /// Start of the UTC day this total belongs to.
+    /// Start of the day this total belongs to, cut on `LocalUsageDay.calendar`
+    /// — the user's clock, so that the day labelled "today" is the one they are
+    /// living through. Rows written before migration `v15` were keyed on UTC
+    /// midnights; that migration moved them onto this grid.
     var bucketStart: Date
     var model: String?
     var inputTokens: Int64 = 0

@@ -393,6 +393,32 @@ open on purpose. None of them is a surprise, and none blocks a user today.
   `MenuBarExtra` status button carries no target and no action — so this cannot
   be automated.
 
+### What the move to local days does not fix
+
+The daily buckets now follow the user's clock rather than UTC, and a second
+one-time rebuild re-reads the transcripts on that grid. Two things survive it.
+
+**Six dates cannot be corrected and stay inflated.** 2026-06-29 through
+2026-07-04 on the reference machine hold about 9.3 Gtok that exists in no
+surviving transcript — coverage against them runs from 0.000 to 0.841, so
+`replacementCoverageThreshold` keeps the recorded figure rather than replacing it
+with a partial one. The effect is confined to the periods that reach back that
+far: Today, 7 Days and 30 Days agree with an independent count of the
+transcripts, while All Time, 90 Days and a Year read roughly 9.3 Gtok high. That
+is the deliberate trade — an over-count that can be explained beats destroying
+history nothing can reconstruct — but it is why this app's all-time figure and
+another tool's will not match.
+
+The two days the first rebuild had to keep, 2026-07-30 and 2026-07-31, are *not*
+in that set any more: they measure 1.003 and 0.993 on the second pass and are
+corrected without the threshold moving.
+
+**The grid is fixed at the moment a row is written.** `LocalUsageDay.calendar`
+is autoupdating, so a Mac carried to another timezone starts bucketing on the new
+clock at the next scan — but rows written before the move keep the boundaries
+they were cut on, and migration `v15` only ran once. Nothing re-cuts history on a
+timezone change, and nothing says so in the UI.
+
 ### Side effects still wired to views
 
 Three times during the 1.5/1.6 work, something a running app needs turned out to
