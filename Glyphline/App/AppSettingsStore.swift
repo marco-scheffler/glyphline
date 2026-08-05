@@ -49,6 +49,20 @@ final class AppSettingsStore: ObservableObject {
         }
     }
 
+    /// Whether the daily totals have been re-cut on the user's clock on this
+    /// installation.
+    ///
+    /// A third marker for the same reason there is a second one: the two before
+    /// it are set on every machine that has launched 1.6, so a re-cut hung on
+    /// either would never run for anybody. Migration `v15` moves the stored days
+    /// onto the local grid; this decides whether they have been re-read on it,
+    /// which is the half that needs the transcripts.
+    @Published var hasRebuiltLocalDayBuckets: Bool {
+        didSet {
+            defaults.set(hasRebuiltLocalDayBuckets, forKey: Self.hasRebuiltLocalDayBucketsKey)
+        }
+    }
+
     @Published var automaticSyncEnabled: Bool {
         didSet {
             defaults.set(automaticSyncEnabled, forKey: Self.automaticSyncEnabledKey)
@@ -140,6 +154,22 @@ final class AppSettingsStore: ObservableObject {
         appMode.opensDashboardAtLaunch || !hasShownDashboardOnce
     }
 
+    /// Whether any half of the one-time correction of the local history still has
+    /// to run on this installation.
+    ///
+    /// One expression, because two places have to give the same answer and are
+    /// not near each other: `GlyphlineApp.init` arms `LocalHistoryWriteGate` with
+    /// it, and `LocalHistoryRebuildController` decides with it whether anything
+    /// will be dispatched to release that gate. Armed with nothing coming, every
+    /// local scan suspends forever and the usage figures stop moving with no
+    /// error to show for it — so the two conditions being *literally* the same
+    /// one is worth more than either being readable in place.
+    var localHistoryRebuildIsOutstanding: Bool {
+        !hasRebuiltLocalHistory
+            || !hasRebuiltLocalSessionTokens
+            || !hasRebuiltLocalDayBuckets
+    }
+
     /// The sky to draw with right now: the stored reading, or clear if there has
     /// never been one.
     var currentWeather: Weather {
@@ -151,6 +181,7 @@ final class AppSettingsStore: ObservableObject {
     private static let hasShownDashboardOnceKey = "hasShownDashboardOnce"
     private static let hasRebuiltLocalHistoryKey = "hasRebuiltLocalHistory"
     private static let hasRebuiltLocalSessionTokensKey = "hasRebuiltLocalSessionTokens"
+    private static let hasRebuiltLocalDayBucketsKey = "hasRebuiltLocalDayBuckets"
     private static let automaticSyncEnabledKey = "automaticSyncEnabled"
     private static let syncIntervalMinutesKey = "syncIntervalMinutes"
     private static let lastWeatherKey = "lastWeather"
@@ -183,6 +214,10 @@ final class AppSettingsStore: ObservableObject {
         // the ones that already ran the per-day rebuild — which is the point of
         // it being a second key.
         hasRebuiltLocalSessionTokens = defaults.bool(forKey: Self.hasRebuiltLocalSessionTokensKey)
+
+        // Absent on every installation that predates the move to local days,
+        // whichever of the two rebuilds before it have already run.
+        hasRebuiltLocalDayBuckets = defaults.bool(forKey: Self.hasRebuiltLocalDayBucketsKey)
 
         // `defaults.bool` reports false for an absent key, so the explicit
         // presence check is what makes "enabled by default" survive a fresh install.

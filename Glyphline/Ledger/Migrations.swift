@@ -1,3 +1,4 @@
+import Foundation
 import GRDB
 
 enum LedgerTable {
@@ -499,6 +500,51 @@ enum Migrations {
                 on: LedgerTable.localSeenMessages,
                 columns: [LedgerColumn.seenAt]
             )
+        }
+
+        migrator.registerMigration("v15_local_token_usage_local_days") { db in
+            // Moves every recorded day off the UTC grid and onto the user's.
+            //
+            // The buckets were UTC days while every label above them said
+            // "today" and "Wednesday, 5 August". At UTC+2 that made a day start
+            // at 02:00 local and gave the two hours before it to yesterday: on
+            // the reference machine, a morning that had cost 288M tokens read as
+            // 120M. The scanner now cuts days on `LocalUsageDay.calendar`, and
+            // this brings the rows already on disk onto the same grid.
+            //
+            // Only the key moves. The contents of a bucket are still a UTC day's
+            // worth of tokens until the one-time rebuild re-reads the
+            // transcripts and re-cuts them — this migration cannot do that,
+            // because a day's total cannot be split back into hours. What it
+            // must do is make the rebuild's per-day delete able to find the row
+            // it is replacing: keyed on a UTC midnight, that delete would miss,
+            // and the rebuild would add its corrected day *beside* the inflated
+            // one instead of over it.
+            //
+            // Row by row rather than one arithmetic UPDATE: the offset is not a
+            // constant. It differs per date across a daylight-saving change, and
+            // `LocalUsageDay.regridded` is where that is worked out.
+            let starts = try Date.fetchAll(
+                db,
+                sql: """
+                    SELECT DISTINCT \(LedgerColumn.bucketStart)
+                    FROM \(LedgerTable.localTokenUsage)
+                    """
+            )
+
+            for start in starts {
+                let regridded = LocalUsageDay.regridded(utcDayStart: start)
+                // Identity at UTC+0, where the two grids are the same grid.
+                guard regridded != start else { continue }
+                try db.execute(
+                    sql: """
+                        UPDATE \(LedgerTable.localTokenUsage)
+                        SET \(LedgerColumn.bucketStart) = ?
+                        WHERE \(LedgerColumn.bucketStart) = ?
+                        """,
+                    arguments: [regridded, start]
+                )
+            }
         }
 
         return migrator

@@ -621,7 +621,11 @@ final class MigrationTests: XCTestCase {
             )
         }
 
-        try migrator.migrate(dbQueue)
+        // Stops at v14 rather than running the chain out: v15 moves this row's
+        // key onto the user's grid on purpose, and this test is about v14 not
+        // disturbing what it finds. `testV15MovesEveryRecordedDayOntoTheUsersGrid`
+        // is where that move is asserted.
+        try migrator.migrate(dbQueue, upTo: "v14_local_seen_messages")
 
         let store = LedgerStore(dbQueue: dbQueue)
         let rows = try store.fetchLocalTokenUsage(since: nil)
@@ -644,5 +648,74 @@ final class MigrationTests: XCTestCase {
             )
         )
         XCTAssertEqual(try store.fetchSeenMessageIDs(), ["msg_1"])
+    }
+
+    /// v15 moves the recorded days off the UTC grid and onto the user's.
+    ///
+    /// The case that matters is the one this migration exists for: rows written
+    /// long before it, holding the user's history, keyed on UTC midnights. Every
+    /// token has to survive the move — only the key may change — because the
+    /// rebuild that follows deletes a day by its key, and a row it cannot name
+    /// is a day counted twice.
+    func testV15MovesEveryRecordedDayOntoTheUsersGrid() throws {
+        let dbQueue = try DatabaseQueueFactory.makeInMemory()
+        let migrator = Migrations.makeMigrator()
+        try migrator.migrate(dbQueue, upTo: "v14_local_seen_messages")
+
+        // Two UTC midnights, two models on one of them: four rows whose keys all
+        // have to move without colliding.
+        let first = Date(timeIntervalSince1970: 1_782_864_000) // 2026-07-01T00:00:00Z
+        let second = Date(timeIntervalSince1970: 1_782_950_400) // 2026-07-02T00:00:00Z
+        try dbQueue.write { db in
+            for (bucket, model, input) in [
+                (first, "opus", Int64(10)),
+                (first, "sonnet", Int64(20)),
+                (second, "opus", Int64(30)),
+            ] {
+                try db.execute(
+                    sql: """
+                        INSERT INTO localTokenUsage
+                            (bucketStart, modelKey, model, inputTokens, cacheCreationTokens,
+                             cacheReadTokens, outputTokens, requests)
+                        VALUES (?, ?, ?, ?, 0, 0, 0, 0)
+                        """,
+                    arguments: [bucket, model, model, input]
+                )
+            }
+        }
+
+        try migrator.migrate(dbQueue)
+
+        let rows = try LedgerStore(dbQueue: dbQueue).fetchLocalTokenUsage(since: nil)
+        XCTAssertEqual(rows.count, 3, "no two days may collide into one row")
+        XCTAssertEqual(
+            Set(rows.map(\.bucketStart)),
+            [
+                LocalUsageDay.regridded(utcDayStart: first),
+                LocalUsageDay.regridded(utcDayStart: second),
+            ],
+            "every key lands on the local start of the day it named"
+        )
+        XCTAssertEqual(
+            rows.reduce(Int64(0)) { $0 + $1.totalTokens }, 60,
+            "the move must not spend a single token"
+        )
+        XCTAssertEqual(
+            rows.first { $0.model == "sonnet" }?.bucketStart,
+            LocalUsageDay.regridded(utcDayStart: first),
+            "both models on a day move together"
+        )
+        // The assertions above are stated in terms of `regridded`, so they would
+        // follow it anywhere. This one is stated against the machine's own
+        // clock: a key left on a UTC midnight is not the start of any day there
+        // once the offset is not zero, which is what a migration that did not
+        // run would leave behind.
+        for row in rows {
+            XCTAssertEqual(
+                Calendar.autoupdatingCurrent.startOfDay(for: row.bucketStart),
+                row.bucketStart,
+                "every key has to be a day start on the grid the app now reads"
+            )
+        }
     }
 }

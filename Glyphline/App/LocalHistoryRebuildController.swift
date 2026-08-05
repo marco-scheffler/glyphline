@@ -34,12 +34,10 @@ final class LocalHistoryRebuildController {
         gate: LocalHistoryWriteGate,
         rebuild: (@Sendable () throws -> Bool)?
     ) {
-        let outstanding = !settings.hasRebuiltLocalHistory
-            || !settings.hasRebuiltLocalSessionTokens
-        guard outstanding, let rebuild else {
+        guard settings.localHistoryRebuildIsOutstanding, let rebuild else {
             // Every path that declines to rebuild must open the gate, because
-            // whoever armed it is not coming. The `!outstanding` half is the
-            // harmless one — the gate was never armed, so releasing it is a
+            // whoever armed it is not coming. Nothing outstanding is the
+            // harmless half — the gate was never armed, so releasing it is a
             // no-op. The `rebuild == nil` half is the hazard: with no ledger the
             // markers are still unset, so `GlyphlineApp.init` armed the gate, and
             // nothing else can ever open it. Every `runScan` would then suspend
@@ -53,11 +51,12 @@ final class LocalHistoryRebuildController {
 
         task = Task {
             if await gate.runRebuild(rebuild) {
-                // Both markers, one verdict. The closure runs exactly the halves
+                // Every marker, one verdict. The closure runs exactly the halves
                 // that were outstanding and reports whether that landed; a half
                 // already done is already marked, so setting it again is a no-op.
                 settings.hasRebuiltLocalHistory = true
                 settings.hasRebuiltLocalSessionTokens = true
+                settings.hasRebuiltLocalDayBuckets = true
             }
         }
     }
@@ -80,7 +79,15 @@ final class LocalHistoryRebuildController {
         // detached work starts — and run only those. One pass feeds both: two
         // reads of 3,310 files would be forty seconds instead of twenty, and two
         // figures read from the same lines at different times could disagree.
+        //
+        // Re-cutting the days on the user's clock is the per-day half again,
+        // against a ledger migration `v15` has already moved onto that grid — so
+        // it is the same work under a second condition rather than a third
+        // branch. What makes it safe to run twice is that the second pass only
+        // ever replaces a day whose files still account for it, exactly as the
+        // first did.
         let rebuildsDays = !settings.hasRebuiltLocalHistory
+            || !settings.hasRebuiltLocalDayBuckets
         let rebuildsSessions = !settings.hasRebuiltLocalSessionTokens
         self.init(settings: settings, gate: gate) {
             let scan = try reader.readForRebuild()
