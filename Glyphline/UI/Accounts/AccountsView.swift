@@ -2,7 +2,15 @@ import SwiftUI
 
 struct AccountsView: View {
     let accounts: [AccountUsageSummary]
-    var ledgerStore: LedgerStore? = LedgerStore.makeDefault()
+    /// No `= LedgerStore.makeDefault()` default, deliberately. `SettingsScene` is
+    /// the only place that builds this view and it passes its own store, so the
+    /// default was never reached in the running app — but it *was* reached in the
+    /// suite, where the test host is the app itself: two tests omitted the
+    /// argument, opened the real ledger under ~/Library/Application Support and
+    /// ran its migrations against whatever installed copy was running at the
+    /// time. Left `nil`-defaulted by the memberwise initialiser, an omission now
+    /// means "no ledger" instead of "the user's".
+    var ledgerStore: LedgerStore?
     var credentialStore: any CredentialStore = KeychainStore()
     var webSessions: any WebSessionRemoving = ClaudeWebSessionStore()
     var onDeleted: () -> Void = {}
