@@ -108,10 +108,17 @@ makes this safe, but `LedgerStore`'s `@unchecked Sendable` justification is only
 true per connection. Consolidating to a single injected store would make the
 assertion true again and remove the four `makeDefault()` calls.
 
-`AccountsView` now carries a fifth `makeDefault()` as a property default, but
-`DashboardView` passes its own store, so the default is never evaluated in the
-running app. It is a latent fifth connection, not an actual one — which is
-exactly how the other four started.
+`AccountsView` carried a fifth `makeDefault()` as a property default. It was
+recorded here as latent, on the grounds that its only caller passes a store — and
+that was true of the *app*. It was not true of the suite: the test host is the
+app itself, so two tests that omitted the argument opened the real ledger under
+`~/Library/Application Support/Glyphline` and ran its migrations, once against a
+database an installed copy was writing to at the same time. The default is gone;
+the memberwise initialiser now defaults it to `nil`.
+
+`SettingsScene.init` still carries the same default and is the one place that
+genuinely needs it. Nothing in the suite constructs it, so nothing reaches it
+today — which is precisely what was said about `AccountsView`.
 
 ### Web session stores orphaned before this branch
 

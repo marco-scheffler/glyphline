@@ -9,7 +9,13 @@ final class AccountsViewTests: XCTestCase {
     /// the next navigation.
     func testSavingAnAccountReloadsTheAccountsList() {
         var reloads = 0
-        let view = AccountsView(accounts: [], onAdded: { reloads += 1 })
+        // `ledgerStore: nil`, and never omitted. The parameter's default is
+        // `LedgerStore.makeDefault()`, which opens the *real* ledger under
+        // ~/Library/Application Support and runs its migrations — the test host
+        // is the app, so it lands in the app's own container. A test that leaves
+        // it out migrates the user's database and races whatever installed copy
+        // is running against it.
+        let view = AccountsView(accounts: [], ledgerStore: nil, onAdded: { reloads += 1 })
 
         view.accountSaved()
 
@@ -19,7 +25,12 @@ final class AccountsViewTests: XCTestCase {
     func testDeletingAnAccountStillUsesItsOwnCallback() {
         var adds = 0
         var deletes = 0
-        let view = AccountsView(accounts: [], onDeleted: { deletes += 1 }, onAdded: { adds += 1 })
+        let view = AccountsView(
+            accounts: [],
+            ledgerStore: nil,
+            onDeleted: { deletes += 1 },
+            onAdded: { adds += 1 }
+        )
 
         view.accountSaved()
 
