@@ -1,12 +1,13 @@
 import Foundation
 
-/// One UTC day of machine-wide local token usage, priced.
+/// One day of machine-wide local token usage, priced.
 ///
 /// The per-model breakdown is the same aggregate the statistics screen shows,
 /// only narrowed to a single day — this is a sibling of `LocalUsageStatistics`,
 /// not a replacement for it.
 struct DailyUsageEntry: Identifiable, Equatable, Sendable {
-    /// Start of the UTC day, matching how the rows are bucketed.
+    /// Start of the day on `LocalUsageDay.calendar`, matching how the rows are
+    /// bucketed.
     var day: Date
     var statistics: LocalUsageStatistics
 
@@ -31,12 +32,13 @@ struct DailyUsageEntry: Identifiable, Equatable, Sendable {
 /// in between present as a zero. A chart that simply skipped those days would
 /// move its remaining bars along the axis and misname which day is which.
 struct DailyUsageSeries: Equatable, Sendable {
-    /// One entry per UTC day, ascending, without gaps. Empty for empty input.
+    /// One entry per day, ascending, without gaps. Empty for empty input.
     var entries: [DailyUsageEntry]
     /// The whole range aggregated per model, the same figure the statistics
     /// screen shows for the period.
     var total: LocalUsageStatistics
-    /// Start of the UTC day the series was built against.
+    /// Start of the day the series was built against — today, on the user's
+    /// clock.
     var referenceDay: Date
 
     /// Today's entry, which is a *partial* day — the clock has not finished it.
@@ -71,13 +73,14 @@ struct DailyUsageSeries: Equatable, Sendable {
 
     /// Builds the series from raw rows.
     ///
-    /// The calendar defaults to UTC because the stored `bucketStart` values are
-    /// UTC day starts. Grouping them by a local calendar would slice a day in
-    /// half and file its two parts under different, wrongly named days.
+    /// The calendar defaults to `LocalUsageDay.calendar` because that is what
+    /// the stored `bucketStart` values were keyed on. Grouping them by any other
+    /// one would slice a day in half and file its two parts under different,
+    /// wrongly named days.
     static func from(
         rows: [LocalTokenUsage],
         estimator: CostEstimator,
-        calendar: Calendar = LocalUsagePeriod.utcCalendar,
+        calendar: Calendar = LocalUsageDay.calendar,
         now: Date = Date(),
         providerID: ProviderID = .claude
     ) -> DailyUsageSeries {

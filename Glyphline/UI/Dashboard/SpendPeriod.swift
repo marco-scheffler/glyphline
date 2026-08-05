@@ -133,7 +133,7 @@ struct SpendSummary: Equatable, Sendable {
         for period: SpendPeriod,
         series: DailyUsageSeries,
         medianDays: Int = 7,
-        calendar: Calendar = LocalUsagePeriod.utcCalendar
+        calendar: Calendar = LocalUsageDay.calendar
     ) -> SpendSummary {
         let end = series.referenceDay
         let start = calendar.date(byAdding: .day, value: -(period.days - 1), to: end) ?? end

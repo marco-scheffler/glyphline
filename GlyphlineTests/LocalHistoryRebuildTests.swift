@@ -2,6 +2,19 @@ import GRDB
 import XCTest
 @testable import Glyphline
 
+/// The grid these fixtures are cut on.
+///
+/// Fixed on UTC so that the seeded `bucketStart` and the day the reader derives
+/// from a `…T09:00:00.000Z` line are the same day wherever the suite runs.
+/// Production cuts on the user's clock; what these tests are about is the
+/// coverage rule that decides whether a day may be replaced, which no timezone
+/// should be able to change. `ClaudeCodeLogReaderTests` holds the grid itself.
+private let fixedGrid: Calendar = {
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = TimeZone(identifier: "UTC") ?? .gmt
+    return calendar
+}()
+
 /// The per-day decision, as pure arithmetic over two numbers — no database, no
 /// transcripts, the way `AppActivationController.policy(for:hasWindowNeedingRegularApp:)`
 /// made an activation decision testable without driving `NSApp`.
@@ -130,7 +143,7 @@ final class LocalHistoryRebuildEndToEndTests: XCTestCase {
 
     @discardableResult
     private func runRebuild() throws -> Bool {
-        let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger)
+        let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger, calendar: fixedGrid)
         return try ledger.applyLocalHistoryRebuild(reader.readForRebuild())
     }
 
@@ -202,7 +215,7 @@ final class LocalHistoryRebuildEndToEndTests: XCTestCase {
         try seedInflatedHistory(500)
         try runRebuild()
 
-        let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger)
+        let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger, calendar: fixedGrid)
         try ledger.applyLocalScan(reader.read())
 
         XCTAssertEqual(try recordedTotal(), 300)
@@ -231,7 +244,7 @@ final class LocalHistoryRebuildEndToEndTests: XCTestCase {
             to: "session.jsonl"
         )
 
-        let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger)
+        let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger, calendar: fixedGrid)
         let rebuild = try reader.readForRebuild()
         XCTAssertEqual(rebuild.scan.sessionUsage.count, 1)
         XCTAssertEqual(rebuild.naiveSessionTotals, ["session-1": 100])
@@ -256,7 +269,7 @@ final class LocalHistoryRebuildEndToEndTests: XCTestCase {
         // Started first, and deliberately slow between reading and writing.
         let scan = Task {
             await gate.runScan {
-                let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger)
+                let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger, calendar: fixedGrid)
                 let result = try reader.read()
                 Thread.sleep(forTimeInterval: 0.2)
                 try ledger.applyLocalScan(result)
@@ -265,7 +278,7 @@ final class LocalHistoryRebuildEndToEndTests: XCTestCase {
 
         let rebuild = Task {
             await gate.runRebuild {
-                let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger)
+                let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger, calendar: fixedGrid)
                 return try ledger.applyLocalHistoryRebuild(reader.readForRebuild())
             }
         }
@@ -355,7 +368,7 @@ final class LocalHistoryRebuildEndToEndTests: XCTestCase {
         let directory = directory!
 
         let controller = LocalHistoryRebuildController(settings: settings, gate: makeGate()) {
-            let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger)
+            let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger, calendar: fixedGrid)
             return try ledger.applyLocalHistoryRebuild(reader.readForRebuild())
         }
         await controller.task?.value
@@ -384,7 +397,7 @@ final class LocalHistoryRebuildEndToEndTests: XCTestCase {
             .appendingPathComponent("glyphline-absent-\(UUID().uuidString)", isDirectory: true)
 
         let controller = LocalHistoryRebuildController(settings: settings, gate: makeGate()) {
-            let reader = ClaudeCodeLogReader(directory: absent, watermarkStore: ledger)
+            let reader = ClaudeCodeLogReader(directory: absent, watermarkStore: ledger, calendar: fixedGrid)
             return try ledger.applyLocalHistoryRebuild(reader.readForRebuild())
         }
         await controller.task?.value
@@ -496,7 +509,7 @@ final class LocalSessionTokenRebuildTests: XCTestCase {
 
     @discardableResult
     private func runRebuild() throws -> Bool {
-        let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger)
+        let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger, calendar: fixedGrid)
         return try ledger.applyLocalSessionTokenRebuild(reader.readForRebuild())
     }
 
@@ -581,7 +594,7 @@ final class LocalSessionTokenRebuildTests: XCTestCase {
             to: "mixed.jsonl"
         )
 
-        let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger)
+        let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger, calendar: fixedGrid)
         let rebuild = try reader.readForRebuild()
         XCTAssertEqual(rebuild.naiveSessionTotals, ["session-1": 100])
 
@@ -605,7 +618,7 @@ final class LocalSessionTokenRebuildTests: XCTestCase {
 
         let scan = Task {
             await gate.runScan {
-                let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger)
+                let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger, calendar: fixedGrid)
                 let result = try reader.read()
                 Thread.sleep(forTimeInterval: 0.2)
                 try ledger.applyLocalScan(result)
@@ -614,7 +627,7 @@ final class LocalSessionTokenRebuildTests: XCTestCase {
 
         let rebuild = Task {
             await gate.runRebuild {
-                let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger)
+                let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger, calendar: fixedGrid)
                 let scanned = try reader.readForRebuild()
                 let days = try ledger.applyLocalHistoryRebuild(scanned)
                 let sessions = try ledger.applyLocalSessionTokenRebuild(scanned)
@@ -701,7 +714,7 @@ final class LocalSessionTokenRebuildTests: XCTestCase {
 
         struct Boom: Error {}
         let controller = LocalHistoryRebuildController(settings: settings, gate: makeGate()) {
-            let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger)
+            let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger, calendar: fixedGrid)
             _ = try reader.readForRebuild()
             throw Boom()
         }
@@ -718,7 +731,7 @@ final class LocalSessionTokenRebuildTests: XCTestCase {
 
         let absent = FileManager.default.temporaryDirectory
             .appendingPathComponent("glyphline-absent-\(UUID().uuidString)", isDirectory: true)
-        let reader = ClaudeCodeLogReader(directory: absent, watermarkStore: ledger)
+        let reader = ClaudeCodeLogReader(directory: absent, watermarkStore: ledger, calendar: fixedGrid)
 
         XCTAssertFalse(try ledger.applyLocalSessionTokenRebuild(reader.readForRebuild()))
         XCTAssertEqual(try recordedTotal(), 500)

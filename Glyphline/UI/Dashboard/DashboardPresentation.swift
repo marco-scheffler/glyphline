@@ -32,7 +32,7 @@ enum DashboardPresentation {
     static func entries(
         of series: DailyUsageSeries,
         over days: Int?,
-        calendar: Calendar = LocalUsagePeriod.utcCalendar
+        calendar: Calendar = LocalUsageDay.calendar
     ) -> [DailyUsageEntry] {
         guard let days, days > 0 else { return series.entries }
 
@@ -519,13 +519,16 @@ enum DashboardPresentation {
     /// the whole bin `[day, day + 1)` and so is drawn *forward* from its own x
     /// value. Every alignment question the chart has — where the label goes,
     /// which bar a tap landed in — is a question about this span.
-    static func barEnd(of day: Date, calendar: Calendar = LocalUsagePeriod.utcCalendar) -> Date {
+    /// Through the calendar rather than by adding 86,400 seconds: on a local
+    /// grid the day a clock change falls on is 23 or 25 hours long, and a bar
+    /// that ignored that would end an hour inside its neighbour.
+    static func barEnd(of day: Date, calendar: Calendar = LocalUsageDay.calendar) -> Date {
         calendar.date(byAdding: .day, value: 1, to: day) ?? day.addingTimeInterval(24 * 60 * 60)
     }
 
     /// The middle of a day's bar, which is the one point the bar, its axis label
     /// and its tap target all have to agree on.
-    static func barCentre(of day: Date, calendar: Calendar = LocalUsagePeriod.utcCalendar) -> Date {
+    static func barCentre(of day: Date, calendar: Calendar = LocalUsageDay.calendar) -> Date {
         day.addingTimeInterval(barEnd(of: day, calendar: calendar).timeIntervalSince(day) / 2)
     }
 
@@ -559,7 +562,7 @@ enum DashboardPresentation {
     static func day(
         atChartValue value: Date,
         among days: [Date],
-        calendar: Calendar = LocalUsagePeriod.utcCalendar
+        calendar: Calendar = LocalUsageDay.calendar
     ) -> Date? {
         guard !days.isEmpty else { return nil }
         if let containing = days.first(where: {
@@ -578,16 +581,14 @@ enum DashboardPresentation {
 
     /// A day's name, spelled out: "Sunday, 15 March".
     ///
-    /// Formatted in the calendar the day was *computed* in. Every day in the
-    /// daily pipeline is a UTC midnight — that is what `LocalUsagePeriod
-    /// .utcCalendar` is for, because grouping locally slices a day and drops
-    /// part of it. Handing such an instant to a formatter reading the local
-    /// timezone undoes that: west of Greenwich a UTC midnight is still the
-    /// previous evening, so the panel named the day before the one whose figures
-    /// it was showing.
+    /// Formatted in the calendar the day was *computed* in — the parameter, not
+    /// whatever timezone the formatter would otherwise reach for. The two agree
+    /// today, since both are the user's, and the pairing is kept explicit
+    /// because they did not agree before the buckets moved onto the local grid
+    /// and the panel then named the day before the one whose figures it showed.
     static func dayTitle(
         of day: Date,
-        calendar: Calendar = LocalUsagePeriod.utcCalendar
+        calendar: Calendar = LocalUsageDay.calendar
     ) -> String {
         var style = Date.FormatStyle.dateTime.weekday(.wide).day().month(.wide)
         style.timeZone = calendar.timeZone
@@ -597,13 +598,13 @@ enum DashboardPresentation {
     /// A day's name as the chart's x axis has room for it: "15 Mar".
     ///
     /// Same rule and the same reason as `dayTitle`. The axis labels bar
-    /// *centres* — noon UTC — which survives a local formatter for most of the
-    /// world and stops doing so from UTC+12 eastward, where noon UTC has already
-    /// become the next day. A label that is right in Berlin and wrong in
-    /// Auckland is the same bug, just harder to see.
+    /// *centres*, which are local noon: half a day away from either boundary, so
+    /// this is the one label in the pipeline that a mismatched formatter would
+    /// still get right almost everywhere — and therefore the one where a
+    /// mismatch would go unnoticed longest.
     static func axisDayLabel(
         of day: Date,
-        calendar: Calendar = LocalUsagePeriod.utcCalendar
+        calendar: Calendar = LocalUsageDay.calendar
     ) -> String {
         var style = Date.FormatStyle.dateTime.day().month(.abbreviated)
         style.timeZone = calendar.timeZone

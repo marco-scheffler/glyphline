@@ -8,7 +8,16 @@ import XCTest
 /// a reader would not notice: a padded axis, a percentage against a median, a
 /// plural, and a chart's model buckets.
 final class DashboardPresentationTests: XCTestCase {
-    private let calendar = LocalUsagePeriod.utcCalendar
+    /// A fixed grid rather than `LocalUsageDay.calendar`, and fixed on UTC so
+    /// that no fixture below ever spans a clock change. Most of what is asserted
+    /// here — a padded axis, a median, a plural — has to come out the same
+    /// wherever the machine stands. The three tests about *naming* a day are the
+    /// exception and name their own calendars.
+    private let calendar: Calendar = {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC") ?? .gmt
+        return calendar
+    }()
 
     private func day(_ iso: String) -> Date {
         let formatter = ISO8601DateFormatter()
@@ -256,55 +265,74 @@ final class DashboardPresentationTests: XCTestCase {
 
     // MARK: - Naming a day
 
-    /// A timezone far enough west that a UTC midnight is still the previous
-    /// afternoon there — the case the panel used to get wrong.
+    /// Two calendars far enough apart that one's midnight is another one's
+    /// afternoon on the day before. Both fixed, so the pair discriminates
+    /// wherever the suite is run rather than only where the machine stands.
     private var losAngeles: Calendar {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(identifier: "America/Los_Angeles")!
         return calendar
     }
 
-    /// Every day in this pipeline is a UTC midnight, so its name has to be read
-    /// off the UTC calendar too.
+    private var auckland: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Pacific/Auckland")!
+        return calendar
+    }
+
+    /// A day is named on the calendar it was *cut* with, not on whatever
+    /// timezone the formatter would otherwise reach for.
     ///
     /// Would catch: the panel's old `entry.day.formatted(.dateTime…)`, which
     /// takes the *current* timezone and ignores the one it is handed. Under that
     /// code both calls below return the same string and the inequality fails —
-    /// in Berlin as well as in Los Angeles, which is the point: a fixture that
-    /// only discriminates where the machine happens to stand is no fixture.
-    func testADayIsNamedInUTCRatherThanLocally() {
-        let midnight = day("2026-03-15T00:00:00Z")
+    /// on any machine, anywhere, which is the point: a fixture that only
+    /// discriminates where the machine happens to stand is no fixture.
+    func testADayIsNamedOnTheCalendarItWasCutWith() {
+        // Midnight in Auckland, which is still the middle of the *previous*
+        // afternoon in Los Angeles — the two are 20 hours apart in March.
+        let midnight = auckland.startOfDay(for: day("2026-03-15T12:00:00Z"))
 
-        XCTAssertEqual(DashboardPresentation.dayTitle(of: midnight),
-                       DashboardPresentation.dayTitle(of: midnight, calendar: calendar))
         XCTAssertNotEqual(DashboardPresentation.dayTitle(of: midnight, calendar: losAngeles),
-                          DashboardPresentation.dayTitle(of: midnight, calendar: calendar))
+                          DashboardPresentation.dayTitle(of: midnight, calendar: auckland))
     }
 
-    /// And it is wrong by exactly one day, which is what makes the fixture a
-    /// discriminating one rather than merely a differing one: read locally in
-    /// Los Angeles, this instant names the *day before* the day it stands for.
-    func testReadLocallyAWesternMachineNamesThePreviousDay() {
-        let midnight = day("2026-03-15T00:00:00Z")
-        let dayBefore = day("2026-03-14T00:00:00Z")
+    /// And the calendar it was cut with is the user's, which is what makes
+    /// "today" mean today.
+    ///
+    /// The instant is taken off `Calendar.autoupdatingCurrent` rather than off
+    /// `LocalUsageDay.calendar`, which is the thing under test: written in terms
+    /// of it, this would follow it back to UTC and pass either way. Would catch
+    /// the default going back to UTC — east of Greenwich a local midnight is the
+    /// previous evening there, so the tile would name yesterday over today's
+    /// figures, the defect this grid replaced. It discriminates wherever the
+    /// machine's offset is not zero.
+    func testTodaysBucketIsNamedToday() {
+        let now = Date()
+        let today = Calendar.autoupdatingCurrent.startOfDay(for: now)
 
-        XCTAssertEqual(DashboardPresentation.dayTitle(of: midnight, calendar: losAngeles),
-                       DashboardPresentation.dayTitle(of: dayBefore, calendar: calendar))
+        var style = Date.FormatStyle.dateTime.weekday(.wide).day().month(.wide)
+        style.timeZone = .autoupdatingCurrent
+
+        XCTAssertEqual(
+            DashboardPresentation.dayTitle(of: today),
+            now.formatted(style),
+            "the bucket holding today's tokens has to carry today's name"
+        )
     }
 
-    /// The axis labels bar centres, not day starts, so it survived a local
-    /// formatter almost everywhere — and stopped at UTC+12, where noon UTC is
-    /// already tomorrow. Would catch the axis label going back to a formatter
-    /// that ignores the calendar: both calls would then agree.
-    func testTheAxisLabelIsAlsoReadInUTC() {
-        let centre = DashboardPresentation.barCentre(of: day("2026-03-15T00:00:00Z"))
-        var auckland = Calendar(identifier: .gregorian)
-        auckland.timeZone = TimeZone(identifier: "Pacific/Auckland")!
+    /// The axis labels bar centres, not day starts, so it survives a mismatched
+    /// formatter almost everywhere — which is what makes it the one worth
+    /// pinning. Would catch the axis label going back to a formatter that
+    /// ignores the calendar: both calls would then agree.
+    func testTheAxisLabelIsReadOnTheSameCalendarAsTheDay() {
+        let centre = DashboardPresentation.barCentre(
+            of: auckland.startOfDay(for: day("2026-03-15T12:00:00Z")),
+            calendar: auckland
+        )
 
-        XCTAssertEqual(DashboardPresentation.axisDayLabel(of: centre),
-                       DashboardPresentation.axisDayLabel(of: centre, calendar: calendar))
-        XCTAssertNotEqual(DashboardPresentation.axisDayLabel(of: centre, calendar: auckland),
-                          DashboardPresentation.axisDayLabel(of: centre, calendar: calendar))
+        XCTAssertNotEqual(DashboardPresentation.axisDayLabel(of: centre, calendar: losAngeles),
+                          DashboardPresentation.axisDayLabel(of: centre, calendar: auckland))
     }
 
     // MARK: - Naming a window inside its account's card
