@@ -1,0 +1,54 @@
+<h2>A day now ends when your day ends</h2>
+
+<p>The figures under "Usage on this Mac" were grouped into <em>UTC</em> days while
+everything above them said "today" and named a weekday. Two hours east of
+Greenwich that meant a day began at 02:00 on your clock, and everything you did
+between midnight and 02:00 was filed under yesterday.</p>
+
+<p>On the machine this was found on, a morning that had cost 288 million tokens
+read as 120 million. Nothing was ever lost — the tokens sat in the previous day —
+but no number labelled "today" was the day you were living through.</p>
+
+<p>Days are now cut on your own clock, everywhere: the daily chart, the spend
+tile, "last 7 days" and "last 30 days", and the name under a selected bar.</p>
+
+<h2>Your figures change with this update</h2>
+
+<p>Which way depends on when you work.</p>
+
+<ul>
+  <li><strong>Today</strong> usually goes <strong>up</strong>, by whatever you did
+      between midnight and the old boundary.</li>
+  <li><strong>Individual days</strong> shift by a few hours' worth of work in
+      either direction as their boundaries move.</li>
+  <li><strong>Two days may drop sharply.</strong> On the reference machine, two
+      days were still carrying the double counting that 1.5 corrected everywhere
+      else — they could not be corrected then, and can be now. See below.</li>
+  <li><strong>If your Mac is set to UTC</strong>, nothing about your figures
+      changes at all. The old grid and the new one are the same grid.</li>
+</ul>
+
+<h3>Why two days could not be corrected before, and can be now</h3>
+
+<p>1.5 corrected a day only when the transcripts still on disk accounted for what
+had been recorded for it — otherwise files had gone missing and the recorded
+figure was the better evidence. That test is unchanged and still protects days
+whose transcripts are gone.</p>
+
+<p>What has changed is what it is measured against. It now compares against
+figures 1.5 already corrected, so a day whose files are all still there clears the
+test comfortably where it used to sit just under the line. Days with genuinely
+missing transcripts keep their recorded figures, exactly as before.</p>
+
+<h3>What this does to what was already recorded</h3>
+
+<p>Correcting the grid only fixes new readings, so this update also re-reads the
+transcripts once and re-cuts the recorded days on your clock. It happens in the
+background on the first launch after updating, and needs no window open.</p>
+
+<p>If your history reaches back to days whose transcripts no longer exist, those
+days keep the figures they have. They are the reason a total over "All Time" can
+still read higher than a fresh count of the transcripts would: it includes usage
+that was really recorded and can no longer be recounted.</p>
+
+<p>Requires macOS 26.</p>
