@@ -6,6 +6,68 @@
     <description>Updates für Glyphline</description>
     <language>en</language>
     <item>
+      <title>1.7</title>
+      <pubDate>Wed, 05 Aug 2026 10:28:33 +0000</pubDate>
+      <sparkle:version>8</sparkle:version>
+      <sparkle:shortVersionString>1.7</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+      <description>&lt;h2&gt;A day now ends when your day ends&lt;/h2&gt;
+
+&lt;p&gt;The figures under "Usage on this Mac" were grouped into &lt;em&gt;UTC&lt;/em&gt; days while
+everything above them said "today" and named a weekday. Two hours east of
+Greenwich that meant a day began at 02:00 on your clock, and everything you did
+between midnight and 02:00 was filed under yesterday.&lt;/p&gt;
+
+&lt;p&gt;On the machine this was found on, a morning that had cost 288 million tokens
+read as 120 million. Nothing was ever lost — the tokens sat in the previous day —
+but no number labelled "today" was the day you were living through.&lt;/p&gt;
+
+&lt;p&gt;Days are now cut on your own clock, everywhere: the daily chart, the spend
+tile, "last 7 days" and "last 30 days", and the name under a selected bar.&lt;/p&gt;
+
+&lt;h2&gt;Your figures change with this update&lt;/h2&gt;
+
+&lt;p&gt;Which way depends on when you work.&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;&lt;strong&gt;Today&lt;/strong&gt; usually goes &lt;strong&gt;up&lt;/strong&gt;, by whatever you did
+      between midnight and the old boundary.&lt;/li&gt;
+  &lt;li&gt;&lt;strong&gt;Individual days&lt;/strong&gt; shift by a few hours' worth of work in
+      either direction as their boundaries move.&lt;/li&gt;
+  &lt;li&gt;&lt;strong&gt;Two days may drop sharply.&lt;/strong&gt; On the reference machine, two
+      days were still carrying the double counting that 1.5 corrected everywhere
+      else — they could not be corrected then, and can be now. See below.&lt;/li&gt;
+  &lt;li&gt;&lt;strong&gt;If your Mac is set to UTC&lt;/strong&gt;, nothing about your figures
+      changes at all. The old grid and the new one are the same grid.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h3&gt;Why two days could not be corrected before, and can be now&lt;/h3&gt;
+
+&lt;p&gt;1.5 corrected a day only when the transcripts still on disk accounted for what
+had been recorded for it — otherwise files had gone missing and the recorded
+figure was the better evidence. That test is unchanged and still protects days
+whose transcripts are gone.&lt;/p&gt;
+
+&lt;p&gt;What has changed is what it is measured against. It now compares against
+figures 1.5 already corrected, so a day whose files are all still there clears the
+test comfortably where it used to sit just under the line. Days with genuinely
+missing transcripts keep their recorded figures, exactly as before.&lt;/p&gt;
+
+&lt;h3&gt;What this does to what was already recorded&lt;/h3&gt;
+
+&lt;p&gt;Correcting the grid only fixes new readings, so this update also re-reads the
+transcripts once and re-cuts the recorded days on your clock. It happens in the
+background on the first launch after updating, and needs no window open.&lt;/p&gt;
+
+&lt;p&gt;If your history reaches back to days whose transcripts no longer exist, those
+days keep the figures they have. They are the reason a total over "All Time" can
+still read higher than a fresh count of the transcripts would: it includes usage
+that was really recorded and can no longer be recounted.&lt;/p&gt;
+
+&lt;p&gt;Requires macOS 26.&lt;/p&gt;</description>
+      <enclosure url="https://github.com/marco-scheffler/glyphline/releases/download/v1.7/Glyphline-1.7.zip" length="6174432" type="application/octet-stream" sparkle:edSignature="FPhl4W7gP6oTpuOHPlfQLRCDnhTpl1Cd3ezyNpEwRxyonR6zdx8z6EiHaQ+iipGg3BKJBoW3666JyU149hGcCQ==" />
+    </item>
+    <item>
       <title>1.6</title>
       <pubDate>Tue, 04 Aug 2026 21:46:12 +0000</pubDate>
       <sparkle:version>7</sparkle:version>
