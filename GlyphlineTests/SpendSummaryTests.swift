@@ -6,7 +6,17 @@ import XCTest
 /// against, what it says when there is nothing there, and what it says when the
 /// local scan reaches back less far than the period does.
 final class SpendSummaryTests: XCTestCase {
-    private let calendar = LocalUsagePeriod.utcCalendar
+    /// A fixed grid rather than `LocalUsageDay.calendar`, and fixed on UTC so
+    /// that no fixture below ever spans a clock change. What these tests are
+    /// about is which days a window covers and what it is compared against —
+    /// arithmetic that must come out the same on a machine in Auckland as on one
+    /// in Los Angeles. Where the grid itself is the subject, the test names its
+    /// own calendar.
+    private let calendar: Calendar = {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC") ?? .gmt
+        return calendar
+    }()
 
     private func day(_ iso: String) -> Date {
         let formatter = ISO8601DateFormatter()

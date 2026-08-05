@@ -2,8 +2,9 @@ import Foundation
 
 /// The statistics screen's period switcher.
 ///
-/// The stored buckets are UTC day starts, so the cut-off is computed in UTC too;
-/// a local-time cut-off would slice a day in half and drop part of it.
+/// The cut-off is counted back through `LocalUsageDay.calendar`, the same grid
+/// the buckets were keyed on. Counting it on any other calendar would put the
+/// boundary in the middle of a stored day and drop part of it.
 enum LocalUsagePeriod: String, CaseIterable, Identifiable, Sendable {
     case last7Days
     case last30Days
@@ -38,15 +39,9 @@ enum LocalUsagePeriod: String, CaseIterable, Identifiable, Sendable {
     ///
     /// Inclusive and counted with today as day one: "7 days" is today plus the
     /// six days before it, not today plus seven.
-    func since(now: Date, calendar: Calendar = LocalUsagePeriod.utcCalendar) -> Date? {
+    func since(now: Date, calendar: Calendar = LocalUsageDay.calendar) -> Date? {
         guard let days else { return nil }
         let today = calendar.startOfDay(for: now)
         return calendar.date(byAdding: .day, value: -(days - 1), to: today)
-    }
-
-    static var utcCalendar: Calendar {
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = TimeZone(identifier: "UTC") ?? .gmt
-        return calendar
     }
 }

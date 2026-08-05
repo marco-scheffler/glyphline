@@ -66,7 +66,7 @@ final class ClaudeCodeLogReaderTests: XCTestCase {
             to: "session.jsonl"
         )
 
-        let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger)
+        let reader = makeReader()
         let rows = try apply(reader.read())
 
         XCTAssertEqual(rows.count, 2)
@@ -79,6 +79,73 @@ final class ClaudeCodeLogReaderTests: XCTestCase {
         XCTAssertEqual(opus.bucketStart, Date(timeIntervalSince1970: 1_782_864_000)) // 2026-07-01T00:00:00Z
     }
 
+    /// Left to itself, the reader cuts days where the user's clock does.
+    ///
+    /// This is the whole defect the local grid replaced: on UTC, a Mac in Berlin
+    /// began "today" at 02:00 and filed the two hours before it under yesterday
+    /// — measured on one morning's real transcripts, 120M tokens where 288M had
+    /// been spent.
+    ///
+    /// Stated against `Calendar.autoupdatingCurrent` and never against
+    /// `LocalUsageDay.calendar`, which is the thing under test: an expectation
+    /// written in terms of it would follow it back to UTC and pass either way.
+    /// It discriminates wherever the machine's offset is not zero, which is
+    /// where the defect existed.
+    func testTheDefaultGridIsTheUsersOwnClock() throws {
+        // Half past midnight, wherever this machine stands. Under a UTC default
+        // this instant falls in the previous day for every positive offset.
+        let justAfterMidnight = Calendar.autoupdatingCurrent
+            .startOfDay(for: Date())
+            .addingTimeInterval(30 * 60)
+        let stamp = ISO8601DateFormatter()
+        stamp.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        stamp.timeZone = TimeZone(identifier: "UTC")
+
+        try write(
+            line(model: "claude-opus-4-8", input: 10, cacheWrite: 0, cacheRead: 0, output: 10,
+                 timestamp: stamp.string(from: justAfterMidnight)) + "\n",
+            to: "session.jsonl"
+        )
+
+        let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger)
+        let row = try XCTUnwrap(try apply(reader.read()).first)
+
+        XCTAssertEqual(
+            row.bucketStart,
+            Calendar.autoupdatingCurrent.startOfDay(for: justAfterMidnight),
+            "a line stamped half an hour into the user's day belongs to that day"
+        )
+    }
+
+    /// And a reader handed a calendar cuts on that one, midnight for midnight.
+    ///
+    /// Two lines nine hours apart, which is one UTC day and two Tokyo days.
+    /// Would catch the reader forcing a timezone of its own back over the one it
+    /// was given: the two lines would then merge into a single UTC bucket.
+    func testADayIsCutWhereTheGivenCalendarSaysMidnightIs() throws {
+        var tokyo = Calendar(identifier: .gregorian)
+        tokyo.timeZone = TimeZone(identifier: "Asia/Tokyo")!
+
+        try write(
+            [
+                // 18:00 in Tokyo on the 1st.
+                line(model: "claude-opus-4-8", input: 10, cacheWrite: 0, cacheRead: 0, output: 0, timestamp: "2026-07-01T09:00:00.000Z"),
+                // 03:00 in Tokyo on the 2nd — the same UTC day, the next Tokyo one.
+                line(model: "claude-opus-4-8", input: 20, cacheWrite: 0, cacheRead: 0, output: 0, timestamp: "2026-07-01T18:00:00.000Z"),
+            ].joined(separator: "\n") + "\n",
+            to: "session.jsonl"
+        )
+
+        let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger, calendar: tokyo)
+        let rows = try apply(reader.read()).sorted { $0.bucketStart < $1.bucketStart }
+
+        XCTAssertEqual(rows.count, 2, "one UTC day is two days in Tokyo")
+        XCTAssertEqual(rows[0].bucketStart, Date(timeIntervalSince1970: 1_782_831_600)) // 2026-06-30T15:00:00Z
+        XCTAssertEqual(rows[0].inputTokens, 10)
+        XCTAssertEqual(rows[1].bucketStart, Date(timeIntervalSince1970: 1_782_918_000)) // 2026-07-01T15:00:00Z
+        XCTAssertEqual(rows[1].inputTokens, 20)
+    }
+
     /// The transcripts cannot be attributed to a subscription, so nothing the
     /// reader emits may name one. This is a compile-shaped guarantee — the type has
     /// no account field at all — and this test pins the intent alongside it.
@@ -88,7 +155,7 @@ final class ClaudeCodeLogReaderTests: XCTestCase {
             to: "session.jsonl"
         )
 
-        let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger)
+        let reader = makeReader()
         let row = try XCTUnwrap(try apply(reader.read()).first)
 
         XCTAssertEqual(row.model, "claude-opus-4-8")
@@ -115,7 +182,7 @@ final class ClaudeCodeLogReaderTests: XCTestCase {
             to: "session.jsonl"
         )
 
-        let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger)
+        let reader = makeReader()
         _ = try apply(reader.read())
 
         XCTAssertTrue(try apply(reader.read()).isEmpty, "nothing new to read")
@@ -135,7 +202,7 @@ final class ClaudeCodeLogReaderTests: XCTestCase {
     /// ledger at the day's full total. Emitting the accumulated total again here
     /// would double-count the first read.
     func testSameDayAppendYieldsOnlyTheDeltaAndTheLedgerEndsAtTheFullTotal() throws {
-        let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger)
+        let reader = makeReader()
 
         try write(
             line(model: "claude-opus-4-8", input: 100, cacheWrite: 0, cacheRead: 0, output: 10, timestamp: "2026-07-01T09:00:00.000Z") + "\n",
@@ -166,7 +233,7 @@ final class ClaudeCodeLogReaderTests: XCTestCase {
             to: "session.jsonl"
         )
 
-        let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger)
+        let reader = makeReader()
 
         XCTAssertEqual(try apply(reader.read()).count, 1)
         XCTAssertTrue(try apply(reader.read()).isEmpty, "a completed day is consumed once")
@@ -177,7 +244,7 @@ final class ClaudeCodeLogReaderTests: XCTestCase {
     /// the time. It must land on the day it names and be added to that day's stored
     /// total, not dropped and not written over it.
     func testALineForAnAlreadyClosedDayIsAddedToThatDay() throws {
-        let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger)
+        let reader = makeReader()
 
         try write(
             line(model: "claude-opus-4-8", input: 100, cacheWrite: 0, cacheRead: 0, output: 10, timestamp: "2026-07-01T09:00:00.000Z") + "\n",
@@ -218,7 +285,7 @@ final class ClaudeCodeLogReaderTests: XCTestCase {
             to: "session.jsonl"
         )
 
-        let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger)
+        let reader = makeReader()
         XCTAssertEqual(try apply(reader.read()).count, 1)
 
         // Same length, mtime half a second earlier: inside the old one-second slack,
@@ -246,7 +313,7 @@ final class ClaudeCodeLogReaderTests: XCTestCase {
             to: "session.jsonl"
         )
 
-        let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger)
+        let reader = makeReader()
         _ = try apply(reader.read())
 
         try write(
@@ -266,7 +333,7 @@ final class ClaudeCodeLogReaderTests: XCTestCase {
 
         try write(complete + "\n" + String(pending.prefix(30)), to: "session.jsonl")
 
-        let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger)
+        let reader = makeReader()
         XCTAssertEqual(try apply(reader.read()).first?.inputTokens, 10)
 
         try append(String(pending.dropFirst(30)) + "\n", to: "session.jsonl")
@@ -286,7 +353,7 @@ final class ClaudeCodeLogReaderTests: XCTestCase {
             to: "session.jsonl"
         )
 
-        let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger)
+        let reader = makeReader()
         let rows = try apply(reader.read())
 
         XCTAssertEqual(rows.count, 1)
@@ -305,7 +372,7 @@ final class ClaudeCodeLogReaderTests: XCTestCase {
             to: "session.jsonl"
         )
 
-        let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger)
+        let reader = makeReader()
         let rows = try apply(reader.read())
 
         XCTAssertEqual(rows.map(\.model), ["claude-opus-4-8"])
@@ -320,8 +387,21 @@ final class ClaudeCodeLogReaderTests: XCTestCase {
         XCTAssertTrue(try apply(reader.read()).isEmpty)
     }
 
+    /// The grid every test below fixes so it can talk about something else.
+    ///
+    /// UTC, which is what makes the `…T09:00:00.000Z` fixtures and the expected
+    /// bucket instants readable as the same day. Production cuts days on the
+    /// user's clock instead — `testTheDefaultGridIsTheUsersOwnClock` and
+    /// `testADayIsCutWhereTheGivenCalendarSaysMidnightIs` are the two that hold
+    /// *that*, and they are the only ones here that may name a timezone.
+    private let fixedGrid: Calendar = {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC") ?? .gmt
+        return calendar
+    }()
+
     private func makeReader() -> ClaudeCodeLogReader {
-        ClaudeCodeLogReader(directory: directory, watermarkStore: ledger)
+        ClaudeCodeLogReader(directory: directory, watermarkStore: ledger, calendar: fixedGrid)
     }
 
     /// The existing `line` helper omits `sessionId`, and several tests depend on

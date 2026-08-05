@@ -109,8 +109,8 @@ struct DailyUsageChart: View {
         // Marked at bar centres, not at bar starts. A `unit: .day` bar is drawn
         // forward from its own date, so a mark at that date labels the bar's
         // leading edge and the reader reads every label one half-bar too far
-        // left. The centre is noon of the same day, so it still formats as that
-        // day.
+        // left. The centre is local noon of the same day, so it still formats as
+        // that day.
         .chartXAxis {
             AxisMarks(values: Self.axisMarks(for: entries)) { value in
                 AxisGridLine()
@@ -119,11 +119,13 @@ struct DailyUsageChart: View {
                 }
             }
         }
-        // The days are UTC day starts (see `DailyUsageSeries`). Charts would bin
-        // them by the local calendar instead, putting every bar a timezone
-        // offset away from the day it stands for — and away from the marks and
-        // the hit test below, which reason in the same UTC days the data has.
-        .environment(\.calendar, LocalUsagePeriod.utcCalendar)
+        // Charts bins `unit: .day` marks with the calendar in its environment,
+        // and the days it is being handed were cut with `LocalUsageDay.calendar`
+        // (see `DailyUsageSeries`). Stated rather than left to the inherited
+        // default, because the marks and the hit test below reason in that same
+        // calendar and a bar binned by another one sits an offset away from the
+        // day it stands for.
+        .environment(\.calendar, LocalUsageDay.calendar)
         .frame(height: Self.plotHeight)
         // The band is drawn in the chart's *background*, so it sits behind the
         // bars instead of veiling them. The tap target stays an overlay,

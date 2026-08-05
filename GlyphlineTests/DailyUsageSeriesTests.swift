@@ -2,6 +2,17 @@ import XCTest
 @testable import Glyphline
 
 final class DailyUsageSeriesTests: XCTestCase {
+    /// The grid the fixtures below are cut on, fixed so that a bucket written as
+    /// `…T00:00:00Z` is the day it reads as. Production cuts on
+    /// `LocalUsageDay.calendar` — the user's clock — and the section at the
+    /// bottom of this file is what holds that; everything above it is about
+    /// shape, gaps and medians, which no timezone should be able to change.
+    private let fixedGrid: Calendar = {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC") ?? .gmt
+        return calendar
+    }()
+
     private func date(_ text: String) -> Date {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime]
@@ -41,6 +52,7 @@ final class DailyUsageSeriesTests: XCTestCase {
                 LocalTokenUsage(bucketStart: date("2026-07-19T00:00:00Z"), model: "m", inputTokens: 2),
             ],
             estimator: estimator,
+            calendar: fixedGrid,
             now: date("2026-07-20T09:00:00Z")
         )
 
@@ -66,6 +78,7 @@ final class DailyUsageSeriesTests: XCTestCase {
                 LocalTokenUsage(bucketStart: date("2026-07-20T00:00:00Z"), model: "m", inputTokens: 7),
             ],
             estimator: estimator,
+            calendar: fixedGrid,
             now: date("2026-07-20T09:00:00Z")
         )
 
@@ -87,6 +100,7 @@ final class DailyUsageSeriesTests: XCTestCase {
                 LocalTokenUsage(bucketStart: date("2026-07-18T00:00:00Z"), model: "m", inputTokens: 5),
             ],
             estimator: estimator,
+            calendar: fixedGrid,
             now: date("2026-07-20T09:00:00Z")
         )
 
@@ -105,6 +119,7 @@ final class DailyUsageSeriesTests: XCTestCase {
                 LocalTokenUsage(bucketStart: date("2026-07-20T00:00:00Z"), model: "m", inputTokens: 900),
             ],
             estimator: estimator,
+            calendar: fixedGrid,
             now: date("2026-07-20T09:00:00Z")
         )
 
@@ -143,6 +158,7 @@ final class DailyUsageSeriesTests: XCTestCase {
         let series = DailyUsageSeries.from(
             rows: rows,
             estimator: estimator,
+            calendar: fixedGrid,
             now: date("2026-07-20T09:00:00Z")
         )
 
@@ -159,6 +175,7 @@ final class DailyUsageSeriesTests: XCTestCase {
                 LocalTokenUsage(bucketStart: date("2026-07-19T00:00:00Z"), model: "m", inputTokens: 700),
             ],
             estimator: estimator,
+            calendar: fixedGrid,
             now: date("2026-07-20T09:00:00Z")
         )
 
@@ -171,6 +188,7 @@ final class DailyUsageSeriesTests: XCTestCase {
                 LocalTokenUsage(bucketStart: date("2026-07-20T00:00:00Z"), model: "m", inputTokens: 5),
             ],
             estimator: estimator,
+            calendar: fixedGrid,
             now: date("2026-07-20T09:00:00Z")
         )
 
@@ -183,6 +201,7 @@ final class DailyUsageSeriesTests: XCTestCase {
         let series = DailyUsageSeries.from(
             rows: [],
             estimator: estimator,
+            calendar: fixedGrid,
             now: date("2026-07-20T09:00:00Z")
         )
 
@@ -192,45 +211,65 @@ final class DailyUsageSeriesTests: XCTestCase {
         XCTAssertNil(series.median(days: 7))
     }
 
-    // MARK: - UTC
+    // MARK: - Which grid the days are cut on
 
-    /// The stored buckets are UTC day starts, and the grouping must be UTC too.
-    /// The fixture is picked so a local calendar cannot agree: 23:00 UTC is the
-    /// same UTC day as 00:00 UTC but the next day in Berlin, and Berlin's start
-    /// of day is 22:00 UTC, not midnight. A grouping that used the local
-    /// calendar would split this into two entries with the wrong day keys.
-    func testGroupingUsesUTCAndNotTheLocalCalendar() {
+    /// The series groups on the calendar it is handed, and the rows it is handed
+    /// were keyed on that same one — that pairing is the whole contract.
+    ///
+    /// The fixture is picked so no two calendars can agree on it: 23:00 UTC is
+    /// the same UTC day as 00:00 UTC and the next day in Berlin, whose day
+    /// starts at 22:00 UTC. Would catch the grouping reaching for a timezone of
+    /// its own instead of the argument's — one of the two calls below would then
+    /// stop discriminating.
+    func testGroupingFollowsTheCalendarItIsGiven() {
         let rows = [
             LocalTokenUsage(bucketStart: date("2026-07-19T00:00:00Z"), model: "m", inputTokens: 10),
             LocalTokenUsage(bucketStart: date("2026-07-19T23:00:00Z"), model: "m", inputTokens: 5),
         ]
 
-        let series = DailyUsageSeries.from(
+        let utc = DailyUsageSeries.from(
             rows: rows,
             estimator: estimator,
+            calendar: fixedGrid,
             now: date("2026-07-19T23:30:00Z")
         )
 
-        XCTAssertEqual(series.entries.count, 1, "both instants fall on the same UTC day")
-        XCTAssertEqual(
-            series.entries.first?.day,
-            date("2026-07-19T00:00:00Z"),
-            "the day key is UTC midnight, not a local start of day"
-        )
-        XCTAssertEqual(series.entries.first?.totalTokens, 15)
+        XCTAssertEqual(utc.entries.count, 1, "both instants fall on the same UTC day")
+        XCTAssertEqual(utc.entries.first?.day, date("2026-07-19T00:00:00Z"))
+        XCTAssertEqual(utc.entries.first?.totalTokens, 15)
 
-        // The same fixture under a local calendar, to show the assertion above
-        // is discriminating rather than true either way.
         var berlin = Calendar(identifier: .gregorian)
         berlin.timeZone = TimeZone(identifier: "Europe/Berlin") ?? .gmt
-        let localSeries = DailyUsageSeries.from(
+        let local = DailyUsageSeries.from(
             rows: rows,
             estimator: estimator,
             calendar: berlin,
             now: date("2026-07-19T23:30:00Z")
         )
 
-        XCTAssertEqual(localSeries.entries.count, 2, "a local calendar slices the UTC day — this is the bug")
-        XCTAssertNotEqual(localSeries.entries.first?.day, self.date("2026-07-19T00:00:00Z"))
+        XCTAssertEqual(local.entries.count, 2, "in Berlin those two instants are two days")
+        XCTAssertEqual(local.entries.first?.day, date("2026-07-18T22:00:00Z"))
+    }
+
+    /// And left alone it uses the user's, which is the grid the scanner wrote
+    /// the rows on.
+    ///
+    /// The fixture row is keyed off `Calendar.autoupdatingCurrent` rather than
+    /// off `LocalUsageDay.calendar`, which is the thing under test: an
+    /// expectation written in terms of it would follow it back to UTC and pass
+    /// either way. Would catch the default going back to UTC — today's row would
+    /// then be grouped under yesterday and today's bar would read zero, which is
+    /// exactly how "today" came to be missing its first hours. It discriminates
+    /// wherever the machine's offset is not zero.
+    func testTheDefaultGridIsTheUsersOwnClock() {
+        let today = Calendar.autoupdatingCurrent.startOfDay(for: Date())
+
+        let series = DailyUsageSeries.from(
+            rows: [LocalTokenUsage(bucketStart: today, model: "m", inputTokens: 11)],
+            estimator: estimator
+        )
+
+        XCTAssertEqual(series.referenceDay, today)
+        XCTAssertEqual(series.today?.totalTokens, 11, "today's row has to land on today")
     }
 }

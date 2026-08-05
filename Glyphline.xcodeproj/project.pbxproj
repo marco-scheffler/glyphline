@@ -91,6 +91,7 @@
 		6F6854805AD8B45E9AB095BA /* KeychainStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89EEFE279720CAF7CA13AEB0 /* KeychainStoreTests.swift */; };
 		72517151B7BCCE3BC2748539 /* AddAccountFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40D313DABDF65EC1DBCADDBD /* AddAccountFlowTests.swift */; };
 		75067962E928D1FE8BFE6710 /* LocalHistoryRebuildTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37E4A917CBBD3CF67291CD0C /* LocalHistoryRebuildTests.swift */; };
+		751565C58408084900726D33 /* LocalUsageDay.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEA2613AB5F2ED561C7DADDA /* LocalUsageDay.swift */; };
 		766ABBB2FCCB0CD85F4280B9 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8C06666F9B94E7FE09B8E8E5 /* Assets.xcassets */; };
 		7689725CCEE34D9A6EC7ACE1 /* ProviderAdapterRegistryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65F46725420D301A64582EF6 /* ProviderAdapterRegistryTests.swift */; };
 		771EDD480CF8D227507CB099 /* SyncCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C65F3F058519D3D6E8B2C8CE /* SyncCoordinator.swift */; };
@@ -136,6 +137,7 @@
 		B3F171351A59C208FD3AF3F4 /* claude-usage-minimal.json in Resources */ = {isa = PBXBuildFile; fileRef = 115EF78DDBF22BE7B267CE5B /* claude-usage-minimal.json */; };
 		B478D06C9EC6D212E0D7EE98 /* AgentverseScene.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EC4E85D055A158D0AB6AE19 /* AgentverseScene.swift */; };
 		B61E521F9859F0DA80A53702 /* ClaudeWebQuotaSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15AE8CE25E9DFB53944DBD13 /* ClaudeWebQuotaSource.swift */; };
+		B6F7C7156A6F4B60E0AD459A /* LocalUsageDayTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 045614BA6F8339060A8447B7 /* LocalUsageDayTests.swift */; };
 		B79BB74467756AC2FBC2D26F /* OfficeRendererFigures.swift in Sources */ = {isa = PBXBuildFile; fileRef = 900DFAFD8E90B4576230E818 /* OfficeRendererFigures.swift */; };
 		B838F331BD89C2B524410914 /* AddAccountView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A63DE4BE6B1E5DD6EBDEC233 /* AddAccountView.swift */; };
 		B85CA610DA5E8BBC7879D1CD /* LedgerStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 461DE0E81EA86DEF3F3E1A47 /* LedgerStore.swift */; };
@@ -207,6 +209,7 @@
 		0083DE13F56B7B052A6DE142 /* OfficeLighting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfficeLighting.swift; sourceTree = "<group>"; };
 		0134DD4D833802DA52513B15 /* MarginLabelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarginLabelTests.swift; sourceTree = "<group>"; };
 		03170CB58ED7E563713541AA /* LocalHistoryRebuildController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalHistoryRebuildController.swift; sourceTree = "<group>"; };
+		045614BA6F8339060A8447B7 /* LocalUsageDayTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalUsageDayTests.swift; sourceTree = "<group>"; };
 		04698B43079198825E73F1BE /* QuotaCardModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuotaCardModel.swift; sourceTree = "<group>"; };
 		066AC288053ED51852926BC8 /* DashboardPalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardPalette.swift; sourceTree = "<group>"; };
 		06BB230F1D63495A95C6A003 /* SpendPeriod.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpendPeriod.swift; sourceTree = "<group>"; };
@@ -339,6 +342,7 @@
 		AACCE706FF21FC1CBF54AA72 /* AgentverseSnapshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentverseSnapshotTests.swift; sourceTree = "<group>"; };
 		AB71829869D2BDC5C53A536A /* SyncCoordinatorLocalUsageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncCoordinatorLocalUsageTests.swift; sourceTree = "<group>"; };
 		ACD9B71050B5FCC82923CDC9 /* DeleteAccountFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeleteAccountFlow.swift; sourceTree = "<group>"; };
+		AEA2613AB5F2ED561C7DADDA /* LocalUsageDay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalUsageDay.swift; sourceTree = "<group>"; };
 		AF10D82C0BBAB350C0D404AB /* GlyphlineApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlyphlineApp.swift; sourceTree = "<group>"; };
 		AFA5A35ACBFF7C3C12DC8EB8 /* AgentSessionScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentSessionScanner.swift; sourceTree = "<group>"; };
 		B16B2551C7AF4DA8A614935E /* QuotaNotifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuotaNotifier.swift; sourceTree = "<group>"; };
@@ -459,6 +463,7 @@
 				D461F567F4AC93CAD78D6410 /* Account.swift */,
 				54DF3B50A77102C6E68EAC4C /* AccountCredentialReference.swift */,
 				25763F9DE4C82450A3834BDC /* AgentSession.swift */,
+				AEA2613AB5F2ED561C7DADDA /* LocalUsageDay.swift */,
 				675ADA919D8753AAAEFAB44F /* MoneyAmount.swift */,
 				C69732493AABC7109EB74F3F /* ProviderID.swift */,
 				392B5FF66B8772E918631363 /* RateWindow.swift */,
@@ -597,6 +602,7 @@
 				90593AA09366929E35BB6663 /* LocalizedLayoutTests.swift */,
 				0D45A8DE0A0872640442583B /* LocalScanScheduleControllerTests.swift */,
 				2D061EE64EFE518EB86B8570 /* LocalTokenUsageStoreTests.swift */,
+				045614BA6F8339060A8447B7 /* LocalUsageDayTests.swift */,
 				0D31897CD1062193BF63AE80 /* LocalUsagePeriodTests.swift */,
 				8ACB43E390F384515433FB04 /* LocalUsageStatisticsTests.swift */,
 				0134DD4D833802DA52513B15 /* MarginLabelTests.swift */,
@@ -938,6 +944,7 @@
 				75067962E928D1FE8BFE6710 /* LocalHistoryRebuildTests.swift in Sources */,
 				57B394016FAA3C7135C06C26 /* LocalScanScheduleControllerTests.swift in Sources */,
 				315AA4ACC25D2F08B4DA83CA /* LocalTokenUsageStoreTests.swift in Sources */,
+				B6F7C7156A6F4B60E0AD459A /* LocalUsageDayTests.swift in Sources */,
 				FD2E6B0D841CAF9F824F9BB8 /* LocalUsagePeriodTests.swift in Sources */,
 				DB6A9090D4D818A7DA838E14 /* LocalUsageStatisticsTests.swift in Sources */,
 				2EC169CA2BD81D61716041E1 /* LocalizationTests.swift in Sources */,
@@ -1035,6 +1042,7 @@
 				F4440C12A5DB41ED5B54A5B8 /* LocalHistoryRebuildController.swift in Sources */,
 				3FADF8812E3914D4953848F4 /* LocalHistoryWriteGate.swift in Sources */,
 				BD7F93E2AE88212CDB9A1784 /* LocalScanScheduleController.swift in Sources */,
+				751565C58408084900726D33 /* LocalUsageDay.swift in Sources */,
 				7FC11071D7C8C08A94F2921B /* LocalUsagePeriod.swift in Sources */,
 				17A602A14DA23148EB4494DC /* LocalUsageStatistics.swift in Sources */,
 				31494C08A9507E7C43F21F0D /* MarginLabels.swift in Sources */,

@@ -89,18 +89,20 @@ final class ClaudeCodeLogReader: @unchecked Sendable {
     private let fileManager: FileManager
     private let calendar: Calendar
 
+    /// - Parameter calendar: where one day ends and the next begins. Defaults to
+    ///   the user's, which is the only grid a figure labelled "today" can be
+    ///   read on; a test injects a fixed one so its expected buckets do not
+    ///   depend on the machine that runs it.
     init(
         directory: URL,
         watermarkStore: any LocalScanWatermarkStoring,
         fileManager: FileManager = .default,
-        calendar: Calendar = Calendar(identifier: .gregorian)
+        calendar: Calendar = LocalUsageDay.calendar
     ) {
         self.directory = directory
         self.watermarkStore = watermarkStore
         self.fileManager = fileManager
-        var utc = calendar
-        utc.timeZone = TimeZone(identifier: "UTC") ?? .gmt
-        self.calendar = utc
+        self.calendar = calendar
     }
 
     /// Tolerance on the stored modification date before a file counts as rewritten.
