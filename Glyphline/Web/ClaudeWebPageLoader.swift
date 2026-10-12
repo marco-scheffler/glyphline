@@ -160,17 +160,49 @@ extension ClaudeWebPageLoader: WKNavigationDelegate {
         decidePolicyFor navigationResponse: WKNavigationResponse,
         decisionHandler: @escaping @MainActor @Sendable (WKNavigationResponsePolicy) -> Void
     ) {
-        statusCode = (navigationResponse.response as? HTTPURLResponse)?.statusCode
-
-        // A response the view cannot render would otherwise become a download,
-        // which writes the body to disk and never finishes the navigation.
-        guard navigationResponse.canShowMIMEType else {
+        switch Self.responseDecision(
+            isForMainFrame: navigationResponse.isForMainFrame,
+            canShowMIMEType: navigationResponse.canShowMIMEType
+        ) {
+        case .allowSubframe:
+            decisionHandler(.allow)
+        case .cancelSubframe:
+            decisionHandler(.cancel)
+        case .allow:
+            statusCode = (navigationResponse.response as? HTTPURLResponse)?.statusCode
+            decisionHandler(.allow)
+        case .failUnreadable:
+            statusCode = (navigationResponse.response as? HTTPURLResponse)?.statusCode
             decisionHandler(.cancel)
             settle(.failure(RateWindowSourceError.unreadablePage))
-            return
         }
+    }
 
-        decisionHandler(.allow)
+    enum ResponseDecision: Equatable {
+        case allow
+        case failUnreadable
+        case allowSubframe
+        case cancelSubframe
+    }
+
+    /// What one response means for the fetch, kept free of WebKit types so a test
+    /// can ask it — a `WKNavigationResponse` cannot be built outside WebKit.
+    ///
+    /// Only the main frame's response speaks for the page. The status recorded
+    /// here decides `sessionExpired` against `transportFailure`, and a subframe —
+    /// a Cloudflare challenge widget, say — answering after the document would
+    /// otherwise overwrite it. A subframe the view cannot render is cancelled on
+    /// its own and never fails the fetch.
+    ///
+    /// A main-frame response the view cannot render would otherwise become a
+    /// download, which writes the body to disk and never finishes the navigation.
+    nonisolated static func responseDecision(isForMainFrame: Bool, canShowMIMEType: Bool) -> ResponseDecision {
+        switch (isForMainFrame, canShowMIMEType) {
+        case (true, true): .allow
+        case (true, false): .failUnreadable
+        case (false, true): .allowSubframe
+        case (false, false): .cancelSubframe
+        }
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
