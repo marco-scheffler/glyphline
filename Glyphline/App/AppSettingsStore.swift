@@ -75,6 +75,46 @@ final class AppSettingsStore: ObservableObject {
         }
     }
 
+    /// Whether a notification goes out when an agent has been waiting for the
+    /// user for longer than `agentWaitingDelayMinutes`.
+    @Published var agentWaitingNotificationsEnabled: Bool {
+        didSet {
+            defaults.set(agentWaitingNotificationsEnabled, forKey: Self.agentWaitingNotificationsEnabledKey)
+        }
+    }
+
+    /// How long an agent has to be waiting before it is worth interrupting the
+    /// user. Always one of `agentWaitingDelayChoices`, so the picker never has
+    /// a selection it cannot show.
+    @Published var agentWaitingDelayMinutes: Int {
+        didSet {
+            defaults.set(agentWaitingDelayMinutes, forKey: Self.agentWaitingDelayMinutesKey)
+        }
+    }
+
+    /// The delays the settings picker offers.
+    static let agentWaitingDelayChoices = [1, 3, 5, 10]
+
+    /// Whether a notification goes out before a quota is projected to run out.
+    @Published var quotaRunwayWarningsEnabled: Bool {
+        didSet {
+            defaults.set(quotaRunwayWarningsEnabled, forKey: Self.quotaRunwayWarningsEnabledKey)
+        }
+    }
+
+    /// When the local history was last recalculated, or nil if it never was.
+    /// Removed rather than stored as a sentinel, so "never" stays distinguishable
+    /// from any real date.
+    @Published var localHistoryRecalculatedAt: Date? {
+        didSet {
+            if let localHistoryRecalculatedAt {
+                defaults.set(localHistoryRecalculatedAt, forKey: Self.localHistoryRecalculatedAtKey)
+            } else {
+                defaults.removeObject(forKey: Self.localHistoryRecalculatedAtKey)
+            }
+        }
+    }
+
     /// The last sky we managed to read, kept across launches so an offline start
     /// shows what the weather was rather than snapping to a default that looks
     /// exactly like real data.
@@ -184,6 +224,10 @@ final class AppSettingsStore: ObservableObject {
     private static let hasRebuiltLocalDayBucketsKey = "hasRebuiltLocalDayBuckets"
     private static let automaticSyncEnabledKey = "automaticSyncEnabled"
     private static let syncIntervalMinutesKey = "syncIntervalMinutes"
+    private static let agentWaitingNotificationsEnabledKey = "agentWaitingNotificationsEnabled"
+    private static let agentWaitingDelayMinutesKey = "agentWaitingDelayMinutes"
+    private static let quotaRunwayWarningsEnabledKey = "quotaRunwayWarningsEnabled"
+    private static let localHistoryRecalculatedAtKey = "localHistoryRecalculatedAt"
     private static let lastWeatherKey = "lastWeather"
     private static let lastWeatherFetchKey = "lastWeatherFetch"
     private static let agentverseViewKey = "agentverseView"
@@ -229,6 +273,27 @@ final class AppSettingsStore: ObservableObject {
 
         let storedInterval = defaults.integer(forKey: Self.syncIntervalMinutesKey)
         syncIntervalMinutes = storedInterval > 0 ? storedInterval : 30
+
+        // Same presence checks as automatic sync: both warnings are on by
+        // default, and `defaults.bool` would read a fresh install as off.
+        if defaults.object(forKey: Self.agentWaitingNotificationsEnabledKey) == nil {
+            agentWaitingNotificationsEnabled = true
+        } else {
+            agentWaitingNotificationsEnabled = defaults.bool(forKey: Self.agentWaitingNotificationsEnabledKey)
+        }
+
+        // A stored delay the picker no longer offers falls back to the default
+        // rather than leaving the picker with no selection.
+        let storedDelay = defaults.integer(forKey: Self.agentWaitingDelayMinutesKey)
+        agentWaitingDelayMinutes = Self.agentWaitingDelayChoices.contains(storedDelay) ? storedDelay : 3
+
+        if defaults.object(forKey: Self.quotaRunwayWarningsEnabledKey) == nil {
+            quotaRunwayWarningsEnabled = true
+        } else {
+            quotaRunwayWarningsEnabled = defaults.bool(forKey: Self.quotaRunwayWarningsEnabledKey)
+        }
+
+        localHistoryRecalculatedAt = defaults.object(forKey: Self.localHistoryRecalculatedAtKey) as? Date
 
         // An unreadable stored value is treated as no value: better an honest
         // "never read" than a weather that came out of a corrupt default.

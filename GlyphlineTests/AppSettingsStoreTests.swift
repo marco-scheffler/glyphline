@@ -209,4 +209,45 @@ final class AppSettingsStoreTests: XCTestCase {
         XCTAssertFalse(second.automaticSyncEnabled)
         XCTAssertEqual(second.syncIntervalMinutes, 60)
     }
+
+    func testNotificationSettingsDefaultOnWithAThreeMinuteDelay() {
+        let suiteName = "GlyphlineTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let settings = AppSettingsStore(defaults: defaults)
+        XCTAssertTrue(settings.agentWaitingNotificationsEnabled)
+        XCTAssertEqual(settings.agentWaitingDelayMinutes, 3)
+        XCTAssertTrue(settings.quotaRunwayWarningsEnabled)
+        XCTAssertNil(settings.localHistoryRecalculatedAt)
+    }
+
+    func testNotificationSettingsSurviveARelaunch() {
+        let suiteName = "GlyphlineTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let first = AppSettingsStore(defaults: defaults)
+        first.agentWaitingNotificationsEnabled = false
+        first.agentWaitingDelayMinutes = 10
+        first.quotaRunwayWarningsEnabled = false
+        first.localHistoryRecalculatedAt = Date(timeIntervalSince1970: 1_800_000_000)
+
+        let second = AppSettingsStore(defaults: defaults)
+        XCTAssertFalse(second.agentWaitingNotificationsEnabled)
+        XCTAssertEqual(second.agentWaitingDelayMinutes, 10)
+        XCTAssertFalse(second.quotaRunwayWarningsEnabled)
+        XCTAssertEqual(second.localHistoryRecalculatedAt, Date(timeIntervalSince1970: 1_800_000_000))
+    }
+
+    /// A stored delay the picker no longer offers falls back rather than
+    /// leaving the picker with no selection.
+    func testAnUnofferedStoredDelayFallsBackToThree() {
+        let suiteName = "GlyphlineTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        defaults.set(7, forKey: "agentWaitingDelayMinutes")
+        XCTAssertEqual(AppSettingsStore(defaults: defaults).agentWaitingDelayMinutes, 3)
+    }
 }
