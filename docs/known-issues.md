@@ -107,6 +107,33 @@ exercises the branch's central mechanism end to end.
 in this layer nobody has seen run: claude.ai does not route its sign-in through
 one today. If it starts to, that is the first thing to check by hand.
 
+## Attention notifications
+
+### The watcher and the delivery have no automated coverage, by construction
+
+`TranscriptChangeWatcher` and `SystemUserNotifier` are verified only by the
+compiler and by using the app: the tests drive fakes for both, because a test
+that drove the real ones would watch the developer's `~/.claude/projects` through
+FSEvents and post notifications onto their screen. The rules in between — who
+counts as waiting, when the delay has passed, what a click opens — are tested;
+whether an FSEvents callback arrives and a banner actually appears is checked by
+hand only: set the delay to one minute, let a Claude Code turn end without
+answering, and a notification should arrive within about 75 seconds.
+
+### A finished agent is reported like a waiting one
+
+A transcript does not say whether the turn that ended was a finished task or a
+question to the user; both stop at the same place and look the same. Glyphline
+therefore notifies for both, and the Settings copy says so. This is a limit of
+what the transcript records, not a bug to fix here.
+
+### Warned quota cycles live in memory only
+
+`SyncCoordinator` remembers which quota cycles it has already warned about in
+`runwayWarned`, an in-memory set. Quitting and relaunching the app forgets it, so
+a window still running out at the same pace is warned about once more after a
+restart. Persisting it was not worth a schema change for one repeated banner.
+
 ## Cosmetic
 
 - The Settings copy states that Glyphline syncs after the Mac wakes without
