@@ -92,6 +92,7 @@ struct GlyphlineApp: App {
             ledger: ledger,
             credentials: KeychainStore(),
             registry: ProviderAdapterRegistry(),
+            quotaRunwayWarningsEnabled: { settings.quotaRunwayWarningsEnabled },
             localHistoryGate: localHistoryGate
         )
         _coordinator = StateObject(wrappedValue: coordinator)
