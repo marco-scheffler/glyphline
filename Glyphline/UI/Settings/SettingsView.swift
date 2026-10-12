@@ -36,6 +36,25 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
+            Section("Notifications") {
+                Toggle("Notify when an agent is waiting for you", isOn: $settings.agentWaitingNotificationsEnabled)
+
+                Picker("After", selection: $settings.agentWaitingDelayMinutes) {
+                    Text("1 minute").tag(1)
+                    Text("3 minutes").tag(3)
+                    Text("5 minutes").tag(5)
+                    Text("10 minutes").tag(10)
+                }
+                .disabled(!settings.agentWaitingNotificationsEnabled)
+
+                // Said here because it is the one surprise: the transcript cannot
+                // tell a finished agent from one asking something.
+                Text("A finished agent and one asking a question look the same, so both are reported.")
+                    .foregroundStyle(.secondary)
+
+                Toggle("Warn before a quota runs out", isOn: $settings.quotaRunwayWarningsEnabled)
+            }
+
             Section("Updates") {
                 Toggle("Check for updates automatically", isOn: $updates.automaticallyChecksForUpdates)
 
