@@ -482,7 +482,7 @@
       }
     },
     "%@ window empty in about %@ at this pace" : {
-      "comment" : "Notification body warning that a quota window will run out before it resets. Placeholders: the window's short name such as '5h', then a duration such as '20m'.",
+      "comment" : "Notification body warning that a quota window will run out before it resets. Placeholders: the window's name such as '5-hour' or 'Weekly', then a duration such as '20m'.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -9696,55 +9696,108 @@
         }
       }
     },
-    "Waiting for you · %lld min · %@" : {
-      "comment" : "Notification body for one waiting agent. Placeholders: whole minutes waited, then the repository name, which stays untranslated.",
+    "Waiting for you for %lld min" : {
+      "comment" : "Notification body for one waiting agent whose repository is unknown. Placeholder: whole minutes waited.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Wartet auf dich · %1$lld Min. · %2$@"
+            "value" : "Wartet seit %lld Min. auf dich"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Waiting for you · %1$lld min · %2$@"
+            "value" : "Waiting for you for %lld min"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Te está esperando · %1$lld min · %2$@"
+            "value" : "Te está esperando desde hace %lld min"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Vous attend · %1$lld min · %2$@"
+            "value" : "Vous attend depuis %lld min"
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ti sta aspettando · %1$lld min · %2$@"
+            "value" : "Ti sta aspettando da %lld min"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "応答待ち · %1$lld 分 · %2$@"
+            "value" : "%lld 分間応答待ち"
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Esperando por você · %1$lld min · %2$@"
+            "value" : "Esperando por você há %lld min"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "正在等你 · %1$lld 分钟 · %2$@"
+            "value" : "已等你 %lld 分钟"
+          }
+        }
+      }
+    },
+    "Waiting for you for %lld min · %@" : {
+      "comment" : "Notification body for one waiting agent. Placeholders: whole minutes waited, then the repository name, which stays untranslated.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wartet seit %1$lld Min. auf dich · %2$@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting for you for %1$lld min · %2$@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Te está esperando desde hace %1$lld min · %2$@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vous attend depuis %1$lld min · %2$@"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ti sta aspettando da %1$lld min · %2$@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld 分間応答待ち · %2$@"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esperando por você há %1$lld min · %2$@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已等你 %1$lld 分钟 · %2$@"
           }
         }
       }

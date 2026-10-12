@@ -40,9 +40,18 @@ final class UserNotificationTextTests: XCTestCase {
         XCTAssertFalse(text.body.contains("4"), text.body)
     }
 
+    /// No repository: the body ends on the minutes, not on a dangling separator.
+    func testOneAgentWithoutARepositoryHasNoTrailingSeparator() {
+        let text = UserNotificationText.agentsWaiting(
+            [agent("a", title: "T", repository: "", minutesAgo: 3)], now: now
+        )
+        XCTAssertTrue(text.body.contains("3"), text.body)
+        XCTAssertFalse(text.body.contains("·"), text.body)
+    }
+
     func testQuotaTextNamesTheWindowAndTheTime() {
         let body = UserNotificationText.quotaRunningOut(kind: .rollingFiveHours, timeToEmpty: 20 * 60)
-        XCTAssertTrue(body.contains(RateWindowKind.rollingFiveHours.shortName), body)
+        XCTAssertTrue(body.contains(RateWindowKind.rollingFiveHours.longName), body)
         XCTAssertTrue(body.contains("20"), body)
     }
 }
