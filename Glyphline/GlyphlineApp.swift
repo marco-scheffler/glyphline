@@ -14,6 +14,7 @@ struct GlyphlineApp: App {
     private let windowActivation: WindowActivationObserver
     private let localHistoryRebuild: LocalHistoryRebuildController
     private let localScanSchedule: LocalScanScheduleController
+    private let agentverseSweep: AgentverseSweepController
 
     init() {
         let settings = AppSettingsStore()
@@ -60,9 +61,8 @@ struct GlyphlineApp: App {
         // sweep to remember whom the previous sweep had on track; a coordinator
         // created with the window would start every opening having forgotten,
         // and nothing would ever reach the pit lane.
-        _agentverse = StateObject(
-            wrappedValue: AgentverseCoordinator(ledger: ledger)
-        )
+        let agentverse = AgentverseCoordinator(ledger: ledger)
+        _agentverse = StateObject(wrappedValue: agentverse)
 
         // Both are `@MainActor`, and `App.init` runs on the main actor.
         schedule = SyncScheduleController(settings: settings, coordinator: coordinator)
@@ -83,6 +83,12 @@ struct GlyphlineApp: App {
         // waits rather than re-inflating the days it has just replaced.
         localScanSchedule = LocalScanScheduleController(settings: settings) {
             await coordinator.scanLocalUsage()
+        }
+
+        // The park rule needs sweeps whether or not a window is open; the
+        // dashboard and the map only sweep while they exist.
+        agentverseSweep = AgentverseSweepController {
+            await agentverse.refresh()
         }
     }
 
