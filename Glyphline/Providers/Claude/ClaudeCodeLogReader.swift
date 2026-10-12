@@ -37,6 +37,11 @@ struct LocalScanResult: Equatable, Sendable {
     /// they suppress a real record forever, and the tokens recorded without them
     /// are counted again by the next fork.
     var seenMessages: [LocalSeenMessage] = []
+    /// Every transcript path the scan found, so the store can retire the
+    /// watermarks of the ones that have gone. Nil when the scan found nothing at
+    /// all: an unmounted volume or an unanswered permissions prompt looks exactly
+    /// like that, and must not read as every transcript having been deleted.
+    var survivingSourceKeys: Set<String>?
 }
 
 /// One assistant record in a Claude Code transcript. Records that are not
@@ -210,7 +215,8 @@ final class ClaudeCodeLogReader: @unchecked Sendable {
         var seen = rebuilding ? [] : try watermarkStore.fetchSeenMessageIDs()
         var newlySeen: [LocalSeenMessage] = []
 
-        for file in transcriptURLs() {
+        let files = transcriptURLs()
+        for file in files {
             try consume(file, dates: dates, rebuilding: rebuilding, into: &totals,
                         sessions: &sessionTotals, naiveDaily: &naiveDailyTotals,
                         naiveSessions: &naiveSessionTotals,
@@ -246,7 +252,8 @@ final class ClaudeCodeLogReader: @unchecked Sendable {
                 usage: usage,
                 sessionUsage: sessionUsage,
                 watermarks: watermarks,
-                seenMessages: newlySeen
+                seenMessages: newlySeen,
+                survivingSourceKeys: files.isEmpty ? nil : Set(files.map(\.path))
             ),
             naiveDailyTotals: naiveDailyTotals,
             naiveSessionTotals: naiveSessionTotals
@@ -279,7 +286,13 @@ final class ClaudeCodeLogReader: @unchecked Sendable {
 
         // A rebuild reads from byte zero regardless of where the last scan
         // stopped; that is what makes its figures whole rather than a delta.
+        //
+        // A file with no live watermark may be one that went and came back from
+        // a backup; its retired watermark still knows how far it was read.
         let stored = rebuilding ? nil : try watermarkStore.fetchLocalScanWatermark(sourceKey: file.path)
+            ?? watermarkStore.fetchLocalScanWatermark(
+                sourceKey: LocalScanWatermark.retiredSourceKey(forPath: file.path)
+            )
         // A file that shrank or moved backwards in time was rewritten; start over.
         // The ledger stores dates at millisecond precision and rounds, so an
         // unchanged file can come back a hair ahead of its own mtime; the

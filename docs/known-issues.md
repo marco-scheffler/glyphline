@@ -33,19 +33,24 @@ period can disagree after a catalog update.
 
 ## Storage and lifecycle
 
-### Watermark rows are never evicted
+### Watermark rows are kept forever, by design
 
-One `SyncWatermark` row per Claude Code transcript file, forever — 2,887 on the
-reference install and growing. A once-per-sync sweep deleting rows whose file no
-longer exists would bound the table.
+One `localScanWatermarks` row per transcript file ever scanned — 5,651 on the
+reference install on 2026-10-12, 4,721 of them for files Claude Code had
+already deleted. The rows are not deleted, because a row is what stops a
+transcript restored from a backup being read again and counted twice; the seen
+message ids only cover fourteen days.
 
-That sweep also addresses the one version of the privacy question with teeth:
-`sourceKey` stores absolute transcript paths, whose slugs encode real project
-directory names. That was reviewed and accepted — the SQLite file lives under
-the same user account as `~/.claude/projects`, whose transcripts are a strictly
-larger disclosure the user has already accepted, and hashing the key would make
-watermark rows undebuggable. But retaining directory names for projects the
-user has since deleted is a different matter, and eviction fixes it.
+What changed is the key. Each scan re-keys the rows whose file it no longer
+found under a SHA-256 of the path (`LocalScanWatermark.retiredSourceKey`), so the
+ledger no longer names projects the user has deleted, and the reader still finds
+the row when the path comes back. Live rows keep the readable path. The table
+grows by one small row per transcript; at this size that is not worth bounding.
+
+Two edges: a scan that finds no transcripts at all retires nothing, since an
+unmounted volume looks the same; and a subdirectory that is briefly unreadable
+has its rows retired, which costs nothing because the path still resolves to
+them.
 
 ### The ledger now has `-wal` and `-shm` siblings
 

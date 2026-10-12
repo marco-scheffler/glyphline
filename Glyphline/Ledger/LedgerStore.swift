@@ -457,6 +457,7 @@ final class LedgerStore {
     func applyLocalScan(_ result: LocalScanResult, now: Date = Date()) throws {
         guard !result.usage.isEmpty || !result.sessionUsage.isEmpty
             || !result.watermarks.isEmpty || !result.seenMessages.isEmpty
+            || result.survivingSourceKeys != nil
         else { return }
 
         try dbQueue.write { db in
@@ -469,6 +470,15 @@ final class LedgerStore {
             try Self.recordSeenMessages(result.seenMessages, in: db)
             for watermark in result.watermarks {
                 try Self.saveLocalScanWatermark(watermark, in: db)
+                // A file read again after it came back has a live row now; the
+                // retired one would only be a second answer for the same file.
+                try Self.deleteLocalScanWatermark(
+                    sourceKey: LocalScanWatermark.retiredSourceKey(forPath: watermark.sourceKey),
+                    in: db
+                )
+            }
+            if let surviving = result.survivingSourceKeys {
+                try Self.retireLocalScanWatermarks(keeping: surviving, in: db)
             }
             // Once per scan rather than once per insert: a delete by age over an
             // indexed column costs nothing next to the scan that preceded it,
@@ -892,6 +902,40 @@ final class LedgerStore {
                 record.updatedAt,
             ]
         )
+    }
+
+    private static func deleteLocalScanWatermark(sourceKey: String, in db: Database) throws {
+        try db.execute(
+            sql: "DELETE FROM \(LedgerTable.localScanWatermarks) WHERE \(LedgerColumn.sourceKey) = ?",
+            arguments: [sourceKey]
+        )
+    }
+
+    /// Re-keys every path-keyed watermark whose transcript the scan no longer
+    /// found under `LocalScanWatermark.retiredSourceKey(forPath:)`.
+    ///
+    /// `UPDATE OR REPLACE` because a path can be retired twice — gone, restored,
+    /// gone again — and the second retirement carries the newer resume point.
+    private static func retireLocalScanWatermarks(keeping surviving: Set<String>, in db: Database) throws {
+        let pathKeys = try String.fetchAll(
+            db,
+            sql: """
+                SELECT \(LedgerColumn.sourceKey) FROM \(LedgerTable.localScanWatermarks)
+                WHERE \(LedgerColumn.sourceKey) NOT LIKE ?
+                """,
+            arguments: [LocalScanWatermark.retiredSourceKeyPrefix + "%"]
+        )
+
+        for path in pathKeys where !surviving.contains(path) {
+            try db.execute(
+                sql: """
+                    UPDATE OR REPLACE \(LedgerTable.localScanWatermarks)
+                    SET \(LedgerColumn.sourceKey) = ?
+                    WHERE \(LedgerColumn.sourceKey) = ?
+                    """,
+                arguments: [LocalScanWatermark.retiredSourceKey(forPath: path), path]
+            )
+        }
     }
 
     /// Upsert on the session id: a session that parks, wakes and parks again is
