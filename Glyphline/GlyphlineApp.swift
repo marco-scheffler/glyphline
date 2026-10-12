@@ -45,6 +45,7 @@ struct GlyphlineApp: App {
     private let localHistoryRebuild: LocalHistoryRebuildController
     private let localScanSchedule: LocalScanScheduleController
     private let agentverseSweep: AgentverseSweepController
+    private let agentAttention: AgentAttentionController
 
     init() {
         let notificationRouter = NotificationRouter()
@@ -128,6 +129,10 @@ struct GlyphlineApp: App {
         agentverseSweep = AgentverseSweepController {
             await agentverse.refresh()
         }
+
+        // Same reason as the sweep above: a waiting agent matters most when no
+        // window is open to show it.
+        agentAttention = AgentAttentionController(settings: settings)
     }
 
     var body: some Scene {
