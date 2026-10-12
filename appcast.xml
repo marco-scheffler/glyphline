@@ -6,6 +6,58 @@
     <description>Updates für Glyphline</description>
     <language>en</language>
     <item>
+      <title>1.8</title>
+      <pubDate>Mon, 12 Oct 2026 15:51:01 +0000</pubDate>
+      <sparkle:version>9</sparkle:version>
+      <sparkle:shortVersionString>1.8</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+      <description>&lt;h2&gt;Adding an account offers only what works&lt;/h2&gt;
+
+&lt;p&gt;The Add Account sheet still offered OpenAI — selected by default — Cursor, a
+Claude admin key and local Claude Code logs. None of them has fed anything into
+Glyphline for several releases: an account added with any of them sat in the
+list showing nothing, with no hint why.&lt;/p&gt;
+
+&lt;p&gt;The sheet now asks for a name and opens the Claude sign-in. Accounts you
+added the old way are untouched, and deleting one still removes everything that
+belongs to it.&lt;/p&gt;
+
+&lt;h2&gt;Agents that finish while no window is open&lt;/h2&gt;
+
+&lt;p&gt;An agent reaches the break room when Glyphline sees it working and then sees
+it go quiet. Only the dashboard and the Agentverse window were looking, so in the
+menu bar — where neither opens on its own — an agent that started and finished
+while both were closed was never seen at all, and simply was not there when you
+opened the map.&lt;/p&gt;
+
+&lt;p&gt;Glyphline now looks every fifteen minutes, whether or not a window is open.&lt;/p&gt;
+
+&lt;h2&gt;Deleted projects are no longer named&lt;/h2&gt;
+
+&lt;p&gt;To read each Claude Code transcript only once, Glyphline remembers how far it
+got in each file, keyed by the file's path — and the path names the project.
+Claude Code deletes old transcripts on its own, so the record kept the names of
+projects long gone; on the machine this was found on, four in five entries.&lt;/p&gt;
+
+&lt;p&gt;Once a transcript is gone, its entry is now kept under a fingerprint of the
+path instead of the path. The entry itself has to stay: it is what stops a
+transcript you restore from a backup being counted a second time. This happens
+on the first scan after updating.&lt;/p&gt;
+
+&lt;h2&gt;Smaller&lt;/h2&gt;
+
+&lt;ul&gt;
+&lt;li&gt;If claude.ai ever routes signing in through a pop-up window, the pop-up now
+opens instead of doing nothing.&lt;/li&gt;
+&lt;li&gt;A failed quota check is no longer occasionally reported as an expired
+session, or the other way round, because of something loaded inside the
+page.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;Requires macOS 26.&lt;/p&gt;</description>
+      <enclosure url="https://github.com/marco-scheffler/glyphline/releases/download/v1.8/Glyphline-1.8.zip" length="6086533" type="application/octet-stream" sparkle:edSignature="Qwia9+G+0mFPKT59gCK6mgvqKPwxINJz4AMnuciaEO09DVCZGujhpaT23TNsgXQypusL1Xty/MrPaKKxwOnXAg==" />
+    </item>
+    <item>
       <title>1.7</title>
       <pubDate>Wed, 05 Aug 2026 10:28:33 +0000</pubDate>
       <sparkle:version>8</sparkle:version>
