@@ -25,7 +25,7 @@ final class SyncCoordinator: ObservableObject {
     private let ledger: LedgerStore?
     private let credentials: any CredentialStore
     private let rateWindowSourceProvider: @MainActor (Account) -> (any RateWindowSource)?
-    private let quotaNotifier: any QuotaNotifier
+    private let notifier: any UserNotifier
 
     /// Accounts already told about, so an expired session is announced on the
     /// transition and not on every tick. Cleared by the next successful fetch, so
@@ -263,7 +263,7 @@ final class SyncCoordinator: ObservableObject {
         },
         now: @escaping @Sendable () -> Date = Date.init,
         rateWindowSourceProvider: (@MainActor (Account) -> (any RateWindowSource)?)? = nil,
-        quotaNotifier: any QuotaNotifier = UserNotificationQuotaNotifier(),
+        notifier: any UserNotifier = SystemUserNotifier(),
         localScan: (@Sendable () throws -> LocalScanResult)? = nil,
         costEstimator: CostEstimator? = nil,
         // Defaults to a gate with no rebuild outstanding: a coordinator built
@@ -285,7 +285,7 @@ final class SyncCoordinator: ObservableObject {
 
         self.costEstimator = costEstimator
             ?? (try? PricingCatalog.bundled()).map { CostEstimator(catalog: $0) }
-        self.quotaNotifier = quotaNotifier
+        self.notifier = notifier
         self.sleepForSeconds = sleepForSeconds
         self.now = now
         self.rateWindowSourceProvider = rateWindowSourceProvider ?? { account in
@@ -507,7 +507,7 @@ final class SyncCoordinator: ObservableObject {
         }
 
         sessionExpiryNotified.insert(account.id)
-        await quotaNotifier.notifySessionExpired(accountDisplayName: account.resolvedName)
+        await notifier.notifySessionExpired(accountDisplayName: account.resolvedName)
     }
 
     /// Deletes an account and drops everything this coordinator holds for it.

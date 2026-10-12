@@ -574,7 +574,7 @@ final class SyncCoordinatorTests: XCTestCase {
 
     private func makeExpiringCoordinator(
         source: any RateWindowSource,
-        notifier: RecordingQuotaNotifier
+        notifier: RecordingNotifier
     ) throws -> SyncCoordinator {
         let (_, ledger) = try makeLedger()
         let now = Self.now
@@ -591,12 +591,12 @@ final class SyncCoordinatorTests: XCTestCase {
             registry: ProviderAdapterRegistry(),
             now: { now },
             rateWindowSourceProvider: { _ in source },
-            quotaNotifier: notifier
+            notifier: notifier
         )
     }
 
     func testTheFirstFailureNotifiesAndTheNextOnesDoNot() async throws {
-        let notifier = RecordingQuotaNotifier()
+        let notifier = RecordingNotifier()
         let coordinator = try makeExpiringCoordinator(
             source: SwitchableQuotaSource(behaviour: .expired),
             notifier: notifier
@@ -616,7 +616,7 @@ final class SyncCoordinatorTests: XCTestCase {
     /// wording. Comparing the message would mean a user running the app in any
     /// language but English is never told their sign-in expired.
     func testAnExpiredSessionNotifiesWhateverLanguageItsMessageIsIn() async throws {
-        let notifier = RecordingQuotaNotifier()
+        let notifier = RecordingNotifier()
         let coordinator = try makeExpiringCoordinator(
             source: SwitchableQuotaSource(behaviour: .expiredInAnotherLanguage),
             notifier: notifier
@@ -629,7 +629,7 @@ final class SyncCoordinatorTests: XCTestCase {
     }
 
     func testASuccessfulFetchRearmsTheNotification() async throws {
-        let notifier = RecordingQuotaNotifier()
+        let notifier = RecordingNotifier()
         let source = SwitchableQuotaSource(behaviour: .expired)
         let coordinator = try makeExpiringCoordinator(source: source, notifier: notifier)
 
@@ -648,7 +648,7 @@ final class SyncCoordinatorTests: XCTestCase {
     /// A transport blip is not an expired session. Notifying on it would train the
     /// user to ignore the one notification that asks them to do something.
     func testAnOrdinaryFetchFailureDoesNotNotify() async throws {
-        let notifier = RecordingQuotaNotifier()
+        let notifier = RecordingNotifier()
         let coordinator = try makeExpiringCoordinator(
             source: SwitchableQuotaSource(behaviour: .transportFailure),
             notifier: notifier
@@ -661,7 +661,7 @@ final class SyncCoordinatorTests: XCTestCase {
 
     /// Nothing from a session, a cookie or a URL may reach a notification.
     func testTheNotificationCarriesOnlyTheAccountNameAndTheAppsOwnMessage() async throws {
-        let notifier = RecordingQuotaNotifier()
+        let notifier = RecordingNotifier()
         let coordinator = try makeExpiringCoordinator(
             source: SwitchableQuotaSource(behaviour: .expired),
             notifier: notifier
@@ -833,7 +833,7 @@ final class SyncCoordinatorTests: XCTestCase {
     /// very next expired tick must announce again. If `forgetAccount` failed to
     /// clear the flag, the second announcement would never arrive.
     func testForgettingAnAccountRearmsItsExpiryNotification() async throws {
-        let notifier = RecordingQuotaNotifier()
+        let notifier = RecordingNotifier()
         let coordinator = try makeExpiringCoordinator(
             source: SwitchableQuotaSource(behaviour: .expired),
             notifier: notifier
@@ -867,7 +867,7 @@ final class SyncCoordinatorTests: XCTestCase {
         let source = SwitchableQuotaSource(behaviour: .healthy)
         let coordinator = try makeExpiringCoordinator(
             source: source,
-            notifier: RecordingQuotaNotifier()
+            notifier: RecordingNotifier()
         )
 
         await coordinator.collectRateWindows()
@@ -1009,19 +1009,6 @@ private final class FailingRemover: WebSessionRemoving {
 /// `WKWebsiteDataStore`.
 private final class SucceedingRemover: WebSessionRemoving {
     func removeSession(for accountID: UUID) async throws {}
-}
-
-/// Records what was sent, not merely how often, so a test can prove *which*
-/// account was named as well as the transition rule.
-@MainActor
-final class RecordingQuotaNotifier: QuotaNotifier {
-    private(set) var sentNames: [String] = []
-
-    var sentCount: Int { sentNames.count }
-
-    nonisolated func notifySessionExpired(accountDisplayName: String) async {
-        await MainActor.run { sentNames.append(accountDisplayName) }
-    }
 }
 
 /// A source that answers with a window *and* something to say about it, so a
