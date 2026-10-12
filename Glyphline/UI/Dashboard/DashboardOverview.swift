@@ -99,6 +99,9 @@ struct DashboardOverview: View {
     let loadError: String?
     let syncFailureMessage: String?
     let openAgentverse: () -> Void
+    /// When a one-time rebuild last changed recorded figures, until dismissed.
+    var recalculatedAt: Date? = nil
+    var dismissRecalculation: () -> Void = {}
 
     /// Read here rather than passed down: `quotaStates` is the coordinator's own
     /// accessor, and routing it through an initialiser would let a caller
@@ -146,6 +149,8 @@ struct DashboardOverview: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .glassCard()
                 }
+
+                RecalculatedHistoryNotice(date: recalculatedAt, dismiss: dismissRecalculation)
 
                 quotaSection
                 usageSection

@@ -19,6 +19,21 @@ struct LocalHistoryRebuildScan: Equatable, Sendable {
     var naiveSessionTotals: [String: Int64] = [:]
 }
 
+/// What `LedgerStore.applyLocalHistoryRebuild` did: whether the rebuild may be
+/// marked done, and how many recorded days it replaced. A day that was empty
+/// and only received inserts is not counted — nothing the user saw changed.
+struct LocalHistoryRebuildApplied: Equatable, Sendable {
+    var mayMarkDone: Bool
+    var replacedDays: Int
+}
+
+/// What one rebuild run reports to `LocalHistoryRebuildController`: whether the
+/// markers may be set, and whether recorded figures changed.
+struct LocalHistoryRebuildVerdict: Equatable, Sendable {
+    var mayMarkDone: Bool
+    var changedHistory: Bool = false
+}
+
 /// The one-time corrections of a local history that was recorded wrongly, and
 /// the single rule that decides whether a given day may be corrected at all.
 ///
