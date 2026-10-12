@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import UserNotifications
 
 /// Chooses which app runs, before either one is built.
 ///
@@ -34,6 +35,7 @@ struct GlyphlineApp: App {
     @StateObject private var coordinator: SyncCoordinator
     @StateObject private var agentverse: AgentverseCoordinator
     @StateObject private var updates: UpdateController
+    @StateObject private var notificationRouter: NotificationRouter
     private let ledger: LedgerStore?
 
     // Not `@StateObject`: neither publishes anything a view reads, and making
@@ -45,6 +47,12 @@ struct GlyphlineApp: App {
     private let agentverseSweep: AgentverseSweepController
 
     init() {
+        let notificationRouter = NotificationRouter()
+        _notificationRouter = StateObject(wrappedValue: notificationRouter)
+        // Set before anything can deliver, so the first click already has a
+        // delegate to land on.
+        UNUserNotificationCenter.current().delegate = notificationRouter
+
         let settings = AppSettingsStore()
         _settings = StateObject(wrappedValue: settings)
 
@@ -132,6 +140,7 @@ struct GlyphlineApp: App {
                     // the same coordinator the map window uses — not one of its
                     // own, which would forget who was on track last sweep.
                     .environmentObject(agentverse)
+                    .opensNotificationDestinations(from: notificationRouter)
             }
         }
         .windowStyle(.titleBar)
@@ -149,6 +158,7 @@ struct GlyphlineApp: App {
 
         WindowGroup(id: AppMode.agentverseWindowID) {
             AgentverseWindow()
+                .opensNotificationDestinations(from: notificationRouter)
                 .environmentObject(agentverse)
                 // The office's windows need the stored weather reading and the
                 // timestamp that throttles asking for a new one.
@@ -216,6 +226,7 @@ struct GlyphlineApp: App {
                 .accessibilityLabel(
                     Text(QuotaIndicator.accessibilityLabel(for: coordinator.quotaLight))
                 )
+                .opensNotificationDestinations(from: notificationRouter)
         }
         // `.window`, not the default `.menu`: the content is a laid-out panel
         // with a fixed width, padding, tinted progress bars and bordered
