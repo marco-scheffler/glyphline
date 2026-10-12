@@ -81,8 +81,9 @@ struct DashboardView: View {
         // `scanLocalUsage` refuses a scan while one is in flight, so the two
         // triggers cannot overlap or pile up.
         .task { await coordinator.scanLocalUsage() }
-        // The Agents tile counts agents, so the dashboard needs a
-        // sweep of its own — the map's window may never have been opened.
+        // The Agents tile counts agents. `AgentverseSweepController` keeps the
+        // pit lane right in the background, but only every fifteen minutes; this
+        // makes an opened dashboard count the agents running now.
         .task { await agentverse.refresh() }
     }
 

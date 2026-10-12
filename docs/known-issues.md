@@ -362,13 +362,12 @@ than waiting for the next release to find the rest.
 
 What a survey of `Glyphline/UI/` turns up today:
 
-- **`DashboardView.swift:86` — `.task { await agentverse.refresh() }` has no
-  trigger outside a view at all.** `AgentverseCoordinator` schedules nothing of
-  its own, and no non-UI caller invokes `refresh()`. So the parked/on-track
-  session state — and `workTokens`, which feeds the per-agent token column — is
-  only ever swept when the dashboard or the map window is open. The comment on
-  that line reasons about *which* view should own the sweep; the question the
-  1.5/1.6 experience raises is whether a view should own it at all.
+- `DashboardView.swift:87` — `agentverse.refresh()` used to have no trigger
+  outside a view, so a session that started and went quiet while neither the
+  dashboard nor the map was open was never seen on track and never parked.
+  `AgentverseSweepController` now sweeps every fifteen minutes regardless, and
+  the dashboard's call only makes an opened dashboard count the agents running
+  now.
 
 - `DashboardView.swift:76` — `refreshRateWindowsOnDemand()` is genuinely
   view-shaped (freshen quotas because someone is looking) and is also reached

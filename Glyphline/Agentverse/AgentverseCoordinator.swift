@@ -22,6 +22,10 @@ final class AgentverseCoordinator: ObservableObject {
     /// "went quiet while we were watching", and every cold session on disk would
     /// arrive in the pit lane.
     private var liveSessionIDs: Set<String> = []
+    /// Three things sweep — `AgentverseSweepController`, the dashboard and the map
+    /// window — and a sweep suspends while it scans. Two overlapping sweeps would
+    /// both reconcile against the same `liveSessionIDs` and write the same rows.
+    private var isRefreshing = false
 
     /// `nonisolated` so `GlyphlineApp` can build one as a `@StateObject`. The
     /// body touches nothing isolated — it assigns two stored properties — and
@@ -32,6 +36,10 @@ final class AgentverseCoordinator: ObservableObject {
     }
 
     func refresh(now: Date = Date()) async {
+        guard !isRefreshing else { return }
+        isRefreshing = true
+        defer { isRefreshing = false }
+
         guard let ledger else {
             failureMessage = "Ledger unavailable."
             return

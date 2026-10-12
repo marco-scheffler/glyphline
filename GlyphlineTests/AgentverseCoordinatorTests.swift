@@ -146,6 +146,27 @@ final class AgentverseCoordinatorTests: XCTestCase {
         XCTAssertEqual(coordinator.workTokens["S1"], 1_500_000)
     }
 
+    /// Three things sweep — the background controller, the dashboard and the map
+    /// window — and a sweep suspends while it scans. One arriving in that gap
+    /// must not run alongside the first: both would reconcile against the same
+    /// previous sweep and write the same rows.
+    func testASweepArrivingWhileOneIsInFlightDoesNotScanAgain() async throws {
+        let ledger = try makeLedger()
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let entered = expectation(description: "the first sweep is scanning")
+        let scanner = GatedScanner(sessions: [session("S1", at: now)]) { entered.fulfill() }
+        let coordinator = AgentverseCoordinator(scanner: scanner, ledger: ledger)
+
+        let first = Task { await coordinator.refresh(now: now) }
+        await fulfillment(of: [entered], timeout: 2)
+        await coordinator.refresh(now: now)
+        scanner.release()
+        await first.value
+
+        XCTAssertEqual(scanner.scanCount, 1, "the overlapping sweep must return without scanning")
+        XCTAssertEqual(coordinator.onTrack.map(\.id), ["S1"])
+    }
+
     private func scan(sessionID: String, outputTokens: Int64) -> LocalScanResult {
         LocalScanResult(
             usage: [],
@@ -166,5 +187,41 @@ final class AgentverseCoordinatorTests: XCTestCase {
     private struct FailingScanner: AgentSessionScanning {
         struct Boom: Error {}
         func scan(now: Date) throws -> [AgentSession] { throw Boom() }
+    }
+
+    /// Holds every scan until released, so a test can act while a sweep is in
+    /// flight. The wait is bounded: a second scan that should never have started
+    /// fails the count rather than hanging the suite.
+    private final class GatedScanner: AgentSessionScanning, @unchecked Sendable {
+        private let sessions: [AgentSession]
+        private let onEnter: @Sendable () -> Void
+        private let gate = DispatchSemaphore(value: 0)
+        private let lock = NSLock()
+        private var _scanCount = 0
+
+        init(sessions: [AgentSession], onEnter: @escaping @Sendable () -> Void) {
+            self.sessions = sessions
+            self.onEnter = onEnter
+        }
+
+        var scanCount: Int {
+            lock.lock()
+            defer { lock.unlock() }
+            return _scanCount
+        }
+
+        func release() {
+            gate.signal()
+        }
+
+        func scan(now: Date) throws -> [AgentSession] {
+            lock.lock()
+            _scanCount += 1
+            let isFirst = _scanCount == 1
+            lock.unlock()
+            if isFirst { onEnter() }
+            _ = gate.wait(timeout: .now() + 2)
+            return sessions
+        }
     }
 }
