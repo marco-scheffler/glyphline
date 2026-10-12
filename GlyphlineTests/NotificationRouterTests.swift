@@ -20,26 +20,39 @@ final class NotificationRouterTests: XCTestCase {
         XCTAssertNil(router.consume())
     }
 
-    /// A second click on the same category must open again, not be swallowed
-    /// because the value did not change.
-    func testTheSameCategoryRoutesAgainAfterAConsume() {
+    /// The signal comes after the value is stored: a listener consuming inside
+    /// it gets the destination, and the router is empty afterwards.
+    func testADeliveryFindsItsDestinationStored() {
         let router = NotificationRouter()
-        router.route(category: "quota-runway")
-        XCTAssertEqual(router.consume(), .dashboard)
-        router.route(category: "quota-runway")
-        XCTAssertEqual(router.consume(), .dashboard)
+        var consumed: [NotificationDestination?] = []
+        let subscription = router.deliveries.sink { consumed.append(router.consume()) }
+        router.route(category: "agents-waiting")
+        XCTAssertEqual(consumed, [.agentverse])
+        XCTAssertNil(router.pending)
+        subscription.cancel()
     }
 
-    /// A root that mounts after the click still sees the destination.
-    func testARouteBeforeAnySubscriberIsDeliveredOnSubscription() {
+    /// Two live listeners: exactly one opens.
+    func testTwoListenersOpenOnce() {
         let router = NotificationRouter()
-        router.route(category: "agents-waiting")
-        let delivered = expectation(description: "pending destination delivered")
-        let subscription = router.$pending.compactMap { $0 }.sink { destination in
-            XCTAssertEqual(destination, .agentverse)
-            delivered.fulfill()
-        }
-        wait(for: [delivered], timeout: 1)
+        var consumed: [NotificationDestination?] = []
+        let first = router.deliveries.sink { consumed.append(router.consume()) }
+        let second = router.deliveries.sink { consumed.append(router.consume()) }
+        router.route(category: "quota-runway")
+        XCTAssertEqual(consumed.compactMap { $0 }, [.dashboard])
+        XCTAssertEqual(consumed.count, 2)
+        first.cancel()
+        second.cancel()
+    }
+
+    /// A second click on the same category opens again.
+    func testTheSameCategoryDeliversTwice() {
+        let router = NotificationRouter()
+        var consumed: [NotificationDestination?] = []
+        let subscription = router.deliveries.sink { consumed.append(router.consume()) }
+        router.route(category: "quota-runway")
+        router.route(category: "quota-runway")
+        XCTAssertEqual(consumed, [.dashboard, .dashboard])
         subscription.cancel()
     }
 }
