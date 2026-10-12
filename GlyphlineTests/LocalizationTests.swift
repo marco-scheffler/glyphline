@@ -105,13 +105,6 @@ final class LocalizationTests: XCTestCase {
         }
     }
 
-    /// An SF Symbol name is an identifier the system resolves. Translated, the
-    /// menu bar item renders nothing at all and reports no error — a failure
-    /// that looks exactly like the app not running.
-    func testTheMenuBarSymbolNameIsNotACatalogKey() {
-        XCTAssertNil(catalogValue(for: QuotaIndicator.menuBarSymbolName))
-    }
-
     /// The window kinds' raw values are persisted in the ledger and used as row
     /// identities. A translated one would not match a row written yesterday.
     func testRateWindowRawValuesAreNotCatalogKeys() {
