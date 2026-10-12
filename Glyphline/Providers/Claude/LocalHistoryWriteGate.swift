@@ -39,21 +39,14 @@ actor LocalHistoryWriteGate {
     }
 
     /// Runs the one-time rebuild, alone. Returns what the work reported, or
-    /// `false` if it threw.
+    /// `nil` if it threw.
     ///
     /// The work runs detached at utility priority: it is twenty seconds of file
     /// reading and must not sit on a cooperative thread or on the main actor.
     /// Suspending here is safe — every scan is behind the flag until the `defer`.
-    func runRebuild(_ work: @escaping @Sendable () throws -> Bool) async -> Bool {
+    func runRebuild<Outcome: Sendable>(_ work: @escaping @Sendable () throws -> Outcome) async -> Outcome? {
         defer { releaseScans() }
-
-        return await Task.detached(priority: .utility) { () -> Bool in
-            do {
-                return try work()
-            } catch {
-                return false
-            }
-        }.value
+        return await Task.detached(priority: .utility) { () -> Outcome? in try? work() }.value
     }
 
     /// Opens the gate without running anything, for the object responsible for

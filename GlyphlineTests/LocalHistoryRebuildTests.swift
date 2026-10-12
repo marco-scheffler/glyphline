@@ -144,7 +144,7 @@ final class LocalHistoryRebuildEndToEndTests: XCTestCase {
     @discardableResult
     private func runRebuild() throws -> Bool {
         let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger, calendar: fixedGrid)
-        return try ledger.applyLocalHistoryRebuild(reader.readForRebuild())
+        return try ledger.applyLocalHistoryRebuild(reader.readForRebuild()).mayMarkDone
     }
 
     private func recordedTotal() throws -> Int64 {
@@ -279,7 +279,7 @@ final class LocalHistoryRebuildEndToEndTests: XCTestCase {
         let rebuild = Task {
             await gate.runRebuild {
                 let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger, calendar: fixedGrid)
-                return try ledger.applyLocalHistoryRebuild(reader.readForRebuild())
+                return try ledger.applyLocalHistoryRebuild(reader.readForRebuild()).mayMarkDone
             }
         }
 
@@ -342,7 +342,7 @@ final class LocalHistoryRebuildEndToEndTests: XCTestCase {
 
         let first = LocalHistoryRebuildController(settings: settings, gate: makeGate()) {
             runs.increment()
-            return true
+            return LocalHistoryRebuildVerdict(mayMarkDone: true)
         }
         await first.task?.value
 
@@ -351,7 +351,7 @@ final class LocalHistoryRebuildEndToEndTests: XCTestCase {
 
         let second = LocalHistoryRebuildController(settings: settings, gate: makeGate()) {
             runs.increment()
-            return true
+            return LocalHistoryRebuildVerdict(mayMarkDone: true)
         }
         await second.task?.value
 
@@ -369,7 +369,7 @@ final class LocalHistoryRebuildEndToEndTests: XCTestCase {
 
         let controller = LocalHistoryRebuildController(settings: settings, gate: makeGate()) {
             let reader = ClaudeCodeLogReader(directory: directory, watermarkStore: ledger, calendar: fixedGrid)
-            return try ledger.applyLocalHistoryRebuild(reader.readForRebuild())
+            return LocalHistoryRebuildVerdict(mayMarkDone: try ledger.applyLocalHistoryRebuild(reader.readForRebuild()).mayMarkDone)
         }
         await controller.task?.value
 
@@ -398,7 +398,7 @@ final class LocalHistoryRebuildEndToEndTests: XCTestCase {
 
         let controller = LocalHistoryRebuildController(settings: settings, gate: makeGate()) {
             let reader = ClaudeCodeLogReader(directory: absent, watermarkStore: ledger, calendar: fixedGrid)
-            return try ledger.applyLocalHistoryRebuild(reader.readForRebuild())
+            return LocalHistoryRebuildVerdict(mayMarkDone: try ledger.applyLocalHistoryRebuild(reader.readForRebuild()).mayMarkDone)
         }
         await controller.task?.value
 
@@ -421,6 +421,41 @@ final class LocalHistoryRebuildEndToEndTests: XCTestCase {
         await controller.task?.value
 
         XCTAssertFalse(settings.hasRebuiltLocalHistory)
+    }
+
+    // MARK: - Telling the user
+
+    /// The notice is for a rebuild that moved figures, not for one that ran.
+    ///
+    /// The fixture is `testReplacesAnInflatedDayWithTheDeduplicatedTotal`'s:
+    /// parent and fork, recorded the way the old scanner counted them. The
+    /// production wiring cuts days on the user's clock rather than `fixedGrid`,
+    /// so the inflated figure is recorded on that grid — exactly the naive sum
+    /// the old scanner wrote — instead of on the UTC `day`.
+    func testARebuildThatReplacedDaysRecordsWhenItHappened() async throws {
+        try writeParentAndFork()
+        let ledger = ledger!
+        let directory = directory!
+        let naive = try ClaudeCodeLogReader(directory: directory, watermarkStore: ledger)
+            .readForRebuild().naiveDailyTotals
+        try ledger.upsertLocalTokenUsage(naive.map { day, tokens in
+            LocalTokenUsage(bucketStart: day, model: "claude-opus-4-8", inputTokens: tokens)
+        })
+
+        let settings = makeSettings()
+        let controller = LocalHistoryRebuildController(settings: settings, gate: makeGate(), ledger: ledger,
+                                                       directory: directory)
+        await controller.task?.value
+        XCTAssertNotNil(settings.localHistoryRecalculatedAt)
+    }
+
+    func testARebuildThatReplacedNothingRecordsNothing() async throws {
+        let settings = makeSettings()        // empty ledger, empty directory
+        let controller = LocalHistoryRebuildController(settings: settings, gate: makeGate(), ledger: ledger,
+                                                       directory: directory)
+        await controller.task?.value
+        XCTAssertTrue(settings.hasRebuiltLocalHistory)
+        XCTAssertNil(settings.localHistoryRecalculatedAt)
     }
 }
 
@@ -631,7 +666,7 @@ final class LocalSessionTokenRebuildTests: XCTestCase {
                 let scanned = try reader.readForRebuild()
                 let days = try ledger.applyLocalHistoryRebuild(scanned)
                 let sessions = try ledger.applyLocalSessionTokenRebuild(scanned)
-                return days && sessions
+                return days.mayMarkDone && sessions
             }
         }
 
@@ -686,7 +721,7 @@ final class LocalSessionTokenRebuildTests: XCTestCase {
 
         let first = LocalHistoryRebuildController(settings: settings, gate: makeGate()) {
             runs.increment()
-            return true
+            return LocalHistoryRebuildVerdict(mayMarkDone: true)
         }
         await first.task?.value
         XCTAssertEqual(runs.value, 1)
@@ -694,7 +729,7 @@ final class LocalSessionTokenRebuildTests: XCTestCase {
 
         let second = LocalHistoryRebuildController(settings: settings, gate: makeGate()) {
             runs.increment()
-            return true
+            return LocalHistoryRebuildVerdict(mayMarkDone: true)
         }
         await second.task?.value
 

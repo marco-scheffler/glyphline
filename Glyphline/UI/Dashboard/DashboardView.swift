@@ -27,7 +27,9 @@ struct DashboardView: View {
             accountSummaries: accountSummaries,
             loadError: loadError,
             syncFailureMessage: coordinator.syncFailureMessage,
-            openAgentverse: { AgentverseLauncher.open(using: openWindow) }
+            openAgentverse: { AgentverseLauncher.open(using: openWindow) },
+            recalculatedAt: settings.localHistoryRecalculatedAt,
+            dismissRecalculation: { settings.localHistoryRecalculatedAt = nil }
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .frame(minWidth: 980, minHeight: 640)

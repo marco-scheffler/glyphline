@@ -32,7 +32,7 @@ final class LocalHistoryRebuildController {
     init(
         settings: AppSettingsStore,
         gate: LocalHistoryWriteGate,
-        rebuild: (@Sendable () throws -> Bool)?
+        rebuild: (@Sendable () throws -> LocalHistoryRebuildVerdict)?
     ) {
         guard settings.localHistoryRebuildIsOutstanding, let rebuild else {
             // Every path that declines to rebuild must open the gate, because
@@ -50,13 +50,18 @@ final class LocalHistoryRebuildController {
         }
 
         task = Task {
-            if await gate.runRebuild(rebuild) {
+            if let verdict = await gate.runRebuild(rebuild), verdict.mayMarkDone {
                 // Every marker, one verdict. The closure runs exactly the halves
                 // that were outstanding and reports whether that landed; a half
                 // already done is already marked, so setting it again is a no-op.
                 settings.hasRebuiltLocalHistory = true
                 settings.hasRebuiltLocalSessionTokens = true
                 settings.hasRebuiltLocalDayBuckets = true
+                // Only a rebuild that moved figures is worth telling the user
+                // about; the release notes are otherwise the only place it shows.
+                if verdict.changedHistory {
+                    settings.localHistoryRecalculatedAt = Date()
+                }
             }
         }
     }
@@ -91,14 +96,16 @@ final class LocalHistoryRebuildController {
         let rebuildsSessions = !settings.hasRebuiltLocalSessionTokens
         self.init(settings: settings, gate: gate) {
             let scan = try reader.readForRebuild()
-            var mayMarkDone = true
+            var verdict = LocalHistoryRebuildVerdict(mayMarkDone: true)
             if rebuildsDays {
-                mayMarkDone = try ledger.applyLocalHistoryRebuild(scan) && mayMarkDone
+                let applied = try ledger.applyLocalHistoryRebuild(scan)
+                verdict.mayMarkDone = applied.mayMarkDone && verdict.mayMarkDone
+                verdict.changedHistory = applied.replacedDays > 0
             }
             if rebuildsSessions {
-                mayMarkDone = try ledger.applyLocalSessionTokenRebuild(scan) && mayMarkDone
+                verdict.mayMarkDone = try ledger.applyLocalSessionTokenRebuild(scan) && verdict.mayMarkDone
             }
-            return mayMarkDone
+            return verdict
         }
     }
 }

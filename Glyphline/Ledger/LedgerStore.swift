@@ -516,12 +516,12 @@ final class LedgerStore {
     ///   empty install — nothing recorded, nothing to read — reports `true`:
     ///   there is nothing to correct, and that is not a failure.
     @discardableResult
-    func applyLocalHistoryRebuild(_ rebuild: LocalHistoryRebuildScan, now: Date = Date()) throws -> Bool {
+    func applyLocalHistoryRebuild(_ rebuild: LocalHistoryRebuildScan, now: Date = Date()) throws -> LocalHistoryRebuildApplied {
         try dbQueue.write { db in
             let recorded = try Self.recordedDailyTotals(in: db)
 
             guard !rebuild.scan.usage.isEmpty || recorded.isEmpty else {
-                return false
+                return LocalHistoryRebuildApplied(mayMarkDone: false, replacedDays: 0)
             }
 
             let rowsByDay = Dictionary(grouping: rebuild.scan.usage, by: \.bucketStart)
@@ -559,7 +559,7 @@ final class LedgerStore {
                 try Self.saveLocalScanWatermark(watermark, in: db)
             }
             try Self.pruneSeenMessages(before: now - LocalSeenMessageRetention.window, in: db)
-            return true
+            return LocalHistoryRebuildApplied(mayMarkDone: true, replacedDays: daysToClear.count)
         }
     }
 
