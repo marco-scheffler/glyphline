@@ -450,6 +450,9 @@ final class SyncCoordinator: ObservableObject {
                 rateWindowFailureCodes[account.id] = result.failureCode
                 // The fetch worked, so the next expiry is a fresh transition.
                 sessionExpiryNotified.remove(account.id)
+                // Only readings the ledger believed may warn: an implausible one
+                // would announce nonsense and spend the cycle's one warning.
+                var believed: [RateWindow] = []
                 for window in result.windows {
                     // The row may not have been written — an unchanged
                     // observation is dropped — but the value was confirmed, and
@@ -458,9 +461,10 @@ final class SyncCoordinator: ObservableObject {
                     let believable = try ledger.saveRateWindow(window, accountID: account.id)
                     if believable {
                         confirm(window, accountID: account.id)
+                        believed.append(window)
                     }
                 }
-                await warnIfRunningOut(result.windows, account: account)
+                await warnIfRunningOut(believed, account: account)
             } catch let error as RateWindowSourceError {
                 rateWindowMessages[account.id] = error.message
                 rateWindowFailureCodes[account.id] = error.code
