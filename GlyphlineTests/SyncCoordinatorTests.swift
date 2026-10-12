@@ -595,6 +595,81 @@ final class SyncCoordinatorTests: XCTestCase {
         )
     }
 
+    // MARK: - Quota runway warnings
+
+    private func makeRunwayCoordinator(
+        resetAt: Date,
+        notifier: RecordingNotifier,
+        warningsEnabled: Bool = true
+    ) throws -> SyncCoordinator {
+        try makeRunwayCoordinator(
+            source: SwitchableRunwaySource(resetAt: resetAt),
+            notifier: notifier,
+            warningsEnabled: warningsEnabled
+        )
+    }
+
+    private func makeRunwayCoordinator(
+        source: any RateWindowSource,
+        notifier: RecordingNotifier,
+        warningsEnabled: Bool = true
+    ) throws -> SyncCoordinator {
+        let (_, ledger) = try makeLedger()
+        let now = Self.now
+        let account = Account(
+            id: UUID(), providerID: .claude, displayName: "Max #1",
+            credentialReference: "local-source://x", createdAt: now, isEnabled: true,
+            claudeOrganizationID: "org-1"
+        )
+        try ledger.saveAccount(account)
+
+        return SyncCoordinator(
+            ledger: ledger,
+            credentials: InMemoryCredentialStore(),
+            registry: ProviderAdapterRegistry(),
+            now: { now },
+            rateWindowSourceProvider: { _ in source },
+            notifier: notifier,
+            quotaRunwayWarningsEnabled: { warningsEnabled }
+        )
+    }
+
+    func testARunningOutWindowWarnsOnce() async throws {
+        let notifier = RecordingNotifier()
+        let coordinator = try makeRunwayCoordinator(resetAt: Self.now.addingTimeInterval(3 * 3600), notifier: notifier)
+
+        await coordinator.collectRateWindows()
+        await coordinator.collectRateWindows()
+
+        XCTAssertEqual(notifier.runwayWarnings.count, 1)
+        XCTAssertEqual(notifier.runwayWarnings.first?.kind, .rollingFiveHours)
+    }
+
+    func testTheSameCycleWarnsOnceAndANewCycleWarnsAgain() async throws {
+        let notifier = RecordingNotifier()
+        let source = SwitchableRunwaySource(resetAt: Self.now.addingTimeInterval(3 * 3600))
+        let coordinator = try makeRunwayCoordinator(source: source, notifier: notifier)
+
+        await coordinator.collectRateWindows()
+        // A different `resetAt` is a different cycle; one second keeps the pace
+        // the same, so only the cycle key changes.
+        source.resetAt = Self.now.addingTimeInterval(3 * 3600 + 1)
+        await coordinator.collectRateWindows()
+
+        XCTAssertEqual(notifier.runwayWarnings.count, 2)
+    }
+
+    func testWarningsOffDeliversNothing() async throws {
+        let notifier = RecordingNotifier()
+        let coordinator = try makeRunwayCoordinator(
+            resetAt: Self.now.addingTimeInterval(3 * 3600), notifier: notifier, warningsEnabled: false
+        )
+
+        await coordinator.collectRateWindows()
+
+        XCTAssertTrue(notifier.runwayWarnings.isEmpty)
+    }
+
     func testTheFirstFailureNotifiesAndTheNextOnesDoNot() async throws {
         let notifier = RecordingNotifier()
         let coordinator = try makeExpiringCoordinator(
@@ -1083,6 +1158,29 @@ final class SwitchableQuotaSource: RateWindowSource {
                 )
             }
         }
+    }
+}
+
+/// One five-hour window at 80% two hours in, so it runs out in half an hour.
+/// `resetAt` is mutable so a test can move it into another cycle between ticks.
+final class SwitchableRunwaySource: RateWindowSource, @unchecked Sendable {
+    var resetAt: Date
+
+    init(resetAt: Date) {
+        self.resetAt = resetAt
+    }
+
+    func fetchWindows(account: Account, secret: String?) async throws -> RateWindowResult {
+        RateWindowResult(
+            windows: [
+                RateWindow(
+                    kind: .rollingFiveHours, usedFraction: 0.8,
+                    resetAt: resetAt,
+                    observedAt: Date(timeIntervalSince1970: 1_800_000_000)
+                ),
+            ],
+            dataQuality: .exact, message: nil
+        )
     }
 }
 
