@@ -14,15 +14,20 @@ enum NotificationDestination: Equatable {
 /// through the existing launchers. Two roots may be listening at once (the menu
 /// bar label and an open window), so a destination is consumed once.
 ///
-/// Listeners subscribe to `$pending`, which emits on every assignment (so a
-/// second click on the same category opens again) and hands its current value
-/// to a new subscriber. In window-only mode with every window closed no root is
-/// alive to listen; the destination then stays pending, and the root that mounts
-/// next (the Dock icon reopening a window) opens it — which is what the click
-/// asked for.
+/// A click stores its destination in `pending` first and then signals on
+/// `deliveries`. A separate subject rather than `$pending`, because `@Published`
+/// emits on willSet: a listener reacting to `$pending` would run before the
+/// value is stored, and `consume()` would find nothing. The subject fires on
+/// every click, so a repeat of the same category opens again.
+///
+/// In window-only mode with every window closed no root is alive to listen; the
+/// destination stays pending, and the root that mounts next (the Dock icon
+/// reopening a window) consumes it on appear — which is what the click asked for.
 @MainActor
 final class NotificationRouter: NSObject, ObservableObject, UNUserNotificationCenterDelegate {
     @Published private(set) var pending: NotificationDestination?
+    /// Fires after `pending` holds a click's destination.
+    let deliveries = PassthroughSubject<Void, Never>()
 
     static func destination(forCategory category: String) -> NotificationDestination? {
         switch NotificationCategory(rawValue: category) {
@@ -34,6 +39,7 @@ final class NotificationRouter: NSObject, ObservableObject, UNUserNotificationCe
 
     func route(category: String) {
         pending = Self.destination(forCategory: category)
+        if pending != nil { deliveries.send(()) }
     }
 
     func consume() -> NotificationDestination? {
@@ -64,12 +70,16 @@ private struct NotificationDestinationListener: ViewModifier {
     @Environment(\.openWindow) private var openWindow
 
     func body(content: Content) -> some View {
-        content.onReceive(router.$pending.compactMap { $0 }) { _ in
-            switch router.consume() {
-            case .agentverse: AgentverseLauncher.open(using: openWindow)
-            case .dashboard: DashboardLauncher.open(using: openWindow)
-            case nil: break
-            }
+        content
+            .onReceive(router.deliveries) { open(router.consume()) }
+            .onAppear { open(router.consume()) }
+    }
+
+    private func open(_ destination: NotificationDestination?) {
+        switch destination {
+        case .agentverse: AgentverseLauncher.open(using: openWindow)
+        case .dashboard: DashboardLauncher.open(using: openWindow)
+        case nil: break
         }
     }
 }
