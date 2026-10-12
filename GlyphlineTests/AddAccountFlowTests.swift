@@ -37,23 +37,6 @@ final class AddAccountFlowTests: XCTestCase {
         }
     }
 
-    private final class RecordingCredentialStore: CredentialStore, @unchecked Sendable {
-        private(set) var saved: [String: String] = [:]
-        private(set) var deleted: [String] = []
-
-        func save(secret: String, for reference: String) throws {
-            saved[reference] = secret
-        }
-
-        func readSecret(for reference: String) throws -> String? {
-            saved[reference]
-        }
-
-        func deleteSecret(for reference: String) throws {
-            deleted.append(reference)
-            saved.removeValue(forKey: reference)
-        }
-    }
 
     // MARK: - Fixtures
 
@@ -72,13 +55,11 @@ final class AddAccountFlowTests: XCTestCase {
 
     private func makeFlow(
         ledger: LedgerStore,
-        credentials: RecordingCredentialStore,
         signIn: FakeSignIn,
         webSessions: RecordingRemover = RecordingRemover()
     ) -> AddAccountFlow {
         AddAccountFlow(
             ledgerStore: ledger,
-            credentialStore: credentials,
             signIn: signIn,
             webSessions: webSessions
         )
@@ -93,17 +74,10 @@ final class AddAccountFlowTests: XCTestCase {
     /// resolves no quota source at all and the account renders grey forever.
     func testAWebSessionAccountIsWrittenWithTheOrganisationItSignedInTo() async throws {
         let ledger = try makeLedger()
-        let credentials = RecordingCredentialStore()
         let signIn = FakeSignIn(outcome: .signedIn(organizationID: organizationID))
-        let flow = makeFlow(ledger: ledger, credentials: credentials, signIn: signIn)
+        let flow = makeFlow(ledger: ledger, signIn: signIn)
 
-        let outcome = await flow.save(
-            providerID: .claude,
-            displayName: "  Max #1  ",
-            source: .claudeWebSession,
-            credentialValue: "",
-            isEnabled: true
-        )
+        let outcome = await flow.save(displayName: "  Max #1  ", isEnabled: true)
 
         XCTAssertEqual(outcome, .saved)
 
@@ -116,23 +90,29 @@ final class AddAccountFlowTests: XCTestCase {
         XCTAssertTrue(account.isEnabled)
     }
 
-    /// The credential reference decides which adapter the cost path builds. A
-    /// web-session account must carry its own scheme: `local-source://` would make
-    /// every one of them read `~/.claude/projects`, so three subscriptions would
-    /// report the same local logs three times over.
-    func testAWebSessionAccountCarriesTheWebSessionSchemeAndNoSecret() async throws {
+    /// The toggle on the form, carried through. The removed local-logs test was
+    /// the only one that saved a disabled account.
+    func testAnAccountSavedDisabledIsWrittenDisabled() async throws {
         let ledger = try makeLedger()
-        let credentials = RecordingCredentialStore()
-        let signIn = FakeSignIn(outcome: .signedIn(organizationID: organizationID))
-        let flow = makeFlow(ledger: ledger, credentials: credentials, signIn: signIn)
-
-        _ = await flow.save(
-            providerID: .claude,
-            displayName: "Max #1",
-            source: .claudeWebSession,
-            credentialValue: "",
-            isEnabled: true
+        let flow = makeFlow(
+            ledger: ledger,
+            signIn: FakeSignIn(outcome: .signedIn(organizationID: organizationID))
         )
+
+        _ = await flow.save(displayName: "Max #1", isEnabled: false)
+
+        let account = try XCTUnwrap(try ledger.fetchAccounts().first)
+        XCTAssertFalse(account.isEnabled)
+    }
+
+    /// The credential reference is what `ProviderAdapterRegistry` reads to hand an
+    /// account its quota source, and only the web-session scheme resolves to one.
+    func testAWebSessionAccountCarriesTheWebSessionScheme() async throws {
+        let ledger = try makeLedger()
+        let signIn = FakeSignIn(outcome: .signedIn(organizationID: organizationID))
+        let flow = makeFlow(ledger: ledger, signIn: signIn)
+
+        _ = await flow.save(displayName: "Max #1", isEnabled: true)
 
         let account = try XCTUnwrap(try ledger.fetchAccounts().first)
         XCTAssertEqual(
@@ -141,10 +121,6 @@ final class AddAccountFlowTests: XCTestCase {
         )
         XCTAssertTrue(account.credentialReference.hasPrefix(ProviderAdapterRegistry.webSessionScheme))
         XCTAssertFalse(account.credentialReference.hasPrefix(ProviderAdapterRegistry.localSourceScheme))
-
-        // There is no secret for this source, so nothing may be written — least of
-        // all an empty string standing in for one.
-        XCTAssertTrue(credentials.saved.isEmpty)
     }
 
     /// The session WebKit just established is keyed on the account id. If the
@@ -152,17 +128,10 @@ final class AddAccountFlowTests: XCTestCase {
     /// empty and the user would be asked to sign in again on the very next tick.
     func testTheSessionIsEstablishedForTheAccountThatGetsPersisted() async throws {
         let ledger = try makeLedger()
-        let credentials = RecordingCredentialStore()
         let signIn = FakeSignIn(outcome: .signedIn(organizationID: organizationID))
-        let flow = makeFlow(ledger: ledger, credentials: credentials, signIn: signIn)
+        let flow = makeFlow(ledger: ledger, signIn: signIn)
 
-        _ = await flow.save(
-            providerID: .claude,
-            displayName: "Max #1",
-            source: .claudeWebSession,
-            credentialValue: "",
-            isEnabled: true
-        )
+        _ = await flow.save(displayName: "Max #1", isEnabled: true)
 
         let persisted = try XCTUnwrap(try ledger.fetchAccounts().first)
         XCTAssertEqual(signIn.presentedAccounts.map(\.id), [persisted.id])
@@ -172,21 +141,13 @@ final class AddAccountFlowTests: XCTestCase {
     /// has to be told that nothing was.
     func testCancellingSignInWritesNothing() async throws {
         let ledger = try makeLedger()
-        let credentials = RecordingCredentialStore()
         let signIn = FakeSignIn(outcome: .cancelled)
-        let flow = makeFlow(ledger: ledger, credentials: credentials, signIn: signIn)
+        let flow = makeFlow(ledger: ledger, signIn: signIn)
 
-        let outcome = await flow.save(
-            providerID: .claude,
-            displayName: "Max #1",
-            source: .claudeWebSession,
-            credentialValue: "",
-            isEnabled: true
-        )
+        let outcome = await flow.save(displayName: "Max #1", isEnabled: true)
 
         XCTAssertEqual(outcome, .failed(AddAccountFlow.signInCancelledMessage))
         XCTAssertTrue(try ledger.fetchAccounts().isEmpty)
-        XCTAssertTrue(credentials.saved.isEmpty)
     }
 
     /// A failed sign-in is reported with the error's own message. The window has
@@ -195,21 +156,13 @@ final class AddAccountFlowTests: XCTestCase {
     func testAFailedSignInWritesNothingAndReportsTheErrorsOwnMessage() async throws {
         for error in [RateWindowSourceError.sessionExpired, .notAvailable, .transportFailure] {
             let ledger = try makeLedger()
-            let credentials = RecordingCredentialStore()
             let signIn = FakeSignIn(outcome: .failed(error))
-            let flow = makeFlow(ledger: ledger, credentials: credentials, signIn: signIn)
+            let flow = makeFlow(ledger: ledger, signIn: signIn)
 
-            let outcome = await flow.save(
-                providerID: .claude,
-                displayName: "Max #1",
-                source: .claudeWebSession,
-                credentialValue: "",
-                isEnabled: true
-            )
+            let outcome = await flow.save(displayName: "Max #1", isEnabled: true)
 
             XCTAssertEqual(outcome, .failed(error.message), "\(error)")
             XCTAssertTrue(try ledger.fetchAccounts().isEmpty, "\(error)")
-            XCTAssertTrue(credentials.saved.isEmpty, "\(error)")
         }
     }
 
@@ -218,17 +171,10 @@ final class AddAccountFlowTests: XCTestCase {
     /// anyway would produce exactly the useless grey row this flow exists to avoid.
     func testASignedInOutcomeWithoutAnOrganisationIsNotPersisted() async throws {
         let ledger = try makeLedger()
-        let credentials = RecordingCredentialStore()
         let signIn = FakeSignIn(outcome: .signedIn(organizationID: ""))
-        let flow = makeFlow(ledger: ledger, credentials: credentials, signIn: signIn)
+        let flow = makeFlow(ledger: ledger, signIn: signIn)
 
-        let outcome = await flow.save(
-            providerID: .claude,
-            displayName: "Max #1",
-            source: .claudeWebSession,
-            credentialValue: "",
-            isEnabled: true
-        )
+        let outcome = await flow.save(displayName: "Max #1", isEnabled: true)
 
         XCTAssertEqual(outcome, .failed(RateWindowSourceError.notAvailable.message))
         XCTAssertTrue(try ledger.fetchAccounts().isEmpty)
@@ -247,18 +193,11 @@ final class AddAccountFlowTests: XCTestCase {
         let signIn = FakeSignIn(outcome: .cancelled)
         let flow = makeFlow(
             ledger: try makeLedger(),
-            credentials: RecordingCredentialStore(),
             signIn: signIn,
             webSessions: webSessions
         )
 
-        _ = await flow.save(
-            providerID: .claude,
-            displayName: "Max #1",
-            source: .claudeWebSession,
-            credentialValue: "",
-            isEnabled: true
-        )
+        _ = await flow.save(displayName: "Max #1", isEnabled: true)
 
         let presented = try XCTUnwrap(signIn.presentedAccounts.first)
         XCTAssertEqual(webSessions.removed, [presented.id])
@@ -273,18 +212,11 @@ final class AddAccountFlowTests: XCTestCase {
             let signIn = FakeSignIn(outcome: .failed(error))
             let flow = makeFlow(
                 ledger: try makeLedger(),
-                credentials: RecordingCredentialStore(),
                 signIn: signIn,
                 webSessions: webSessions
             )
 
-            _ = await flow.save(
-                providerID: .claude,
-                displayName: "Max #1",
-                source: .claudeWebSession,
-                credentialValue: "",
-                isEnabled: true
-            )
+            _ = await flow.save(displayName: "Max #1", isEnabled: true)
 
             let presented = try XCTUnwrap(signIn.presentedAccounts.first, "\(error)")
             XCTAssertEqual(webSessions.removed, [presented.id], "\(error)")
@@ -296,18 +228,11 @@ final class AddAccountFlowTests: XCTestCase {
         let signIn = FakeSignIn(outcome: .signedIn(organizationID: ""))
         let flow = makeFlow(
             ledger: try makeLedger(),
-            credentials: RecordingCredentialStore(),
             signIn: signIn,
             webSessions: webSessions
         )
 
-        _ = await flow.save(
-            providerID: .claude,
-            displayName: "Max #1",
-            source: .claudeWebSession,
-            credentialValue: "",
-            isEnabled: true
-        )
+        _ = await flow.save(displayName: "Max #1", isEnabled: true)
 
         let presented = try XCTUnwrap(signIn.presentedAccounts.first)
         XCTAssertEqual(webSessions.removed, [presented.id])
@@ -320,18 +245,11 @@ final class AddAccountFlowTests: XCTestCase {
         let signIn = FakeSignIn(outcome: .signedIn(organizationID: organizationID))
         let flow = makeFlow(
             ledger: try makeUnwritableLedger(),
-            credentials: RecordingCredentialStore(),
             signIn: signIn,
             webSessions: webSessions
         )
 
-        let outcome = await flow.save(
-            providerID: .claude,
-            displayName: "Max #1",
-            source: .claudeWebSession,
-            credentialValue: "",
-            isEnabled: true
-        )
+        let outcome = await flow.save(displayName: "Max #1", isEnabled: true)
 
         XCTAssertEqual(outcome, .failed(AddAccountFlow.saveFailedMessage))
         let presented = try XCTUnwrap(signIn.presentedAccounts.first)
@@ -344,124 +262,13 @@ final class AddAccountFlowTests: XCTestCase {
         let webSessions = RecordingRemover()
         let flow = makeFlow(
             ledger: try makeLedger(),
-            credentials: RecordingCredentialStore(),
             signIn: FakeSignIn(outcome: .signedIn(organizationID: organizationID)),
             webSessions: webSessions
         )
 
-        let outcome = await flow.save(
-            providerID: .claude,
-            displayName: "Max #1",
-            source: .claudeWebSession,
-            credentialValue: "",
-            isEnabled: true
-        )
+        let outcome = await flow.save(displayName: "Max #1", isEnabled: true)
 
         XCTAssertEqual(outcome, .saved)
         XCTAssertTrue(webSessions.removed.isEmpty)
-    }
-
-    /// Only a web session has a store to remove. A credential account whose write
-    /// fails must not send WebKit after a data store that was never created.
-    func testAFailedSaveOnACredentialAccountRemovesNoSession() async throws {
-        let webSessions = RecordingRemover()
-        let flow = makeFlow(
-            ledger: try makeUnwritableLedger(),
-            credentials: RecordingCredentialStore(),
-            signIn: FakeSignIn(outcome: .signedIn(organizationID: organizationID)),
-            webSessions: webSessions
-        )
-
-        let outcome = await flow.save(
-            providerID: .claude,
-            displayName: "Admin",
-            source: .credential,
-            credentialValue: "sk-ant-admin-secret",
-            isEnabled: true
-        )
-
-        XCTAssertEqual(outcome, .failed(AddAccountFlow.saveFailedMessage))
-        XCTAssertTrue(webSessions.removed.isEmpty)
-    }
-
-    // MARK: - The two sources that already existed
-
-    func testACredentialAccountStoresItsSecretAndNeverPresentsSignIn() async throws {
-        let ledger = try makeLedger()
-        let credentials = RecordingCredentialStore()
-        let signIn = FakeSignIn(outcome: .signedIn(organizationID: organizationID))
-        let flow = makeFlow(ledger: ledger, credentials: credentials, signIn: signIn)
-
-        let outcome = await flow.save(
-            providerID: .claude,
-            displayName: "Admin",
-            source: .credential,
-            credentialValue: "sk-ant-admin-secret",
-            isEnabled: true
-        )
-
-        XCTAssertEqual(outcome, .saved)
-        let account = try XCTUnwrap(try ledger.fetchAccounts().first)
-        XCTAssertNil(account.claudeOrganizationID)
-        XCTAssertEqual(
-            account.credentialReference,
-            AccountCredentialReference.make(accountID: account.id, source: .credential)
-        )
-        XCTAssertEqual(credentials.saved[account.credentialReference], "sk-ant-admin-secret")
-        XCTAssertTrue(signIn.presentedAccounts.isEmpty)
-    }
-
-    func testALocalLogsAccountStoresNoSecretAndNeverPresentsSignIn() async throws {
-        let ledger = try makeLedger()
-        let credentials = RecordingCredentialStore()
-        let signIn = FakeSignIn(outcome: .signedIn(organizationID: organizationID))
-        let flow = makeFlow(ledger: ledger, credentials: credentials, signIn: signIn)
-
-        let outcome = await flow.save(
-            providerID: .claude,
-            displayName: "Claude Code",
-            source: .localLogs,
-            credentialValue: "",
-            isEnabled: false
-        )
-
-        XCTAssertEqual(outcome, .saved)
-        let account = try XCTUnwrap(try ledger.fetchAccounts().first)
-        XCTAssertFalse(account.isEnabled)
-        XCTAssertNil(account.claudeOrganizationID)
-        XCTAssertTrue(account.credentialReference.hasPrefix(ProviderAdapterRegistry.localSourceScheme))
-        XCTAssertTrue(credentials.saved.isEmpty)
-        XCTAssertTrue(signIn.presentedAccounts.isEmpty)
-    }
-
-    /// The web session is Claude's alone. A stray selection on another provider
-    /// must not open a claude.ai window for an account that is not Claude — it
-    /// falls back to the credential source, exactly as the local source already did.
-    func testANonClaudeProviderNeverPresentsSignIn() async throws {
-        for providerID in ProviderID.allCases where providerID != .claude {
-            let ledger = try makeLedger()
-            let credentials = RecordingCredentialStore()
-            let signIn = FakeSignIn(outcome: .signedIn(organizationID: organizationID))
-            let flow = makeFlow(ledger: ledger, credentials: credentials, signIn: signIn)
-
-            let outcome = await flow.save(
-                providerID: providerID,
-                displayName: "Elsewhere",
-                source: .claudeWebSession,
-                credentialValue: "token",
-                isEnabled: true
-            )
-
-            XCTAssertEqual(outcome, .saved, "\(providerID)")
-            XCTAssertTrue(signIn.presentedAccounts.isEmpty, "\(providerID)")
-
-            let account = try XCTUnwrap(try ledger.fetchAccounts().first)
-            XCTAssertNil(account.claudeOrganizationID, "\(providerID)")
-            XCTAssertEqual(
-                account.credentialReference,
-                AccountCredentialReference.make(accountID: account.id, source: .credential),
-                "\(providerID)"
-            )
-        }
     }
 }

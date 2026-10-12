@@ -207,7 +207,6 @@ struct AccountsView: View {
             VStack(spacing: 0) {
                 AddAccountView(
                     ledgerStore: ledgerStore,
-                    credentialStore: credentialStore,
                     webSessions: webSessions,
                     onSave: accountSaved
                 )

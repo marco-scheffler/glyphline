@@ -258,7 +258,7 @@ final class LocalizationTests: XCTestCase {
             "Glyphline — quota exhausted": "Glyphline",
             "Glyphline also syncs after the Mac wakes from sleep.": "Glyphline",
             "Its claude.ai sign-in will be removed from this Mac.": "claude.ai",
-            "Local Claude Code logs": "Claude Code",
+            "No Claude Code sessions on this Mac in the last few days.": "Claude Code",
             "Open the Agentverse in its own window": "Agentverse",
         ]
 
