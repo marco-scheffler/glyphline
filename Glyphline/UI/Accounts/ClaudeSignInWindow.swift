@@ -38,6 +38,9 @@ final class ClaudeSignInWindow: NSObject {
     private var webView: WKWebView?
     private var statusLabel: NSTextField?
     private var continueButton: NSButton?
+    /// Windows opened by the page itself — an identity provider's sign-in popup.
+    /// Owned here so `settle` can close them with everything else.
+    private var popups: [(window: NSWindow, webView: WKWebView)] = []
     private var verification: Task<Void, Never>?
     private var continuation: CheckedContinuation<Outcome, Never>?
     private var isSettled = false
@@ -170,6 +173,9 @@ final class ClaudeSignInWindow: NSObject {
         configuration.websiteDataStore = dataStore
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.translatesAutoresizingMaskIntoConstraints = false
+        // Without a UI delegate `window.open` returns nil, and a sign-in routed
+        // through a popup does nothing with no visible reason.
+        webView.uiDelegate = self
         self.webView = webView
 
         let statusLabel = NSTextField(labelWithString: Self.promptText)
@@ -242,6 +248,11 @@ final class ClaudeSignInWindow: NSObject {
         }
         webView = nil
 
+        for popup in popups {
+            closePopup(popup)
+        }
+        popups = []
+
         if let window {
             // Cleared first: `close()` must not re-enter through the delegate.
             window.delegate = nil
@@ -261,6 +272,67 @@ final class ClaudeSignInWindow: NSObject {
 
 extension ClaudeSignInWindow: NSWindowDelegate {
     func windowWillClose(_ notification: Notification) {
+        // A popup closed by the user is only that popup going; the sign-in
+        // carries on in the main window.
+        if let closing = notification.object as? NSWindow,
+           let index = popups.firstIndex(where: { $0.window === closing }) {
+            let popup = popups.remove(at: index)
+            popup.webView.stopLoading()
+            popup.webView.uiDelegate = nil
+            return
+        }
         settle(pendingOutcome)
+    }
+
+    private func closePopup(_ popup: (window: NSWindow, webView: WKWebView)) {
+        popup.webView.stopLoading()
+        popup.webView.uiDelegate = nil
+        // Cleared first, as for the main window: `close()` must not re-enter.
+        popup.window.delegate = nil
+        popup.window.contentView = nil
+        popup.window.close()
+    }
+}
+
+extension ClaudeSignInWindow: WKUIDelegate {
+    /// Gives `window.open` a real window.
+    ///
+    /// The popup must be built from the `configuration` WebKit hands over — it
+    /// carries this account's data store and the opener relationship an identity
+    /// provider uses to hand the result back. WebKit loads the request into the
+    /// returned view itself.
+    func webView(
+        _ webView: WKWebView,
+        createWebViewWith configuration: WKWebViewConfiguration,
+        for navigationAction: WKNavigationAction,
+        windowFeatures: WKWindowFeatures
+    ) -> WKWebView? {
+        guard !isSettled else { return nil }
+
+        let popupView = WKWebView(frame: .zero, configuration: configuration)
+        popupView.uiDelegate = self
+
+        let popupWindow = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 520, height: 640),
+            styleMask: [.titled, .closable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        popupWindow.title = window?.title ?? ""
+        popupWindow.isReleasedWhenClosed = false
+        popupWindow.contentView = popupView
+        popupWindow.delegate = self
+        popups.append((popupWindow, popupView))
+
+        popupWindow.center()
+        popupWindow.makeKeyAndOrderFront(nil)
+        return popupView
+    }
+
+    /// The page called `window.close()` — an identity provider does once it has
+    /// handed its result back to the opener.
+    func webViewDidClose(_ webView: WKWebView) {
+        guard let index = popups.firstIndex(where: { $0.webView === webView }) else { return }
+        closePopup(popups.remove(at: index))
     }
 }
