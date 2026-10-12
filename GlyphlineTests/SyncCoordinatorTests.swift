@@ -659,6 +659,33 @@ final class SyncCoordinatorTests: XCTestCase {
         XCTAssertEqual(notifier.runwayWarnings.count, 2)
     }
 
+    /// Observed after its own reset, so the ledger refuses it; at the
+    /// coordinator's clock the pace alone would still say "empty in 30 min".
+    func testAReadingTheLedgerRejectsDoesNotWarn() async throws {
+        let notifier = RecordingNotifier()
+        let source = SwitchableRunwaySource(
+            resetAt: Self.now.addingTimeInterval(3 * 3600),
+            observedAt: Self.now.addingTimeInterval(4 * 3600)
+        )
+        let coordinator = try makeRunwayCoordinator(source: source, notifier: notifier)
+
+        await coordinator.collectRateWindows()
+
+        XCTAssertTrue(notifier.runwayWarnings.isEmpty)
+    }
+
+    func testAForgottenAccountWarnsAgainInTheSameCycle() async throws {
+        let notifier = RecordingNotifier()
+        let coordinator = try makeRunwayCoordinator(resetAt: Self.now.addingTimeInterval(3 * 3600), notifier: notifier)
+
+        await coordinator.collectRateWindows()
+        let accountID = try XCTUnwrap(coordinator.quotaStates.first?.accountID)
+        coordinator.forgetAccount(id: accountID)
+        await coordinator.collectRateWindows()
+
+        XCTAssertEqual(notifier.runwayWarnings.count, 2)
+    }
+
     func testWarningsOffDeliversNothing() async throws {
         let notifier = RecordingNotifier()
         let coordinator = try makeRunwayCoordinator(
@@ -1165,9 +1192,11 @@ final class SwitchableQuotaSource: RateWindowSource {
 /// `resetAt` is mutable so a test can move it into another cycle between ticks.
 final class SwitchableRunwaySource: RateWindowSource, @unchecked Sendable {
     var resetAt: Date
+    var observedAt: Date
 
-    init(resetAt: Date) {
+    init(resetAt: Date, observedAt: Date = Date(timeIntervalSince1970: 1_800_000_000)) {
         self.resetAt = resetAt
+        self.observedAt = observedAt
     }
 
     func fetchWindows(account: Account, secret: String?) async throws -> RateWindowResult {
@@ -1176,7 +1205,7 @@ final class SwitchableRunwaySource: RateWindowSource, @unchecked Sendable {
                 RateWindow(
                     kind: .rollingFiveHours, usedFraction: 0.8,
                     resetAt: resetAt,
-                    observedAt: Date(timeIntervalSince1970: 1_800_000_000)
+                    observedAt: observedAt
                 ),
             ],
             dataQuality: .exact, message: nil
