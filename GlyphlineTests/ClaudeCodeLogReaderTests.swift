@@ -5,6 +5,9 @@ import XCTest
 final class ClaudeCodeLogReaderTests: XCTestCase {
     private var directory: URL!
     private var ledger: LedgerStore!
+    /// The ledger's own queue, kept so a test can see every stored key — the
+    /// store has no query for that, and production needs none.
+    private var dbQueue: DatabaseQueue!
 
     override func setUpWithError() throws {
         try super.setUpWithError()
@@ -15,7 +18,7 @@ final class ClaudeCodeLogReaderTests: XCTestCase {
             withIntermediateDirectories: true
         )
 
-        let dbQueue = try DatabaseQueueFactory.makeInMemory()
+        dbQueue = try DatabaseQueueFactory.makeInMemory()
         try Migrations.migrate(dbQueue)
         ledger = LedgerStore(dbQueue: dbQueue)
     }
@@ -642,5 +645,112 @@ final class ClaudeCodeLogReaderTests: XCTestCase {
 
         XCTAssertEqual(second.usage.first?.totalTokens, 100, "counted again, knowingly")
         XCTAssertTrue(second.seenMessages.isEmpty, "there is no id to remember it by")
+    }
+
+    // MARK: - Transcripts that go
+
+    /// The path as the scan records it. The enumerator resolves the temporary
+    /// directory's `/var` to `/private/var`, so an unresolved path would name the
+    /// same file under a different key. `realpath` rather than
+    /// `resolvingSymlinksInPath()`, which strips `/private` straight back off.
+    private func transcriptPath(_ name: String) -> String {
+        let resolved = realpath(directory.path, nil)!
+        defer { free(resolved) }
+        return String(cString: resolved) + "/project-a/\(name)"
+    }
+
+    /// Moves a transcript out of the scanned directory and back, the way a
+    /// backup restore brings one back: same bytes, same modification date.
+    private func moveAside(_ name: String) throws -> URL {
+        let aside = FileManager.default.temporaryDirectory
+            .appendingPathComponent("glyphline-aside-\(UUID().uuidString).jsonl")
+        try FileManager.default.moveItem(at: URL(fileURLWithPath: transcriptPath(name)), to: aside)
+        addTeardownBlock { try? FileManager.default.removeItem(at: aside) }
+        return aside
+    }
+
+    private func restore(_ aside: URL, as name: String) throws {
+        try FileManager.default.moveItem(at: aside, to: URL(fileURLWithPath: transcriptPath(name)))
+    }
+
+    private func storedSourceKeys() throws -> [String] {
+        try dbQueue.read { db in
+            try String.fetchAll(db, sql: "SELECT sourceKey FROM localScanWatermarks ORDER BY sourceKey")
+        }
+    }
+
+    /// The path names the project. Once Claude Code has deleted the transcript,
+    /// nothing may keep that name — but the row stays, under a digest.
+    func testAGoneTranscriptsWatermarkNoLongerNamesItsPath() throws {
+        try write(line(model: "sonnet", input: 10, cacheWrite: 0, cacheRead: 0, output: 0,
+                       timestamp: "2026-07-30T10:00:00.000Z") + "\n", to: "gone.jsonl")
+        try write(line(model: "sonnet", input: 1, cacheWrite: 0, cacheRead: 0, output: 0,
+                       timestamp: "2026-07-30T10:00:00.000Z") + "\n", to: "kept.jsonl")
+        try apply(makeReader().read())
+        let gonePath = transcriptPath("gone.jsonl")
+
+        try FileManager.default.removeItem(atPath: gonePath)
+        try apply(makeReader().read())
+
+        XCTAssertEqual(
+            try storedSourceKeys(),
+            [LocalScanWatermark.retiredSourceKey(forPath: gonePath), transcriptPath("kept.jsonl")].sorted()
+        )
+        XCTAssertFalse(try storedSourceKeys().contains { $0.contains("gone") })
+    }
+
+    /// What the digest is for. A record without a message id is the case the
+    /// seen ids cannot catch at any age, so only the retired watermark stands
+    /// between a restored transcript and a second count of all of it.
+    func testATranscriptRestoredAfterItWentIsNotCountedAgain() throws {
+        try write(line(model: "sonnet", input: 100, cacheWrite: 0, cacheRead: 0, output: 0,
+                       timestamp: "2026-07-30T10:00:00.000Z") + "\n", to: "restored.jsonl")
+        try write(line(model: "sonnet", input: 1, cacheWrite: 0, cacheRead: 0, output: 0,
+                       timestamp: "2026-07-30T10:00:00.000Z") + "\n", to: "kept.jsonl")
+        try apply(makeReader().read())
+
+        let aside = try moveAside("restored.jsonl")
+        try apply(makeReader().read())
+        try restore(aside, as: "restored.jsonl")
+        let afterRestore = try makeReader().read()
+
+        XCTAssertTrue(afterRestore.usage.isEmpty, "a restored transcript was already counted")
+    }
+
+    /// A restored transcript that then grows is read from where it stopped, and
+    /// from then on it has a live watermark again — not a live one and a retired
+    /// one answering for the same file.
+    func testARestoredTranscriptThatGrowsIsReadFromWhereItStopped() throws {
+        try write(line(model: "sonnet", input: 100, cacheWrite: 0, cacheRead: 0, output: 0,
+                       timestamp: "2026-07-30T10:00:00.000Z") + "\n", to: "restored.jsonl")
+        try write(line(model: "sonnet", input: 1, cacheWrite: 0, cacheRead: 0, output: 0,
+                       timestamp: "2026-07-30T10:00:00.000Z") + "\n", to: "kept.jsonl")
+        try apply(makeReader().read())
+        let aside = try moveAside("restored.jsonl")
+        try apply(makeReader().read())
+        try restore(aside, as: "restored.jsonl")
+
+        try append(line(model: "sonnet", input: 7, cacheWrite: 0, cacheRead: 0, output: 0,
+                        timestamp: "2026-07-30T11:00:00.000Z") + "\n", to: "restored.jsonl")
+        let rows = try apply(makeReader().read())
+
+        XCTAssertEqual(rows.map(\.totalTokens), [7])
+        XCTAssertEqual(try storedSourceKeys(), [transcriptPath("kept.jsonl"), transcriptPath("restored.jsonl")])
+    }
+
+    /// An unmounted volume or an unanswered permissions prompt finds nothing at
+    /// all. That must not read as every transcript having been deleted.
+    func testAScanThatFindsNoTranscriptsRetiresNothing() throws {
+        try write(line(model: "sonnet", input: 10, cacheWrite: 0, cacheRead: 0, output: 0,
+                       timestamp: "2026-07-30T10:00:00.000Z") + "\n", to: "session.jsonl")
+        try apply(makeReader().read())
+        let aside = try moveAside("session.jsonl")
+
+        let empty = try makeReader().read()
+        try apply(empty)
+
+        XCTAssertNil(empty.survivingSourceKeys)
+        XCTAssertEqual(try storedSourceKeys(), [transcriptPath("session.jsonl")])
+        try restore(aside, as: "session.jsonl")
     }
 }

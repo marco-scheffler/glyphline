@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 
 enum LedgerStoreError: Error, Equatable {
@@ -148,12 +149,29 @@ enum LocalSeenMessageRetention {
 /// Resume point for the machine-wide transcript scan. `SyncWatermark` minus its
 /// account, because the scan has none.
 struct LocalScanWatermark: Equatable, Sendable {
-    /// Stable identifier for the source. For local logs, the file path.
+    /// Stable identifier for the source. For local logs, the file path — or, once
+    /// the file has gone, `retiredSourceKey(forPath:)`.
     var sourceKey: String
     var fileSize: Int64
     var fileMTime: Date
     var byteOffset: Int64
     var updatedAt: Date
+
+    static let retiredSourceKeyPrefix = "sha256:"
+
+    /// The key a watermark is kept under once its transcript is gone.
+    ///
+    /// Claude Code deletes old transcripts on its own, and a path names the
+    /// project it came from — so a row keyed by path keeps the name of a project
+    /// the user deleted, forever. The row itself cannot go: it is what stops a
+    /// transcript restored from a backup, with its old size and modification
+    /// date, from being read again and counted twice. The seen message ids only
+    /// cover `LocalSeenMessageRetention.window`. A digest of the path still
+    /// recognises the restored file and no longer names anything.
+    static func retiredSourceKey(forPath path: String) -> String {
+        let digest = SHA256.hash(data: Data(path.utf8))
+        return retiredSourceKeyPrefix + digest.map { String(format: "%02x", $0) }.joined()
+    }
 }
 
 /// A session sitting in the pit lane: it was on the map, then went quiet for
