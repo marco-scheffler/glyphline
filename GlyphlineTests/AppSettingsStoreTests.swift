@@ -240,6 +240,21 @@ final class AppSettingsStoreTests: XCTestCase {
         XCTAssertEqual(second.localHistoryRecalculatedAt, Date(timeIntervalSince1970: 1_800_000_000))
     }
 
+    /// Clearing the recalculation date must persist too, or the dashboard
+    /// note would come back after a relaunch.
+    func testClearingTheRecalculationDateSurvivesARelaunch() {
+        let suiteName = "GlyphlineTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let first = AppSettingsStore(defaults: defaults)
+        first.localHistoryRecalculatedAt = Date(timeIntervalSince1970: 1_800_000_000)
+        first.localHistoryRecalculatedAt = nil
+
+        let second = AppSettingsStore(defaults: defaults)
+        XCTAssertNil(second.localHistoryRecalculatedAt)
+    }
+
     /// A stored delay the picker no longer offers falls back rather than
     /// leaving the picker with no selection.
     func testAnUnofferedStoredDelayFallsBackToThree() {
