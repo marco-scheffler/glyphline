@@ -1,7 +1,34 @@
 import AppKit
 import SwiftUI
 
+/// Chooses which app runs, before either one is built.
+///
+/// The test bundle is hosted inside this app, so without the switch every test
+/// run executed `GlyphlineApp.init` in full: it opened the real ledger under
+/// ~/Library/Application Support while an installed copy was writing to it,
+/// scanned ~/.claude/projects, polled claude.ai through the user's own session
+/// and started Sparkle — all on the main actor the tests share. That is how a
+/// suite run wrote to the user's history, and the likely source of the suite's
+/// one intermittent failure.
 @main
+enum GlyphlineMain {
+    static func main() {
+        if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil {
+            TestHostApp.main()
+        } else {
+            GlyphlineApp.main()
+        }
+    }
+}
+
+/// What the test bundle is hosted in: an app with no side effects at all. Tests
+/// build every object they exercise themselves.
+private struct TestHostApp: App {
+    var body: some Scene {
+        Settings { EmptyView() }
+    }
+}
+
 struct GlyphlineApp: App {
     @StateObject private var settings: AppSettingsStore
     @StateObject private var coordinator: SyncCoordinator
