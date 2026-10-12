@@ -250,6 +250,13 @@ final class SyncCoordinator: ObservableObject {
     /// Injected so the quota windows are deterministic in tests.
     private let now: @Sendable () -> Date
 
+    /// Cycles already warned about, so a window running out is announced once per
+    /// reset and not on every tick. In memory only: a relaunch inside the same
+    /// cycle may warn once more, which is cheaper than persisting it.
+    private struct RunwayKey: Hashable { let accountID: UUID; let kind: RateWindowKind; let resetAt: Date }
+    private var runwayWarned: Set<RunwayKey> = []
+    private let quotaRunwayWarningsEnabled: @MainActor () -> Bool
+
     /// Shown whenever a collection is refused for want of a ledger. Truthful in
     /// the degraded case: nothing was fetched and nothing was written.
     static let ledgerUnavailableMessage = "Ledger unavailable. Nothing was synced."
@@ -264,6 +271,7 @@ final class SyncCoordinator: ObservableObject {
         now: @escaping @Sendable () -> Date = Date.init,
         rateWindowSourceProvider: (@MainActor (Account) -> (any RateWindowSource)?)? = nil,
         notifier: any UserNotifier = SystemUserNotifier(),
+        quotaRunwayWarningsEnabled: @escaping @MainActor () -> Bool = { true },
         localScan: (@Sendable () throws -> LocalScanResult)? = nil,
         costEstimator: CostEstimator? = nil,
         // Defaults to a gate with no rebuild outstanding: a coordinator built
@@ -286,6 +294,7 @@ final class SyncCoordinator: ObservableObject {
         self.costEstimator = costEstimator
             ?? (try? PricingCatalog.bundled()).map { CostEstimator(catalog: $0) }
         self.notifier = notifier
+        self.quotaRunwayWarningsEnabled = quotaRunwayWarningsEnabled
         self.sleepForSeconds = sleepForSeconds
         self.now = now
         self.rateWindowSourceProvider = rateWindowSourceProvider ?? { account in
@@ -451,6 +460,7 @@ final class SyncCoordinator: ObservableObject {
                         confirm(window, accountID: account.id)
                     }
                 }
+                await warnIfRunningOut(result.windows, account: account)
             } catch let error as RateWindowSourceError {
                 rateWindowMessages[account.id] = error.message
                 rateWindowFailureCodes[account.id] = error.code
@@ -508,6 +518,21 @@ final class SyncCoordinator: ObservableObject {
 
         sessionExpiryNotified.insert(account.id)
         await notifier.notifySessionExpired(accountDisplayName: account.resolvedName)
+    }
+
+    private func warnIfRunningOut(_ windows: [RateWindow], account: Account) async {
+        guard quotaRunwayWarningsEnabled() else { return }
+        let leadTime = QuotaRunwayRule.leadTime(syncInterval: currentIntervalSeconds)
+        for runway in QuotaRunwayRule.runningOut(windows, now: now(), leadTime: leadTime) {
+            guard let resetAt = runway.window.resetAt else { continue }
+            let key = RunwayKey(accountID: account.id, kind: runway.window.kind, resetAt: resetAt)
+            guard runwayWarned.insert(key).inserted else { continue }
+            await notifier.notifyQuotaRunningOut(
+                accountDisplayName: account.resolvedName,
+                kind: runway.window.kind,
+                timeToEmpty: runway.timeToEmpty
+            )
+        }
     }
 
     /// Deletes an account and drops everything this coordinator holds for it.
@@ -574,6 +599,7 @@ final class SyncCoordinator: ObservableObject {
         // cannot leave a deleted account permanently marked as busy.
         rateWindowFetchesInFlight.remove(accountID)
         sessionExpiryNotified.remove(accountID)
+        runwayWarned = runwayWarned.filter { $0.accountID != accountID }
         quotaStates.removeAll { $0.accountID == accountID }
     }
 }
