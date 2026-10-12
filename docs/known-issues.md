@@ -4,71 +4,24 @@ Deliberately unfixed issues carried out of the data-layer implementation, with
 the reasoning that led to deferring each one. Everything here was found in
 review and left open on purpose — none of it is a surprise.
 
-## Blocking a real user
-
-### Backfill advances its watermark on a degraded sync result
-
-`Glyphline/Sync/SyncCoordinator.swift` — `saveBackfillCompletedThrough` runs
-after `scheduler.sync` returns, and a refused credential no longer throws: all
-three adapters turn a 401/403 into a returned result with
-`dataQuality: .unavailable`. The slice therefore "succeeds" and the watermark
-advances.
-
-A user who adds an account with a plain API key — the default selection in the
-Add Account sheet — and starts backfill walks every slice issuing refused
-requests, records the watermark all the way back to the horizon, and ends
-`.idle`. When the key is later corrected, `resumePoint == horizon`, the
-`while cursor > horizon` loop never executes, and the history is permanently
-absent. There is no UI to clear the watermark.
-
-Fixing it means `scheduler.sync` surfacing the result's data quality so a
-degraded slice does not advance the watermark. That is a design change to the
-sync contract, not a local repair, which is why it was not folded into the
-final fix wave.
-
-### Backfill has no rate-limit backoff
-
-A full backfill is roughly 53 sequential round trips. A 429 surfaces as a slice
-failure; the watermark is kept and the run resumes — but only on the next
-manual Sync Now, and see the issue above for what "resumes" currently means.
+The backfill engine and the OpenAI, Cursor and Claude cost adapters were removed
+in `c1d5ccf`, and every issue recorded against them went with them: the
+watermark advancing on a degraded slice, the missing rate-limit backoff, decode
+failures propagating out of `sync`, the untested final-bucket boundary, the
+missing OpenAI cache-read price, cooperative backfill cancellation, and the
+OpenAI bucket-boundary migration question.
 
 ## Correctness, contained today
-
-### Decode failures propagate while credential rejections degrade
-
-`ClaudeUsageAdapter`, `CursorUsageAdapter`, `OpenAIUsageAdapter` — a 401/403
-degrades to an `.unavailable` result with a specific message, but a malformed
-response body throws out of `sync`. `SyncScheduler` catches it and records a
-`.providerSyncFailed` run, so no data is lost; the user simply gets the generic
-failure text instead of something actionable. No test covers the decode-failure
-path on any adapter.
-
-### No test pins how a provider terminates the final bucket
-
-If an API clamps the last bucket's `end_time` to the requested `end_time`
-rather than to the nominal bucket boundary, every routine sync mints a fresh
-`bucketEnd` for today and rows accumulate instead of replacing — the same
-defect family as the three partial-bucket bugs this branch already fixed. It
-cannot be verified from the code. Worth one live-API check per provider before
-release.
-
-### `pricing-v1.json` has no cache-read price for OpenAI
-
-OpenAI's cached input is now classified as `cacheReadTokens`, and with no
-explicit entry those tokens are priced through the
-`inputMicrosPerMillionTokens / 10` fallback. Blast radius is near zero —
-`estimateMissingCosts` only runs for accounts with no cost snapshots, and
-OpenAI reports actual costs — and the fallback is closer to reality than
-charging cached input at the full input rate. Still worth an explicit entry.
 
 ### The pricing catalog has no time dimension
 
 One price per model, applied to every period the statistics screen offers. Two
 consequences, both understating nothing and overstating a little:
 
-- Claude Sonnet 5 carries introductory pricing ($2/$10 per million rather than
+- Claude Sonnet 5 carried introductory pricing ($2/$10 per million rather than
   $3/$15) through 2026-08-31. The catalog holds the standard rate, so tokens
-  spent inside that window are valued above what the API would have charged.
+  spent inside that window are valued above what the API would have charged —
+  permanently, since the window has closed and the history keeps it.
 - A price change of any kind is applied retroactively to the whole history the
   moment the catalog is edited.
 
@@ -100,13 +53,23 @@ user has since deleted is a different matter, and eviction fixes it.
 deletes the database by path today, so nothing breaks — but any future export,
 backup, or reset feature must handle all three files.
 
-### Four independent `LedgerStore` handles
+### Independent `LedgerStore` handles
 
-`GlyphlineApp`, `DashboardView`, `MenuBarView` and `AddAccountView` each open
-their own `DatabaseQueue` on the same file. WAL plus a five-second busy timeout
-makes this safe, but `LedgerStore`'s `@unchecked Sendable` justification is only
-true per connection. Consolidating to a single injected store would make the
-assertion true again and remove the four `makeDefault()` calls.
+`GlyphlineApp.init` opens one store and hands it to both coordinators, but three
+initialisers still default their argument to `LedgerStore.makeDefault()`:
+`DashboardView`, `AddAccountView` and `AccountsSettingsView` (in
+`SettingsScene.swift`). `AddAccountView`'s default is never reached —
+`AccountsView` passes its store. The other two are reached in production:
+`GlyphlineApp` writes `DashboardView()` with no argument, and `SettingsRootView`
+writes `AccountsSettingsView()` the same way. A default argument is
+evaluated every time the initialiser runs, so each of those opens a fresh
+`DatabaseQueue` and runs the migrations whenever SwiftUI re-creates the view
+value, not once per window.
+
+WAL plus a five-second busy timeout makes this safe, but `LedgerStore`'s
+`@unchecked Sendable` justification is only true per connection. Injecting the
+one store `GlyphlineApp` already owns would make the assertion true again and
+remove the remaining `makeDefault()` calls.
 
 `AccountsView` carried a fifth `makeDefault()` as a property default. It was
 recorded here as latent, on the grounds that its only caller passes a store — and
@@ -116,9 +79,9 @@ app itself, so two tests that omitted the argument opened the real ledger under
 database an installed copy was writing to at the same time. The default is gone;
 the memberwise initialiser now defaults it to `nil`.
 
-`SettingsScene.init` still carries the same default and is the one place that
-genuinely needs it. Nothing in the suite constructs it, so nothing reaches it
-today — which is precisely what was said about `AccountsView`.
+`AccountsSettingsView.init` still carries the same default. Nothing in the suite
+constructs it, so the suite does not reach it today — which is precisely what
+was said about `AccountsView`.
 
 ### Web session stores orphaned before this branch
 
@@ -148,18 +111,6 @@ against the set of live account ids could find them, and that sweep is its own
 task — it must not delete a store belonging to an account that merely failed to
 load.
 
-### Backfill cancellation is cooperative
-
-`SyncCoordinator.deleteAccount` cancels the backfill *before* the durable delete,
-which closes the window for a new slice. It cannot stop a slice already suspended
-inside `scheduler.sync(...)` — that one completes and writes its snapshots under
-an account id the ledger is about to forget. With no foreign keys those rows
-survive invisibly, unreachable by every query that starts from an account.
-
-Bounded and rare: it needs a delete issued during the seconds a slice is in
-flight. Checking the account still exists before each snapshot write would close
-it properly.
-
 ### Quota reporting is Max-only, by choice
 
 `ClaudeOrganizationsDTOs` selects the organisation whose capabilities contain
@@ -177,73 +128,48 @@ developer's screen and reach claude.ai. One manual pass — add, sign in, let a 
 run, delete, confirm the store directory is gone — is the only thing that
 exercises the branch's central mechanism end to end.
 
-Three smaller items in the same layer, all noticed by review rather than by a
+Two smaller items in the same layer, both noticed by review rather than by a
 failure:
 
 - `decidePolicyFor navigationResponse` does not check `isForMainFrame`, so
   `statusCode` is whatever the last response was, including a subframe's. Harmless
   on today's JSON endpoints, but that field decides `sessionExpired` versus
   `transportFailure`.
-- `noteQuotaFailure` decides whether to notify by comparing a *rendered sentence*
-  against `RateWindowSourceError.sessionExpired.message`. Reword two errors to the
-  same sentence and the notification misfires. Threading the error case through
-  instead of its message would make it structural.
 - `ClaudeSignInWindow` sets no `WKUIDelegate`, so `window.open` returns nil. If
   claude.ai ever routes an identity provider through a popup, it would do nothing
   with no visible reason.
 
 ## Cosmetic
 
-- `Glyphline/UI/AccountSummaryFormatting.swift` — the `endsAt` and `startsAt`
-  branches are unreachable for every shipping provider: reaching them needs
-  `supportsResetDate == true` with `resetAt == nil`, and every producer that
-  sets the flag also sets the date.
-- Claude and OpenAI still persist a `billingResetAt` that nothing can display,
-  since both declare `supportsResetDate: false`. Harmless now, a trap if anyone
-  later flips that flag.
 - The Settings copy states that Glyphline syncs after the Mac wakes without
-  qualifying it; the wake observer is only installed while automatic sync is
-  enabled.
-- Per-token-class integer division truncates independently, losing up to three
-  micros per snapshot. Deterministic, always toward zero, far below the pricing
-  table's own noise floor.
-
-## Not an issue
-
-**No migration is needed for the OpenAI bucket-boundary change.** Forcing
-`OpenAIUsageAdapter` onto a UTC calendar changes where day buckets fall, so
-pre-change and post-change rows could in principle coexist under different
-`bucketStart` keys and be summed. They cannot, because nothing has shipped —
-`main` carried only the spec and the plan, and the entire data layer arrived in
-one branch. There is no user ledger to migrate.
-
-The one real exposure is a development machine: if the app was ever run against
-a live provider key before this change, delete
-`~/Library/Application Support/Glyphline/glyphline.sqlite` once, along with its
-`-wal` and `-shm` siblings.
+  qualifying it. Local usage is rescanned on every wake, but the quota windows
+  are only refreshed on wake while automatic sync is enabled — that wake
+  observer is installed by `SyncCoordinator`'s scheduler.
+- Per-token-class integer division in `CostEstimator` truncates independently,
+  losing up to three micros per snapshot. Deterministic, always toward zero, far
+  below the pricing table's own noise floor.
 
 ---
 
 # Subscription Quota — Known Issues
 
-Carried out of the quota implementation. The feature ships with its primary
-state being "unavailable", and that is the truth rather than a defect: the
-access-route spike (`docs/superpowers/specs/2026-07-28-quota-access-routes.md`)
-found no official route to short-term rate windows at any provider.
+Carried out of the quota implementation. The access-route spike
+(`docs/superpowers/specs/2026-07-28-quota-access-routes.md`) found no official
+route to short-term rate windows at any provider; the one route that ships reads
+them through the user's own claude.ai session.
 
 ## What actually ships today
 
-`ProviderAdapterRegistry.rateWindowSource(for:)` returns `nil` unconditionally.
-No provider source exists yet, so the only window the app produces is the
-billing cycle derived from what the cost path already knows. Every account
-renders that plus "Quota reporting is not available for this subscription."
+`ProviderAdapterRegistry.rateWindowSource(for:)` resolves exactly one account
+shape: a Claude account with a `web-session://` credential reference and a
+resolved organisation id gets a `ClaudeWebQuotaSource`. Every other account gets
+`nil` and renders "Quota reporting is not available for this subscription."
 
-`FixtureRateWindowSource` and `RateWindowSourceError.notConfigured` remain in
-the app target with no production referent. Both are deliberate keeps — the
-fixture for tests, the error case for the Cursor situation the spike left
-undetermined.
+`FixtureRateWindowSource` stays in the app target for tests only; the registry no
+longer hands it out. `RateWindowSourceError.notConfigured` is still a deliberate
+keep for the Cursor situation the spike left undetermined.
 
-## For whoever writes the first real source
+## For whoever writes the next source
 
 **`confirm` trusts the provider's `observedAt`.** Freshness is tracked per
 account and window kind on the coordinator, keyed to the `observedAt` the
@@ -251,8 +177,9 @@ provider supplied, while `fetchLatestRateWindows` picks the newest row by
 `observedAt DESC`. A provider that backdates `observedAt` below an
 already-stored row of the same kind would hand its confirmation to a row it did
 not confirm. `isPlausible` cannot catch this: it evaluates `resetAt > now` with
-`now == window.observedAt`, so it is blind to `observedAt` itself. Unreachable
-while no real source exists; it belongs in the first adapter's brief.
+`now == window.observedAt`, so it is blind to `observedAt` itself.
+`ClaudeWebQuotaSource` stamps `observedAt` from the local clock, so it cannot
+backdate; a source that takes the time from a response must not.
 
 **The `resetAt` millisecond coupling — fixed, kept here as a warning.** GRDB
 truncates `Date` to milliseconds, so a sub-millisecond `resetAt` — which the
@@ -299,12 +226,9 @@ setting to be found.
 - `SyncCoordinator.rateWindowConfirmations` is in-memory only. After a relaunch
   the `(as of …)` qualifier falls back to `observedAt`, which understates
   freshness rather than overstating it.
-- `MenuBarView` evaluates `coordinator.quotaRows` twice per `body` pass, each
-  building formatters. Correctness-neutral at menu scale.
 - If every window in a result is implausible, `rateWindowMessages` has already
   been cleared, so the user sees a qualified stale row with no reason given.
-  Worth a message once a real source lands.
-- `QuotaIndicator`'s `light`, `nextFree` and `rowGroups` remain `static` and
+- `QuotaIndicator`'s `light` and `rowGroups` remain `static` and
   callable with an arbitrary freshness bound from inside the module. The class is
   closed at the view boundary — `quotaFreshness` is private and no view names a
   bound — but not at the type level.
