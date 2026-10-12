@@ -118,7 +118,9 @@ FSEvents and post notifications onto their screen. The rules in between — who
 counts as waiting, when the delay has passed, what a click opens — are tested;
 whether an FSEvents callback arrives and a banner actually appears is checked by
 hand only: set the delay to one minute, let a Claude Code turn end without
-answering, and a notification should arrive within about 75 seconds.
+answering, and a notification should arrive within about 75 seconds; in
+menu-bar-only mode with no window open, clicking the notification opens the
+Agentverse.
 
 ### A finished agent is reported like a waiting one
 

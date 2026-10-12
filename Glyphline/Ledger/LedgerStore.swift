@@ -507,13 +507,15 @@ final class LedgerStore {
     /// `localSessionTokens` is not this function's business:
     /// `applyLocalSessionTokenRebuild` corrects it, from the same scan, under the
     /// same rule and its own marker.
-    /// - Returns: whether the rebuild may be marked done. `false` means it read
-    ///   nothing while there was a history to correct — `transcriptURLs()` returns
+    /// - Returns: `mayMarkDone` — whether the rebuild may be marked done — and
+    ///   `replacedDays`, how many recorded days it replaced. `mayMarkDone` is
+    ///   `false` when it read nothing while there was a history to correct — `transcriptURLs()` returns
     ///   an empty list for an absent or unreadable directory rather than throwing,
     ///   so an external volume not yet mounted, a permissions prompt not yet
     ///   answered or a machine mid-restore would otherwise spend the single shot
     ///   on nothing and leave the inflated history uncorrectable. A genuinely
-    ///   empty install — nothing recorded, nothing to read — reports `true`:
+    ///   empty install — nothing recorded, nothing to read — reports `true`
+    ///   with no replaced days:
     ///   there is nothing to correct, and that is not a failure.
     @discardableResult
     func applyLocalHistoryRebuild(_ rebuild: LocalHistoryRebuildScan, now: Date = Date()) throws -> LocalHistoryRebuildApplied {
