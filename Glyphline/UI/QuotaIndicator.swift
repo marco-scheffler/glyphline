@@ -500,7 +500,8 @@ enum QuotaIndicator {
 
     /// "3h 20m", "45m", "4d 6h". Every component floors, so the figure is always
     /// a lower bound on the wait rather than an optimistic round-up.
-    private static func compactDuration(_ interval: TimeInterval) -> String {
+    /// Internal so a notification can say the same duration the row says.
+    static func compactDuration(_ interval: TimeInterval) -> String {
         // Rounded to the second before the components are taken. These intervals
         // are increasingly computed rather than measured, and a pace
         // extrapolation lands on 33 599.999 999 where the arithmetic means
