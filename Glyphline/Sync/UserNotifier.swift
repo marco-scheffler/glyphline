@@ -37,10 +37,19 @@ enum UserNotificationText {
     static func agentsWaiting(_ agents: [WaitingAgent], now: Date) -> (title: String, body: String) {
         if agents.count == 1, let agent = agents.first {
             let minutes = max(0, Int(now.timeIntervalSince(agent.waitingSince) / 60))
+            if agent.repository.isEmpty {
+                return (
+                    agent.title,
+                    String(
+                        localized: "Waiting for you for \(minutes) min",
+                        comment: "Notification body for one waiting agent whose repository is unknown. Placeholder: whole minutes waited."
+                    )
+                )
+            }
             return (
                 agent.title,
                 String(
-                    localized: "Waiting for you · \(minutes) min · \(agent.repository)",
+                    localized: "Waiting for you for \(minutes) min · \(agent.repository)",
                     comment: "Notification body for one waiting agent. Placeholders: whole minutes waited, then the repository name, which stays untranslated."
                 )
             )
@@ -54,8 +63,8 @@ enum UserNotificationText {
 
     static func quotaRunningOut(kind: RateWindowKind, timeToEmpty: TimeInterval) -> String {
         String(
-            localized: "\(kind.shortName) window empty in about \(QuotaIndicator.compactDuration(timeToEmpty)) at this pace",
-            comment: "Notification body warning that a quota window will run out before it resets. Placeholders: the window's short name such as '5h', then a duration such as '20m'."
+            localized: "\(kind.longName) window empty in about \(QuotaIndicator.compactDuration(timeToEmpty)) at this pace",
+            comment: "Notification body warning that a quota window will run out before it resets. Placeholders: the window's name such as '5-hour' or 'Weekly', then a duration such as '20m'."
         )
     }
 }
