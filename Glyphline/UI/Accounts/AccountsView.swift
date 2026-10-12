@@ -2,8 +2,8 @@ import SwiftUI
 
 struct AccountsView: View {
     let accounts: [AccountUsageSummary]
-    /// No `= LedgerStore.makeDefault()` default, deliberately. `SettingsScene` is
-    /// the only place that builds this view and it passes its own store, so the
+    /// No `= LedgerStore.makeDefault()` default, deliberately. `AccountsSettingsView`
+    /// is the only place that builds this view and it passes its own store, so the
     /// default was never reached in the running app — but it *was* reached in the
     /// suite, where the test host is the app itself: two tests omitted the
     /// argument, opened the real ledger under ~/Library/Application Support and

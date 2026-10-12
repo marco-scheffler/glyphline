@@ -7,6 +7,7 @@ struct GlyphlineApp: App {
     @StateObject private var coordinator: SyncCoordinator
     @StateObject private var agentverse: AgentverseCoordinator
     @StateObject private var updates: UpdateController
+    private let ledger: LedgerStore?
 
     // Not `@StateObject`: neither publishes anything a view reads, and making
     // them observable would invite a view to depend on one.
@@ -30,10 +31,12 @@ struct GlyphlineApp: App {
             }
         )
 
-        // One store for both coordinators: `makeDefault()` opens a fresh
-        // `DatabaseQueue` and runs the migrations every time it is called, so a
-        // second call would mean a second connection to the same file.
+        // One store for the whole app — both coordinators and every view that
+        // reads the ledger: `makeDefault()` opens a fresh `DatabaseQueue` and runs
+        // the migrations every time it is called, so a second call would mean a
+        // second connection to the same file.
         let ledger = LedgerStore.makeDefault()
+        self.ledger = ledger
 
         // Deliberately no in-memory stand-in when the on-disk ledger cannot be
         // opened: the coordinator refuses to collect without a durable ledger and
@@ -95,7 +98,7 @@ struct GlyphlineApp: App {
     var body: some Scene {
         WindowGroup(id: AppMode.dashboardWindowID) {
             ModeAwareWindowRoot(settings: settings) {
-                DashboardView()
+                DashboardView(ledgerStore: ledger)
                     .environmentObject(settings)
                     .environmentObject(coordinator)
                     // The dashboard's header counts waiting agents, so it needs
@@ -150,7 +153,7 @@ struct GlyphlineApp: App {
         // rather than a place in the dashboard's sidebar: what is left of it is
         // management, which is configuration.
         Settings {
-            SettingsRootView()
+            SettingsRootView(ledgerStore: ledger)
                 .environmentObject(settings)
                 // The accounts list draws each account's quota bars, from the
                 // same coordinator every other surface reads.
