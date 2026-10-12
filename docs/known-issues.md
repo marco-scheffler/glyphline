@@ -103,16 +103,9 @@ developer's screen and reach claude.ai. One manual pass — add, sign in, let a 
 run, delete, confirm the store directory is gone — is the only thing that
 exercises the branch's central mechanism end to end.
 
-Two smaller items in the same layer, both noticed by review rather than by a
-failure:
-
-- `decidePolicyFor navigationResponse` does not check `isForMainFrame`, so
-  `statusCode` is whatever the last response was, including a subframe's. Harmless
-  on today's JSON endpoints, but that field decides `sessionExpired` versus
-  `transportFailure`.
-- `ClaudeSignInWindow` sets no `WKUIDelegate`, so `window.open` returns nil. If
-  claude.ai ever routes an identity provider through a popup, it would do nothing
-  with no visible reason.
+`ClaudeSignInWindow` now opens popups the page asks for, which is the one path
+in this layer nobody has seen run: claude.ai does not route its sign-in through
+one today. If it starts to, that is the first thing to check by hand.
 
 ## Cosmetic
 
