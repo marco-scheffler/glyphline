@@ -53,36 +53,6 @@ user has since deleted is a different matter, and eviction fixes it.
 deletes the database by path today, so nothing breaks — but any future export,
 backup, or reset feature must handle all three files.
 
-### Independent `LedgerStore` handles
-
-`GlyphlineApp.init` opens one store and hands it to both coordinators, but three
-initialisers still default their argument to `LedgerStore.makeDefault()`:
-`DashboardView`, `AddAccountView` and `AccountsSettingsView` (in
-`SettingsScene.swift`). `AddAccountView`'s default is never reached —
-`AccountsView` passes its store. The other two are reached in production:
-`GlyphlineApp` writes `DashboardView()` with no argument, and `SettingsRootView`
-writes `AccountsSettingsView()` the same way. A default argument is
-evaluated every time the initialiser runs, so each of those opens a fresh
-`DatabaseQueue` and runs the migrations whenever SwiftUI re-creates the view
-value, not once per window.
-
-WAL plus a five-second busy timeout makes this safe, but `LedgerStore`'s
-`@unchecked Sendable` justification is only true per connection. Injecting the
-one store `GlyphlineApp` already owns would make the assertion true again and
-remove the remaining `makeDefault()` calls.
-
-`AccountsView` carried a fifth `makeDefault()` as a property default. It was
-recorded here as latent, on the grounds that its only caller passes a store — and
-that was true of the *app*. It was not true of the suite: the test host is the
-app itself, so two tests that omitted the argument opened the real ledger under
-`~/Library/Application Support/Glyphline` and ran its migrations, once against a
-database an installed copy was writing to at the same time. The default is gone;
-the memberwise initialiser now defaults it to `nil`.
-
-`AccountsSettingsView.init` still carries the same default. Nothing in the suite
-constructs it, so the suite does not reach it today — which is precisely what
-was said about `AccountsView`.
-
 ### Web session stores orphaned before this branch
 
 Both routes that created orphans are now closed. Deleting an account removes its

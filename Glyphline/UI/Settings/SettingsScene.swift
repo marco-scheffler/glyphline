@@ -10,6 +10,8 @@ import SwiftUI
 /// quota cards, which show every account at once.
 struct SettingsRootView: View {
     @EnvironmentObject private var settings: AppSettingsStore
+    /// Handed through to the accounts tab, which is the only one that reads it.
+    let ledgerStore: LedgerStore?
 
     /// The narrowest the settings window is ever laid out at — see the floor on
     /// the frame below. Named so a layout test can measure against the number
@@ -28,7 +30,7 @@ struct SettingsRootView: View {
             AppearanceSettingsView()
                 .tabItem { Label("Appearance", systemImage: "paintpalette") }
 
-            AccountsSettingsView()
+            AccountsSettingsView(ledgerStore: ledgerStore)
                 .tabItem { Label("Accounts", systemImage: "person.2") }
         }
         // A settings window sizes itself to its content, and the accounts tab is
@@ -95,7 +97,10 @@ struct AccountsSettingsView: View {
 
     private let ledgerStore: LedgerStore?
 
-    init(ledgerStore: LedgerStore? = LedgerStore.makeDefault()) {
+    /// No default, like every other view that reads the ledger: `GlyphlineApp`
+    /// owns the one store, and a default would open a second connection and rerun
+    /// the migrations every time SwiftUI rebuilt this value.
+    init(ledgerStore: LedgerStore?) {
         self.ledgerStore = ledgerStore
     }
 

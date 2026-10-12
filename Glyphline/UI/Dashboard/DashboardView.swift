@@ -12,7 +12,9 @@ struct DashboardView: View {
 
     private let ledgerStore: LedgerStore?
 
-    init(ledgerStore: LedgerStore? = LedgerStore.makeDefault()) {
+    /// No default: `GlyphlineApp` owns the one store, and a default would open a
+    /// second connection every time SwiftUI rebuilt this value.
+    init(ledgerStore: LedgerStore?) {
         self.ledgerStore = ledgerStore
     }
 

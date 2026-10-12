@@ -19,7 +19,7 @@ struct AddAccountView: View {
     @State private var saveError: String?
 
     init(
-        ledgerStore: LedgerStore? = LedgerStore.makeDefault(),
+        ledgerStore: LedgerStore?,
         credentialStore: any CredentialStore = KeychainStore(),
         signInPresenter: (any ClaudeSignInPresenting)? = nil,
         webSessions: any WebSessionRemoving = ClaudeWebSessionStore(),
