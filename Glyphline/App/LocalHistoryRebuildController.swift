@@ -23,8 +23,9 @@ final class LocalHistoryRebuildController {
     let task: Task<Void, Never>?
 
     /// - Parameter rebuild: reads the transcripts and applies the result in one
-    ///   transaction, reporting whether the rebuild may be marked done. Throwing,
-    ///   or reporting `false`, leaves the marker unset so the next launch tries
+    ///   transaction, returning a `LocalHistoryRebuildVerdict`: whether the
+    ///   rebuild may be marked done, and whether it changed recorded figures.
+    ///   Throwing, or a verdict with `mayMarkDone == false`, leaves the marker unset so the next launch tries
     ///   again — which is what a half-finished run wants, because the transaction
     ///   means nothing of it landed, and what a launch that could not read the
     ///   transcripts at all wants, because the single shot must not be spent on
