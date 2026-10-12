@@ -271,7 +271,9 @@ final class SyncCoordinator: ObservableObject {
         now: @escaping @Sendable () -> Date = Date.init,
         rateWindowSourceProvider: (@MainActor (Account) -> (any RateWindowSource)?)? = nil,
         notifier: any UserNotifier = SystemUserNotifier(),
-        quotaRunwayWarningsEnabled: @escaping @MainActor () -> Bool = { true },
+        // Off unless asked: a test that omits it can never post a real warning;
+        // the app passes the settings closure.
+        quotaRunwayWarningsEnabled: @escaping @MainActor () -> Bool = { false },
         localScan: (@Sendable () throws -> LocalScanResult)? = nil,
         costEstimator: CostEstimator? = nil,
         // Defaults to a gate with no rebuild outstanding: a coordinator built
