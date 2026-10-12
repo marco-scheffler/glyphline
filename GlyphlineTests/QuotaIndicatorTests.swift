@@ -960,15 +960,9 @@ final class QuotaIndicatorTests: XCTestCase {
             "usage unknown · ends in 3d"
         )
     }
-    /// `Image(systemName:)` given a name that does not exist renders nothing and
-    /// reports no error, so a typo here produces an invisible menu bar item —
-    /// indistinguishable from the app not running. This is the guard.
-    func testTheMenuBarSymbolExists() {
-        XCTAssertNotNil(
-            NSImage(systemSymbolName: QuotaIndicator.menuBarSymbolName, accessibilityDescription: nil),
-            "\(QuotaIndicator.menuBarSymbolName) does not resolve, so the menu bar would draw nothing"
-        )
-    }
+    // The guard that the menu bar draws something now lives in
+    // `MenuBarMarkTests.testTheMarkDrawsSomething`: the mark is drawn, not an
+    // SF Symbol name that could fail to resolve.
 
     /// An account whose quota source answered with no active window produces a
     /// group with no rows and no message. Rendering that as-is puts a display

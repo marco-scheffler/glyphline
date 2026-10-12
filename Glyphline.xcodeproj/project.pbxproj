@@ -52,6 +52,7 @@
 		315AA4ACC25D2F08B4DA83CA /* LocalTokenUsageStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D061EE64EFE518EB86B8570 /* LocalTokenUsageStoreTests.swift */; };
 		318F7EF86E9A1C38DC79BB52 /* MenuBarQuotaListTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3ED41678ADA7D92EC04BF44B /* MenuBarQuotaListTests.swift */; };
 		322C445210414991A9915FA1 /* AccountAttentionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1AADE473E53A645F034AE62 /* AccountAttentionTests.swift */; };
+		32E31B1D73449096277E498B /* MenuBarMark.swift in Sources */ = {isa = PBXBuildFile; fileRef = A72EA39E758DEF369A154FAD /* MenuBarMark.swift */; };
 		36548FF69B18205F3FA28F1D /* AgentSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25763F9DE4C82450A3834BDC /* AgentSession.swift */; };
 		37CFE0A06075136004EBA62F /* AppActivationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64891BE57A59E15EEFF1CD5F /* AppActivationController.swift */; };
 		380A032B21975B0786C28EB0 /* QuotaBarRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBDCA09F2919D27BE31E10C4 /* QuotaBarRowView.swift */; };
@@ -129,6 +130,7 @@
 		98A65AA989758D13E3FA0152 /* SessionPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CEE811175655E96A48209E0 /* SessionPalette.swift */; };
 		997A00516E02E7218B94A6E1 /* MarginLabelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0134DD4D833802DA52513B15 /* MarginLabelTests.swift */; };
 		9B293A5657C69865A4250B6A /* NotificationRouterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 242A151D5AEB4605B3681BA6 /* NotificationRouterTests.swift */; };
+		9F346CB43552F3747F2B26B0 /* MenuBarMarkTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECDB00FB08E465A21D369CE0 /* MenuBarMarkTests.swift */; };
 		9FEB70E4EF62958B3969ABFF /* Account.swift in Sources */ = {isa = PBXBuildFile; fileRef = D461F567F4AC93CAD78D6410 /* Account.swift */; };
 		A35BDBFD6FB0542A2D9499EF /* LocalizedLayoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90593AA09366929E35BB6663 /* LocalizedLayoutTests.swift */; };
 		A385281B699E65EE57FD572E /* ClaudeCodeLogReaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 919CF627AF46F1C143EA18B9 /* ClaudeCodeLogReaderTests.swift */; };
@@ -362,6 +364,7 @@
 		A452BABCF11A72A0A23A41AE /* AgentverseParkedStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentverseParkedStoreTests.swift; sourceTree = "<group>"; };
 		A45728EFB1E15D3769095844 /* SettingsScene.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsScene.swift; sourceTree = "<group>"; };
 		A63DE4BE6B1E5DD6EBDEC233 /* AddAccountView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddAccountView.swift; sourceTree = "<group>"; };
+		A72EA39E758DEF369A154FAD /* MenuBarMark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarMark.swift; sourceTree = "<group>"; };
 		A8169F2BD942F98645929BDD /* DashboardPresentationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardPresentationTests.swift; sourceTree = "<group>"; };
 		A81C1F539EBD6824C59FADB0 /* AddAccountFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddAccountFlow.swift; sourceTree = "<group>"; };
 		A8753659B8C311D8F1103166 /* AgentverseWindowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentverseWindowTests.swift; sourceTree = "<group>"; };
@@ -416,6 +419,7 @@
 		E78959ED32C99389D71E836A /* ClaudeUsageQuotaDTOsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeUsageQuotaDTOsTests.swift; sourceTree = "<group>"; };
 		E9C0687AA9C44DF758152726 /* UpdateConfigurationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateConfigurationTests.swift; sourceTree = "<group>"; };
 		EB6486F570B1DA77ACCB5458 /* AgentverseCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentverseCoordinatorTests.swift; sourceTree = "<group>"; };
+		ECDB00FB08E465A21D369CE0 /* MenuBarMarkTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarMarkTests.swift; sourceTree = "<group>"; };
 		F06FF5203E4C15863CAB3EE3 /* AccountsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountsView.swift; sourceTree = "<group>"; };
 		F14BBDE367E8BE177C79F8B4 /* DailyUsageSeries.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyUsageSeries.swift; sourceTree = "<group>"; };
 		F420DC860B6D6F8784153356 /* AccountsListSpacingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountsListSpacingTests.swift; sourceTree = "<group>"; };
@@ -643,6 +647,7 @@
 				8ACB43E390F384515433FB04 /* LocalUsageStatisticsTests.swift */,
 				0134DD4D833802DA52513B15 /* MarginLabelTests.swift */,
 				E3DD33D0E2FF6D40D47CCD41 /* MenuBarFooterTests.swift */,
+				ECDB00FB08E465A21D369CE0 /* MenuBarMarkTests.swift */,
 				2E979BE5F52BBF7E5ADFBB3B /* MenuBarPanelDismisserTests.swift */,
 				3ED41678ADA7D92EC04BF44B /* MenuBarQuotaListTests.swift */,
 				38CEA8D84FAB5879F7C9B70E /* MigrationTests.swift */,
@@ -818,6 +823,7 @@
 		F1B2F67B911241E4BFE4CFEB /* MenuBar */ = {
 			isa = PBXGroup;
 			children = (
+				A72EA39E758DEF369A154FAD /* MenuBarMark.swift */,
 				9D74A02F678144371415AA39 /* MenuBarPanelDismisser.swift */,
 				BB947F271F18142FE2CD64DB /* MenuBarView.swift */,
 			);
@@ -999,6 +1005,7 @@
 				A35BDBFD6FB0542A2D9499EF /* LocalizedLayoutTests.swift in Sources */,
 				997A00516E02E7218B94A6E1 /* MarginLabelTests.swift in Sources */,
 				8B5B67935A1260AA20266915 /* MenuBarFooterTests.swift in Sources */,
+				9F346CB43552F3747F2B26B0 /* MenuBarMarkTests.swift in Sources */,
 				E644126690010A99FF780C2E /* MenuBarPanelDismisserTests.swift in Sources */,
 				318F7EF86E9A1C38DC79BB52 /* MenuBarQuotaListTests.swift in Sources */,
 				FE115011C319F621E5E47A5E /* MigrationTests.swift in Sources */,
@@ -1102,6 +1109,7 @@
 				7FC11071D7C8C08A94F2921B /* LocalUsagePeriod.swift in Sources */,
 				17A602A14DA23148EB4494DC /* LocalUsageStatistics.swift in Sources */,
 				31494C08A9507E7C43F21F0D /* MarginLabels.swift in Sources */,
+				32E31B1D73449096277E498B /* MenuBarMark.swift in Sources */,
 				1673A6CDC19A61DDCD389CDF /* MenuBarPanelDismisser.swift in Sources */,
 				2A7289DD211158D42C26C9DE /* MenuBarView.swift in Sources */,
 				81A31CCE7A84A8263856A8DC /* Migrations.swift in Sources */,
