@@ -1108,4 +1108,31 @@ final class QuotaIndicatorTests: XCTestCase {
         )
         XCTAssertNil(QuotaIndicator.resetText(for: window, now: now))
     }
+
+    func testPaceProjectsTheTimeToEmptyAtTheAveragePace() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        // Five-hour window, two hours in, 80% used: the remaining 20% lasts 30 min,
+        // while the reset is three hours away.
+        let window = RateWindow(kind: .rollingFiveHours, usedFraction: 0.8,
+                                resetAt: now.addingTimeInterval(3 * 3600), observedAt: now)
+        guard case .emptyIn(let remaining) = QuotaIndicator.pace(for: window, now: now) else {
+            return XCTFail("expected .emptyIn")
+        }
+        // (1 - 0.8) * 7200 / 0.8 is 1799.9999999999995 in Double, so compare with accuracy.
+        XCTAssertEqual(remaining, 30 * 60, accuracy: 1e-6)
+    }
+
+    func testPaceIsOnTrackWhenTheWindowOutlastsItsReset() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let window = RateWindow(kind: .rollingFiveHours, usedFraction: 0.1,
+                                resetAt: now.addingTimeInterval(3 * 3600), observedAt: now)
+        XCTAssertEqual(QuotaIndicator.pace(for: window, now: now), .onTrack)
+    }
+
+    func testPaceHasNothingToSayAboutASpentWindow() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let window = RateWindow(kind: .rollingFiveHours, usedFraction: 1,
+                                resetAt: now.addingTimeInterval(3600), observedAt: now)
+        XCTAssertNil(QuotaIndicator.pace(for: window, now: now))
+    }
 }

@@ -179,6 +179,8 @@ struct QuotaBarGroup: Identifiable, Equatable, Sendable {
     }
 }
 
+enum QuotaPace: Equatable { case onTrack; case emptyIn(TimeInterval) }
+
 enum QuotaIndicator {
     /// Shown in place of the bars when a group is silent. Deliberately not an
     /// error and not "unavailable": the subscription is fine and its source
@@ -472,7 +474,7 @@ enum QuotaIndicator {
     /// `nil` remains for the windows there is genuinely nothing to say about:
     /// no reset instant, no reported fraction, nothing consumed yet, or a
     /// billing cycle, whose span is whatever the subscription says.
-    static func paceText(for window: RateWindow, now: Date) -> String? {
+    static func pace(for window: RateWindow, now: Date) -> QuotaPace? {
         guard let resetAt = window.resetAt,
               let span = span(of: window.kind),
               let used = window.usedFraction,
@@ -485,17 +487,22 @@ enum QuotaIndicator {
         guard elapsed > 0 else { return nil }
 
         let remaining = (1 - used) * elapsed / used
-        guard remaining < resetAt.timeIntervalSince(now) else {
-            return String(
-                localized: "on track",
-                comment: "Quota pace note: this window survives to its own reset at the pace so far."
-            )
-        }
+        guard remaining < resetAt.timeIntervalSince(now) else { return .onTrack }
 
-        return String(
-            localized: "empty in \(compactDuration(remaining))",
-            comment: "Quota pace note when the window will not survive to its reset. The placeholder is a duration such as '1h 40m'."
-        )
+        return .emptyIn(remaining)
+    }
+
+    /// The words for `pace(for:now:)`; the warning in `QuotaRunwayRule` reads the same number.
+    static func paceText(for window: RateWindow, now: Date) -> String? {
+        switch pace(for: window, now: now) {
+        case nil: nil
+        case .onTrack:
+            String(localized: "on track",
+                   comment: "Quota pace note: this window survives to its own reset at the pace so far.")
+        case .emptyIn(let remaining):
+            String(localized: "empty in \(compactDuration(remaining))",
+                   comment: "Quota pace note when the window will not survive to its reset. The placeholder is a duration such as '1h 40m'.")
+        }
     }
 
     /// "3h 20m", "45m", "4d 6h". Every component floors, so the figure is always
