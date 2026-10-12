@@ -6,6 +6,46 @@
     <description>Updates für Glyphline</description>
     <language>en</language>
     <item>
+      <title>1.9</title>
+      <pubDate>Mon, 12 Oct 2026 21:22:03 +0000</pubDate>
+      <sparkle:version>10</sparkle:version>
+      <sparkle:shortVersionString>1.9</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+      <description>&lt;h2&gt;Glyphline tells you when an agent is waiting&lt;/h2&gt;
+
+&lt;p&gt;With several Claude Code sessions open, the one that finished its turn and is
+quietly waiting for an answer looks exactly like the ones still working.
+Glyphline now notices when a session has been waiting on you for a few minutes
+and says so — whether or not a Glyphline window is open. Click the notification
+and the Agentverse opens.&lt;/p&gt;
+
+&lt;p&gt;Three minutes by default; Settings → Notifications lets you choose 1, 3, 5 or 10,
+or switch it off.&lt;/p&gt;
+
+&lt;p&gt;One thing it cannot know: a transcript looks the same whether the agent is
+asking you something or has simply finished. Both are reported.&lt;/p&gt;
+
+&lt;h2&gt;A warning before a quota runs out&lt;/h2&gt;
+
+&lt;p&gt;The quota rows already say "empty in 1h 40m" when a window will not last until
+it resets. Glyphline now also sends a notification when that moment is close —
+within half an hour, or within one sync interval if yours is longer — once per
+window and reset. Click it and the dashboard opens. This needs a Claude
+subscription signed in under Accounts.&lt;/p&gt;
+
+&lt;h2&gt;Smaller&lt;/h2&gt;
+
+&lt;ul&gt;
+&lt;li&gt;The menu bar shows Glyphline's own gauge instead of a stand-in symbol.&lt;/li&gt;
+&lt;li&gt;If a one-time correction ever recalculates your recorded usage, the dashboard
+now says so until you dismiss it, instead of leaving a step in your charts with
+no explanation.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;The first notification asks macOS for permission. Requires macOS 26.&lt;/p&gt;</description>
+      <enclosure url="https://github.com/marco-scheffler/glyphline/releases/download/v1.9/Glyphline-1.9.zip" length="6174493" type="application/octet-stream" sparkle:edSignature="PHn6qaUn206xCUx/XiPfnjYgVwgsbbYols+x2LPYUGXqZYjUnM6XJjf0pq8carOLSDmr0wf1WA2VoisxplMfAw==" />
+    </item>
+    <item>
       <title>1.8</title>
       <pubDate>Mon, 12 Oct 2026 15:51:01 +0000</pubDate>
       <sparkle:version>9</sparkle:version>
