@@ -1,3 +1,4 @@
+import Combine
 import SwiftUI
 import UserNotifications
 
@@ -13,8 +14,12 @@ enum NotificationDestination: Equatable {
 /// through the existing launchers. Two roots may be listening at once (the menu
 /// bar label and an open window), so a destination is consumed once.
 ///
-/// In window-only mode with every window closed no root is alive to listen; the
-/// click then only activates the app, and the Dock icon reopens it. Accepted.
+/// Listeners subscribe to `$pending`, which emits on every assignment (so a
+/// second click on the same category opens again) and hands its current value
+/// to a new subscriber. In window-only mode with every window closed no root is
+/// alive to listen; the destination then stays pending, and the root that mounts
+/// next (the Dock icon reopening a window) opens it — which is what the click
+/// asked for.
 @MainActor
 final class NotificationRouter: NSObject, ObservableObject, UNUserNotificationCenterDelegate {
     @Published private(set) var pending: NotificationDestination?
@@ -50,7 +55,7 @@ final class NotificationRouter: NSObject, ObservableObject, UNUserNotificationCe
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification
     ) async -> UNNotificationPresentationOptions {
-        [.banner]
+        [.banner, .list]
     }
 }
 
@@ -59,8 +64,7 @@ private struct NotificationDestinationListener: ViewModifier {
     @Environment(\.openWindow) private var openWindow
 
     func body(content: Content) -> some View {
-        content.onChange(of: router.pending) { _, pending in
-            guard pending != nil else { return }
+        content.onReceive(router.$pending.compactMap { $0 }) { _ in
             switch router.consume() {
             case .agentverse: AgentverseLauncher.open(using: openWindow)
             case .dashboard: DashboardLauncher.open(using: openWindow)
