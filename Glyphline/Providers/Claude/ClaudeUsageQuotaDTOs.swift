@@ -2,10 +2,11 @@ import Foundation
 
 /// Decodes claude.ai's usage response.
 ///
-/// Only `five_hour` and `seven_day` are part of the contract. The response also
-/// carries internal codename fields (`tangelo`, `nimbus_quill`, …) that are
-/// always null and may vanish, and billing fields (`spend`, `extra_usage`) that
-/// belong to the cost ledger rather than here. Both are deliberately unread.
+/// The contract is `five_hour`, `seven_day`, and from `limits` only the weekly
+/// allowances confined to one model, which appear nowhere else. The response
+/// also carries internal codename fields (`tangelo`, `nimbus_quill`, …) that
+/// are always null and may vanish, and billing fields (`spend`, `extra_usage`)
+/// that belong to the cost ledger rather than here. Both are deliberately unread.
 struct ClaudeUsageResponse: Decodable, Equatable, Sendable {
     /// Both fields are tolerated as absent, null or — for the date — malformed.
     /// A subscription with no active window reports no reset instant, and that
@@ -44,12 +45,61 @@ struct ClaudeUsageResponse: Decodable, Equatable, Sendable {
         }
     }
 
+    /// `limits`, read for one thing: a weekly allowance confined to a model.
+    ///
+    /// Its other entries repeat what `five_hour` and `seven_day` already say
+    /// (`session`, `weekly_all`) and are not read twice. The list is the newest
+    /// part of the response and has been seen as an empty *object*, so any
+    /// shape other than a list of objects costs the model windows and nothing
+    /// else — never the decode of the two windows beside it.
+    struct ModelLimits: Decodable, Equatable, Sendable {
+        struct Entry: Decodable, Equatable, Sendable {
+            var kind: String?
+            /// 0…100 of the model's own allowance, like `utilization`.
+            var percent: Double?
+            var resetsAt: Date?
+            /// `scope.model.display_name`. The model's `id` is null in practice,
+            /// so the name is the only handle there is.
+            var model: String?
+
+            private enum CodingKeys: String, CodingKey {
+                case kind
+                case percent
+                case resetsAt = "resets_at"
+                case scope
+            }
+
+            private enum ScopeKeys: String, CodingKey { case model }
+            private enum ModelKeys: String, CodingKey { case displayName = "display_name" }
+
+            /// Every field optional and every failure local, for the reason the
+            /// windows above give: one odd value must not take its neighbours.
+            init(from decoder: any Decoder) throws {
+                let container = try decoder.container(keyedBy: CodingKeys.self)
+                kind = (try? container.decodeIfPresent(String.self, forKey: .kind)) ?? nil
+                percent = (try? container.decodeIfPresent(Double.self, forKey: .percent)) ?? nil
+                resetsAt = (try? container.decodeIfPresent(Date.self, forKey: .resetsAt)) ?? nil
+                let scope = try? container.nestedContainer(keyedBy: ScopeKeys.self, forKey: .scope)
+                let model = try? scope?.nestedContainer(keyedBy: ModelKeys.self, forKey: .model)
+                self.model = (try? model?.decodeIfPresent(String.self, forKey: .displayName)) ?? nil
+            }
+        }
+
+        var entries: [Entry]
+
+        init(from decoder: any Decoder) throws {
+            entries = (try? decoder.singleValueContainer().decode([Entry].self)) ?? []
+        }
+    }
+
     var fiveHour: Window?
     var sevenDay: Window?
+    var limits: ModelLimits?
 
     private enum CodingKeys: String, CodingKey {
         case fiveHour = "five_hour"
         case sevenDay = "seven_day"
+        case limits
     }
 
     static func decode(_ data: Data) throws -> ClaudeUsageResponse {
@@ -109,6 +159,28 @@ struct ClaudeUsageResponse: Decodable, Equatable, Sendable {
                     usedFraction: window.utilization.map { $0 / 100 },
                     resetAt: window.resetsAt,
                     observedAt: observedAt
+                )
+            )
+        }
+
+        // A model's weekly allowance — Fable's, since the plans were renamed —
+        // is a window of its own, named by the model. An entry naming no model
+        // cannot be labelled, and a second entry for the same model would be a
+        // second row claiming to be the same limit; both are skipped.
+        var models: Set<String> = []
+        for entry in limits?.entries ?? [] where entry.kind == "weekly_scoped" {
+            guard let model = entry.model?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !model.isEmpty,
+                  models.insert(model).inserted
+            else { continue }
+
+            windows.append(
+                RateWindow(
+                    kind: .weekly,
+                    usedFraction: entry.percent.map { $0 / 100 },
+                    resetAt: entry.resetsAt,
+                    observedAt: observedAt,
+                    model: model
                 )
             )
         }

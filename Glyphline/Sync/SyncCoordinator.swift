@@ -57,18 +57,33 @@ final class SyncCoordinator: ObservableObject {
     /// intervals — a grey icon minutes after a good fetch, precisely for the
     /// idle user the feature exists for.
     ///
-    /// Per kind, not merely per account: window kinds are fetched and can fail
+    /// Per window, not merely per account: windows are fetched and can fail
     /// independently, and one timestamp for all of them would let a freshly
-    /// confirmed window vouch for one nobody managed to fetch.
+    /// confirmed window vouch for one nobody managed to fetch. Per window and not
+    /// per kind, since a model's weekly allowance is `.weekly` too.
     ///
     /// In memory only. After a relaunch nothing is confirmed yet and the stored
     /// `observedAt` stands in until the first fetch, which the menu triggers on
     /// open.
-    private var rateWindowConfirmations: [UUID: [RateWindowKind: Date]] = [:]
+    private var rateWindowConfirmations: [UUID: [RateWindowID: Date]] = [:]
 
     private func confirm(_ window: RateWindow, accountID: UUID) {
-        rateWindowConfirmations[accountID, default: [:]][window.kind] = window.observedAt
+        rateWindowConfirmations[accountID, default: [:]][window.id] = window.observedAt
     }
+
+    /// The windows each account's last successful fetch reported.
+    ///
+    /// A limit the provider stops sending — the five-hour window of a plan that
+    /// dropped it, a model's allowance after the model is retired — keeps its
+    /// newest stored row for the whole retention year, and the menu would show
+    /// that row as "5h 62% (as of …)" all the while. The menu shows only what
+    /// the provider still reports; the ledger keeps the history.
+    ///
+    /// Set only by a fetch that answered: a failure says nothing about which
+    /// windows exist. In memory only, like the confirmations — after a relaunch
+    /// every stored window shows until the first fetch, which the menu triggers
+    /// on open.
+    private var rateWindowsReported: [UUID: Set<RateWindowID>] = [:]
 
     /// What the menu renders: every enabled account, including those with no
     /// data, which appear with their reason rather than being filtered out.
@@ -253,7 +268,7 @@ final class SyncCoordinator: ObservableObject {
     /// Cycles already warned about, so a window running out is announced once per
     /// reset and not on every tick. In memory only: a relaunch inside the same
     /// cycle may warn once more, which is cheaper than persisting it.
-    private struct RunwayKey: Hashable { let accountID: UUID; let kind: RateWindowKind; let resetAt: Date }
+    private struct RunwayKey: Hashable { let accountID: UUID; let window: RateWindowID; let resetAt: Date }
     private var runwayWarned: Set<RunwayKey> = []
     private let quotaRunwayWarningsEnabled: @MainActor () -> Bool
 
@@ -452,6 +467,7 @@ final class SyncCoordinator: ObservableObject {
                 rateWindowFailureCodes[account.id] = result.failureCode
                 // The fetch worked, so the next expiry is a fresh transition.
                 sessionExpiryNotified.remove(account.id)
+                rateWindowsReported[account.id] = Set(result.windows.map(\.id))
                 // Only readings the ledger believed may warn: an implausible one
                 // would announce nonsense and spend the cycle's one warning.
                 var believed: [RateWindow] = []
@@ -487,13 +503,15 @@ final class SyncCoordinator: ObservableObject {
             .sorted { Self.precedes($0.resolvedName, $0.id, $1.resolvedName, $1.id) }
             .map { account in
                 let confirmations = rateWindowConfirmations[account.id] ?? [:]
-                let latest = (try? ledger.fetchLatestRateWindows(accountID: account.id)) ?? []
+                let reported = rateWindowsReported[account.id]
+                let latest = ((try? ledger.fetchLatestRateWindows(accountID: account.id)) ?? [])
+                    .filter { reported?.contains($0.id) ?? true }
 
                 return QuotaAccountState(
                     accountID: account.id,
                     displayName: account.resolvedName,
                     windows: latest.map {
-                        QuotaWindowState(window: $0, confirmedAt: confirmations[$0.kind])
+                        QuotaWindowState(window: $0, confirmedAt: confirmations[$0.id])
                     },
                     message: rateWindowMessages[account.id],
                     failureCode: rateWindowFailureCodes[account.id]
@@ -531,11 +549,11 @@ final class SyncCoordinator: ObservableObject {
         let leadTime = QuotaRunwayRule.leadTime(syncInterval: currentIntervalSeconds)
         for runway in QuotaRunwayRule.runningOut(windows, now: now(), leadTime: leadTime) {
             guard let resetAt = runway.window.resetAt else { continue }
-            let key = RunwayKey(accountID: account.id, kind: runway.window.kind, resetAt: resetAt)
+            let key = RunwayKey(accountID: account.id, window: runway.window.id, resetAt: resetAt)
             guard runwayWarned.insert(key).inserted else { continue }
             await notifier.notifyQuotaRunningOut(
                 accountDisplayName: account.resolvedName,
-                kind: runway.window.kind,
+                window: runway.window.id,
                 timeToEmpty: runway.timeToEmpty
             )
         }
@@ -598,6 +616,7 @@ final class SyncCoordinator: ObservableObject {
         rateWindowMessages[accountID] = nil
         rateWindowFailureCodes[accountID] = nil
         rateWindowConfirmations[accountID] = nil
+        rateWindowsReported[accountID] = nil
         // Defence in depth, and provably a no-op today: the in-flight marker is
         // inserted and removed within one iteration of `collectRateWindows` via
         // `defer`, so it is always empty between ticks and no test can observe

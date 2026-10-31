@@ -7,7 +7,7 @@ import Foundation
 final class RecordingNotifier: UserNotifier {
     private(set) var sentNames: [String] = []
     private(set) var waitingBatches: [[WaitingAgent]] = []
-    private(set) var runwayWarnings: [(name: String, kind: RateWindowKind, timeToEmpty: TimeInterval)] = []
+    private(set) var runwayWarnings: [(name: String, window: RateWindowID, timeToEmpty: TimeInterval)] = []
 
     var sentCount: Int { sentNames.count }
 
@@ -19,7 +19,7 @@ final class RecordingNotifier: UserNotifier {
         await MainActor.run { waitingBatches.append(agents) }
     }
 
-    nonisolated func notifyQuotaRunningOut(accountDisplayName: String, kind: RateWindowKind, timeToEmpty: TimeInterval) async {
-        await MainActor.run { runwayWarnings.append((accountDisplayName, kind, timeToEmpty)) }
+    nonisolated func notifyQuotaRunningOut(accountDisplayName: String, window: RateWindowID, timeToEmpty: TimeInterval) async {
+        await MainActor.run { runwayWarnings.append((accountDisplayName, window, timeToEmpty)) }
     }
 }

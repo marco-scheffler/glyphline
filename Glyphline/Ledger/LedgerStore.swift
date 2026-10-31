@@ -1012,7 +1012,7 @@ final class LedgerStore {
     }
 
     /// Appends an observation, but only when it differs from the newest one for
-    /// the same account and kind. A window moves stepwise, so dropping repeats
+    /// the same account and window — kind and model. A window moves stepwise, so dropping repeats
     /// keeps the *value* series exact and takes the yearly volume from ~500k rows
     /// to ~15k.
     ///
@@ -1039,6 +1039,9 @@ final class LedgerStore {
             let newest = try RateWindowSampleRecord
                 .filter(Column(LedgerColumn.accountID) == accountID.uuidString)
                 .filter(Column(LedgerColumn.kind) == window.kind.rawValue)
+                // `== nil` is `IS NULL`: the subscription's own window is a
+                // series of its own, not a wildcard over every model's.
+                .filter(Column(LedgerColumn.model) == window.model)
                 .order(Column(LedgerColumn.observedAt).desc)
                 .fetchOne(db)
 
@@ -1054,13 +1057,43 @@ final class LedgerStore {
         return true
     }
 
-    /// The newest observation for each kind this account has ever reported.
+    /// The newest observation for each window this account has ever reported:
+    /// per kind, and within a kind per model.
+    ///
+    /// Ordered by kind as declared, the subscription's own window before any
+    /// model's, and models by name, so the rows keep their places between ticks.
     func fetchLatestRateWindows(accountID: UUID) throws -> [RateWindow] {
         try dbQueue.read { db in
-            try RateWindowKind.allCases.compactMap { kind in
-                try RateWindowSampleRecord
-                    .filter(Column(LedgerColumn.accountID) == accountID.uuidString)
-                    .filter(Column(LedgerColumn.kind) == kind.rawValue)
+            let samples = RateWindowSampleRecord
+                .filter(Column(LedgerColumn.accountID) == accountID.uuidString)
+
+            let windows = try samples
+                .select(Column(LedgerColumn.kind), Column(LedgerColumn.model))
+                .distinct()
+                .asRequest(of: Row.self)
+                .fetchAll(db)
+                .compactMap { row -> RateWindowID? in
+                    // A kind this build does not know is skipped, as `window`
+                    // skips it, rather than failing the whole read.
+                    guard let kind = RateWindowKind(rawValue: row[LedgerColumn.kind]) else { return nil }
+                    return RateWindowID(kind: kind, model: row[LedgerColumn.model])
+                }
+                .sorted { lhs, rhs in
+                    let order = RateWindowKind.allCases
+                    if lhs.kind != rhs.kind {
+                        return (order.firstIndex(of: lhs.kind) ?? 0) < (order.firstIndex(of: rhs.kind) ?? 0)
+                    }
+                    switch (lhs.model, rhs.model) {
+                    case (nil, _): return rhs.model != nil
+                    case (_, nil): return false
+                    case let (left?, right?): return left < right
+                    }
+                }
+
+            return try windows.compactMap { id in
+                try samples
+                    .filter(Column(LedgerColumn.kind) == id.kind.rawValue)
+                    .filter(Column(LedgerColumn.model) == id.model)
                     .order(Column(LedgerColumn.observedAt).desc)
                     .fetchOne(db)?
                     .window

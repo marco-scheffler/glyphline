@@ -8,6 +8,28 @@ final class RateWindowTests: XCTestCase {
         RateWindow(kind: .rollingFiveHours, usedFraction: used, resetAt: resetAt, observedAt: now)
     }
 
+    /// A model's limit is named after the model, as the provider spells it; the
+    /// plain windows keep the names they always had.
+    func testAModelLimitIsNamedAfterItsModel() {
+        let fable = RateWindowID(kind: .weekly, model: "Fable")
+        XCTAssertEqual(fable.shortName, "Fable")
+        XCTAssertEqual(fable.longName, "Fable · Weekly")
+
+        let plain = RateWindowID(kind: .weekly, model: nil)
+        XCTAssertEqual(plain.shortName, RateWindowKind.weekly.shortName)
+        XCTAssertEqual(plain.longName, RateWindowKind.weekly.longName)
+    }
+
+    /// Only a limit on the whole subscription says whether it can be used. A
+    /// spent model allowance leaves every other model running.
+    func testOnlyALimitOnTheWholeSubscriptionDecidesHeadroom() {
+        XCTAssertTrue(window(used: 0.4, resetAt: nil).decidesHeadroom)
+        XCTAssertFalse(
+            RateWindow(kind: .weekly, usedFraction: 0.4, resetAt: nil, observedAt: now, model: "Fable")
+                .decidesHeadroom
+        )
+    }
+
     /// The reading a freshly added subscription produces: a real fraction and no
     /// window running, because a rolling window only starts on first use. Calling
     /// that implausible discarded "nothing consumed, everything left" — the most

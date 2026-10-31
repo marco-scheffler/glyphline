@@ -642,7 +642,7 @@ final class SyncCoordinatorTests: XCTestCase {
         await coordinator.collectRateWindows()
 
         XCTAssertEqual(notifier.runwayWarnings.count, 1)
-        XCTAssertEqual(notifier.runwayWarnings.first?.kind, .rollingFiveHours)
+        XCTAssertEqual(notifier.runwayWarnings.first?.window.kind, .rollingFiveHours)
     }
 
     func testTheSameCycleWarnsOnceAndANewCycleWarnsAgain() async throws {
@@ -684,6 +684,89 @@ final class SyncCoordinatorTests: XCTestCase {
         await coordinator.collectRateWindows()
 
         XCTAssertEqual(notifier.runwayWarnings.count, 2)
+    }
+
+    /// The Fable allowance and the plain weekly window share a kind and here a
+    /// reset instant too. Keyed on the kind, the second warning would read as a
+    /// repeat of the first and never be sent.
+    func testAModelLimitAndThePlainWindowOfItsKindWarnSeparately() async throws {
+        let notifier = RecordingNotifier()
+        let resetAt = Self.now.addingTimeInterval(3 * 3600)
+        let source = FixedWindowsSource(windows: [
+            RateWindow(kind: .weekly, usedFraction: 0.999, resetAt: resetAt, observedAt: Self.now),
+            RateWindow(kind: .weekly, usedFraction: 0.999, resetAt: resetAt, observedAt: Self.now, model: "Fable"),
+        ])
+        let coordinator = try makeRunwayCoordinator(source: source, notifier: notifier)
+
+        await coordinator.collectRateWindows()
+
+        XCTAssertEqual(notifier.runwayWarnings.map(\.window.model), [nil, "Fable"])
+    }
+
+    // MARK: - Windows the provider stopped reporting
+
+    /// A plan that drops its five-hour limit stops sending it. The last stored
+    /// reading must not stand in the menu for a year as "5h 62% (as of …)".
+    func testAWindowTheLatestFetchNoLongerReportsIsNotShown() async throws {
+        let (_, ledger) = try makeLedger()
+        let now = Self.now
+        let account = try saveAccount("Max #1", in: ledger)
+        try ledger.saveRateWindow(
+            RateWindow(kind: .rollingFiveHours, usedFraction: 0.62,
+                       resetAt: now.addingTimeInterval(1_800),
+                       observedAt: now.addingTimeInterval(-600)),
+            accountID: account.id
+        )
+
+        let coordinator = SyncCoordinator(
+            ledger: ledger,
+            credentials: InMemoryCredentialStore(),
+            registry: ProviderAdapterRegistry(),
+            now: { now },
+            rateWindowSourceProvider: { _ in
+                StableRateWindowSource(
+                    window: RateWindow(kind: .weekly, usedFraction: 0.1,
+                                       resetAt: now.addingTimeInterval(86_400), observedAt: now)
+                )
+            }
+        )
+
+        await coordinator.collectRateWindows()
+
+        XCTAssertEqual(coordinator.quotaStates.first?.windows.map(\.window.kind), [.weekly])
+        XCTAssertEqual(
+            Set(try ledger.fetchLatestRateWindows(accountID: account.id).map(\.kind)),
+            [.rollingFiveHours, .weekly],
+            "hidden, not deleted: the history stays in the ledger"
+        )
+    }
+
+    /// The other side: a fetch that failed said nothing about which windows
+    /// exist, so it must not hide any.
+    func testAFailedFetchStillShowsTheStoredWindows() async throws {
+        let (_, ledger) = try makeLedger()
+        let now = Self.now
+        let account = try saveAccount("Max #1", in: ledger)
+        try ledger.saveRateWindow(
+            RateWindow(kind: .rollingFiveHours, usedFraction: 0.62,
+                       resetAt: now.addingTimeInterval(1_800),
+                       observedAt: now.addingTimeInterval(-600)),
+            accountID: account.id
+        )
+
+        let coordinator = SyncCoordinator(
+            ledger: ledger,
+            credentials: InMemoryCredentialStore(),
+            registry: ProviderAdapterRegistry(),
+            now: { now },
+            rateWindowSourceProvider: { _ in
+                FixtureRateWindowSource(now: { now }, behaviour: .unavailable)
+            }
+        )
+
+        await coordinator.collectRateWindows()
+
+        XCTAssertEqual(coordinator.quotaStates.first?.windows.map(\.window.kind), [.rollingFiveHours])
     }
 
     func testWarningsOffDeliversNothing() async throws {
@@ -1238,6 +1321,15 @@ private struct StableRateWindowSource: RateWindowSource {
 
     func fetchWindows(account: Account, secret: String?) async throws -> RateWindowResult {
         RateWindowResult(windows: [window], dataQuality: .partial, message: nil)
+    }
+}
+
+/// Returns the same windows every time.
+private struct FixedWindowsSource: RateWindowSource {
+    let windows: [RateWindow]
+
+    func fetchWindows(account: Account, secret: String?) async throws -> RateWindowResult {
+        RateWindowResult(windows: windows, dataQuality: .exact, message: nil)
     }
 }
 

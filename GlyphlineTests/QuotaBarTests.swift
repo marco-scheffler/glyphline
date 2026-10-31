@@ -33,7 +33,7 @@ final class QuotaBarTests: XCTestCase {
         state: QuotaCardState = .ok
     ) -> QuotaCardModel {
         QuotaCardModel(
-            kind: .rollingFiveHours,
+            window: RateWindowID(kind: .rollingFiveHours, model: nil),
             usedFraction: used,
             headroomFraction: 1 - used,
             usedPercent: Int((used * 100).rounded()),

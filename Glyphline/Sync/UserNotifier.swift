@@ -29,7 +29,7 @@ enum NotificationCategory: String {
 protocol UserNotifier: Sendable {
     func notifySessionExpired(accountDisplayName: String) async
     func notifyAgentsWaiting(_ agents: [WaitingAgent], now: Date) async
-    func notifyQuotaRunningOut(accountDisplayName: String, kind: RateWindowKind, timeToEmpty: TimeInterval) async
+    func notifyQuotaRunningOut(accountDisplayName: String, window: RateWindowID, timeToEmpty: TimeInterval) async
 }
 
 /// The words, kept apart from delivery so they can be tested.
@@ -61,9 +61,9 @@ enum UserNotificationText {
         )
     }
 
-    static func quotaRunningOut(kind: RateWindowKind, timeToEmpty: TimeInterval) -> String {
+    static func quotaRunningOut(window: RateWindowID, timeToEmpty: TimeInterval) -> String {
         String(
-            localized: "\(kind.longName) window empty in about \(QuotaIndicator.compactDuration(timeToEmpty)) at this pace",
+            localized: "\(window.longName) window empty in about \(QuotaIndicator.compactDuration(timeToEmpty)) at this pace",
             comment: "Notification body warning that a quota window will run out before it resets. Placeholders: the window's name such as '5-hour' or 'Weekly', then a duration such as '20m'."
         )
     }
@@ -88,9 +88,9 @@ struct SystemUserNotifier: UserNotifier {
         await deliver(title: text.title, body: text.body, category: .agentsWaiting)
     }
 
-    func notifyQuotaRunningOut(accountDisplayName: String, kind: RateWindowKind, timeToEmpty: TimeInterval) async {
+    func notifyQuotaRunningOut(accountDisplayName: String, window: RateWindowID, timeToEmpty: TimeInterval) async {
         await deliver(title: accountDisplayName,
-                      body: UserNotificationText.quotaRunningOut(kind: kind, timeToEmpty: timeToEmpty),
+                      body: UserNotificationText.quotaRunningOut(window: window, timeToEmpty: timeToEmpty),
                       category: .quotaRunway)
     }
 

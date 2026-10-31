@@ -168,6 +168,19 @@ final class QuotaCardModelTests: XCTestCase {
         XCTAssertEqual(card.state, .ok)
     }
 
+    /// Two weekly cards side by side: SwiftUI needs two identities, and the
+    /// reader needs to see which one is the Fable allowance.
+    func testAModelLimitsCardIsIdentifiedAndNamedApartFromThePlainWindow() throws {
+        let plain = try XCTUnwrap(QuotaCardModel.make(for: window(.weekly, used: 0.4, resetIn: 86_400), now: now))
+        var fableWindow = window(.weekly, used: 0.4, resetIn: 86_400)
+        fableWindow.model = "Fable"
+        let fable = try XCTUnwrap(QuotaCardModel.make(for: fableWindow, now: now))
+
+        XCTAssertNotEqual(plain.id, fable.id)
+        XCTAssertEqual(DashboardPresentation.quotaWindowLabel(for: plain.window), "Weekly")
+        XCTAssertEqual(DashboardPresentation.quotaWindowLabel(for: fable.window), "Fable · Weekly")
+    }
+
     /// Without a reported fraction there is no bar to draw and no honest state.
     func testWindowWithoutAFractionProducesNoCard() {
         XCTAssertNil(QuotaCardModel.make(for: window(used: nil, resetIn: fiveHours), now: now))

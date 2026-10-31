@@ -322,7 +322,8 @@ final class MigrationTests: XCTestCase {
     /// read — which runs on every menu open — silently degrades to a scan.
     func testV8LeavesTheSampleIndexInPlace() throws {
         let dbQueue = try DatabaseQueueFactory.makeInMemory()
-        try Migrations.makeMigrator().migrate(dbQueue)
+        // Up to v15 only: v16 replaces this index with one that names the model.
+        try Migrations.makeMigrator().migrate(dbQueue, upTo: "v15_local_token_usage_local_days")
 
         try dbQueue.read { db in
             let indexes = try db.indexes(on: LedgerTable.rateWindowSamples)
@@ -333,6 +334,26 @@ final class MigrationTests: XCTestCase {
             XCTAssertEqual(
                 sampleIndex.columns,
                 [LedgerColumn.accountID, LedgerColumn.kind, LedgerColumn.observedAt]
+            )
+        }
+    }
+
+    /// Since v16 the newest sample is looked up per kind *and* model; an index
+    /// without the model would leave that read scanning every model's rows.
+    func testV16IndexesTheSamplesByModelToo() throws {
+        let dbQueue = try DatabaseQueueFactory.makeInMemory()
+        try Migrations.makeMigrator().migrate(dbQueue)
+
+        try dbQueue.read { db in
+            let indexes = try db.indexes(on: LedgerTable.rateWindowSamples)
+            XCTAssertEqual(
+                indexes.map(\.name).filter { !$0.hasPrefix("sqlite_") },
+                ["index_rateWindowSamples_on_account_kind_model_observedAt"],
+                "the v8 index is replaced, not kept beside it"
+            )
+            XCTAssertEqual(
+                indexes.first { $0.name == "index_rateWindowSamples_on_account_kind_model_observedAt" }?.columns,
+                [LedgerColumn.accountID, LedgerColumn.kind, LedgerColumn.model, LedgerColumn.observedAt]
             )
         }
     }
@@ -450,6 +471,47 @@ final class MigrationTests: XCTestCase {
             observedAt.addingTimeInterval(86_400).timeIntervalSince1970,
             accuracy: 0.001
         )
+    }
+
+    /// v16 names the model a limit is confined to. Every sample written before
+    /// it was a limit on the whole subscription, so it must come back with no
+    /// model — and the table must take a model's window beside it.
+    func testV16KeepsEveryEarlierSampleAsALimitOnTheWholeSubscription() throws {
+        let dbQueue = try DatabaseQueueFactory.makeInMemory()
+        let migrator = Migrations.makeMigrator()
+        try migrator.migrate(dbQueue, upTo: "v15_local_token_usage_local_days")
+
+        let accountID = UUID()
+        let observedAt = Date(timeIntervalSince1970: 1_799_000_000)
+        let resetAt = observedAt.addingTimeInterval(86_400)
+        try dbQueue.write { db in
+            try db.execute(
+                sql: """
+                    INSERT INTO rateWindowSamples (id, accountID, kind, observedAt, usedFraction, resetAt)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                arguments: [
+                    UUID().uuidString, accountID.uuidString, RateWindowKind.weekly.rawValue,
+                    observedAt, 0.31, resetAt,
+                ]
+            )
+        }
+
+        try migrator.migrate(dbQueue)
+
+        let store = LedgerStore(dbQueue: dbQueue)
+        let before = try store.fetchLatestRateWindows(accountID: accountID)
+        XCTAssertEqual(before.map(\.model), [nil])
+        XCTAssertEqual(try XCTUnwrap(before.first?.usedFraction), 0.31, accuracy: 1e-9)
+
+        XCTAssertTrue(
+            try store.saveRateWindow(
+                RateWindow(kind: .weekly, usedFraction: 0.31, resetAt: resetAt,
+                           observedAt: observedAt, model: "Fable"),
+                accountID: accountID
+            )
+        )
+        XCTAssertEqual(try store.fetchLatestRateWindows(accountID: accountID).map(\.model), [nil, "Fable"])
     }
 
     /// The table is new, so nothing is carried across — what matters is that a
