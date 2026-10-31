@@ -6,6 +6,33 @@
     <description>Updates für Glyphline</description>
     <language>en</language>
     <item>
+      <title>1.10</title>
+      <pubDate>Sat, 31 Oct 2026 10:37:05 +0000</pubDate>
+      <sparkle:version>11</sparkle:version>
+      <sparkle:shortVersionString>1.10</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+      <description>&lt;h2&gt;The Fable allowance has a row of its own&lt;/h2&gt;
+
+&lt;p&gt;Claude now reports a separate weekly allowance for Fable, next to the weekly
+limit on everything else. Glyphline did not read it, so the menu could show
+plenty of weekly quota left while Fable was already used up. It now has its own
+row in the menu bar panel and its own card on the dashboard, with the same reset
+countdown, pace and running-out warning as the other windows.&lt;/p&gt;
+
+&lt;p&gt;A spent Fable allowance turns its own row red, but not the menu bar status:
+every other model still works.&lt;/p&gt;
+
+&lt;h2&gt;Windows that no longer exist disappear&lt;/h2&gt;
+
+&lt;p&gt;Verified Ultra accounts no longer have a five-hour limit. When Claude stops
+reporting a window, Glyphline stops showing it after the next successful update,
+instead of keeping the last figure on screen marked "as of …". Your recorded
+history is kept.&lt;/p&gt;
+
+&lt;p&gt;Requires macOS 26.&lt;/p&gt;</description>
+      <enclosure url="https://github.com/marco-scheffler/glyphline/releases/download/v1.10/Glyphline-1.10.zip" length="6208912" type="application/octet-stream" sparkle:edSignature="rhIHTW9ycXa5Is1Q/c74VyXl5gd9SrwNsULm+RFxWWpqqVBaHgUQ2GBclBzVcSIyu2qClp/rlOQvz7EkfzuGAA==" />
+    </item>
+    <item>
       <title>1.9</title>
       <pubDate>Mon, 12 Oct 2026 21:22:03 +0000</pubDate>
       <sparkle:version>10</sparkle:version>
