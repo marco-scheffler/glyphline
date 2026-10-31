@@ -404,6 +404,9 @@ struct RateWindowSampleRecord: Codable, FetchableRecord, PersistableRecord, Tabl
     /// Nullable since v8: a window with no active reset is a state worth
     /// storing, not a row to discard.
     var resetAt: Date?
+    /// Since v16. Null for a limit on the whole subscription, which every row
+    /// written before v16 was.
+    var model: String?
 
     init(_ window: RateWindow, accountID: UUID) {
         // A fresh UUID per observation, unlike the snapshot tables where
@@ -416,6 +419,7 @@ struct RateWindowSampleRecord: Codable, FetchableRecord, PersistableRecord, Tabl
         observedAt = window.observedAt
         usedFraction = window.usedFraction
         resetAt = window.resetAt
+        model = window.model
     }
 
     var window: RateWindow? {
@@ -424,7 +428,8 @@ struct RateWindowSampleRecord: Codable, FetchableRecord, PersistableRecord, Tabl
             kind: kind,
             usedFraction: usedFraction,
             resetAt: resetAt,
-            observedAt: observedAt
+            observedAt: observedAt,
+            model: model
         )
     }
 }

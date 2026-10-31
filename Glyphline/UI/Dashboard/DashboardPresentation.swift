@@ -623,11 +623,11 @@ enum DashboardPresentation {
     ///
     /// Spelled out rather than reusing the menu bar's "5h" / "Week". Those are
     /// sized for a row a few points wide; a card has the room to say what it
-    /// means. Both readings are `RateWindowKind`'s own, named `shortName` and
-    /// `longName` so the difference between them is visible at each call site
-    /// and neither can be renamed without the other in view.
-    static func quotaWindowLabel(for kind: RateWindowKind) -> String {
-        kind.longName
+    /// means. Both readings belong to the window's identity, named `shortName`
+    /// and `longName` so the difference between them is visible at each call
+    /// site and neither can be renamed without the other in view.
+    static func quotaWindowLabel(for window: RateWindowID) -> String {
+        window.longName
     }
 
     // MARK: - Wording

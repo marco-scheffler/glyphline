@@ -10755,6 +10755,59 @@
         }
       }
     },
+    "quotaWindow.model.long" : {
+      "comment" : "Spelled-out name of a quota window confined to one model, dashboard card and notification. Placeholders: the model's product name such as 'Fable' (never translated), then the window's name such as 'Weekly'.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ · %2$@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ · %2$@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ · %2$@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ · %2$@"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ · %2$@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@・%2$@"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ · %2$@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ · %2$@"
+          }
+        }
+      }
+    },
     "quotaWindow.weekly.short" : {
       "comment" : "Terse name of the weekly quota window, menu bar row, beside '5h' and 'Cycle'. Names the provider's rolling weekly rate-limit window, not a calendar week. Keep it short — the row is a few points wide.",
       "localizations" : {

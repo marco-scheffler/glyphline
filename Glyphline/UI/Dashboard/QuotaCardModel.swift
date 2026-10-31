@@ -23,7 +23,7 @@ enum QuotaCardState: Equatable, Sendable {
 /// draws drains rather than fills, so a bar *short* of the marker is the one
 /// that will not survive to its reset.
 struct QuotaCardModel: Identifiable, Equatable, Sendable {
-    var kind: RateWindowKind
+    var window: RateWindowID
     /// What the provider says is consumed, clamped to 0…1. A figure outside that
     /// range is a provider defect, and a bar drawn from it would run off its
     /// track or backwards.
@@ -55,7 +55,7 @@ struct QuotaCardModel: Identifiable, Equatable, Sendable {
     var resetText: String?
     var state: QuotaCardState
 
-    var id: RateWindowKind { kind }
+    var id: RateWindowID { window }
 
     /// `nil` when the window reports no consumed fraction: there is no bar to
     /// draw and no honest state to name. An unknown usage is not "nothing used".
@@ -71,7 +71,7 @@ struct QuotaCardModel: Identifiable, Equatable, Sendable {
         let pace = pacePosition(for: window, now: now)
 
         return QuotaCardModel(
-            kind: window.kind,
+            window: window.id,
             usedFraction: used,
             headroomFraction: headroom,
             usedPercent: percent(used),

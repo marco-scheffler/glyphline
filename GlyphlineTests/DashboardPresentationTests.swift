@@ -340,8 +340,8 @@ final class DashboardPresentationTests: XCTestCase {
     /// The card header names the account; the rows inside only have to name
     /// their window. These are the words the rows carry.
     func testTheWindowLabelsAreSpelledOutRatherThanAbbreviated() {
-        XCTAssertEqual(DashboardPresentation.quotaWindowLabel(for: .rollingFiveHours), "5-hour")
-        XCTAssertEqual(DashboardPresentation.quotaWindowLabel(for: .weekly), "Weekly")
+        XCTAssertEqual(DashboardPresentation.quotaWindowLabel(for: RateWindowID(kind: .rollingFiveHours, model: nil)), "5-hour")
+        XCTAssertEqual(DashboardPresentation.quotaWindowLabel(for: RateWindowID(kind: .weekly, model: nil)), "Weekly")
     }
 
     /// The card's long name and the menu bar's short one are two readings of one
@@ -354,8 +354,9 @@ final class DashboardPresentationTests: XCTestCase {
     /// state this replaced.
     func testBothReadingsOfAWindowKindComeFromTheKindItself() {
         for kind in RateWindowKind.allCases {
-            XCTAssertEqual(DashboardPresentation.quotaWindowLabel(for: kind), kind.longName)
-            XCTAssertEqual(QuotaIndicator.labelAndVerb(for: kind).label, kind.shortName)
+            let window = RateWindowID(kind: kind, model: nil)
+            XCTAssertEqual(DashboardPresentation.quotaWindowLabel(for: window), kind.longName)
+            XCTAssertEqual(QuotaIndicator.labelAndVerb(for: window).label, kind.shortName)
             // Two readings, not two words for the same job: the short one is
             // there because it is shorter.
             XCTAssertLessThan(kind.shortName.count, kind.longName.count, "\(kind)")
@@ -367,7 +368,9 @@ final class DashboardPresentationTests: XCTestCase {
     /// figure twice instead of two windows. Every kind, so a fourth added later
     /// cannot quietly duplicate an existing label.
     func testEveryWindowKindHasItsOwnLabel() {
-        let labels = RateWindowKind.allCases.map { DashboardPresentation.quotaWindowLabel(for: $0) }
+        let labels = RateWindowKind.allCases.map {
+            DashboardPresentation.quotaWindowLabel(for: RateWindowID(kind: $0, model: nil))
+        }
 
         XCTAssertEqual(Set(labels).count, labels.count, "\(labels)")
         XCTAssertFalse(labels.contains { $0.isEmpty }, "\(labels)")

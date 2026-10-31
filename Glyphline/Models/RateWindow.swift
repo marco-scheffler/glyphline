@@ -52,6 +52,42 @@ enum RateWindowKind: String, Codable, CaseIterable, Sendable {
     }
 }
 
+/// Which limit an observation belongs to.
+///
+/// The kind alone stopped being enough when the provider began reporting a
+/// weekly allowance confined to one model beside the weekly limit on the whole
+/// subscription. Both are `.weekly`, so every place that tells windows apart —
+/// the stored series, freshness, warnings, the rows a view draws — keys on this
+/// pair rather than on the kind.
+struct RateWindowID: Hashable, Sendable {
+    var kind: RateWindowKind
+    /// The model the limit is confined to, as the provider spells it, or `nil`
+    /// for a limit on the whole subscription.
+    var model: String?
+
+    /// The model's own name where there is no room: in the menu bar row "Fable"
+    /// says which limit it is, and the provider only confines weekly limits to a
+    /// model. A product name, so it is never translated.
+    var shortName: String {
+        model ?? kind.shortName
+    }
+
+    var longName: String {
+        guard let model else { return kind.longName }
+        return String(
+            localized: "quotaWindow.model.long",
+            defaultValue: "\(model) · \(kind.longName)",
+            comment: "Spelled-out name of a quota window confined to one model, dashboard card and notification. Placeholders: the model's product name such as 'Fable' (never translated), then the window's name such as 'Weekly'."
+        )
+    }
+
+    /// A stable string for a view's row identity. The kind's raw value is what
+    /// it was before models existed, so a plain window keeps its identity.
+    var rowID: String {
+        model.map { "\(kind.rawValue)/\($0)" } ?? kind.rawValue
+    }
+}
+
 /// One observation of one window at one instant.
 ///
 /// Observations are never aggregated and never replace one another: each is a
@@ -72,6 +108,17 @@ struct RateWindow: Codable, Equatable, Sendable {
     /// string skips it while the light still counts it.
     var resetAt: Date?
     var observedAt: Date
+    /// The model this limit is confined to, or `nil` for a limit on the whole
+    /// subscription — which every window was until the provider began reporting
+    /// a weekly allowance for one model.
+    var model: String? = nil
+
+    var id: RateWindowID { RateWindowID(kind: kind, model: model) }
+
+    /// Whether this window can say the subscription is spent. A model's own
+    /// allowance cannot: with it gone every other model still runs, so it may
+    /// colour its own row but never the light.
+    var decidesHeadroom: Bool { model == nil }
 
     /// Rejects readings that cannot be true.
     ///

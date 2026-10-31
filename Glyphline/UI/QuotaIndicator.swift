@@ -263,7 +263,10 @@ enum QuotaIndicator {
         now: Date,
         freshness: TimeInterval
     ) -> Double? {
-        guard isFresh(state, now: now, freshness: freshness) else { return nil }
+        guard isFresh(state, now: now, freshness: freshness),
+              // A model's own allowance spent leaves the others running.
+              state.window.decidesHeadroom
+        else { return nil }
         return state.window.usedFraction
     }
 
@@ -427,7 +430,7 @@ enum QuotaIndicator {
     ) -> String? {
         guard let resetAt = window.resetAt else { return nil }
 
-        let (_, verb) = labelAndVerb(for: window.kind)
+        let (_, verb) = labelAndVerb(for: window.id)
         let remaining = remainingText(until: resetAt, now: now, verb: verb)
         let instant = instantText(resetAt, now: now, formatting: formatting)
 
@@ -604,18 +607,19 @@ enum QuotaIndicator {
     /// `barGroups` both read it, so a surface cannot start saying "Cycle resets"
     /// on its own.
     ///
-    /// The label itself comes from `RateWindowKind.shortName`. The dashboard's
-    /// cards have room for the spelled-out `longName` and use that; both live on
-    /// the kind so the two readings of one window cannot be renamed apart.
+    /// The label itself comes from `RateWindowID.shortName` — the kind's, or the
+    /// model's for a limit confined to one. The dashboard's cards have room for
+    /// the spelled-out `longName` and use that; both live on the window's
+    /// identity so the two readings of one window cannot be renamed apart.
     ///
     /// "ends", not "resets", for the cycle. A subscription *term* end returns no
     /// capacity — the spike found a Codex term ending in 2027 — and even a
     /// monthly cycle boundary is the end of a period rather than a quota refill.
-    static func labelAndVerb(for kind: RateWindowKind) -> (label: String, verb: QuotaVerb) {
-        switch kind {
-        case .rollingFiveHours: (kind.shortName, .resets)
-        case .weekly: (kind.shortName, .resets)
-        case .billingCycle: (kind.shortName, .ends)
+    static func labelAndVerb(for window: RateWindowID) -> (label: String, verb: QuotaVerb) {
+        switch window.kind {
+        case .rollingFiveHours: (window.shortName, .resets)
+        case .weekly: (window.shortName, .resets)
+        case .billingCycle: (window.shortName, .ends)
         }
     }
 
@@ -635,7 +639,7 @@ enum QuotaIndicator {
                 message: state.message,
                 failureCode: state.failureCode,
                 rows: state.windows.map { windowState in
-                    let (label, verb) = labelAndVerb(for: windowState.window.kind)
+                    let (label, verb) = labelAndVerb(for: windowState.window.id)
                     let asOf = isFresh(windowState, now: now, freshness: freshness)
                         ? nil
                         : windowState.believableSince
@@ -683,7 +687,7 @@ enum QuotaIndicator {
                     }
 
                     return QuotaBarRow(
-                        id: windowState.window.kind.rawValue,
+                        id: windowState.window.id.rowID,
                         label: label,
                         remainingFraction: left,
                         detail: detail,
@@ -713,7 +717,7 @@ enum QuotaIndicator {
         asOf: Date? = nil,
         formatting: QuotaFormatting = .current
     ) -> String {
-        let (label, verb) = labelAndVerb(for: window.kind)
+        let (label, verb) = labelAndVerb(for: window.id)
 
         let tail = window.resetAt.map { resetAt -> String in
             let instant = instantText(resetAt, now: now, formatting: formatting)

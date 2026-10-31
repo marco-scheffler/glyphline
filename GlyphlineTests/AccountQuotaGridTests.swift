@@ -22,7 +22,7 @@ final class AccountQuotaGridTests: XCTestCase {
 
     private func window(_ kind: RateWindowKind, used: Double) -> QuotaCardModel {
         QuotaCardModel(
-            kind: kind,
+            window: RateWindowID(kind: kind, model: nil),
             usedFraction: used,
             headroomFraction: 1 - used,
             usedPercent: Int(used * 100),

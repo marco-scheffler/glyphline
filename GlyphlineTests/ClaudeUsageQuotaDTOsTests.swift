@@ -199,6 +199,89 @@ final class ClaudeUsageQuotaDTOsTests: XCTestCase {
         XCTAssertEqual(response.rateWindows(observedAt: observedAt).count, 2)
     }
 
+    // MARK: - Limits confined to one model
+
+    /// What a Max 20x account returned on 2026-10-31, the day after the plans
+    /// were renamed, with only the whitespace changed. The Fable allowance is in
+    /// `limits` and nowhere else: no `seven_day_*` field carries it.
+    private static let responseWithAModelLimit = Data(#"""
+        {"five_hour":{"utilization":0.0,"resets_at":null,"limit_dollars":null,"used_dollars":null,"remaining_dollars":null,"locked_reason":null},
+         "seven_day":{"utilization":0.0,"resets_at":"2026-11-02T22:59:59.890814+00:00","limit_dollars":null,"used_dollars":null,"remaining_dollars":null,"locked_reason":null},
+         "seven_day_oauth_apps":null,"seven_day_opus":null,"seven_day_sonnet":null,"seven_day_cowork":null,"seven_day_omelette":null,
+         "tangelo":null,"iguana_necktie":null,"omelette_promotional":null,"nimbus_quill":null,"cinder_cove":null,"copper_kite":null,
+         "brass_thimble":null,"harbor_lantern":null,"wattle_ember":null,"promo_credits":null,"amber_ladder":null,"granite_teacup":null,
+         "amber_cistern":null,"amber_cistern_offer":null,"juniper_tide":null,"cedar_ember":null,"starry_waterfall":null,"amber_gauge":null,"pace":null,
+         "extra_usage":{"is_enabled":false,"monthly_limit":null,"used_credits":null,"utilization":null,"currency":null,"decimal_places":null,"disabled_reason":null,"user_disabled":true,"spend_limit_reached":false,"credits_ever_enabled":true,"daily":null,"weekly":null},
+         "limits":[
+           {"kind":"session","group":"session","percent":0,"severity":"normal","resets_at":null,"scope":null,"is_active":true},
+           {"kind":"weekly_all","group":"weekly","percent":0,"severity":"normal","resets_at":"2026-11-02T22:59:59.890814+00:00","scope":null,"is_active":false},
+           {"kind":"weekly_scoped","group":"weekly","percent":0,"severity":"normal","resets_at":"2026-11-02T23:00:00+00:00","scope":{"model":{"id":null,"display_name":"Fable"},"surface":null},"is_active":false}
+         ],
+         "spend":{"used":{"amount_minor":0,"currency":"USD","exponent":2},"limit":null,"percent":0,"severity":"normal","enabled":false,"disabled_reason":null,"cap":null,"balance":null,"auto_reload":null,"disclaimer":"Usage credits cover you when you hit your plan limits. [Learn more](https://support.claude.com/articles/12429409)","can_purchase_credits":true,"can_toggle":true},
+         "member_dashboard_available":false,"seven_day_breakdown":null,
+         "weekly_scoped_shares":[{"limit_index":2,"used_percent_of_weekly":0,"allowance_percent_of_weekly":50}]}
+        """#.utf8)
+
+    private func limits(_ entries: String) -> Data {
+        Data("""
+            {"five_hour": {"utilization": 12.0, "resets_at": null},
+             "seven_day": \(Self.completeWindow),
+             "limits": \(entries)}
+            """.utf8)
+    }
+
+    func testAWeeklyLimitConfinedToOneModelBecomesAWindowOfItsOwn() throws {
+        let windows = try ClaudeUsageResponse.decode(Self.responseWithAModelLimit)
+            .rateWindows(observedAt: observedAt)
+
+        XCTAssertEqual(windows.count, 3)
+        let fable = try XCTUnwrap(windows.first { $0.model == "Fable" })
+        XCTAssertEqual(fable.kind, .weekly)
+        XCTAssertEqual(try XCTUnwrap(fable.usedFraction), 0, accuracy: 1e-12)
+        // 2026-11-02T23:00:00Z — its own instant, not the overall weekly one.
+        XCTAssertEqual(try XCTUnwrap(fable.resetAt).timeIntervalSince1970, 1_793_660_400, accuracy: 0.001)
+
+        XCTAssertEqual(
+            windows.filter { $0.model == nil }.map(\.kind), [.rollingFiveHours, .weekly],
+            "the two windows on the whole subscription are untouched"
+        )
+    }
+
+    func testAModelLimitsPercentageBecomesAFraction() throws {
+        let windows = try ClaudeUsageResponse.decode(limits("""
+            [{"kind":"weekly_scoped","percent":37,"resets_at":"2026-11-02T23:00:00+00:00",
+              "scope":{"model":{"id":null,"display_name":"Fable"},"surface":null}}]
+            """)).rateWindows(observedAt: observedAt)
+
+        let fable = try XCTUnwrap(windows.first { $0.model == "Fable" })
+        XCTAssertEqual(try XCTUnwrap(fable.usedFraction), 0.37, accuracy: 0.0001)
+    }
+
+    /// `session` and `weekly_all` repeat `five_hour` and `seven_day`, and a
+    /// scope that names no model is nothing this app can label. None of them
+    /// may add a window.
+    func testOnlyLimitsConfinedToANamedModelAddWindows() throws {
+        let windows = try ClaudeUsageResponse.decode(limits("""
+            [{"kind":"session","percent":12,"resets_at":null,"scope":null},
+             {"kind":"weekly_all","percent":7,"resets_at":"2026-08-03T22:59:59Z","scope":null},
+             {"kind":"weekly_scoped","percent":5,"resets_at":"2026-08-03T23:00:00Z","scope":{"model":null,"surface":{"id":"code"}}},
+             {"kind":"weekly_scoped","percent":5,"resets_at":"2026-08-03T23:00:00Z","scope":{"model":{"id":null,"display_name":"  "}}}]
+            """)).rateWindows(observedAt: observedAt)
+
+        XCTAssertEqual(windows.map(\.kind), [.rollingFiveHours, .weekly])
+        XCTAssertTrue(windows.allSatisfy { $0.model == nil })
+    }
+
+    /// `limits` is the newest part of the response and has already been seen as
+    /// an empty object. A shape we do not recognise costs the model windows and
+    /// nothing else.
+    func testALimitsValueOfAnotherShapeCostsOnlyTheModelWindows() throws {
+        for entries in [#"{}"#, #"["x"]"#, #"null"#] {
+            let windows = try ClaudeUsageResponse.decode(limits(entries)).rateWindows(observedAt: observedAt)
+            XCTAssertEqual(windows.map(\.kind), [.rollingFiveHours, .weekly], entries)
+        }
+    }
+
     func testAnUnparseableBodyThrows() {
         XCTAssertThrowsError(try ClaudeUsageResponse.decode(Data("<html>sign in</html>".utf8)))
     }

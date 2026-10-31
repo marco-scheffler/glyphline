@@ -50,8 +50,19 @@ final class UserNotificationTextTests: XCTestCase {
     }
 
     func testQuotaTextNamesTheWindowAndTheTime() {
-        let body = UserNotificationText.quotaRunningOut(kind: .rollingFiveHours, timeToEmpty: 20 * 60)
+        let body = UserNotificationText.quotaRunningOut(
+            window: RateWindowID(kind: .rollingFiveHours, model: nil), timeToEmpty: 20 * 60
+        )
         XCTAssertTrue(body.contains(RateWindowKind.rollingFiveHours.longName), body)
         XCTAssertTrue(body.contains("20"), body)
+    }
+
+    /// A warning about the Fable allowance has to say it is the Fable allowance:
+    /// "Weekly window empty" would send the reader to the wrong limit.
+    func testQuotaTextNamesTheModelALimitIsConfinedTo() {
+        let body = UserNotificationText.quotaRunningOut(
+            window: RateWindowID(kind: .weekly, model: "Fable"), timeToEmpty: 20 * 60
+        )
+        XCTAssertTrue(body.contains("Fable · Weekly"), body)
     }
 }

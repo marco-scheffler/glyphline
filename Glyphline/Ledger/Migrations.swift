@@ -547,6 +547,29 @@ enum Migrations {
             }
         }
 
+        migrator.registerMigration("v16_rate_window_model") { db in
+            // A weekly allowance confined to one model is a second weekly window
+            // beside the subscription's own, so a sample names its model. Null
+            // is a limit on the whole subscription, which is exactly what every
+            // row written before this was — nothing to backfill.
+            try db.alter(table: LedgerTable.rateWindowSamples) { table in
+                table.add(column: LedgerColumn.model, .text)
+            }
+
+            // "Newest sample per window" now means per kind *and* model.
+            try db.drop(index: "index_rateWindowSamples_on_account_kind_observedAt")
+            try db.create(
+                index: "index_rateWindowSamples_on_account_kind_model_observedAt",
+                on: LedgerTable.rateWindowSamples,
+                columns: [
+                    LedgerColumn.accountID,
+                    LedgerColumn.kind,
+                    LedgerColumn.model,
+                    LedgerColumn.observedAt,
+                ]
+            )
+        }
+
         return migrator
     }
 }

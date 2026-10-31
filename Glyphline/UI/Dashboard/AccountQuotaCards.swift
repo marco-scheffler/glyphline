@@ -147,7 +147,7 @@ private struct QuotaWindowRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            CardTitle(DashboardPresentation.quotaWindowLabel(for: card.kind))
+            CardTitle(DashboardPresentation.quotaWindowLabel(for: card.window))
                 .lineLimit(1)
 
             HStack(alignment: .firstTextBaseline, spacing: 4) {

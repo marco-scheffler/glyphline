@@ -286,6 +286,45 @@ final class RateWindowStoreTests: XCTestCase {
         XCTAssertEqual(Set(latest.map(\.kind)), [.rollingFiveHours, .weekly])
     }
 
+    // MARK: - Limits confined to one model
+
+    /// The Fable allowance is a weekly window too. Identical readings on the two
+    /// are two observations of two limits, and either one replacing the other
+    /// would show one of them under the wrong name.
+    func testAModelLimitIsStoredBesideThePlainWindowOfTheSameKind() throws {
+        let (store, dbQueue, accountID) = try makeStore()
+        let reset = now.addingTimeInterval(86_400)
+
+        try store.saveRateWindow(
+            RateWindow(kind: .weekly, usedFraction: 0.2, resetAt: reset, observedAt: now),
+            accountID: accountID
+        )
+        try store.saveRateWindow(
+            RateWindow(kind: .weekly, usedFraction: 0.2, resetAt: reset, observedAt: now, model: "Fable"),
+            accountID: accountID
+        )
+
+        XCTAssertEqual(try sampleCount(dbQueue), 2, "the same figure on two limits is two readings")
+        let latest = try store.fetchLatestRateWindows(accountID: accountID)
+        XCTAssertEqual(latest.map(\.model), [nil, "Fable"], "the plain window first, then the model's")
+    }
+
+    func testARepeatedModelLimitReadingIsNotWrittenTwice() throws {
+        let (store, dbQueue, accountID) = try makeStore()
+        let window = RateWindow(
+            kind: .weekly, usedFraction: 0.2,
+            resetAt: now.addingTimeInterval(86_400), observedAt: now, model: "Fable"
+        )
+        try store.saveRateWindow(window, accountID: accountID)
+
+        var repeated = window
+        repeated.observedAt = now.addingTimeInterval(1_800)
+        try store.saveRateWindow(repeated, accountID: accountID)
+
+        XCTAssertEqual(try sampleCount(dbQueue), 1)
+        XCTAssertEqual(try store.fetchLatestRateWindows(accountID: accountID).map(\.model), ["Fable"])
+    }
+
     func testRetentionDeletesSamplesOlderThanTheCutoff() throws {
         let (store, dbQueue, accountID) = try makeStore()
         let old = now.addingTimeInterval(-400 * 86_400)

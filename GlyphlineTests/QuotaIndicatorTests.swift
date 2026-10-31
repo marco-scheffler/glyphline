@@ -198,6 +198,57 @@ final class QuotaIndicatorTests: XCTestCase {
         )
     }
 
+    // MARK: - Limits confined to one model
+
+    private func fableWindow(used: Double?) -> QuotaWindowState {
+        QuotaWindowState(
+            window: RateWindow(
+                kind: .weekly, usedFraction: used,
+                resetAt: now.addingTimeInterval(3_600), observedAt: now, model: "Fable"
+            )
+        )
+    }
+
+    /// The Fable allowance spent leaves every other model running, so it must
+    /// not turn the light red.
+    func testASpentModelLimitDoesNotDarkenTheLight() {
+        let states = [accountWith("Max #1", windows: [
+            window(kind: .rollingFiveHours, used: 0.3),
+            window(kind: .weekly, used: 0.4),
+            fableWindow(used: 1.0),
+        ])]
+
+        XCTAssertEqual(QuotaIndicator.light(for: states, now: now, freshness: freshness), .green)
+    }
+
+    /// Nor can it vouch for the subscription on its own.
+    func testAModelLimitAloneCannotDecideTheLight() {
+        let states = [accountWith("Max #1", windows: [fableWindow(used: 0.2)])]
+
+        XCTAssertEqual(QuotaIndicator.light(for: states, now: now, freshness: freshness), .grey)
+    }
+
+    func testAModelLimitsRowIsNamedAfterTheModel() {
+        XCTAssertEqual(
+            visible(QuotaIndicator.rowText(for: fableWindow(used: 0.12).window, now: now, formatting: formatting)),
+            "Fable 12% — resets 10:00 AM"
+        )
+    }
+
+    /// The plain weekly window and the model's are both `.weekly`. A bar keyed
+    /// on the kind alone would hand SwiftUI two rows with one identity.
+    func testAModelLimitsBarHasAnIdentityOfItsOwn() {
+        let states = [accountWith("Max #1", windows: [
+            window(kind: .weekly, used: 0.4),
+            fableWindow(used: 1.0),
+        ])]
+
+        let rows = QuotaIndicator.barGroups(for: states, now: now, freshness: freshness)[0].rows
+        XCTAssertEqual(rows.map(\.label), ["Week", "Fable"])
+        XCTAssertEqual(Set(rows.map(\.id)).count, 2)
+        XCTAssertEqual(rows.map(\.severity), [.normal, .exhausted], "the row still says it is spent")
+    }
+
     func testHeadroomAnywhereIsGreen() {
         let states = [account("A", used: 1.0), account("B", used: 0.3)]
         XCTAssertEqual(QuotaIndicator.light(for: states, now: now, freshness: freshness), .green)
