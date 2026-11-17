@@ -157,10 +157,17 @@ final class AgentverseCoordinatorTests: XCTestCase {
         )
         try ledger.applyLocalScan(scan(sessionID: "S1", outputTokens: 1_000))
         await coordinator.refresh(now: now)
-        try ledger.applyLocalScan(scan(sessionID: "S1", outputTokens: 2_000))
+        // A scan adds what it found since the last one to the ledger's counter.
+        try ledger.applyLocalScan(scan(sessionID: "S1", outputTokens: 1_000))
         await coordinator.refresh(now: now.addingTimeInterval(15))
 
-        XCTAssertEqual(coordinator.activityLog.samples.count, 1)
+        // The ledger's counter grew by 1 000 between two sweeps 15 s apart:
+        // the coordinator must turn exactly that into 4 000 a minute. The scans
+        // here stand in for the window's own scan before each sweep.
+        XCTAssertEqual(coordinator.workTokens["S1"], 2_000)
+        let samples = coordinator.activityLog.samples
+        XCTAssertEqual(samples.count, 1)
+        XCTAssertEqual(samples.first?.tokensPerMinute ?? 0, 4_000, accuracy: 0.001)
     }
 
     /// Three things sweep — the background controller, the dashboard and the map

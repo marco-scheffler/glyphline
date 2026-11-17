@@ -68,6 +68,20 @@ enum AgentverseRefreshSchedule {
     static func frameIndex(at date: Date) -> Int {
         Int(date.timeIntervalSinceReferenceDate * framesPerSecond)
     }
+
+    /// One on-screen sweep: the local usage scan first, then the map's own.
+    ///
+    /// The map reads its token counters from the ledger, and only a local scan
+    /// moves them. Without the scan here the counters stood still between the
+    /// sync interval's scans, so the wave read zero and then one spike, and the
+    /// odometers jumped the same way. The scan returns early while one is
+    /// running and is cheap when nothing changed, so asking every sweep costs
+    /// little.
+    @MainActor
+    static func sweep(scanLocalUsage: () async -> Void, refreshMap: () async -> Void) async {
+        await scanLocalUsage()
+        await refreshMap()
+    }
 }
 
 /// What the sun and weather loops are keyed on: they have to restart both when
@@ -118,12 +132,11 @@ struct AgentverseWindow: View {
         .frame(minWidth: 900, minHeight: 560)
         .navigationTitle("Agentverse")
         .toolbar {
-            // Two segments, measured rather than assumed: the control fits in
-            // 155 pt, the title "Agentverse" in 72 pt and the refresh button in
-            // 27 pt, so with the traffic lights and the usual gaps the titlebar
-            // row needs about 370 pt of a window that cannot go below 900. The
-            // earlier version drew on top of itself because it put eleven
-            // controls up here, not because two do not fit.
+            // One segment per view, and few enough to fit: the control, the
+            // title "Agentverse" and the refresh button sit comfortably in the
+            // titlebar of a window that cannot go below 900 pt. The earlier
+            // version drew on top of itself because it put eleven controls up
+            // here, not because a handful of segments do not fit.
             ToolbarItem(placement: .principal) {
                 Picker("View", selection: $settings.agentverseView) {
                     ForEach(AgentverseView.allCases) { view in
@@ -275,7 +288,10 @@ struct AgentverseWindow: View {
         // whose completion clears the flag out from under the first.
         guard !isRefreshing else { return }
         isRefreshing = true
-        await coordinator.refresh()
+        await AgentverseRefreshSchedule.sweep(
+            scanLocalUsage: { await syncCoordinator.scanLocalUsage() },
+            refreshMap: { await coordinator.refresh() }
+        )
         isRefreshing = false
     }
 }
