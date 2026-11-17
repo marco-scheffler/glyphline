@@ -18,6 +18,7 @@
 		05B13717448F689D010D286A /* ClaudeOrganizationsDTOsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A44B6050C0E139657C97014 /* ClaudeOrganizationsDTOsTests.swift */; };
 		074A23E34F366B500EF9F464 /* ClaudeTranscriptReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8EB4CDCE71718F453A076C59 /* ClaudeTranscriptReader.swift */; };
 		08456132774175B5BBE137D0 /* AgentverseLauncher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AADE4342C52A9A8F604D429 /* AgentverseLauncher.swift */; };
+		0845E0C1CB96288038309D3B /* AgentActionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B320B9BD5B3713D3FD4BBC51 /* AgentActionTests.swift */; };
 		0909C91D5EE4CE808530935F /* ClaudeCodeLogReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B784EDCB98F4CFE937F3132 /* ClaudeCodeLogReader.swift */; };
 		0F4765C41C2B3E2A64E36BAC /* QuotaCardModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04698B43079198825E73F1BE /* QuotaCardModel.swift */; };
 		14D0B598D9BBA709C48BEED0 /* AgentSessionScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFA5A35ACBFF7C3C12DC8EB8 /* AgentSessionScanner.swift */; };
@@ -63,6 +64,7 @@
 		42DA56777FC9BBAD2671DB97 /* ProviderID.swift in Sources */ = {isa = PBXBuildFile; fileRef = C69732493AABC7109EB74F3F /* ProviderID.swift */; };
 		4580994BD2175DB995365DF5 /* ClaudeTranscriptReaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FF23487330689CD09F72F59 /* ClaudeTranscriptReaderTests.swift */; };
 		47DFD6941E6389FBFA591FDA /* QuotaIndicatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B966305CF54AAA51888A2FC0 /* QuotaIndicatorTests.swift */; };
+		4802BECD7E1ECA18E2FE75BF /* AgentAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = D36A8C8C742AE31DEC8ABA7E /* AgentAction.swift */; };
 		4A04C9AD097C14F72D139441 /* DeleteAccountFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACD9B71050B5FCC82923CDC9 /* DeleteAccountFlow.swift */; };
 		4A2D3A3FE1C0266B2765FD0F /* AccountsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F06FF5203E4C15863CAB3EE3 /* AccountsView.swift */; };
 		4B7EBD39F79A2025162639DB /* ClaudeUsageQuotaDTOs.swift in Sources */ = {isa = PBXBuildFile; fileRef = D968A135D66AE439311BECFE /* ClaudeUsageQuotaDTOs.swift */; };
@@ -380,6 +382,7 @@
 		AF10D82C0BBAB350C0D404AB /* GlyphlineApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlyphlineApp.swift; sourceTree = "<group>"; };
 		AFA5A35ACBFF7C3C12DC8EB8 /* AgentSessionScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentSessionScanner.swift; sourceTree = "<group>"; };
 		B258111FCCAE74A8FC95B9FF /* CostEstimator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CostEstimator.swift; sourceTree = "<group>"; };
+		B320B9BD5B3713D3FD4BBC51 /* AgentActionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentActionTests.swift; sourceTree = "<group>"; };
 		B520B6C053C48D490AB06E62 /* QuotaIndicator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuotaIndicator.swift; sourceTree = "<group>"; };
 		B5287B8477F8EF75ABA938B2 /* SnapshotSummaryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapshotSummaryTests.swift; sourceTree = "<group>"; };
 		B5AAE4E00ADF87F5E4060D8B /* AccountRenameTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountRenameTests.swift; sourceTree = "<group>"; };
@@ -407,6 +410,7 @@
 		D10078AD9B1875C460A90C37 /* CostEstimatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CostEstimatorTests.swift; sourceTree = "<group>"; };
 		D2875A21D3F767FBB58928F1 /* FixtureRateWindowSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FixtureRateWindowSource.swift; sourceTree = "<group>"; };
 		D2A55943991CB2395020BD39 /* DashboardBackground.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardBackground.swift; sourceTree = "<group>"; };
+		D36A8C8C742AE31DEC8ABA7E /* AgentAction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentAction.swift; sourceTree = "<group>"; };
 		D461F567F4AC93CAD78D6410 /* Account.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Account.swift; sourceTree = "<group>"; };
 		D4AC0AFC5C6676B8681635D9 /* LocalUsagePeriod.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalUsagePeriod.swift; sourceTree = "<group>"; };
 		D6BD6C14C75AEFB9B82A4095 /* AgentRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentRow.swift; sourceTree = "<group>"; };
@@ -500,6 +504,7 @@
 			children = (
 				D461F567F4AC93CAD78D6410 /* Account.swift */,
 				54DF3B50A77102C6E68EAC4C /* AccountCredentialReference.swift */,
+				D36A8C8C742AE31DEC8ABA7E /* AgentAction.swift */,
 				25763F9DE4C82450A3834BDC /* AgentSession.swift */,
 				AEA2613AB5F2ED561C7DADDA /* LocalUsageDay.swift */,
 				675ADA919D8753AAAEFAB44F /* MoneyAmount.swift */,
@@ -605,6 +610,7 @@
 				849077EF726D5E3F756B4805 /* AccountSummaryFormattingTests.swift */,
 				4E9A1292C4590819749AE424 /* AccountsViewTests.swift */,
 				40D313DABDF65EC1DBCADDBD /* AddAccountFlowTests.swift */,
+				B320B9BD5B3713D3FD4BBC51 /* AgentActionTests.swift */,
 				16A5CD403D6D94ABE3C8E7BA /* AgentAttentionControllerTests.swift */,
 				6DDC448405B7A5F2656A0419 /* AgentRowTests.swift */,
 				9BD3C2C540C231D67EC5F063 /* AgentSessionScannerTests.swift */,
@@ -964,6 +970,7 @@
 				257DBBE3716A5D0C5DBBCA95 /* AccountsListSpacingTests.swift in Sources */,
 				E4F7AE192ECCD2D4A0E3EC80 /* AccountsViewTests.swift in Sources */,
 				72517151B7BCCE3BC2748539 /* AddAccountFlowTests.swift in Sources */,
+				0845E0C1CB96288038309D3B /* AgentActionTests.swift in Sources */,
 				A6F7033BF430E80807AE7813 /* AgentAttentionControllerTests.swift in Sources */,
 				5D6CC45BF8A924FA46602063 /* AgentRowTests.swift in Sources */,
 				54B04C19F46485890B8DC28B /* AgentSessionScannerTests.swift in Sources */,
@@ -1056,6 +1063,7 @@
 				4A2D3A3FE1C0266B2765FD0F /* AccountsView.swift in Sources */,
 				7EE1E0DD0196D6F33CE6E4CE /* AddAccountFlow.swift in Sources */,
 				B838F331BD89C2B524410914 /* AddAccountView.swift in Sources */,
+				4802BECD7E1ECA18E2FE75BF /* AgentAction.swift in Sources */,
 				DF3A4D29ECF7556D752BB864 /* AgentAttentionController.swift in Sources */,
 				89083040759B4E9DD781F4C4 /* AgentRow.swift in Sources */,
 				36548FF69B18205F3FA28F1D /* AgentSession.swift in Sources */,

@@ -150,4 +150,90 @@ final class ClaudeTranscriptReaderTests: XCTestCase {
 
         XCTAssertEqual(try ClaudeTranscriptReader().readTail(at: file)?.activity, .waitingForYou)
     }
+
+    // MARK: - Current action
+
+    /// Claude Code writes one assistant record per content block, so a call sits
+    /// alone in its record. `input` is the raw JSON object.
+    private func toolUse(name: String, input: String, ts: String = "2026-07-30T12:00:00.000Z") -> String {
+        """
+        {"type":"assistant","sessionId":"S1","isSidechain":false,"cwd":"/repo",\
+        "gitBranch":"main","timestamp":"\(ts)","message":{"role":"assistant",\
+        "stop_reason":"tool_use","content":[{"type":"tool_use","id":"t1","name":"\(name)",\
+        "input":\(input)}]}}
+        """
+    }
+
+    private func toolResult(ts: String = "2026-07-30T12:00:01.000Z") -> String {
+        """
+        {"type":"user","sessionId":"S1","isSidechain":false,"cwd":"/repo",\
+        "gitBranch":"main","timestamp":"\(ts)","message":{"role":"user",\
+        "content":[{"type":"tool_result","tool_use_id":"t1","content":"ok"}]}}
+        """
+    }
+
+    private func typedPrompt(ts: String = "2026-07-30T12:00:02.000Z") -> String {
+        """
+        {"type":"user","sessionId":"S1","isSidechain":false,"cwd":"/repo",\
+        "gitBranch":"main","timestamp":"\(ts)","message":{"role":"user",\
+        "content":"please fix it"}}
+        """
+    }
+
+    func testTheLastToolCallIsTheAction() throws {
+        let file = try write([toolUse(name: "Edit", input: #"{"file_path":"/repo/OfficeRenderer.swift"}"#)])
+
+        XCTAssertEqual(try ClaudeTranscriptReader().readTail(at: file)?.action,
+                       .editing(file: "OfficeRenderer.swift"))
+    }
+
+    /// The last conversational record is usually the result coming back; the
+    /// call it answers sits one record further up.
+    func testAToolResultLooksBackToItsCall() throws {
+        let file = try write([
+            toolUse(name: "Bash", input: #"{"description":"Run the tests","command":"xcodebuild test"}"#),
+            toolResult(),
+        ])
+
+        let tail = try ClaudeTranscriptReader().readTail(at: file)
+
+        XCTAssertEqual(tail?.action, .running(description: "Run the tests"))
+        XCTAssertEqual(tail?.activity, .working)
+    }
+
+    func testParallelCallsNameTheLastOne() throws {
+        let file = try write([
+            toolUse(name: "Read", input: #"{"file_path":"/repo/a.swift"}"#),
+            toolUse(name: "Grep", input: #"{"pattern":"x"}"#),
+            toolResult(),
+            toolResult(),
+        ])
+
+        XCTAssertEqual(try ClaudeTranscriptReader().readTail(at: file)?.action,
+                       .searching(pattern: "x"))
+    }
+
+    func testATypedPromptIsThinking() throws {
+        let file = try write([typedPrompt()])
+
+        let tail = try ClaudeTranscriptReader().readTail(at: file)
+
+        XCTAssertNotNil(tail)
+        XCTAssertEqual(tail?.activity, .working)
+        XCTAssertEqual(tail?.action, .thinking)
+    }
+
+    func testTextOnlyAssistantIsThinking() throws {
+        let file = try write([assistant(stopReason: "end_turn")])
+
+        XCTAssertEqual(try ClaudeTranscriptReader().readTail(at: file)?.action, .thinking)
+    }
+
+    /// A prompt's `content` is a plain string, not blocks. If that made the
+    /// record undecodable, the session would silently drop off the map.
+    func testTheSessionStillDecodesWithStringContent() throws {
+        let file = try write([aiTitle("Bubbles"), typedPrompt()])
+
+        XCTAssertEqual(try ClaudeTranscriptReader().readTail(at: file)?.aiTitle, "Bubbles")
+    }
 }

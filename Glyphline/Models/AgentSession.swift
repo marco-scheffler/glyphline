@@ -29,6 +29,8 @@ struct TranscriptTail: Equatable, Sendable {
     /// The generated three-word name — "tidy-toasting-pelican". Always present,
     /// which is what makes it the fallback while a title is still being formed.
     var slug: String?
+    /// The last tool call of the last assistant turn, or `.thinking`.
+    var action: AgentAction = .thinking
 }
 
 /// One main session as the map shows it, with its subagents folded in.
@@ -46,6 +48,8 @@ struct AgentSession: Identifiable, Equatable, Sendable {
     /// What this session is actually doing, in words. See `TranscriptTail`.
     var aiTitle: String? = nil
     var slug: String? = nil
+    /// The bubble's subject. See `TranscriptTail`.
+    var action: AgentAction = .thinking
 
     /// The label every surface leads with.
     var displayTitle: String {
