@@ -1,0 +1,28 @@
+{
+  "amount": 15714,
+  "currency": "USD",
+  "balance": { "money": null, "credits": { "amount_minor": 15714, "exponent": 2 } },
+  "amount_without_scoped_credits": 500,
+  "tranches": [],
+  "promo_tranches": [
+    {
+      "id": "00000000-0000-0000-0000-000000000001",
+      "remaining_amount_minor_units": 15213,
+      "currency": "USD",
+      "expires_at": "2026-11-29T00:00:00Z",
+      "name": "API credit (Ultra)",
+      "program_id": "subscription_api_credit",
+      "scope": { "kind": "scoped", "applies_to": ["agent_sdk", "api", "batch", "playground", "managed_agents"] }
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000002",
+      "remaining_amount_minor_units": 500,
+      "currency": "USD",
+      "expires_at": "2027-03-24T00:00:00Z",
+      "name": null,
+      "program_id": "free",
+      "scope": { "kind": "unscoped", "applies_to": [] }
+    }
+  ],
+  "next_expires_at": "2026-11-29T00:00:00Z"
+}

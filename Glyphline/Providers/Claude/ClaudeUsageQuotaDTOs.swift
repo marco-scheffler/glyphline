@@ -104,25 +104,28 @@ struct ClaudeUsageResponse: Decodable, Equatable, Sendable {
 
     static func decode(_ data: Data) throws -> ClaudeUsageResponse {
         let decoder = JSONDecoder()
-        // Timestamps carry microseconds and an offset; .iso8601 rejects
-        // fractional seconds, so the fractional variant is required.
-        decoder.dateDecodingStrategy = .custom { decoder in
-            let text = try decoder.singleValueContainer().decode(String.self)
-            let parser = ISO8601DateFormatter()
-            parser.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-            if let date = parser.date(from: text) { return date }
-
-            let plain = ISO8601DateFormatter()
-            plain.formatOptions = [.withInternetDateTime]
-            guard let date = plain.date(from: text) else {
-                throw DecodingError.dataCorruptedError(
-                    in: try decoder.singleValueContainer(),
-                    debugDescription: "unrecognised timestamp"
-                )
-            }
-            return date
-        }
+        decoder.dateDecodingStrategy = .custom(decodeTimestamp)
         return try decoder.decode(ClaudeUsageResponse.self, from: data)
+    }
+
+    /// Timestamps carry microseconds and an offset; .iso8601 rejects
+    /// fractional seconds, so the fractional variant is tried first. Shared with
+    /// the Console's credit responses, which come from the same backend.
+    static func decodeTimestamp(_ decoder: any Decoder) throws -> Date {
+        let text = try decoder.singleValueContainer().decode(String.self)
+        let parser = ISO8601DateFormatter()
+        parser.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = parser.date(from: text) { return date }
+
+        let plain = ISO8601DateFormatter()
+        plain.formatOptions = [.withInternetDateTime]
+        guard let date = plain.date(from: text) else {
+            throw DecodingError.dataCorruptedError(
+                in: try decoder.singleValueContainer(),
+                debugDescription: "unrecognised timestamp"
+            )
+        }
+        return date
     }
 
     /// Maps to the app's window model.
