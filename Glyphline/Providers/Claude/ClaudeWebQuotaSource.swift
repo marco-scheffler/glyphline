@@ -17,12 +17,26 @@ enum ClaudeWebEndpoints {
     private static let organizationIDAllowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_"))
 
     static func usage(organizationID: String) -> URL? {
-        guard !organizationID.isEmpty,
-              let escaped = organizationID.addingPercentEncoding(withAllowedCharacters: organizationIDAllowed)
-        else {
-            return nil
-        }
+        guard let escaped = escaped(organizationID) else { return nil }
         return URL(string: "https://claude.ai/api/organizations/\(escaped)/usage")
+    }
+
+    static let consoleSignIn = URL(string: "https://platform.claude.com/")!
+    static let consoleOrganizations = URL(string: "https://platform.claude.com/api/organizations")!
+
+    static func consoleCredits(organizationID: String) -> URL? {
+        guard let escaped = escaped(organizationID) else { return nil }
+        return URL(string: "https://platform.claude.com/api/organizations/\(escaped)/prepaid/credits")
+    }
+
+    static func consoleCurrentSpend(organizationID: String) -> URL? {
+        guard let escaped = escaped(organizationID) else { return nil }
+        return URL(string: "https://platform.claude.com/api/organizations/\(escaped)/current_spend")
+    }
+
+    private static func escaped(_ organizationID: String) -> String? {
+        guard !organizationID.isEmpty else { return nil }
+        return organizationID.addingPercentEncoding(withAllowedCharacters: organizationIDAllowed)
     }
 }
 

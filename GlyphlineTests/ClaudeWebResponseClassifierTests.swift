@@ -101,4 +101,58 @@ final class ClaudeWebResponseClassifierTests: XCTestCase {
             XCTAssertFalse(message.contains(secret))
         }
     }
+
+    // MARK: - Console
+
+    private func fixtureText(_ name: String) throws -> String {
+        let url = Bundle(for: Self.self).url(forResource: name, withExtension: "json")
+        return try String(contentsOf: XCTUnwrap(url), encoding: .utf8)
+    }
+
+    private func failure(_ result: Result<Data, RateWindowSourceError>) -> RateWindowSourceError? {
+        if case .failure(let error) = result { return error }
+        return nil
+    }
+
+    func testConsoleSessionInvalidIsSessionExpired() {
+        let body = #"{"type":"error","error":{"type":"permission_error","message":"Invalid authorization","details":{"error_visibility":"user_facing","error_code":"account_session_invalid"}},"request_id":"req_x"}"#
+        XCTAssertEqual(failure(ClaudeWebResponseClassifier.classifyConsoleOrganizations(body: body, statusCode: 403)), .sessionExpired)
+        XCTAssertEqual(failure(ClaudeWebResponseClassifier.classifyConsoleCredits(body: body, statusCode: 403)), .sessionExpired)
+        XCTAssertEqual(failure(ClaudeWebResponseClassifier.classifyConsoleSpend(body: body, statusCode: 403)), .sessionExpired)
+    }
+
+    func testConsolePermissionDeniedIsNotAvailable() {
+        let body = #"{"type":"error","error":{"type":"permission_error","message":"Permission denied."},"code":"permission_denied"}"#
+        XCTAssertEqual(failure(ClaudeWebResponseClassifier.classifyConsoleOrganizations(body: body, statusCode: 403)), .notAvailable)
+        XCTAssertEqual(failure(ClaudeWebResponseClassifier.classifyConsoleCredits(body: body, statusCode: 403)), .notAvailable)
+        XCTAssertEqual(failure(ClaudeWebResponseClassifier.classifyConsoleSpend(body: body, statusCode: 403)), .notAvailable)
+    }
+
+    func testConsole401IsSessionExpired() {
+        XCTAssertEqual(failure(ClaudeWebResponseClassifier.classifyConsoleOrganizations(body: "[]", statusCode: 401)), .sessionExpired)
+        XCTAssertEqual(failure(ClaudeWebResponseClassifier.classifyConsoleCredits(body: "{}", statusCode: 401)), .sessionExpired)
+        XCTAssertEqual(failure(ClaudeWebResponseClassifier.classifyConsoleSpend(body: "{}", statusCode: 401)), .sessionExpired)
+    }
+
+    func testConsoleCreditsAcceptTheFixture() throws {
+        let body = try fixtureText("console-prepaid-credits")
+        guard case .success = ClaudeWebResponseClassifier.classifyConsoleCredits(body: body, statusCode: 200) else {
+            return XCTFail("expected success")
+        }
+    }
+
+    func testConsoleCreditsRejectTheUsageShape() throws {
+        let body = try fixtureText("claude-usage")
+        XCTAssertEqual(failure(ClaudeWebResponseClassifier.classifyConsoleCredits(body: body, statusCode: 200)), .unexpectedResponseShape)
+    }
+
+    func testConsoleEndpointsEscapeTheOrganizationID() throws {
+        let credits = try XCTUnwrap(ClaudeWebEndpoints.consoleCredits(organizationID: "a/b"))
+        let spend = try XCTUnwrap(ClaudeWebEndpoints.consoleCurrentSpend(organizationID: "a/b"))
+        XCTAssertEqual(credits.host, "platform.claude.com")
+        XCTAssertEqual(credits.pathComponents, ["/", "api", "organizations", "a/b", "prepaid", "credits"])
+        XCTAssertEqual(spend.pathComponents, ["/", "api", "organizations", "a/b", "current_spend"])
+        XCTAssertNil(ClaudeWebEndpoints.consoleCredits(organizationID: ""))
+        XCTAssertNil(ClaudeWebEndpoints.consoleCurrentSpend(organizationID: ""))
+    }
 }
