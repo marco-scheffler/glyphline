@@ -54,4 +54,15 @@ struct ProviderAdapterRegistry {
 
         return ClaudeWebQuotaSource(sessionStore: sessionStore)
     }
+
+    /// The Console credit source for an account: only an eligible web-session
+    /// account with at least one connected API organisation. Fetching asks for a
+    /// data store, so the same reasoning as `rateWindowSource(for:)` applies.
+    @MainActor
+    func consoleCreditSource(for account: Account) -> (any ConsoleCreditFetching)? {
+        guard ConsoleConnection.isEligible(account), !account.consoleOrganizations.isEmpty else {
+            return nil
+        }
+        return ConsoleCreditSource(sessionStore: sessionStore)
+    }
 }

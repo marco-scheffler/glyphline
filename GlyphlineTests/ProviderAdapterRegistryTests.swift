@@ -16,6 +16,24 @@ final class ProviderAdapterRegistryTests: XCTestCase {
         )
     }
 
+    /// Only a Claude web-session account with a connected Console resolves to a
+    /// credit source; anything else would create a WebKit data store for nothing.
+    func testConsoleCreditSourceNeedsAnEligibleConnectedAccount() throws {
+        let registry = ProviderAdapterRegistry()
+        let organizations = [ConsoleOrganization(id: organizationID)]
+
+        var connected = makeAccount(.claude, reference: "web-session://\(UUID().uuidString)")
+        connected.consoleOrganizations = organizations
+        XCTAssertNotNil(registry.consoleCreditSource(for: connected))
+
+        let unconnected = makeAccount(.claude, reference: "web-session://\(UUID().uuidString)")
+        XCTAssertNil(registry.consoleCreditSource(for: unconnected))
+
+        var credential = makeAccount(.claude, reference: "keychain://glyphline/abc")
+        credential.consoleOrganizations = organizations
+        XCTAssertNil(registry.consoleCreditSource(for: credential))
+    }
+
     /// What the entry point produces end to end: a signed-in web-session account
     /// draws its quota from the web source.
     func testAWebSessionAccountWithAnOrganisationDrawsQuotaFromTheWebSource() throws {
