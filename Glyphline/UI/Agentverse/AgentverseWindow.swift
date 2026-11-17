@@ -221,6 +221,7 @@ struct AgentverseWindow: View {
                 // The clock enters here and nowhere below: the scene itself is
                 // a pure function of its inputs, so a test can pin the frame.
                 frame: AgentverseRefreshSchedule.frameIndex(at: timeline.date),
+                now: timeline.date,
                 lighting: lighting,
                 view: settings.agentverseView
             )

@@ -72,6 +72,7 @@ final class AgentverseSnapshotTests: XCTestCase {
                         workTokens: workTokens,
                         hovered: hovered,
                         frame: frame,
+                        now: date ?? instant,
                         lighting: lighting(at: date ?? instant, weather: weather),
                         view: view)
     }
