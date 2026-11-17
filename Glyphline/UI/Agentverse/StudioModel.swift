@@ -51,17 +51,13 @@ struct StudioDesk: Equatable, Sendable, Identifiable {
 
 /// Where everything on the studio floor goes, for one canvas size and desk count.
 struct StudioLayout: Equatable, Sendable {
-    /// The right-hand column the waiting sessions wander in.
+    /// The right-hand column the waiting sessions stand in.
     let breakRoom: CGRect
     let columns: Int
     /// 1 is the mockup's 200×200 pt station.
     let deskScale: Double
 
     private static let station = 200.0
-
-    /// The abstract room `BreakRoom` places its slots in. Its slots span
-    /// u 1.05…4.85 and v 0.45…2.85, well inside it.
-    static let breakRoomFloor = RoomRect(u0: 0, u1: 6, v0: 0, v1: 4)
 
     init(canvas: CGSize, deskCount: Int) {
         let roomWidth = min(250, canvas.width * 0.25)
@@ -90,11 +86,108 @@ struct StudioLayout: Equatable, Sendable {
                       width: side, height: side)
     }
 
-    func breakRoomPoint(_ walker: Walker) -> CGPoint {
-        let room = Self.breakRoomFloor
-        let p = walker.position
-        return CGPoint(x: breakRoom.minX + (p.u - room.u0) / (room.u1 - room.u0) * breakRoom.width,
-                       y: breakRoom.minY + (p.v - room.v0) / (room.v1 - room.v0) * breakRoom.height)
+}
+
+/// Where the waiting sessions stand in the break room.
+///
+/// Fixed spots on a grid rather than the office's wandering walkers: on the
+/// reference machine ten of thirteen sessions were waiting at once, and walkers
+/// sharing eight slots piled into one heap of figures and bubbles. Each spot
+/// owns a cell — the bubble at its top, the figure under it — and no two cells
+/// overlap. The figures shrink and the grid gains a column before anyone is
+/// left out; only then does a "+N" badge take the bottom of the room.
+struct StudioBreakRoomLayout: Equatable, Sendable {
+    struct Spot: Equatable, Sendable {
+        /// The whole cell; the bubble and the figure stay inside it.
+        let cell: CGRect
+        /// Where the figure's own origin goes (the middle of its face).
+        let figure: CGPoint
+        /// The top of the bubble at rest, low enough for its bob to stay in the cell.
+        let bubbleTop: Double
+    }
+
+    /// One per figure shown, in the order the figures were given.
+    let spots: [Spot]
+    let figureScale: Double
+    /// Waiting sessions that did not fit.
+    let overflow: Int
+    let overflowBadge: CGRect?
+
+    /// The figure at scale 1, cap and headphones included: 70 × 96 pt, with its
+    /// origin 34 pt below the top.
+    static let figureSize = CGSize(width: 70, height: 96)
+    static let figureTop = 34.0
+    /// The bubble, its tail and the bob above the figure.
+    static let bubbleBand = 3.0 + 20 + 5 + 3
+    static let minimumFigureScale = 0.45
+    /// Narrowest cell whose bubble still holds "· 123 min" whole.
+    static let minimumCellWidth = 90.0
+    static let badgeHeight = 22.0
+    private static let spacing = 6.0
+
+    static func cellHeight(scale: Double) -> Double {
+        bubbleBand + figureSize.height * scale + spacing
+    }
+
+    init(room: CGRect, count: Int, maximumScale: Double = 1) {
+        let inner = room.insetBy(dx: 12, dy: 12)
+        let maxColumns = max(1, Int((inner.width / Self.minimumCellWidth).rounded(.down)))
+        let largest = max(Self.minimumFigureScale, min(1, maximumScale))
+
+        func capacity(scale: Double, columns: Int, height: Double) -> Int {
+            guard Self.figureSize.width * scale <= inner.width / Double(columns) else { return 0 }
+            return columns * max(0, Int((height / Self.cellHeight(scale: scale)).rounded(.down)))
+        }
+
+        // The largest figures that fit everybody, at the fewest columns.
+        var choice: (scale: Double, columns: Int)?
+        var step = 0
+        search: while true {
+            let scale = largest - Double(step) * 0.05
+            if scale < Self.minimumFigureScale - 0.0001 { break }
+            for columns in 1...maxColumns where capacity(scale: scale, columns: columns,
+                                                          height: inner.height) >= count {
+                choice = (scale, columns)
+                break search
+            }
+            step += 1
+        }
+
+        let scale = choice?.scale ?? Self.minimumFigureScale
+        let columns = choice?.columns ?? maxColumns
+        let usable = choice == nil ? inner.height - Self.badgeHeight - Self.spacing : inner.height
+        let shown = min(count, capacity(scale: scale, columns: columns, height: usable))
+        let cellWidth = inner.width / Double(columns)
+        let cellHeight = Self.cellHeight(scale: scale)
+
+        spots = (0..<shown).map { index in
+            let cell = CGRect(x: inner.minX + Double(index % columns) * cellWidth,
+                              y: inner.minY + Double(index / columns) * cellHeight,
+                              width: cellWidth, height: cellHeight)
+            return Spot(cell: cell,
+                        figure: CGPoint(x: cell.midX,
+                                        y: cell.minY + Self.bubbleBand + Self.figureTop * scale),
+                        bubbleTop: cell.minY + 3)
+        }
+        figureScale = scale
+        overflow = count - shown
+        overflowBadge = overflow > 0
+            ? CGRect(x: inner.minX, y: inner.maxY - Self.badgeHeight,
+                     width: inner.width, height: Self.badgeHeight)
+            : nil
+    }
+
+    /// Who stands first: the longest wait, because that is the one most worth
+    /// answering. Ties fall back to the id so the order never flickers.
+    static func ordered(_ waiting: [StudioDesk]) -> [StudioDesk] {
+        waiting.sorted { a, b in
+            switch (a.waitingSince, b.waitingSince) {
+            case let (x?, y?) where x != y: return x < y
+            case (.some, nil): return true
+            case (nil, .some): return false
+            default: return a.id < b.id
+            }
+        }
     }
 }
 

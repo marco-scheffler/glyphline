@@ -68,7 +68,7 @@ final class StudioFloorTests: XCTestCase {
 
     /// Would catch: the floor's bubbles cut at the end, losing the minutes —
     /// the one part of a waiting sentence that changes.
-    func testWaitingBubblesKeepTheirMinutesAtTheSmallestCanvas() {
+    func testWaitingBubblesKeepTheirMinutesAtTheSmallestCanvas() throws {
         let layout = StudioLayout(canvas: CGSize(width: 640, height: 300), deskCount: 12)
         for minutes in [6, 42, 123] {
             let tail = "· \(minutes.formatted()) min"
@@ -80,11 +80,15 @@ final class StudioFloorTests: XCTestCase {
                 XCTAssertLessThanOrEqual(StudioRenderer.measureBubble(empty),
                                          rect.width - 2 * StudioRenderer.bubbleInset)
 
-                let room = StudioRenderer.breakRoomBubble(for: desk, now: instant,
-                                                          roomWidth: layout.breakRoom.width)
-                XCTAssertTrue(room.hasSuffix(tail), "\(room) lost its minutes")
-                XCTAssertLessThanOrEqual(StudioRenderer.measureBubble(room),
-                                         layout.breakRoom.width - 4 * StudioRenderer.bubbleInset)
+                for crowd in [1, 10] {
+                    let spots = StudioBreakRoomLayout(room: layout.breakRoom, count: crowd)
+                    let cell = try XCTUnwrap(spots.spots.first).cell
+                    let room = StudioRenderer.breakRoomBubble(for: desk, now: instant,
+                                                              cellWidth: cell.width)
+                    XCTAssertTrue(room.hasSuffix(tail), "\(room) lost its minutes")
+                    XCTAssertLessThanOrEqual(StudioRenderer.measureBubble(room),
+                                             cell.width - 2 * StudioRenderer.bubbleInset)
+                }
             }
         }
     }

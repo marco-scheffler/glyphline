@@ -72,9 +72,9 @@ struct StudioRenderer {
                              to: deskWidth - 2 * bubbleInset)
     }
 
-    /// A waiting figure's bubble in the break room, fitted the same way.
-    static func breakRoomBubble(for desk: StudioDesk, now: Date, roomWidth: Double) -> String {
-        fittedKeepingMinutes(StudioBubble.text(for: desk, now: now), to: roomWidth - 4 * bubbleInset)
+    /// A waiting figure's bubble in its break-room cell, fitted the same way.
+    static func breakRoomBubble(for desk: StudioDesk, now: Date, cellWidth: Double) -> String {
+        fittedKeepingMinutes(StudioBubble.text(for: desk, now: now), to: cellWidth - 2 * bubbleInset)
     }
 
     /// The highest the bubble's bob lifts it.
@@ -120,27 +120,42 @@ struct StudioRenderer {
             drawStation(deskContext, desk: desk, index: index,
                         rect: layout.deskRect(index), scale: layout.deskScale)
         }
-        let room = BreakRoom(room: StudioLayout.breakRoomFloor)
-        let waiting = desks.filter(\.waiting)
-        let s = breakRoomScale(layout.breakRoom)
-        // Every figure first, then every bubble, so no figure covers a bubble.
-        let walkers = waiting.enumerated().map { order, desk in
-            (desk, layout.breakRoomPoint(room.walker(for: order, seed: desk.id, frame: frame)))
-        }
-        for (desk, p) in walkers {
+        drawWaiting(context, waiting: desks.filter(\.waiting), room: layout.breakRoom)
+    }
+
+    /// The waiting sessions, each in its own cell of the break room.
+    private func drawWaiting(_ context: GraphicsContext, waiting: [StudioDesk], room: CGRect) {
+        let ordered = StudioBreakRoomLayout.ordered(waiting)
+        let spots = StudioBreakRoomLayout(room: room, count: ordered.count,
+                                          maximumScale: breakRoomScale(room))
+        let s = spots.figureScale
+        for (desk, spot) in zip(ordered, spots.spots) {
             var body = context
             body.opacity = dim(desk.id)
-            body.translateBy(x: p.x, y: p.y - 40 * s)
+            // A slow sway in place, phased per session so the room does not
+            // breathe in step. Decoration only; nobody moves between spots.
+            let phase = Double(SessionPalette.fnv1a(desk.id) % 628) / 100
+            let sway = 1.5 * sin(seconds / 2.6 * 2 * .pi + phase)
+            body.translateBy(x: spot.figure.x, y: spot.figure.y - 1.5 + sway)
             body.scaleBy(x: s, y: s)
             drawFigure(body, figure: desk.figure, cup: true)
         }
-        for (desk, p) in walkers {
+        // Every figure first, then every bubble, so no figure covers a bubble.
+        for (desk, spot) in zip(ordered, spots.spots) {
             var bubble = context
             bubble.opacity = dim(desk.id)
-            let text = Self.breakRoomBubble(for: desk, now: now, roomWidth: layout.breakRoom.width)
+            let text = Self.breakRoomBubble(for: desk, now: now, cellWidth: spot.cell.width)
             drawBubble(bubble, text: text, tint: Self.amber, typing: false,
-                       centreX: p.x, top: p.y - 92 * s - Self.bubbleHeight,
-                       bounds: layout.breakRoom.insetBy(dx: 6, dy: 0))
+                       centreX: spot.cell.midX, top: spot.bubbleTop, bounds: spot.cell)
+        }
+        if let badge = spots.overflowBadge {
+            context.fill(Path(roundedRect: badge, cornerRadius: badge.height / 2),
+                         with: .color(Self.bubbleFill.alpha(0.91)))
+            context.stroke(Path(roundedRect: badge, cornerRadius: badge.height / 2),
+                           with: .color(Self.amber.color), lineWidth: 1.5)
+            context.draw(Text(verbatim: "+\(spots.overflow)")
+                            .font(Font(Self.bubbleFont as CTFont)).foregroundColor(Self.amber.color),
+                         at: CGPoint(x: badge.midX, y: badge.midY))
         }
     }
 
