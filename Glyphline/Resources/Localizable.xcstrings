@@ -3872,6 +3872,59 @@
         }
       }
     },
+    "Checking…" : {
+      "comment" : "Shown under an API credit heading on an account card while the first Claude Console credit reading is still under way.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wird geprüft …"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Checking…"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comprobando…"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vérification…"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verifica in corso…"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "確認中…"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verificando…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在检查…"
+          }
+        }
+      }
+    },
     "Claude subscription" : {
       "comment" : "Section heading in the add-account form. A claude.ai subscription is the only kind of account that can be added. 'Claude' is a product name and stays.",
       "localizations" : {
@@ -4027,6 +4080,59 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "连接 Console"
+          }
+        }
+      }
+    },
+    "Connecting the Console was cancelled. Nothing was changed." : {
+      "comment" : "Shown when the user closed the Claude Console sign-in window before it finished.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das Verbinden der Console wurde abgebrochen. Es wurde nichts geändert."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connecting the Console was cancelled. Nothing was changed."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se canceló la conexión de la Console. No se ha cambiado nada."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La connexion de la Console a été annulée. Rien n'a été modifié."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il collegamento della Console è stato annullato. Non è stato modificato nulla."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Console の接続はキャンセルされました。何も変更されていません。"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A conexão do Console foi cancelada. Nada foi alterado."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已取消连接 Console。未做任何更改。"
           }
         }
       }
@@ -4292,6 +4398,59 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "无法读取 platform.claude.com 返回的页面。这通常是暂时的。"
+          }
+        }
+      }
+    },
+    "Could not save the Console connection." : {
+      "comment" : "Shown when connecting or disconnecting the Claude Console could not be written to the app's database.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Console-Verbindung konnte nicht gespeichert werden."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not save the Console connection."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo guardar la conexión de la Console."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossible d'enregistrer la connexion à la Console."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossibile salvare il collegamento alla Console."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Console の接続を保存できませんでした。"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não foi possível salvar a conexão do Console."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法保存 Console 连接。"
           }
         }
       }
@@ -10014,6 +10173,59 @@
         }
       }
     },
+    "This login has no Claude Console organisation whose credit can be read." : {
+      "comment" : "Shown when the Claude Console sign-in worked but the login has no API organisation whose prepaid credit the user may read.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dieses Login hat keine Claude-Console-Organisation, deren Guthaben gelesen werden kann."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This login has no Claude Console organisation whose credit can be read."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este inicio de sesión no tiene ninguna organización de Claude Console cuyo crédito se pueda leer."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cette connexion n'a aucune organisation Claude Console dont le crédit peut être lu."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Questo accesso non ha alcuna organizzazione Claude Console di cui si possa leggere il credito."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このログインには、クレジットを読み取れる Claude Console の組織がありません。"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este login não tem nenhuma organização do Claude Console cujo crédito possa ser lido."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此登录没有可读取额度的 Claude Console 组织。"
+          }
+        }
+      }
+    },
     "Tokens" : {
       "comment" : "Axis and value label in the usage chart: the unit the model bills in. The English word is used as-is by developer tooling in most languages.",
       "localizations" : {
@@ -10757,7 +10969,7 @@
       }
     },
     "Your Claude Console sign-in has expired. Connect the Console again." : {
-      "comment" : "Notification body when the Claude Console (platform.claude.com) sign-in used to read API credit has expired.",
+      "comment" : "Tells the user their Claude Console (platform.claude.com) sign-in, used to read API credit, has expired. Shown as a notification body, on the account card and in the connect window.",
       "localizations" : {
         "de" : {
           "stringUnit" : {

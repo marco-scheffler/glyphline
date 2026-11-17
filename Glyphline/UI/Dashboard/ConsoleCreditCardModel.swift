@@ -42,6 +42,14 @@ struct ConsoleCreditCardModel: Identifiable, Equatable {
             message: state.failure?.consoleMessage
         )
 
+        // Connected, but nothing read yet: say so rather than show a bare title.
+        if state.balance == nil, state.failure == nil {
+            model.message = String(
+                localized: "Checking…",
+                comment: "Shown under an API credit heading on an account card while the first Claude Console credit reading is still under way."
+            )
+        }
+
         guard let balance = state.balance else { return model }
 
         func amount(_ minor: Int64) -> String {
@@ -54,7 +62,8 @@ struct ConsoleCreditCardModel: Identifiable, Equatable {
             comment: "Claude Console prepaid credit remaining. The placeholder is a currency amount."
         )
 
-        if let expiry = balance.nextExpiry {
+        // A lapse already past says nothing true; the next reading drops it.
+        if let expiry = balance.nextExpiry, expiry.at > now {
             let expiryAmount = amount(expiry.amountMinor)
             let date = expiry.at.formatted(
                 Date.FormatStyle().weekday(.abbreviated).day().month(.abbreviated).locale(locale)
@@ -77,5 +86,23 @@ struct ConsoleCreditCardModel: Identifiable, Equatable {
         }
 
         return model
+    }
+}
+
+extension ConsoleCreditCardModel {
+    /// Every connected organisation of one account, numbered in stored order.
+    /// An organisation with no state yet still gets its block, saying it is
+    /// being checked.
+    static func models(
+        for organizations: [ConsoleOrganization],
+        states: [ConsoleCreditState],
+        now: Date,
+        locale: Locale = .current
+    ) -> [ConsoleCreditCardModel] {
+        organizations.enumerated().map { index, organization in
+            let state = states.first { $0.organization == organization }
+                ?? ConsoleCreditState(organization: organization)
+            return make(state, position: index + 1, of: organizations.count, now: now, locale: locale)
+        }
     }
 }

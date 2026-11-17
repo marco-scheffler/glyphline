@@ -14,8 +14,7 @@ final class ConsoleCreditRuleTests: XCTestCase {
             exponent: exponent,
             balanceMinor: minor,
             nextExpiry: interval.map { .init(at: now.addingTimeInterval($0), amountMinor: 350) },
-            monthSpendMinor: nil,
-            spendResetsAt: nil
+            monthSpendMinor: nil
         )
     }
 

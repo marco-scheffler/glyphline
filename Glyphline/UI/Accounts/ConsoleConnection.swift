@@ -5,6 +5,17 @@ protocol ConsoleSignInPresenting {
     @MainActor func presentConsoleSignIn(for account: Account) async -> ConsoleSignInOutcome
 }
 
+/// The real Console presenter: the same window, pointed at platform.claude.com,
+/// in the account's own data store.
+@MainActor
+struct ConsoleSignInWindowPresenter: ConsoleSignInPresenting {
+    var sessionStore = ClaudeWebSessionStore()
+
+    func presentConsoleSignIn(for account: Account) async -> ConsoleSignInOutcome {
+        await ClaudeSignInWindow(account: account, sessionStore: sessionStore, target: .console).presentConsole()
+    }
+}
+
 enum ConsoleSignInOutcome: Equatable, Sendable {
     case connected([ConsoleOrganization])
     case failed(RateWindowSourceError)
@@ -30,17 +41,32 @@ struct ConsoleConnection {
         case failed(String)
     }
 
-    static let cancelledMessage = "Connecting the Console was cancelled. Nothing was changed."
-    static let saveFailedMessage = "Could not save the Console connection."
+    static var cancelledMessage: String {
+        String(
+            localized: "Connecting the Console was cancelled. Nothing was changed.",
+            comment: "Shown when the user closed the Claude Console sign-in window before it finished."
+        )
+    }
+
+    static var saveFailedMessage: String {
+        String(
+            localized: "Could not save the Console connection.",
+            comment: "Shown when connecting or disconnecting the Claude Console could not be written to the app's database."
+        )
+    }
+
+    /// Signed in, but no organisation whose credit can be read. Shared with the
+    /// sign-in window, so both say it the same way.
+    static var noOrganizationMessage: String {
+        String(
+            localized: "This login has no Claude Console organisation whose credit can be read.",
+            comment: "Shown when the Claude Console sign-in worked but the login has no API organisation whose prepaid credit the user may read."
+        )
+    }
 
     let ledgerStore: LedgerStore
     let signIn: any ConsoleSignInPresenting
     let sessions: any ConsoleSessionRemoving
-
-    static func isEligible(_ account: Account) -> Bool {
-        account.providerID == .claude
-            && AccountCredentialReference.source(of: account.credentialReference) == .claudeWebSession
-    }
 
     func connect(_ account: Account) async -> Outcome {
         switch await signIn.presentConsoleSignIn(for: account) {
@@ -48,7 +74,7 @@ struct ConsoleConnection {
             // Signed in, but no organisation whose billing can be read: nothing
             // to connect, and an empty list would read as "not connected" anyway.
             guard !organizations.isEmpty else {
-                return .failed(RateWindowSourceError.notAvailable.message)
+                return .failed(Self.noOrganizationMessage)
             }
             do {
                 try ledgerStore.setConsoleOrganizations(accountID: account.id, organizations)
@@ -56,8 +82,10 @@ struct ConsoleConnection {
                 return .failed(Self.saveFailedMessage)
             }
             return .done
+        case .failed(.notAvailable):
+            return .failed(Self.noOrganizationMessage)
         case .failed(let error):
-            return .failed(error.message)
+            return .failed(error.consoleMessage)
         case .cancelled:
             return .failed(Self.cancelledMessage)
         }

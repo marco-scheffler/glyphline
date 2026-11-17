@@ -52,10 +52,10 @@ final class ConsoleConnectionTests: XCTestCase {
     }
 
     func testOnlyWebSessionClaudeAccountsAreEligible() {
-        XCTAssertTrue(ConsoleConnection.isEligible(makeAccount(source: .claudeWebSession)))
-        XCTAssertFalse(ConsoleConnection.isEligible(makeAccount(source: .credential)))
-        XCTAssertFalse(ConsoleConnection.isEligible(makeAccount(source: .localLogs)))
-        XCTAssertFalse(ConsoleConnection.isEligible(makeAccount(source: .claudeWebSession, providerID: .openAI)))
+        XCTAssertTrue(makeAccount(source: .claudeWebSession).canConnectConsole)
+        XCTAssertFalse(makeAccount(source: .credential).canConnectConsole)
+        XCTAssertFalse(makeAccount(source: .localLogs).canConnectConsole)
+        XCTAssertFalse(makeAccount(source: .claudeWebSession, providerID: .openAI).canConnectConsole)
     }
 
     func testConnectPersistsTheReportedOrganizations() async throws {
@@ -115,8 +115,36 @@ final class ConsoleConnectionTests: XCTestCase {
         let connection = ConsoleConnection(ledgerStore: store, signIn: StubSignIn(.connected([])), sessions: remover)
         let outcome = await connection.connect(account)
 
-        XCTAssertEqual(outcome, .failed(RateWindowSourceError.notAvailable.message))
+        XCTAssertEqual(outcome, .failed("This login has no Claude Console organisation whose credit can be read."))
         XCTAssertEqual(try storedOrganizations(store, account.id), [])
         XCTAssertTrue(remover.events.isEmpty)
+    }
+
+    func testNotAvailableSaysThereIsNoReadableOrganization() async throws {
+        let store = try makeStore()
+        let account = makeAccount(source: .claudeWebSession)
+        try store.saveAccount(account)
+
+        let connection = ConsoleConnection(
+            ledgerStore: store, signIn: StubSignIn(.failed(.notAvailable)), sessions: RecordingRemover()
+        )
+        let outcome = await connection.connect(account)
+
+        XCTAssertEqual(outcome, .failed("This login has no Claude Console organisation whose credit can be read."))
+        XCTAssertEqual(outcome, .failed(ConsoleConnection.noOrganizationMessage))
+    }
+
+    func testAnExpiredSignInUsesTheConsoleWording() async throws {
+        let store = try makeStore()
+        let account = makeAccount(source: .claudeWebSession)
+        try store.saveAccount(account)
+
+        let connection = ConsoleConnection(
+            ledgerStore: store, signIn: StubSignIn(.failed(.sessionExpired)), sessions: RecordingRemover()
+        )
+        let outcome = await connection.connect(account)
+
+        XCTAssertEqual(outcome, .failed(RateWindowSourceError.sessionExpired.consoleMessage))
+        XCTAssertNotEqual(outcome, .failed(RateWindowSourceError.sessionExpired.message))
     }
 }

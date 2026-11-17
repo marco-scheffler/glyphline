@@ -222,7 +222,15 @@ final class ClaudeSignInWindow: NSObject {
     /// Shows why the check did not pass, using the error's own message and
     /// nothing from the response.
     private func report(_ error: RateWindowSourceError) {
-        statusLabel?.stringValue = error.message
+        switch (target, error) {
+        case (.console, .notAvailable):
+            // The verifier only ends here when no API organisation is readable.
+            statusLabel?.stringValue = ConsoleConnection.noOrganizationMessage
+        case (.console, _):
+            statusLabel?.stringValue = error.consoleMessage
+        case (.subscription, _):
+            statusLabel?.stringValue = error.message
+        }
 
         switch error {
         case .notAvailable:

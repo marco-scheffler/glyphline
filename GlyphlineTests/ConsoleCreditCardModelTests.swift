@@ -28,12 +28,10 @@ final class ConsoleCreditCardModelTests: XCTestCase {
                     exponent: 2,
                     balanceMinor: 15_700,
                     nextExpiry: expiry,
-                    monthSpendMinor: 4_200,
-                    spendResetsAt: nil
+                    monthSpendMinor: 4_200
                 )
                 : nil,
-            failure: failure,
-            observedAt: hasBalance ? now : nil
+            failure: failure
         )
     }
 
@@ -105,5 +103,30 @@ final class ConsoleCreditCardModelTests: XCTestCase {
         let model = ConsoleCreditCardModel.make(state(currency: "EUR"), position: 1, of: 1, now: now, locale: locale)
         let eur = (Decimal(15_700) / 100).formatted(.currency(code: "EUR").locale(locale))
         XCTAssertEqual(model.balanceText, "\(eur) left")
+    }
+
+    func testAnExpiryAlreadyPastIsLeftOut() {
+        for at in [now, now.addingTimeInterval(-3_600)] {
+            let model = ConsoleCreditCardModel.make(
+                state(expiry: .init(at: at, amountMinor: 100)), position: 1, of: 1, now: now, locale: locale
+            )
+            XCTAssertNil(model.expiryText)
+            XCTAssertFalse(model.expiryIsUrgent)
+            XCTAssertNotNil(model.balanceText)
+        }
+    }
+
+    func testAConnectedOrganizationWithNoStateYetIsBeingChecked() {
+        let orgs = [ConsoleOrganization(id: "org-1"), ConsoleOrganization(id: "org-2")]
+        let models = ConsoleCreditCardModel.models(
+            for: orgs, states: [state()], now: now, locale: locale
+        )
+
+        XCTAssertEqual(models.map(\.id), ["org-1", "org-2"])
+        XCTAssertEqual(models[0].balanceText, "\(usd(15_700)) left")
+        XCTAssertNil(models[0].message)
+        XCTAssertEqual(models[1].title, "API credit 2")
+        XCTAssertEqual(models[1].message, "Checking…")
+        XCTAssertNil(models[1].balanceText)
     }
 }

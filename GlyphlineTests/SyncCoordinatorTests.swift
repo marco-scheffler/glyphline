@@ -1197,7 +1197,7 @@ final class SyncCoordinatorTests: XCTestCase {
 
     private func makeCreditCoordinator(
         ledger: LedgerStore,
-        credit: SwitchableCreditFetcher,
+        credit: any ConsoleCreditFetching,
         notifier: RecordingNotifier = RecordingNotifier(),
         quota: (any RateWindowSource)? = FixedWindowsSource(windows: [RateWindow(
             kind: .rollingFiveHours, usedFraction: 0.1,
@@ -1223,7 +1223,7 @@ final class SyncCoordinatorTests: XCTestCase {
         ConsoleCreditBalance(
             currency: "USD", exponent: 2, balanceMinor: minor,
             nextExpiry: expiresAt.map { .init(at: $0, amountMinor: 1_000) },
-            monthSpendMinor: nil, spendResetsAt: nil
+            monthSpendMinor: nil
         )
     }
 
@@ -1236,7 +1236,6 @@ final class SyncCoordinatorTests: XCTestCase {
         await coordinator.collectRateWindows()
 
         XCTAssertEqual(coordinator.consoleCredits[account.id]?.first?.balance, Self.balance(10_000))
-        XCTAssertEqual(coordinator.consoleCredits[account.id]?.first?.observedAt, Self.now)
         XCTAssertEqual(coordinator.rateWindowMessages[account.id], RateWindowSourceError.notAvailable.message)
     }
 
@@ -1286,9 +1285,60 @@ final class SyncCoordinatorTests: XCTestCase {
             await coordinator.collectRateWindows()
         }
 
-        XCTAssertEqual(notifier.creditLow.count, 2)
+        // The first 400 is the baseline; only the crossing after 900 is news.
+        XCTAssertEqual(notifier.creditLow.count, 1)
         XCTAssertEqual(notifier.creditLow.first?.balance,
                        ConsoleCreditFormatting.amount(400, exponent: 2, currency: "USD"))
+    }
+
+    func testALowFirstReadingIsABaseline() async throws {
+        let (_, ledger) = try makeLedger()
+        try saveConsoleAccount("Max", in: ledger)
+        let notifier = RecordingNotifier()
+        let credit = SwitchableCreditFetcher(.success(Self.balance(400)))
+
+        // A fresh coordinator per launch: low from the start is never announced.
+        for _ in 0..<2 {
+            let coordinator = makeCreditCoordinator(ledger: ledger, credit: credit, notifier: notifier)
+            await coordinator.collectRateWindows()
+            await coordinator.collectRateWindows()
+        }
+
+        XCTAssertTrue(notifier.creditLow.isEmpty)
+    }
+
+    func testQuotaIsPublishedBeforeTheCreditReadFinishes() async throws {
+        let (_, ledger) = try makeLedger()
+        let account = try saveConsoleAccount("Max", in: ledger)
+        let credit = SuspendingCreditFetcher(.success(Self.balance(10_000)))
+        let coordinator = makeCreditCoordinator(ledger: ledger, credit: credit)
+
+        let tick = Task { await coordinator.collectRateWindows() }
+        await credit.waitUntilSuspended()
+
+        XCTAssertEqual(coordinator.quotaStates.map(\.accountID), [account.id])
+        XCTAssertNil(coordinator.consoleCredits[account.id])
+
+        credit.resume()
+        await tick.value
+        XCTAssertEqual(coordinator.consoleCredits[account.id]?.first?.balance, Self.balance(10_000))
+    }
+
+    func testADisconnectDuringTheReadDropsItsResult() async throws {
+        let (_, ledger) = try makeLedger()
+        let account = try saveConsoleAccount("Max", in: ledger)
+        let notifier = RecordingNotifier()
+        let credit = SuspendingCreditFetcher(.failure(.sessionExpired))
+        let coordinator = makeCreditCoordinator(ledger: ledger, credit: credit, notifier: notifier)
+
+        let tick = Task { await coordinator.collectRateWindows() }
+        await credit.waitUntilSuspended()
+        try ledger.setConsoleOrganizations(accountID: account.id, [])
+        credit.resume()
+        await tick.value
+
+        XCTAssertNil(coordinator.consoleCredits[account.id])
+        XCTAssertTrue(notifier.consoleExpired.isEmpty)
     }
 
     func testConsoleSessionExpiryIsAnnouncedOnTheTransition() async throws {
@@ -1330,16 +1380,23 @@ final class SyncCoordinatorTests: XCTestCase {
         let (_, ledger) = try makeLedger()
         let account = try saveConsoleAccount("Max", in: ledger)
         let notifier = RecordingNotifier()
-        let credit = SwitchableCreditFetcher(.success(Self.balance(400)))
+        let credit = SwitchableCreditFetcher(.success(Self.balance(900)))
         let coordinator = makeCreditCoordinator(ledger: ledger, credit: credit, notifier: notifier)
 
         await coordinator.collectRateWindows()
+        credit.result = .success(Self.balance(400))
+        await coordinator.collectRateWindows()
         XCTAssertNotNil(coordinator.consoleCredits[account.id])
+        XCTAssertEqual(notifier.creditLow.count, 1)
 
         coordinator.forgetAccount(id: account.id)
         XCTAssertNil(coordinator.consoleCredits[account.id])
 
-        // The dedupe went with it: the same low balance is news again.
+        // The dedupe went with it: after a new baseline, the same crossing is
+        // news again.
+        credit.result = .success(Self.balance(900))
+        await coordinator.collectRateWindows()
+        credit.result = .success(Self.balance(400))
         await coordinator.collectRateWindows()
         XCTAssertEqual(notifier.creditLow.count, 2)
     }
@@ -1383,6 +1440,44 @@ final class SwitchableCreditFetcher: ConsoleCreditFetching {
         await MainActor.run {
             [ConsoleCreditReading(organization: ConsoleOrganization(id: "org-1"), result: result)]
         }
+    }
+}
+
+/// A credit fetcher that parks inside the read until the test resumes it, so a
+/// test can look at — or change — the world while a credit read is in flight.
+@MainActor
+final class SuspendingCreditFetcher: ConsoleCreditFetching {
+    var result: Result<ConsoleCreditBalance, RateWindowSourceError>
+    private var parked: CheckedContinuation<Void, Never>?
+    private var waiter: CheckedContinuation<Void, Never>?
+
+    init(_ result: Result<ConsoleCreditBalance, RateWindowSourceError>) {
+        self.result = result
+    }
+
+    nonisolated func fetchCredits(account: Account) async throws -> [ConsoleCreditReading] {
+        await park()
+        return await MainActor.run {
+            [ConsoleCreditReading(organization: ConsoleOrganization(id: "org-1"), result: result)]
+        }
+    }
+
+    private func park() async {
+        await withCheckedContinuation { continuation in
+            parked = continuation
+            waiter?.resume()
+            waiter = nil
+        }
+    }
+
+    func waitUntilSuspended() async {
+        guard parked == nil else { return }
+        await withCheckedContinuation { waiter = $0 }
+    }
+
+    func resume() {
+        parked?.resume()
+        parked = nil
     }
 }
 

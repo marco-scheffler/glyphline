@@ -65,4 +65,23 @@ final class AccountsViewTests: XCTestCase {
         XCTAssertEqual(try store.fetchAccounts().first?.resolvedName, "Work")
         XCTAssertEqual(reloads, 1)
     }
+
+    func testConsoleButtonsFollowTheConnection() {
+        let org = ConsoleOrganization(id: "org-1")
+        let expired = ConsoleCreditState(organization: org, balance: nil, failure: .sessionExpired)
+        let failing = ConsoleCreditState(organization: org, balance: nil, failure: .transportFailure)
+
+        let none = AccountsView.consoleActions(organizations: [], states: [])
+        XCTAssertTrue(none.connect)
+        XCTAssertFalse(none.disconnect)
+
+        let connected = AccountsView.consoleActions(organizations: [org], states: [failing])
+        XCTAssertFalse(connected.connect)
+        XCTAssertTrue(connected.disconnect)
+
+        // An expired sign-in can be renewed and can still be let go of.
+        let lapsed = AccountsView.consoleActions(organizations: [org], states: [expired])
+        XCTAssertTrue(lapsed.connect)
+        XCTAssertTrue(lapsed.disconnect)
+    }
 }

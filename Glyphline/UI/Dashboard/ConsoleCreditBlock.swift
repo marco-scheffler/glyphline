@@ -42,12 +42,3 @@ struct ConsoleCreditBlock: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
-
-extension ConsoleCreditCardModel {
-    /// Every organisation of one account, numbered in stored order.
-    static func models(for states: [ConsoleCreditState], now: Date) -> [ConsoleCreditCardModel] {
-        states.enumerated().map { index, state in
-            make(state, position: index + 1, of: states.count, now: now)
-        }
-    }
-}

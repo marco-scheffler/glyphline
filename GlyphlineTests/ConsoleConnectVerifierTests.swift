@@ -73,4 +73,13 @@ final class ConsoleConnectVerifierTests: XCTestCase {
         ])
         XCTAssertEqual(result, .failure(.sessionExpired))
     }
+
+    /// Continue pressed before signing in: the platform's unauthenticated answer
+    /// to the list is unobserved, so a plain 403 there must leave Continue live.
+    func testADeniedOrganizationListIsReportedAsExpired() async {
+        let result = await verify([
+            Self.organizations: .failure(.notAvailable),
+        ])
+        XCTAssertEqual(result, .failure(.sessionExpired))
+    }
 }

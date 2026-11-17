@@ -143,14 +143,17 @@ struct ConsoleCreditBalance: Equatable, Sendable {
     var balanceMinor: Int64
     var nextExpiry: Expiry?
     var monthSpendMinor: Int64?
-    var spendResetsAt: Date?
 }
 
 extension ConsoleCreditBalance {
     /// Nil only when no balance is decodable; a missing spend or unreadable
     /// tranches still leave a balance worth showing.
     init?(credits: ConsoleCreditsResponse, spend: ConsoleCurrentSpendResponse?, now: Date) {
-        guard let balanceMinor = credits.balanceMinor else { return nil }
+        // An exponent no Int64 amount can carry is not a balance; it is
+        // rejected here rather than clamped into a wrong one.
+        guard let balanceMinor = credits.balanceMinor,
+              ConsoleCreditFormatting.powerOfTen(credits.exponent) != nil
+        else { return nil }
 
         // A tranche that has already lapsed or has nothing left cannot lapse
         // again, so it would only produce a warning about nothing.
@@ -161,12 +164,16 @@ extension ConsoleCreditBalance {
             return (at, remaining)
         }
         // Tranches lapsing on the same instant are one event, so they make one
-        // line and one notification with their sum.
-        let nextExpiry = live.map(\.0).min().map { earliest in
-            Expiry(
-                at: earliest,
-                amountMinor: live.filter { $0.0 == earliest }.reduce(0) { $0 + $1.1 }
-            )
+        // line and one notification with their sum. A sum past Int64 is a
+        // server value nobody can show honestly, so that expiry is dropped.
+        let nextExpiry = live.map(\.0).min().flatMap { earliest -> Expiry? in
+            var sum: Int64 = 0
+            for (at, remaining) in live where at == earliest {
+                let (next, overflow) = sum.addingReportingOverflow(remaining)
+                if overflow { return nil }
+                sum = next
+            }
+            return Expiry(at: earliest, amountMinor: sum)
         }
 
         self.init(
@@ -174,16 +181,16 @@ extension ConsoleCreditBalance {
             exponent: credits.exponent,
             balanceMinor: balanceMinor,
             nextExpiry: nextExpiry,
-            monthSpendMinor: spend?.amountMinor,
-            spendResetsAt: spend?.resetsAt
+            monthSpendMinor: spend?.amountMinor
         )
     }
 
     /// Five major units of the balance's own currency, whatever its exponent.
-    var lowBalanceThresholdMinor: Int64 {
-        var threshold: Int64 = 5
-        for _ in 0..<max(exponent, 0) { threshold *= 10 }
-        return threshold
+    /// Nil when the exponent cannot be carried in Int64.
+    var lowBalanceThresholdMinor: Int64? {
+        guard let unit = ConsoleCreditFormatting.powerOfTen(exponent) else { return nil }
+        let (threshold, overflow) = unit.multipliedReportingOverflow(by: 5)
+        return overflow ? nil : threshold
     }
 }
 
@@ -191,8 +198,17 @@ enum ConsoleCreditFormatting {
     /// Money is kept in minor units and only becomes a decimal here, so the
     /// currency symbol and digits always follow the reported currency.
     static func amount(_ minor: Int64, exponent: Int, currency: String, locale: Locale = .current) -> String {
-        var divisor = Decimal(1)
-        for _ in 0..<max(exponent, 0) { divisor *= 10 }
+        // A balance cannot carry an exponent `powerOfTen` rejects; 1 only keeps
+        // a hand-built value from trapping.
+        let divisor = Decimal(powerOfTen(exponent) ?? 1)
         return (Decimal(minor) / divisor).formatted(.currency(code: currency).locale(locale))
+    }
+
+    /// 10^exponent, or nil outside 0...18 — the range an Int64 can hold.
+    static func powerOfTen(_ exponent: Int) -> Int64? {
+        guard (0...18).contains(exponent) else { return nil }
+        var result: Int64 = 1
+        for _ in 0..<exponent { result *= 10 }
+        return result
     }
 }

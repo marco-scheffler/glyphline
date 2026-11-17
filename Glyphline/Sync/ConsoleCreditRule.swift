@@ -25,6 +25,7 @@ enum ConsoleCreditRule {
     }
 
     static func isLow(_ balance: ConsoleCreditBalance) -> Bool {
-        balance.balanceMinor < balance.lowBalanceThresholdMinor
+        guard let threshold = balance.lowBalanceThresholdMinor else { return false }
+        return balance.balanceMinor < threshold
     }
 }

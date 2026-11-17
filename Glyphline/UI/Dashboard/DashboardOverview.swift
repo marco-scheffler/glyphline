@@ -274,7 +274,8 @@ struct DashboardOverview: View {
             summary: summary,
             state: state,
             credits: ConsoleCreditCardModel.models(
-                for: coordinator.consoleCredits[summary.account.id] ?? [],
+                for: summary.account.consoleOrganizations,
+                states: coordinator.consoleCredits[summary.account.id] ?? [],
                 now: now
             ),
             now: now

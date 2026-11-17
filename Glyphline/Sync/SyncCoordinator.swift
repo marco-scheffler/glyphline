@@ -8,8 +8,6 @@ struct ConsoleCreditState: Equatable, Sendable {
     var organization: ConsoleOrganization
     var balance: ConsoleCreditBalance?
     var failure: RateWindowSourceError?
-    /// When `balance` was last read successfully.
-    var observedAt: Date?
 }
 
 @MainActor
@@ -50,6 +48,10 @@ final class SyncCoordinator: ObservableObject {
     /// Organisations announced as low, per account; removed once the balance
     /// recovers, so the next crossing is news again.
     private var creditLowWarned: [UUID: Set<String>] = [:]
+    /// Organisations read successfully at least once since launch or since
+    /// they were connected. The first reading is a baseline: a balance that is
+    /// already low is not news, only a later crossing is.
+    private var creditBaselined: [UUID: Set<String>] = [:]
     /// Accounts whose expired Console sign-in was already announced.
     private var consoleSessionExpiryNotified: Set<UUID> = []
 
@@ -523,10 +525,6 @@ final class SyncCoordinator: ObservableObject {
             }
         }
 
-        // After the quota loop and independent of it: a quota failure never
-        // hides credit, and a credit failure never touches the quota fields.
-        await collectConsoleCredits(for: accounts)
-
         // Rebuilt for every enabled account, including ones that were skipped or
         // failed: an account with no data belongs in the menu with its reason,
         // not filtered out.
@@ -554,6 +552,11 @@ final class SyncCoordinator: ObservableObject {
 
         // Retention runs regardless of how the fetches went.
         try? ledger.deleteRateWindowSamples(olderThan: now().addingTimeInterval(-365 * 86_400))
+
+        // After the quota loop and independent of it: a quota failure never
+        // hides credit, and a credit failure never touches the quota fields.
+        // Last, so a slow Console read never holds back the quota just read.
+        await collectConsoleCredits(for: accounts)
     }
 
     /// Reads the Console credit of every connected account. Reads accounts
@@ -570,10 +573,17 @@ final class SyncCoordinator: ObservableObject {
             guard !account.consoleOrganizations.isEmpty,
                   let source = consoleCreditSourceProvider(account)
             else {
-                // Disconnected: nothing to show.
+                // Disconnected: nothing to show, and a later connect starts
+                // from a fresh baseline.
                 consoleCredits[account.id] = nil
+                creditBaselined[account.id] = nil
+                creditLowWarned[account.id] = nil
                 continue
             }
+            // An organisation no longer connected starts afresh if it returns.
+            let connectedIDs = Set(account.consoleOrganizations.map(\.id))
+            creditBaselined[account.id]?.formIntersection(connectedIDs)
+            creditLowWarned[account.id]?.formIntersection(connectedIDs)
 
             guard !consoleCreditFetchesInFlight.contains(account.id) else { continue }
             consoleCreditFetchesInFlight.insert(account.id)
@@ -581,6 +591,16 @@ final class SyncCoordinator: ObservableObject {
 
             guard let readings = try? await source.fetchCredits(account: account) else {
                 // Only cancellation throws; leave the last state standing.
+                continue
+            }
+
+            // The read took a while. An account disconnected, disabled or
+            // deleted meanwhile gets nothing written and nothing announced.
+            let current = (try? ledger?.fetchAccounts())?.first { $0.id == account.id }
+            guard let current, current.isEnabled, !current.consoleOrganizations.isEmpty,
+                  Set(readings.map(\.organization.id))
+                    .isSubset(of: Set(current.consoleOrganizations.map(\.id)))
+            else {
                 continue
             }
 
@@ -597,7 +617,6 @@ final class SyncCoordinator: ObservableObject {
                     anySucceeded = true
                     state.balance = balance
                     state.failure = nil
-                    state.observedAt = now()
                     await warnAboutCredit(balance, organization: reading.organization, account: account)
                 case .failure(let error):
                     if error == .sessionExpired { anyExpired = true }
@@ -623,11 +642,15 @@ final class SyncCoordinator: ObservableObject {
         account: Account
     ) async {
         let isLow = ConsoleCreditRule.isLow(balance)
+        let isBaseline = creditBaselined[account.id, default: []].insert(organization.id).inserted
         // Tracked whether or not warnings are on, so turning them on later does
-        // not announce a crossing that happened while they were off.
+        // not announce a crossing that happened while they were off. A first
+        // reading that is already low is recorded as warned but not announced:
+        // it would otherwise repeat on every launch.
         let newlyLow: Bool
         if isLow {
             newlyLow = creditLowWarned[account.id, default: []].insert(organization.id).inserted
+                && !isBaseline
         } else {
             creditLowWarned[account.id]?.remove(organization.id)
             newlyLow = false
@@ -768,6 +791,7 @@ final class SyncCoordinator: ObservableObject {
         consoleCreditFetchesInFlight.remove(accountID)
         creditExpiryWarned = creditExpiryWarned.filter { $0.accountID != accountID }
         creditLowWarned[accountID] = nil
+        creditBaselined[accountID] = nil
         consoleSessionExpiryNotified.remove(accountID)
     }
 }

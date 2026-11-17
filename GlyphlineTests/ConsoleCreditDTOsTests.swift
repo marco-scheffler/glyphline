@@ -97,13 +97,12 @@ final class ConsoleCreditDTOsTests: XCTestCase {
         let balance = try balance(#"{"amount": 1200, "currency": "USD"}"#, spend: spend)
 
         XCTAssertEqual(balance.monthSpendMinor, 4579)
-        XCTAssertEqual(balance.spendResetsAt, Self.date("2026-12-01T00:00:00Z"))
     }
 
     func testLowBalanceThresholdFollowsTheExponent() {
         var balance = ConsoleCreditBalance(
             currency: "USD", exponent: 2, balanceMinor: 0,
-            nextExpiry: nil, monthSpendMinor: nil, spendResetsAt: nil
+            nextExpiry: nil, monthSpendMinor: nil
         )
         XCTAssertEqual(balance.lowBalanceThresholdMinor, 500)
 
@@ -135,5 +134,27 @@ final class ConsoleCreditDTOsTests: XCTestCase {
             ConsoleCreditFormatting.amount(500, exponent: 0, currency: "JPY", locale: locale),
             Decimal(500).formatted(.currency(code: "JPY").locale(locale))
         )
+    }
+
+    func testAnExponentPastInt64IsNoBalance() throws {
+        let response = try credits(#"{"currency": "USD", "balance": {"credits": {"amount_minor": 100, "exponent": 19}}}"#)
+        XCTAssertNil(ConsoleCreditBalance(credits: response, spend: nil, now: now))
+    }
+
+    func testANegativeExponentIsNoBalance() throws {
+        let response = try credits(#"{"currency": "USD", "balance": {"credits": {"amount_minor": 100, "exponent": -1}}}"#)
+        XCTAssertNil(ConsoleCreditBalance(credits: response, spend: nil, now: now))
+    }
+
+    func testTranchesSummingPastInt64DropTheExpiry() throws {
+        let balance = try balance("""
+        {"amount": 1200, "currency": "USD", "promo_tranches": [
+          {"remaining_amount_minor_units": 9223372036854775807, "expires_at": "2026-12-01T00:00:00Z"},
+          {"remaining_amount_minor_units": 1, "expires_at": "2026-12-01T00:00:00Z"}
+        ]}
+        """)
+
+        XCTAssertEqual(balance.balanceMinor, 1200)
+        XCTAssertNil(balance.nextExpiry)
     }
 }

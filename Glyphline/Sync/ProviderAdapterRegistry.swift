@@ -60,7 +60,7 @@ struct ProviderAdapterRegistry {
     /// data store, so the same reasoning as `rateWindowSource(for:)` applies.
     @MainActor
     func consoleCreditSource(for account: Account) -> (any ConsoleCreditFetching)? {
-        guard ConsoleConnection.isEligible(account), !account.consoleOrganizations.isEmpty else {
+        guard account.canConnectConsole, !account.consoleOrganizations.isEmpty else {
             return nil
         }
         return ConsoleCreditSource(sessionStore: sessionStore)

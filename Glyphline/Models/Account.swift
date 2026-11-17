@@ -91,3 +91,12 @@ struct Account: Identifiable, Equatable, Sendable {
         return trimmed
     }
 }
+
+extension Account {
+    /// Only a Claude account signed in through claude.ai can connect the
+    /// Console: the Console sign-in lives in that account's own data store.
+    var canConnectConsole: Bool {
+        providerID == .claude
+            && AccountCredentialReference.source(of: credentialReference) == .claudeWebSession
+    }
+}

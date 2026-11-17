@@ -18,6 +18,12 @@ enum ConsoleConnectVerifier {
     ) async -> Result<[ConsoleOrganization], RateWindowSourceError> {
         let candidates: [ConsoleOrganization]
         switch await fetch(ClaudeWebEndpoints.consoleOrganizations, ClaudeWebResponseClassifier.classifyConsoleOrganizations) {
+        case .failure(.notAvailable):
+            // A 403 on the list itself is what Continue pressed before signing
+            // in may well look like; the unauthenticated answer is unobserved.
+            // Reported as expired so the window lets the user try again. Only
+            // this verifier's own findings below are a final "not available".
+            return .failure(.sessionExpired)
         case .failure(let error):
             return .failure(error)
         case .success(let data):

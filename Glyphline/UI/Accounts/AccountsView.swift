@@ -12,7 +12,7 @@ struct AccountsView: View {
     /// means "no ledger" instead of "the user's".
     var ledgerStore: LedgerStore?
     var credentialStore: any CredentialStore = KeychainStore()
-    var webSessions: any WebSessionRemoving = ClaudeWebSessionStore()
+    var webSessions: any WebSessionRemoving & ConsoleSessionRemoving = ClaudeWebSessionStore()
     var onDeleted: () -> Void = {}
     var onAdded: () -> Void = {}
     /// Reloads the list after a rename. The row renders from `accounts`, which
@@ -102,8 +102,8 @@ struct AccountsView: View {
                                     .accessibilityLabel("Rename account")
                                     .help("Rename account")
 
-                                    if ConsoleConnection.isEligible(summary.account) {
-                                        consoleButton(for: summary.account)
+                                    if summary.account.canConnectConsole {
+                                        consoleButtons(for: summary.account)
                                     }
 
                                     // Disabled only while this account's own delete
@@ -164,7 +164,8 @@ struct AccountsView: View {
                                 // Outside the quota branch: a quota failure
                                 // never hides credit.
                                 ForEach(ConsoleCreditCardModel.models(
-                                    for: coordinator.consoleCredits[summary.account.id] ?? [],
+                                    for: summary.account.consoleOrganizations,
+                                    states: coordinator.consoleCredits[summary.account.id] ?? [],
                                     now: Date()
                                 )) { credit in
                                     ConsoleCreditBlock(model: credit)
@@ -342,15 +343,33 @@ struct AccountsView: View {
         )
     }
 
-    /// "Connect" when the account has no Console organisation, or when one of
-    /// them reports an expired sign-in — reconnecting re-runs `connect`.
-    private func needsConsoleConnect(_ account: Account) -> Bool {
-        account.consoleOrganizations.isEmpty
-            || (coordinator.consoleCredits[account.id] ?? []).contains { $0.failure == .sessionExpired }
+    /// Which Console buttons an account shows. Connect when there is no
+    /// connection, or when its sign-in has expired — reconnecting re-runs
+    /// `connect`. Disconnect whenever there is a connection, expired or not, so
+    /// an account can always be let go of.
+    static func consoleActions(
+        organizations: [ConsoleOrganization],
+        states: [ConsoleCreditState]
+    ) -> (connect: Bool, disconnect: Bool) {
+        let connected = !organizations.isEmpty
+        let expired = states.contains { $0.failure == .sessionExpired }
+        return (connect: !connected || expired, disconnect: connected)
     }
 
-    @ViewBuilder private func consoleButton(for account: Account) -> some View {
-        let connect = needsConsoleConnect(account)
+    @ViewBuilder private func consoleButtons(for account: Account) -> some View {
+        let actions = Self.consoleActions(
+            organizations: account.consoleOrganizations,
+            states: coordinator.consoleCredits[account.id] ?? []
+        )
+        if actions.connect {
+            consoleButton(for: account, connect: true)
+        }
+        if actions.disconnect {
+            consoleButton(for: account, connect: false)
+        }
+    }
+
+    @ViewBuilder private func consoleButton(for account: Account, connect: Bool) -> some View {
         let title = connect
             ? String(localized: "Connect Console", comment: "Accounts list button: sign in to the Claude Console to show this account's API credit.")
             : String(localized: "Disconnect Console", comment: "Accounts list button: stop showing this account's Claude Console API credit.")
@@ -371,7 +390,7 @@ struct AccountsView: View {
         let connection = ConsoleConnection(
             ledgerStore: ledgerStore,
             signIn: ConsoleSignInWindowPresenter(),
-            sessions: ClaudeWebSessionStore()
+            sessions: webSessions
         )
         Task {
             let outcome = connect
