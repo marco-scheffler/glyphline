@@ -90,7 +90,7 @@ enum UserNotificationText {
     static var consoleSessionExpired: String {
         String(
             localized: "Your Claude Console sign-in has expired. Connect the Console again.",
-            comment: "Notification body when the Claude Console (platform.claude.com) sign-in used to read API credit has expired."
+            comment: "Tells the user their Claude Console (platform.claude.com) sign-in, used to read API credit, has expired. Shown as a notification body, on the account card and in the connect window."
         )
     }
 }

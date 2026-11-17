@@ -4,6 +4,9 @@
     "% free" : {
       "shouldTranslate" : false
     },
+    "%@ %@" : {
+      "shouldTranslate" : false
+    },
     "%@ %lld%% — %@" : {
       "comment" : "Menu row. Placeholders: the window's short name, the percentage used, and the tail ('resets 14:00').",
       "localizations" : {
