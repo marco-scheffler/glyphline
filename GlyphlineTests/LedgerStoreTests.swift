@@ -235,6 +235,34 @@ final class LedgerStoreTests: XCTestCase {
         XCTAssertEqual(try store.fetchEstimateSnapshots(accountID: account.id), [first, second])
     }
 
+    func testConsoleOrganizationsRoundTrip() throws {
+        let store = try makeStore()
+        var account = makeAccount(providerID: .claude)
+        account.consoleOrganizations = [ConsoleOrganization(id: "org-a"), ConsoleOrganization(id: "org-b")]
+        try store.saveAccount(account)
+
+        let fetched = try XCTUnwrap(store.fetchAccounts().first)
+        XCTAssertEqual(fetched.consoleOrganizations, account.consoleOrganizations)
+
+        try store.setConsoleOrganizations(accountID: account.id, [])
+        XCTAssertEqual(try XCTUnwrap(store.fetchAccounts().first).consoleOrganizations, [])
+    }
+
+    func testSetConsoleOrganizationsTouchesOnlyThatColumn() throws {
+        let store = try makeStore()
+        let account = makeAccount(providerID: .claude)
+        try store.saveAccount(account)
+
+        try store.renameAccount(accountID: account.id, to: "Work")
+        try store.setConsoleOrganizations(accountID: account.id, [ConsoleOrganization(id: "org-a")])
+
+        let fetched = try XCTUnwrap(store.fetchAccounts().first)
+        XCTAssertEqual(fetched.customName, "Work", "the rename must survive")
+        XCTAssertEqual(fetched.displayName, account.displayName)
+        XCTAssertEqual(fetched.credentialReference, account.credentialReference)
+        XCTAssertEqual(fetched.consoleOrganizations, [ConsoleOrganization(id: "org-a")])
+    }
+
     private func makeStore() throws -> LedgerStore {
         let dbQueue = try DatabaseQueueFactory.makeInMemory()
         try Migrations.migrate(dbQueue)

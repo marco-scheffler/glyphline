@@ -62,6 +62,7 @@ enum LedgerColumn {
     static let resetAt = "resetAt"
     static let quotaCredentialReference = "quotaCredentialReference"
     static let claudeOrganizationID = "claudeOrganizationID"
+    static let consoleOrganizations = "consoleOrganizations"
     static let sessionID = "sessionID"
     static let cwd = "cwd"
     static let gitBranch = "gitBranch"
@@ -568,6 +569,15 @@ enum Migrations {
                     LedgerColumn.observedAt,
                 ]
             )
+        }
+
+        migrator.registerMigration("v17_account_console_organizations") { db in
+            // The Console organisations an account shows credit for, as JSON.
+            // Nullable with no backfill: null reads back as "not connected",
+            // which is exactly what every account written before this was.
+            try db.alter(table: LedgerTable.accounts) { table in
+                table.add(column: LedgerColumn.consoleOrganizations, .text)
+            }
         }
 
         return migrator

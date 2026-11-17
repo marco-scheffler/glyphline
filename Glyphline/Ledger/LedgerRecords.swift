@@ -22,6 +22,8 @@ struct AccountRecord: Codable, FetchableRecord, PersistableRecord, TableRecord {
     var isEnabled: Bool
     var quotaCredentialReference: String?
     var claudeOrganizationID: String?
+    /// JSON array of `ConsoleOrganization`. Nil when none are connected.
+    var consoleOrganizations: String?
 
     init(_ account: Account) {
         id = account.id.uuidString
@@ -33,6 +35,24 @@ struct AccountRecord: Codable, FetchableRecord, PersistableRecord, TableRecord {
         isEnabled = account.isEnabled
         quotaCredentialReference = account.quotaCredentialReference
         claudeOrganizationID = account.claudeOrganizationID
+        consoleOrganizations = Self.encodeConsoleOrganizations(account.consoleOrganizations)
+    }
+
+    /// Empty encodes as nil, so "not connected" has one representation.
+    static func encodeConsoleOrganizations(_ organizations: [ConsoleOrganization]) -> String? {
+        guard !organizations.isEmpty,
+              let data = try? JSONEncoder().encode(organizations)
+        else { return nil }
+        return String(decoding: data, as: UTF8.self)
+    }
+
+    /// Nil or undecodable reads as not connected: a broken column must cost the
+    /// user a reconnect, never the account.
+    static func decodeConsoleOrganizations(_ json: String?) -> [ConsoleOrganization] {
+        guard let json,
+              let organizations = try? JSONDecoder().decode([ConsoleOrganization].self, from: Data(json.utf8))
+        else { return [] }
+        return organizations
     }
 
     var account: Account {
@@ -45,7 +65,8 @@ struct AccountRecord: Codable, FetchableRecord, PersistableRecord, TableRecord {
             isEnabled: isEnabled,
             quotaCredentialReference: quotaCredentialReference,
             claudeOrganizationID: claudeOrganizationID,
-            customName: customName
+            customName: customName,
+            consoleOrganizations: Self.decodeConsoleOrganizations(consoleOrganizations)
         )
     }
 }

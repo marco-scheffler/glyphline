@@ -37,6 +37,10 @@ struct Account: Identifiable, Equatable, Sendable {
     /// endpoint's path contains it, so it has to be discovered once and kept.
     /// Nil for accounts that predate the web source or have not been resolved yet.
     var claudeOrganizationID: String?
+    /// The Claude Console organisations whose prepaid credit this account shows.
+    /// Empty until the user connects the Console, and again after disconnecting.
+    /// Only ids are kept — names may carry an email address.
+    var consoleOrganizations: [ConsoleOrganization]
 
     init(
         id: UUID,
@@ -47,7 +51,8 @@ struct Account: Identifiable, Equatable, Sendable {
         isEnabled: Bool,
         quotaCredentialReference: String? = nil,
         claudeOrganizationID: String? = nil,
-        customName: String? = nil
+        customName: String? = nil,
+        consoleOrganizations: [ConsoleOrganization] = []
     ) {
         self.id = id
         self.providerID = providerID
@@ -58,6 +63,7 @@ struct Account: Identifiable, Equatable, Sendable {
         self.isEnabled = isEnabled
         self.quotaCredentialReference = quotaCredentialReference
         self.claudeOrganizationID = claudeOrganizationID
+        self.consoleOrganizations = consoleOrganizations
     }
 
     /// The name to show, everywhere an account is named. The user's name when

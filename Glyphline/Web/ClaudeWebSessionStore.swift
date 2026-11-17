@@ -46,3 +46,31 @@ extension ClaudeWebSessionStore: WebSessionRemoving {
         try await WKWebsiteDataStore.remove(forIdentifier: identifier)
     }
 }
+
+/// Removing only an account's Console sign-in, leaving its claude.ai one.
+///
+/// Both live in the same per-account data store, so this cannot drop the store
+/// the way `removeSession` does. A seam for the same reason as
+/// `WebSessionRemoving`: the real thing touches WebKit state on disk.
+protocol ConsoleSessionRemoving: Sendable {
+    @MainActor func removeConsoleSession(for accountID: UUID) async
+}
+
+extension ClaudeWebSessionStore: ConsoleSessionRemoving {
+    /// Removes the `claude.com` website data from this account's store, if the
+    /// account has a store at all. Checking first keeps this from creating a
+    /// store — `dataStore(for:)` would — for an account that never signed in.
+    @MainActor
+    func removeConsoleSession(for accountID: UUID) async {
+        let identifier = dataStoreIdentifier(for: accountID)
+        let existing = await WKWebsiteDataStore.allDataStoreIdentifiers
+        guard existing.contains(identifier) else { return }
+
+        let store = dataStore(for: accountID)
+        let types = WKWebsiteDataStore.allWebsiteDataTypes()
+        let records = await store.dataRecords(ofTypes: types)
+        let consoleRecords = records.filter { $0.displayName == "claude.com" }
+        guard !consoleRecords.isEmpty else { return }
+        await store.removeData(ofTypes: types, for: consoleRecords)
+    }
+}

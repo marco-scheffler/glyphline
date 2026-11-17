@@ -660,6 +660,45 @@ final class MigrationTests: XCTestCase {
         XCTAssertEqual(account.resolvedName, "Claude personal")
     }
 
+    func testV17AddsConsoleOrganizationsWithoutDisturbingExistingAccounts() throws {
+        let dbQueue = try DatabaseQueueFactory.makeInMemory()
+        let migrator = Migrations.makeMigrator()
+        try migrator.migrate(dbQueue, upTo: "v16_rate_window_model")
+
+        let accountID = UUID()
+        let createdAt = Date(timeIntervalSince1970: 1_800_000_000)
+        let reference = "web-session://\(accountID.uuidString)"
+        try dbQueue.write { db in
+            try db.execute(
+                sql: """
+                    INSERT INTO accounts
+                        (id, providerID, displayName, credentialReference, createdAt, isEnabled,
+                         quotaCredentialReference, claudeOrganizationID, customName)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                arguments: [
+                    accountID.uuidString, "claude", "Claude personal",
+                    reference, createdAt, false, "quota-ref", "org-1", "Mine",
+                ]
+            )
+        }
+
+        try migrator.migrate(dbQueue)
+
+        let store = LedgerStore(dbQueue: dbQueue)
+        let account = try XCTUnwrap(store.fetchAccounts().first)
+        XCTAssertEqual(account.id, accountID, "the pre-migration account must survive")
+        XCTAssertEqual(account.providerID, .claude)
+        XCTAssertEqual(account.displayName, "Claude personal")
+        XCTAssertEqual(account.credentialReference, reference)
+        XCTAssertEqual(account.createdAt, createdAt)
+        XCTAssertFalse(account.isEnabled)
+        XCTAssertEqual(account.quotaCredentialReference, "quota-ref")
+        XCTAssertEqual(account.claudeOrganizationID, "org-1")
+        XCTAssertEqual(account.customName, "Mine")
+        XCTAssertEqual(account.consoleOrganizations, [], "an account written before v17 never connected the Console")
+    }
+
     /// v14 adds the table that stops an assistant message being counted once per
     /// transcript. The case a naive migration test misses is the one that matters
     /// here: `localTokenUsage` is populated long before v14, and those totals are

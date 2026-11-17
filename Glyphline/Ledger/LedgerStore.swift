@@ -156,9 +156,10 @@ final class LedgerStore {
                         \(LedgerColumn.isEnabled),
                         \(LedgerColumn.quotaCredentialReference),
                         \(LedgerColumn.claudeOrganizationID),
-                        \(LedgerColumn.customName)
+                        \(LedgerColumn.customName),
+                        \(LedgerColumn.consoleOrganizations)
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ON CONFLICT(\(LedgerColumn.id)) DO UPDATE SET
                         \(LedgerColumn.providerID) = excluded.\(LedgerColumn.providerID),
                         \(LedgerColumn.displayName) = excluded.\(LedgerColumn.displayName),
@@ -167,7 +168,8 @@ final class LedgerStore {
                         \(LedgerColumn.isEnabled) = excluded.\(LedgerColumn.isEnabled),
                         \(LedgerColumn.quotaCredentialReference) = excluded.\(LedgerColumn.quotaCredentialReference),
                         \(LedgerColumn.claudeOrganizationID) = excluded.\(LedgerColumn.claudeOrganizationID),
-                        \(LedgerColumn.customName) = excluded.\(LedgerColumn.customName)
+                        \(LedgerColumn.customName) = excluded.\(LedgerColumn.customName),
+                        \(LedgerColumn.consoleOrganizations) = excluded.\(LedgerColumn.consoleOrganizations)
                     """,
                 arguments: [
                     record.id,
@@ -179,6 +181,7 @@ final class LedgerStore {
                     record.quotaCredentialReference,
                     record.claudeOrganizationID,
                     record.customName,
+                    record.consoleOrganizations,
                 ]
             )
         }
@@ -202,6 +205,24 @@ final class LedgerStore {
                     WHERE \(LedgerColumn.id) = ?
                     """,
                 arguments: [normalized, accountID.uuidString]
+            )
+        }
+    }
+
+    /// Records which Console organisations an account shows credit for; an
+    /// empty list disconnects. A single-column `UPDATE`, for the same reason as
+    /// `renameAccount`: the caller's copy of the account may be stale.
+    func setConsoleOrganizations(accountID: UUID, _ organizations: [ConsoleOrganization]) throws {
+        let json = AccountRecord.encodeConsoleOrganizations(organizations)
+
+        try dbQueue.write { db in
+            try db.execute(
+                sql: """
+                    UPDATE \(LedgerTable.accounts)
+                    SET \(LedgerColumn.consoleOrganizations) = ?
+                    WHERE \(LedgerColumn.id) = ?
+                    """,
+                arguments: [json, accountID.uuidString]
             )
         }
     }
