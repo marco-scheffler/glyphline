@@ -201,6 +201,9 @@ struct StudioAgentCard: View {
         .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(tint, lineWidth: 1.5))
         .shadow(color: parked ? .clear : tint.opacity(0.22), radius: 7)
         .opacity(parked ? 0.6 : 1)
+        // The card is the Studio's night palette on a near-black fill; in a
+        // light system appearance the default label colours would vanish on it.
+        .environment(\.colorScheme, .dark)
     }
 
     /// While waiting, the minutes are the news: the sentence is split at its
@@ -216,6 +219,8 @@ struct StudioAgentCard: View {
                 Text(verbatim: String(text[split.lowerBound...]))
                     .lineLimit(1).fixedSize().layoutPriority(1)
             }
+            // One sentence for VoiceOver, not a lead and a tail.
+            .accessibilityElement(children: .combine)
         } else {
             Text(verbatim: text).lineLimit(1).truncationMode(.tail)
         }

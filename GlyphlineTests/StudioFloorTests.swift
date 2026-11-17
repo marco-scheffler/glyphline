@@ -60,6 +60,64 @@ final class StudioFloorTests: XCTestCase {
         }
     }
 
+    private func waitingDesk(_ id: String, minutes: Int) -> StudioDesk {
+        StudioDesk(id: id, name: "project-\(id)", waiting: true, action: .thinking,
+                   waitingSince: instant.addingTimeInterval(-Double(minutes) * 60),
+                   figure: .forSession(id))
+    }
+
+    /// Would catch: the floor's bubbles cut at the end, losing the minutes —
+    /// the one part of a waiting sentence that changes.
+    func testWaitingBubblesKeepTheirMinutesAtTheSmallestCanvas() {
+        let layout = StudioLayout(canvas: CGSize(width: 640, height: 300), deskCount: 12)
+        for minutes in [6, 42, 123] {
+            let tail = "· \(minutes.formatted()) min"
+            for (index, id) in ["A", "B", "C"].enumerated() {
+                let desk = waitingDesk(id, minutes: minutes)
+                let rect = layout.deskRect(index)
+                let empty = StudioRenderer.emptyDeskBubble(for: desk, now: instant, deskWidth: rect.width)
+                XCTAssertTrue(empty.hasSuffix(tail), "\(empty) lost its minutes")
+                XCTAssertLessThanOrEqual(StudioRenderer.measureBubble(empty),
+                                         rect.width - 2 * StudioRenderer.bubbleInset)
+
+                let room = StudioRenderer.breakRoomBubble(for: desk, now: instant,
+                                                          roomWidth: layout.breakRoom.width)
+                XCTAssertTrue(room.hasSuffix(tail), "\(room) lost its minutes")
+                XCTAssertLessThanOrEqual(StudioRenderer.measureBubble(room),
+                                         layout.breakRoom.width - 4 * StudioRenderer.bubbleInset)
+            }
+        }
+    }
+
+    /// Would catch: a plate pinned to the full-size station's offset hanging
+    /// into the row below, or a bobbing bubble poking into the row above.
+    func testPlatesAndBubblesStayInsideTheirDesks() {
+        let long = String(repeating: "abcdefghij", count: 20)
+        for canvas in [CGSize(width: 640, height: 300), CGSize(width: 1100, height: 480)] {
+            for count in 1...16 {
+                let layout = StudioLayout(canvas: canvas, deskCount: count)
+                for index in 0..<count {
+                    let rect = layout.deskRect(index)
+                    let slack = rect.insetBy(dx: -0.001, dy: -0.001)
+                    if let plate = StudioRenderer.plateRect(name: long, rect: rect, scale: layout.deskScale) {
+                        XCTAssertTrue(slack.contains(plate.rect),
+                                      "plate \(index) of \(count) at \(canvas) leaves its desk")
+                    }
+                    let text = StudioRenderer.fittedBubble(long, deskWidth: rect.width, typing: true)
+                    let top = StudioRenderer.deskBubbleTop(rect: rect, scale: layout.deskScale)
+                    for bob in [0, StudioRenderer.maximumBob] {
+                        let bubble = StudioRenderer.bubbleRect(text: text, typing: true,
+                                                               centreX: rect.midX, top: top,
+                                                               bounds: rect, bob: bob)
+                        XCTAssertTrue(slack.contains(bubble),
+                                      "bubble \(index) of \(count) at \(canvas) leaves its desk")
+                        XCTAssertGreaterThanOrEqual(bubble.minY, rect.minY + 3 - 0.001)
+                    }
+                }
+            }
+        }
+    }
+
     @MainActor
     func testTheFloorFitsTheFrameBudget() throws {
         let sessions = (0..<12).map { i in

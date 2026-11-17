@@ -235,6 +235,8 @@ struct AgentverseWindow: View {
             }
             .padding(10)
             .background(StudioChrome.background)
+            // The Studio is a night scene whatever the system appearance.
+            .environment(\.colorScheme, .dark)
             .task(id: syncCoordinator.localUsageRevision) {
                 usageSeries = syncCoordinator.localUsageBreakdown(since: StudioDashboardModel.seriesStart())?.series
             }

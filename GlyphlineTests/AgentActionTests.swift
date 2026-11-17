@@ -101,6 +101,22 @@ final class AgentActionTests: XCTestCase {
         XCTAssertEqual(AgentAction.from(toolName: "WebFetch", input: Input()), .readingWeb)
     }
 
+    /// A bubble is one line: a multi-line description, pattern or query must
+    /// not draw as two.
+    func testWhitespaceRunsCollapseToOneSpace() {
+        XCTAssertEqual(
+            AgentAction.from(toolName: "Bash",
+                             input: Input(description: "Run the\n\ttests  now\n", command: "x")),
+            .running(description: "Run the tests now")
+        )
+        XCTAssertEqual(AgentAction.from(toolName: "Grep", input: Input(pattern: "a\nb")),
+                       .searching(pattern: "a b"))
+        XCTAssertEqual(AgentAction.from(toolName: "WebSearch", input: Input(query: " swift\r\ncanvas ")),
+                       .searchingWeb(query: "swift canvas"))
+        XCTAssertEqual(AgentAction.from(toolName: "Grep", input: Input(pattern: " \n ")),
+                       .usingTool("Grep"))
+    }
+
     func testDelegationAndServers() {
         XCTAssertEqual(AgentAction.from(toolName: "Agent", input: Input(description: "Review task 1")),
                        .delegating("Review task 1"))

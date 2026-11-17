@@ -49,6 +49,65 @@ struct StudioRenderer {
         return LabelFit.truncated(text, to: width, measure: measureBubble)
     }
 
+    /// A "… · N min" sentence cut to `width` with the minutes kept whole.
+    ///
+    /// The minutes are the news, so the sentence is split at its last "·" and
+    /// only the lead gives way, as on the sidebar card. A sentence without a
+    /// "·" is cut at the end like any other bubble.
+    static func fittedKeepingMinutes(_ text: String, to width: Double) -> String {
+        guard measureBubble(text) > width,
+              let split = text.range(of: "·", options: .backwards) else {
+            return LabelFit.truncated(text, to: width, measure: measureBubble)
+        }
+        let tail = String(text[split.lowerBound...])
+        let lead = String(text[..<split.lowerBound]).trimmingCharacters(in: .whitespaces)
+        let leadWidth = width - measureBubble(" " + tail)
+        let fittedLead = LabelFit.truncated(lead, to: leadWidth, measure: measureBubble)
+        return fittedLead.isEmpty ? tail : fittedLead + " " + tail
+    }
+
+    /// The empty-desk label, fitted to the desk without losing its minutes.
+    static func emptyDeskBubble(for desk: StudioDesk, now: Date, deskWidth: Double) -> String {
+        fittedKeepingMinutes(StudioBubble.emptyDeskText(for: desk, now: now),
+                             to: deskWidth - 2 * bubbleInset)
+    }
+
+    /// A waiting figure's bubble in the break room, fitted the same way.
+    static func breakRoomBubble(for desk: StudioDesk, now: Date, roomWidth: Double) -> String {
+        fittedKeepingMinutes(StudioBubble.text(for: desk, now: now), to: roomWidth - 4 * bubbleInset)
+    }
+
+    /// The highest the bubble's bob lifts it.
+    static let maximumBob: Double = 3
+
+    /// Where a desk's bubble starts at rest: near the top of the station, but
+    /// low enough that its highest bob still stays inside the desk.
+    static func deskBubbleTop(rect: CGRect, scale: Double) -> Double {
+        max(rect.minY + 4 * scale, rect.minY + 3 + maximumBob)
+    }
+
+    /// The bubble's box for `text`, kept inside `bounds` across, lifted by `bob`.
+    static func bubbleRect(text: String, typing: Bool, centreX: Double, top: Double,
+                           bounds: CGRect, bob: Double) -> CGRect {
+        let width = measureBubble(text) + 2 * bubbleInset + (typing ? typingWidth : 0)
+        let x = min(max(centreX - width / 2, bounds.minX), max(bounds.minX, bounds.maxX - width))
+        return CGRect(x: x, y: top - bob, width: width, height: bubbleHeight)
+    }
+
+    private static let plateHeight: Double = 18
+
+    /// The name plate under a station: below the desk's front at full size,
+    /// and never past the station's bottom edge when the stations shrink, so it
+    /// cannot hang into the row below.
+    static func plateRect(name: String, rect: CGRect, scale: Double) -> (text: String, rect: CGRect)? {
+        let font = plateFont
+        let fitted = LabelFit.truncated(name, to: rect.width - 40) { measure($0, font: font) }
+        guard !fitted.isEmpty else { return nil }
+        let width = measure(fitted, font: font) + 20
+        let y = min(rect.minY + 172 * scale, rect.maxY - plateHeight)
+        return (fitted, CGRect(x: rect.midX - width / 2, y: y, width: width, height: plateHeight))
+    }
+
     // MARK: Drawing
 
     func draw(in context: GraphicsContext, size: CGSize, desks: [StudioDesk]) {
@@ -78,9 +137,7 @@ struct StudioRenderer {
         for (desk, p) in walkers {
             var bubble = context
             bubble.opacity = dim(desk.id)
-            let text = LabelFit.truncated(
-                StudioBubble.text(for: desk, now: now),
-                to: layout.breakRoom.width - 4 * Self.bubbleInset, measure: Self.measureBubble)
+            let text = Self.breakRoomBubble(for: desk, now: now, roomWidth: layout.breakRoom.width)
             drawBubble(bubble, text: text, tint: Self.amber, typing: false,
                        centreX: p.x, top: p.y - 92 * s - Self.bubbleHeight,
                        bounds: layout.breakRoom.insetBy(dx: 6, dy: 0))
@@ -143,11 +200,11 @@ struct StudioRenderer {
         drawDesk(scene, tint: tint, waiting: desk.waiting)
 
         let typing = !desk.waiting
-        let text = Self.fittedBubble(desk.waiting ? StudioBubble.emptyDeskText(for: desk, now: now)
-                                                  : StudioBubble.text(for: desk, now: now),
-                                     deskWidth: rect.width, typing: typing)
+        let text = desk.waiting
+            ? Self.emptyDeskBubble(for: desk, now: now, deskWidth: rect.width)
+            : Self.fittedBubble(StudioBubble.text(for: desk, now: now), deskWidth: rect.width, typing: typing)
         drawBubble(context, text: text, tint: tint, typing: typing,
-                   centreX: rect.midX, top: rect.minY + 4 * scale, bounds: rect)
+                   centreX: rect.midX, top: Self.deskBubbleTop(rect: rect, scale: scale), bounds: rect)
         drawPlate(context, name: desk.name, tint: tint, rect: rect, scale: scale)
     }
 
@@ -283,12 +340,11 @@ struct StudioRenderer {
     private func drawBubble(_ context: GraphicsContext, text: String, tint: SceneRGB, typing: Bool,
                             centreX: Double, top: Double, bounds: CGRect) {
         guard !text.isEmpty else { return }
-        // ±3 pt on a 3.2 s cycle.
-        let bob = -3 * (0.5 - 0.5 * cos(seconds / 3.2 * 2 * .pi))
+        // Up to 3 pt on a 3.2 s cycle.
+        let bob = Self.maximumBob * (0.5 - 0.5 * cos(seconds / 3.2 * 2 * .pi))
         let textWidth = Self.measureBubble(text)
-        let width = textWidth + 2 * Self.bubbleInset + (typing ? Self.typingWidth : 0)
-        let x = min(max(centreX - width / 2, bounds.minX), max(bounds.minX, bounds.maxX - width))
-        let rect = CGRect(x: x, y: top + bob, width: width, height: Self.bubbleHeight)
+        let rect = Self.bubbleRect(text: text, typing: typing, centreX: centreX, top: top,
+                                   bounds: bounds, bob: bob)
         var shape = Path(roundedRect: rect, cornerRadius: 8)
         shape.move(to: CGPoint(x: centreX - 5, y: rect.maxY))
         shape.addLine(to: CGPoint(x: centreX, y: rect.maxY + 5))
@@ -312,10 +368,7 @@ struct StudioRenderer {
     private func drawPlate(_ context: GraphicsContext, name: String, tint: SceneRGB,
                            rect: CGRect, scale: Double) {
         let font = Self.plateFont
-        let fitted = LabelFit.truncated(name, to: rect.width - 40) { Self.measure($0, font: font) }
-        guard !fitted.isEmpty else { return }
-        let width = Self.measure(fitted, font: font) + 20
-        let plate = CGRect(x: rect.midX - width / 2, y: rect.minY + 172 * scale, width: width, height: 18)
+        guard let (fitted, plate) = Self.plateRect(name: name, rect: rect, scale: scale) else { return }
         context.fill(Path(roundedRect: plate, cornerRadius: 9), with: .color(SceneRGB(11, 9, 25).color))
         context.stroke(Path(roundedRect: plate, cornerRadius: 9), with: .color(tint.color), lineWidth: 1.5)
         context.draw(Text(fitted).font(Font(font as CTFont)).foregroundColor(tint.color),

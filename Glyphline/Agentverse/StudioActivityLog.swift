@@ -8,8 +8,10 @@ import Foundation
 struct StudioActivityLog: Equatable, Sendable {
     struct Sample: Equatable, Sendable { let at: Date; let tokensPerMinute: Double }
     enum Change: Equatable, Sendable { case action(AgentAction), startedWaiting, resumed }
-    struct Entry: Equatable, Sendable, Identifiable {
-        let id: String; let at: Date; let sessionID: String; let title: String; let change: Change
+    /// Not `Identifiable`: two changes of one session in the same second
+    /// would share any id built from them, so lists key entries by position.
+    struct Entry: Equatable, Sendable {
+        let at: Date; let sessionID: String; let title: String; let change: Change
     }
 
     static let window: TimeInterval = 30 * 60
@@ -55,7 +57,6 @@ struct StudioActivityLog: Equatable, Sendable {
         for session in sessions {
             guard let change = change(from: previousSessions[session.id], to: session) else { continue }
             entries.append(Entry(
-                id: "\(session.id)-\(session.lastActivityAt.timeIntervalSinceReferenceDate)-\(change)",
                 at: session.lastActivityAt,
                 sessionID: session.id,
                 title: session.displayTitle,

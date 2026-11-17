@@ -40,9 +40,12 @@ enum AgentAction: Equatable, Sendable {
     /// A field the case needs that is missing or empty falls back to the tool
     /// name, which is always true.
     static func from(toolName: String, input: ToolInput) -> AgentAction {
+        // Runs of whitespace, newlines and tabs included, become one space: a
+        // bubble is one line, and a multi-line description must not draw as two.
         func present(_ value: String?) -> String? {
-            guard let value, !value.isEmpty else { return nil }
-            return value
+            guard let value else { return nil }
+            let collapsed = value.split(whereSeparator: \.isWhitespace).joined(separator: " ")
+            return collapsed.isEmpty ? nil : collapsed
         }
         func fileName(_ path: String?) -> String? {
             present(path).map { URL(fileURLWithPath: $0).lastPathComponent }

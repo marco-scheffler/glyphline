@@ -194,6 +194,16 @@ final class AgentverseSnapshotTests: XCTestCase {
                        + "assertion here can tell a change from noise")
     }
 
+    /// The spec's "same inputs and frame, same picture" for the third view,
+    /// with a working and a waiting session so the desks, bubbles and break
+    /// room all draw.
+    func testTheSameInputsRenderTheSameStudioTwice() throws {
+        XCTAssertEqual(try render(scene(sessions: [workingSession, waitingHelper], view: .studio)),
+                       try render(scene(sessions: [workingSession, waitingHelper], view: .studio)),
+                       "the studio must be a pure function of its inputs, or no "
+                       + "assertion here can tell a change from noise")
+    }
+
     // MARK: - The sessions
 
     /// A refactor that dropped the desk loop would still render a perfectly
@@ -274,6 +284,15 @@ final class AgentverseSnapshotTests: XCTestCase {
                                            view: .datastream)),
                           try render(scene(sessions: [workingSession, waitingHelper],
                                            hovered: "S1", view: .datastream)),
+                          "only `hovered` differs, so the highlight is the only thing "
+                          + "that can account for a difference")
+    }
+
+    func testHoveringChangesTheStudio() throws {
+        XCTAssertNotEqual(try render(scene(sessions: [workingSession, waitingHelper],
+                                           view: .studio)),
+                          try render(scene(sessions: [workingSession, waitingHelper],
+                                           hovered: "S1", view: .studio)),
                           "only `hovered` differs, so the highlight is the only thing "
                           + "that can account for a difference")
     }

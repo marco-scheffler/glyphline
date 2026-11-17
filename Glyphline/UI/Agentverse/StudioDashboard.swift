@@ -67,8 +67,9 @@ private struct StudioTileView: View {
                     .monospacedDigit()
                     .foregroundStyle(StudioChrome.text)
                     .lineLimit(1)
+                    // Shrinks rather than widening the tile: a fixed size here
+                    // would cancel the scale factor.
                     .minimumScaleFactor(0.6)
-                    .fixedSize()
                     .layoutPriority(1)
                 Spacer(minLength: 0)
                 if tile.sparkline.count > 1 {
@@ -146,6 +147,14 @@ struct StudioBottomRow: View {
         .frame(height: 132)
     }
 
+    /// 22:59 on the reference day: two-digit hours and minutes, and the
+    /// evening marker where the locale has one.
+    private static var widestTime: String {
+        let day = Date(timeIntervalSinceReferenceDate: 0)
+        let sample = Calendar.current.date(bySettingHour: 22, minute: 59, second: 0, of: day) ?? day
+        return sample.formatted(date: .omitted, time: .shortened)
+    }
+
     private static let collecting = String(localized: "Collecting…",
                                            comment: "Studio wave and feed placeholder until enough sweeps have run to draw anything.")
 
@@ -172,14 +181,21 @@ struct StudioBottomRow: View {
             placeholder
         } else {
             VStack(alignment: .leading, spacing: 5) {
-                // By offset: an entry's id is not guaranteed unique.
+                // By offset: an entry has no id of its own.
                 ForEach(Array(log.entries.prefix(Self.feedRows).enumerated()), id: \.offset) { _, entry in
                     let tint = entry.change == .startedWaiting
                         ? StudioChrome.amber : SessionPalette.forSession(entry.sessionID).color
                     HStack(spacing: 8) {
-                        Text(entry.at.formatted(date: .omitted, time: .shortened))
-                            .foregroundStyle(StudioChrome.dim)
-                            .frame(width: 44, alignment: .leading)
+                        // As wide as the locale's widest time, measured by laying
+                        // a sample out under it, so "11:46 AM" neither wraps nor
+                        // shifts the column from row to row.
+                        ZStack(alignment: .leading) {
+                            Text(Self.widestTime).hidden()
+                            Text(entry.at.formatted(date: .omitted, time: .shortened))
+                        }
+                        .foregroundStyle(StudioChrome.dim)
+                        .lineLimit(1)
+                        .fixedSize()
                         RoundedRectangle(cornerRadius: 2)
                             .fill(tint)
                             .frame(width: 8, height: 8)

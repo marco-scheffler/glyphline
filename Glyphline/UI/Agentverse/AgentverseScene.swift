@@ -1,9 +1,9 @@
 import SwiftUI
 
-/// Which of the two pictures the Agentverse shows.
+/// Which picture the Agentverse shows.
 ///
-/// Unlike the circuit choice this one is kept across launches: it is which of
-/// two tools the user prefers, not which of five equivalent tracks they feel
+/// Unlike the circuit choice this one is kept across launches: it is which
+/// view the user prefers, not which of five equivalent tracks they feel
 /// like today, and asking again every launch would nag.
 enum AgentverseView: String, CaseIterable, Identifiable {
     case office
