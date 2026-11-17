@@ -89,6 +89,7 @@
 		5FC072EFB57F9A8977E2F70C /* ConsoleConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 991280244A2FC2A340676FAF /* ConsoleConnection.swift */; };
 		61A64256A40AD32B70B05AE0 /* ClaudeTranscriptDirectory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3610A69A0253B7E24D442A3C /* ClaudeTranscriptDirectory.swift */; };
 		63F14DB500EC723BCB61AB44 /* AccountCredentialReferenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97C425B4A5612D534BA5FECC /* AccountCredentialReferenceTests.swift */; };
+		669F4ED600226BC3604086C6 /* ConsoleCreditCardModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 233BEF57C158C34306AE4FFD /* ConsoleCreditCardModel.swift */; };
 		68A1F885C4A8FF2F2D947648 /* GlyphlineSmokeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 412F5489EA0C8B4EE160128C /* GlyphlineSmokeTests.swift */; };
 		6AA0FC8F5FB21FA7852CEBAB /* SunPosition.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5465BF81A3D7F440B3636E5B /* SunPosition.swift */; };
 		6B55AE689CFB20F2FC81320A /* FixtureRateWindowSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2875A21D3F767FBB58928F1 /* FixtureRateWindowSource.swift */; };
@@ -177,6 +178,7 @@
 		C7D043D534497E4E92F09CF5 /* DeleteAccountFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E897587F3639B71FA29F250 /* DeleteAccountFlowTests.swift */; };
 		C87D26D2B9B8CCED3CBFF0EF /* AgentverseSweepController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD9BD2C3F3C270FF368C4345 /* AgentverseSweepController.swift */; };
 		CAE25CBB5FB46C3D44E6BD64 /* LedgerStoreFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2ACCDCE077861E9661ECBFF /* LedgerStoreFactory.swift */; };
+		D126BA9E4F21E58101AEE75B /* ConsoleCreditBlock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 434085E948734873E274FC53 /* ConsoleCreditBlock.swift */; };
 		D1A707DBBD89428EF9095370 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 541EB1BE40A50BB81B68A65D /* Sparkle */; };
 		D2B18F77CE6A271F859A2598 /* SceneLightTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80ED211E069178416163921B /* SceneLightTests.swift */; };
 		D2FF36E4F82131E6CC5FE369 /* AppLocalization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8048A6A752B49A04BE4F3F78 /* AppLocalization.swift */; };
@@ -212,6 +214,7 @@
 		F731A9E0E7F227918984E8BA /* claude-usage.json in Resources */ = {isa = PBXBuildFile; fileRef = 71F686E68C6AD2A919ECD797 /* claude-usage.json */; };
 		F7E4A6B277F8B556D8921A19 /* RecordingNotifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABEA664FCFB5FBA228DE5B40 /* RecordingNotifier.swift */; };
 		F8F8163B0CC89AA5FA267BFA /* IsoProjectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CABF3285E03EB09C5D9394E3 /* IsoProjectionTests.swift */; };
+		F93DAC894653ECC9D536F577 /* ConsoleCreditCardModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E95F6A745489616B0089C44 /* ConsoleCreditCardModelTests.swift */; };
 		F9E695F2D682FA36D98FA962 /* WindowActivationObserverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13262C6395892E8101B0073A /* WindowActivationObserverTests.swift */; };
 		FA0E6D06248BF58C8ECC4787 /* ClaudeOrganizationsDTOs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24490E8A33CB8C3CE1EFFAA3 /* ClaudeOrganizationsDTOs.swift */; };
 		FA24F260992AEF7BAABB68BE /* OfficeRendererShell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 294A09533288129B01331D6A /* OfficeRendererShell.swift */; };
@@ -267,6 +270,7 @@
 		20FE4134115A8DD6825A45AF /* OfficeRendererDesks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfficeRendererDesks.swift; sourceTree = "<group>"; };
 		224A62075870B8FAF84E2274 /* AccountDeletionStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountDeletionStoreTests.swift; sourceTree = "<group>"; };
 		228F3D32FF18A17D54AAA98E /* QuotaRunwayRuleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuotaRunwayRuleTests.swift; sourceTree = "<group>"; };
+		233BEF57C158C34306AE4FFD /* ConsoleCreditCardModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConsoleCreditCardModel.swift; sourceTree = "<group>"; };
 		242A151D5AEB4605B3681BA6 /* NotificationRouterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationRouterTests.swift; sourceTree = "<group>"; };
 		24490E8A33CB8C3CE1EFFAA3 /* ClaudeOrganizationsDTOs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeOrganizationsDTOs.swift; sourceTree = "<group>"; };
 		25497BF306FE34949D36DA77 /* UserNotifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserNotifier.swift; sourceTree = "<group>"; };
@@ -303,6 +307,7 @@
 		40D313DABDF65EC1DBCADDBD /* AddAccountFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddAccountFlowTests.swift; sourceTree = "<group>"; };
 		412F5489EA0C8B4EE160128C /* GlyphlineSmokeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlyphlineSmokeTests.swift; sourceTree = "<group>"; };
 		41CEF9B7CE26B1B54DFDD537 /* ConsoleCreditSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConsoleCreditSource.swift; sourceTree = "<group>"; };
+		434085E948734873E274FC53 /* ConsoleCreditBlock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConsoleCreditBlock.swift; sourceTree = "<group>"; };
 		461DE0E81EA86DEF3F3E1A47 /* LedgerStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LedgerStore.swift; sourceTree = "<group>"; };
 		466589744951D48FB568CFF6 /* ModelMix.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelMix.swift; sourceTree = "<group>"; };
 		4ABF530307D06D892CBE9F72 /* SceneRGB.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneRGB.swift; sourceTree = "<group>"; };
@@ -322,6 +327,7 @@
 		5CD4E1E2629DBF52EC80E2EC /* ClaudeWebPageLoaderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeWebPageLoaderTests.swift; sourceTree = "<group>"; };
 		5DB5A9A1309141047B52DD48 /* ConsoleCreditDTOs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConsoleCreditDTOs.swift; sourceTree = "<group>"; };
 		5E769EA9FCFFFED06FB7E27E /* AppActivationPolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppActivationPolicyTests.swift; sourceTree = "<group>"; };
+		5E95F6A745489616B0089C44 /* ConsoleCreditCardModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConsoleCreditCardModelTests.swift; sourceTree = "<group>"; };
 		5F38FBB4EA721735BDC0A805 /* LedgerModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LedgerModels.swift; sourceTree = "<group>"; };
 		6038A4E395A2847039481F0D /* UsageModelsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageModelsTests.swift; sourceTree = "<group>"; };
 		60915C0CA289E17E1E10BD08 /* OfficeRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfficeRenderer.swift; sourceTree = "<group>"; };
@@ -651,6 +657,7 @@
 				CAB6B58FFD4950C915812BC0 /* ClaudeWebSessionStoreTests.swift */,
 				0FB542211C9B3DD6C315912D /* ConsoleConnectionTests.swift */,
 				BC3B0311AD2B2A678A75E70F /* ConsoleConnectVerifierTests.swift */,
+				5E95F6A745489616B0089C44 /* ConsoleCreditCardModelTests.swift */,
 				AAB087A07037B4F41D116520 /* ConsoleCreditDTOsTests.swift */,
 				93773BFC623D5B90F67128AA /* ConsoleCreditRuleTests.swift */,
 				D10078AD9B1875C460A90C37 /* CostEstimatorTests.swift */,
@@ -718,6 +725,8 @@
 			isa = PBXGroup;
 			children = (
 				25CF48DAF9EE1D8F9862E87F /* AccountQuotaCards.swift */,
+				434085E948734873E274FC53 /* ConsoleCreditBlock.swift */,
+				233BEF57C158C34306AE4FFD /* ConsoleCreditCardModel.swift */,
 				3180847F75604A4B36DD2308 /* DailyUsageChartView.swift */,
 				F14BBDE367E8BE177C79F8B4 /* DailyUsageSeries.swift */,
 				D2A55943991CB2395020BD39 /* DashboardBackground.swift */,
@@ -1018,6 +1027,7 @@
 				2476C4431D917C70FF6241F3 /* ClaudeWebSessionStoreTests.swift in Sources */,
 				4A974D148758DD19C785E329 /* ConsoleConnectVerifierTests.swift in Sources */,
 				903FE4BCEE47AA30ABCF1CC8 /* ConsoleConnectionTests.swift in Sources */,
+				F93DAC894653ECC9D536F577 /* ConsoleCreditCardModelTests.swift in Sources */,
 				0793876BA5D8A78B43FC8F1E /* ConsoleCreditDTOsTests.swift in Sources */,
 				1803BE6E1CEE8E656DA84136 /* ConsoleCreditRuleTests.swift in Sources */,
 				59022EBC301F5B43468F886F /* CostEstimatorTests.swift in Sources */,
@@ -1119,6 +1129,8 @@
 				E87053D134E5E5BCF23BD177 /* ClaudeWebSessionStore.swift in Sources */,
 				7F78959DCBBA8CD2A6DB46BF /* ConsoleConnectVerifier.swift in Sources */,
 				5FC072EFB57F9A8977E2F70C /* ConsoleConnection.swift in Sources */,
+				D126BA9E4F21E58101AEE75B /* ConsoleCreditBlock.swift in Sources */,
+				669F4ED600226BC3604086C6 /* ConsoleCreditCardModel.swift in Sources */,
 				8782D7ECCCFB86BC37F94EF4 /* ConsoleCreditDTOs.swift in Sources */,
 				8788319CD0C6F8710D9EE7FD /* ConsoleCreditRule.swift in Sources */,
 				9C1EB82BD3C5ECE03CC220B0 /* ConsoleCreditSource.swift in Sources */,

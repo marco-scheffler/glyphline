@@ -640,4 +640,38 @@ final class DashboardPresentationTests: XCTestCase {
         XCTAssertEqual(DashboardPresentation.axisDays(for: short, desiredCount: 6), short)
         XCTAssertEqual(DashboardPresentation.axisDays(for: short, desiredCount: 0), [])
     }
+
+    /// The credit block sits on the account's card whatever the quota says: a
+    /// quota failure must never hide the API credit.
+    func testCreditBlockSurvivesAQuotaMessage() {
+        let account = Account(
+            id: UUID(),
+            providerID: .claude,
+            displayName: "Claude personal",
+            credentialReference: "local-source://x",
+            createdAt: Date(timeIntervalSince1970: 0),
+            isEnabled: true
+        )
+        let summary = AccountUsageSummary(
+            account: account, capabilities: nil, billingPeriod: nil, latestSyncRun: nil,
+            inputTokens: 0, outputTokens: 0, requestCount: nil,
+            actualAmountMicros: nil, estimatedAmountMicros: nil, displayCurrency: nil,
+            dataQuality: .exact
+        )
+        let state = QuotaAccountState(
+            accountID: account.id, displayName: "Claude personal", windows: [],
+            message: RateWindowSourceError.sessionExpired.message
+        )
+        let credit = ConsoleCreditCardModel(
+            id: "org-1", title: "API credit", balanceText: "x left", expiryText: nil,
+            expiryIsUrgent: false, spendText: nil, message: nil
+        )
+
+        let card = DashboardPresentation.accountQuotaCard(
+            summary: summary, state: state, credits: [credit], now: Date(timeIntervalSince1970: 0)
+        )
+
+        XCTAssertNotNil(card.message)
+        XCTAssertEqual(card.credits, [credit])
+    }
 }

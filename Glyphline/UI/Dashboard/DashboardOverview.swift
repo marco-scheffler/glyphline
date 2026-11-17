@@ -269,10 +269,15 @@ struct DashboardOverview: View {
         // quota to another is the failure this app works hardest to avoid.
         let state = coordinator.quotaStates.first { $0.accountID == summary.account.id }
 
+        let now = Date()
         return DashboardPresentation.accountQuotaCard(
             summary: summary,
             state: state,
-            now: Date()
+            credits: ConsoleCreditCardModel.models(
+                for: coordinator.consoleCredits[summary.account.id] ?? [],
+                now: now
+            ),
+            now: now
         )
     }
 

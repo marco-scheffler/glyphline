@@ -52,7 +52,7 @@ struct SettingsView: View {
                 Text("A finished agent and one asking a question look the same, so both are reported.")
                     .foregroundStyle(.secondary)
 
-                Toggle("Warn before a quota runs out", isOn: $settings.quotaRunwayWarningsEnabled)
+                Toggle("Warn before quota or credit runs out", isOn: $settings.quotaRunwayWarningsEnabled)
             }
 
             Section("Updates") {

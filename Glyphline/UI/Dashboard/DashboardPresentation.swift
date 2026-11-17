@@ -278,6 +278,7 @@ enum DashboardPresentation {
     static func accountQuotaCard(
         summary: AccountUsageSummary,
         state: QuotaAccountState?,
+        credits: [ConsoleCreditCardModel] = [],
         now: Date
     ) -> AccountQuotaCardModel {
         guard let state else {
@@ -289,7 +290,8 @@ enum DashboardPresentation {
                 message: String(
                     localized: "This account has not reported a quota yet.",
                     comment: "Quota card message for an account the sync coordinator has not seen any state for."
-                )
+                ),
+                credits: credits
             )
         }
 
@@ -302,7 +304,8 @@ enum DashboardPresentation {
             // The provider's own explanation wins over ours, and a state that
             // reports no window at all still has to say so rather than leave the
             // account's card empty.
-            message: state.message ?? (cards.isEmpty ? QuotaIndicator.noQuotaReportedMessage : nil)
+            message: state.message ?? (cards.isEmpty ? QuotaIndicator.noQuotaReportedMessage : nil),
+            credits: credits
         )
     }
 

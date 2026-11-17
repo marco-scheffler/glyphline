@@ -163,6 +163,112 @@
         }
       }
     },
+    "%@ expires %@ (in %@)" : {
+      "comment" : "Claude Console credit that lapses next. Placeholders: a currency amount, a short date such as 'Sat 29 Nov', a compact duration such as '4d 6h'.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ verfallen am %2$@ (in %3$@)"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ expires %2$@ (in %3$@)"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ caduca el %2$@ (en %3$@)"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ expire le %2$@ (dans %3$@)"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ scade il %2$@ (tra %3$@)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ が %2$@ に失効（あと %3$@）"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ expira em %2$@ (em %3$@)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ 将于 %2$@ 过期（%3$@ 后）"
+          }
+        }
+      }
+    },
+    "%@ left" : {
+      "comment" : "Claude Console prepaid credit remaining. The placeholder is a currency amount.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ übrig"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ left"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quedan %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ restants"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ rimanenti"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "残り %@"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ restantes"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "剩余 %@"
+          }
+        }
+      }
+    },
     "%@ of API credit expires in %@" : {
       "comment" : "Notification body warning that prepaid Claude Console API credit is about to lapse. Placeholders: a formatted money amount such as '$10.00', then a duration such as '2d'.",
       "localizations" : {
@@ -424,6 +530,59 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已记录 %@ 条配额窗口采样。"
+          }
+        }
+      }
+    },
+    "%@ spent this month" : {
+      "comment" : "Claude Console API spend in the current month. The placeholder is a currency amount.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ diesen Monat ausgegeben"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ spent this month"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ gastados este mes"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ dépensés ce mois-ci"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ spesi questo mese"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今月の利用額 %@"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ gastos este mês"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本月已花费 %@"
           }
         }
       }
@@ -2337,6 +2496,112 @@
         }
       }
     },
+    "API credit" : {
+      "comment" : "Heading of the Claude Console prepaid-credit block on an account card.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "API-Guthaben"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "API credit"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crédito de API"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crédit API"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Credito API"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "API クレジット"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crédito da API"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "API 额度"
+          }
+        }
+      }
+    },
+    "API credit %lld" : {
+      "comment" : "Heading of a Claude Console prepaid-credit block when an account has several API organisations. The placeholder is its 1-based number.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "API-Guthaben %lld"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "API credit %lld"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crédito de API %lld"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crédit API %lld"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Credito API %lld"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "API クレジット %lld"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crédito da API %lld"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "API 额度 %lld"
+          }
+        }
+      }
+    },
     "API credit is down to %@" : {
       "comment" : "Notification body warning that the prepaid Claude Console API credit balance is low. Placeholder: a formatted money amount such as '$4.00'.",
       "localizations" : {
@@ -3713,6 +3978,112 @@
         }
       }
     },
+    "Connect Console" : {
+      "comment" : "Accounts list button: sign in to the Claude Console to show this account's API credit.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Console verbinden"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connect Console"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conectar Console"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connecter la Console"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Collega Console"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Console を接続"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conectar Console"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "连接 Console"
+          }
+        }
+      }
+    },
+    "Could not change the Console connection" : {
+      "comment" : "Alert title when connecting or disconnecting the Claude Console failed.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Console-Verbindung konnte nicht geändert werden"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not change the Console connection"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo cambiar la conexión con la Console"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossible de modifier la connexion à la Console"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossibile modificare la connessione alla Console"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Console の接続を変更できませんでした"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não foi possível alterar a conexão com o Console"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法更改 Console 连接"
+          }
+        }
+      }
+    },
     "Could not delete account" : {
       "comment" : "Error dialog title.",
       "localizations" : {
@@ -3868,6 +4239,59 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "无法读取 claude.ai 返回的页面。这通常是暂时的。"
+          }
+        }
+      }
+    },
+    "Could not read the page platform.claude.com returned. This is usually temporary." : {
+      "comment" : "API credit failure reason: the page body never came back as text. platform.claude.com is a host name, keep it.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Seite von platform.claude.com konnte nicht gelesen werden. Das ist meist vorübergehend."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not read the page platform.claude.com returned. This is usually temporary."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo leer la página que devolvió platform.claude.com. Suele ser temporal."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossible de lire la page renvoyée par platform.claude.com. C’est généralement temporaire."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossibile leggere la pagina restituita da platform.claude.com. Di solito è temporaneo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "platform.claude.com から返されたページを読み取れませんでした。通常は一時的なものです。"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não foi possível ler a página retornada por platform.claude.com. Isso costuma ser temporário."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法读取 platform.claude.com 返回的页面。这通常是暂时的。"
           }
         }
       }
@@ -4502,6 +4926,59 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已停用"
+          }
+        }
+      }
+    },
+    "Disconnect Console" : {
+      "comment" : "Accounts list button: stop showing this account's Claude Console API credit.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Console trennen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Disconnect Console"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desconectar Console"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Déconnecter la Console"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scollega Console"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Console の接続を解除"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desconectar Console"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "断开 Console"
           }
         }
       }
@@ -9325,6 +9802,59 @@
         }
       }
     },
+    "This Console organisation does not share its billing with you." : {
+      "comment" : "API credit failure reason: the Claude Console organisation does not let this user read its billing.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diese Console-Organisation gibt ihre Abrechnung nicht für dich frei."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This Console organisation does not share its billing with you."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta organización de la Console no comparte su facturación contigo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cette organisation de la Console ne partage pas sa facturation avec vous."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Questa organizzazione della Console non condivide con te la fatturazione."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この Console 組織は請求情報を共有していません。"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta organização do Console não compartilha o faturamento com você."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此 Console 组织未与你共享账单信息。"
+          }
+        }
+      }
+    },
     "This account has no recorded history." : {
       "comment" : "Delete dialog for an account with nothing stored against it.",
       "localizations" : {
@@ -9961,54 +10491,55 @@
         }
       }
     },
-    "Warn before a quota runs out" : {
+    "Warn before quota or credit runs out" : {
+      "comment" : "Settings toggle: notify before a subscription quota or Claude Console API credit runs out or expires.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Warnen, bevor ein Kontingent aufgebraucht ist"
+            "value" : "Warnen, bevor Kontingent oder Guthaben aufgebraucht ist"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Warn before a quota runs out"
+            "value" : "Warn before quota or credit runs out"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Avisar antes de que se agote una cuota"
+            "value" : "Avisar antes de que se agote la cuota o el crédito"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Avertir avant qu’un quota soit épuisé"
+            "value" : "Avertir avant l’épuisement d’un quota ou du crédit"
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Avvisa prima che una quota si esaurisca"
+            "value" : "Avvisa prima che quota o credito si esauriscano"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "クォータがなくなる前に警告"
+            "value" : "クォータまたはクレジットがなくなる前に警告"
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Avisar antes que uma cota acabe"
+            "value" : "Avisar antes que a cota ou o crédito acabe"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "在配额用尽前提醒"
+            "value" : "在配额或额度用尽前提醒"
           }
         }
       }
@@ -10910,6 +11441,59 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "空闲"
+          }
+        }
+      }
+    },
+    "platform.claude.com did not return the expected data." : {
+      "comment" : "API credit failure reason: the Console answered, but not in the expected shape. platform.claude.com is a host name, keep it.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "platform.claude.com hat nicht die erwarteten Daten geliefert."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "platform.claude.com did not return the expected data."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "platform.claude.com no devolvió los datos esperados."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "platform.claude.com n’a pas renvoyé les données attendues."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "platform.claude.com non ha restituito i dati previsti."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "platform.claude.com から想定したデータが返されませんでした。"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "platform.claude.com não retornou os dados esperados."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "platform.claude.com 未返回预期的数据。"
           }
         }
       }

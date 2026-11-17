@@ -18,6 +18,9 @@ struct AccountQuotaCardModel: Identifiable, Equatable {
     /// the card rather than in place of it: an account that reports nothing is
     /// still an account, and dropping its card would make it look unconfigured.
     var message: String?
+    /// The account's Claude Console credit, one block per API organisation.
+    /// Independent of `message`: a quota failure never hides credit.
+    var credits: [ConsoleCreditCardModel] = []
 }
 
 /// The account cards, filling the row and sharing its width evenly.
@@ -122,6 +125,12 @@ struct AccountQuotaCard: View {
                 ForEach(cards) { card in
                     QuotaWindowRow(card: card)
                 }
+            }
+
+            // After the windows and after the message alike: credit is read
+            // from the Console, not from the quota source that failed.
+            ForEach(model.credits) { credit in
+                ConsoleCreditBlock(model: credit)
             }
 
             // The slack from equalising a row's heights goes below the content,

@@ -157,4 +157,34 @@ enum RateWindowSourceError: Error, Equatable, Sendable {
             )
         }
     }
+
+    /// What the user is told when reading Console credit failed. The cases
+    /// that say something Console-specific name the Console; the rest read the
+    /// same as for quota.
+    var consoleMessage: String {
+        switch self {
+        case .sessionExpired:
+            String(
+                localized: "Your Claude Console sign-in has expired. Connect the Console again.",
+                comment: "Notification body when the Claude Console (platform.claude.com) sign-in used to read API credit has expired."
+            )
+        case .notAvailable:
+            String(
+                localized: "This Console organisation does not share its billing with you.",
+                comment: "API credit failure reason: the Claude Console organisation does not let this user read its billing."
+            )
+        case .unreadablePage:
+            String(
+                localized: "Could not read the page platform.claude.com returned. This is usually temporary.",
+                comment: "API credit failure reason: the page body never came back as text. platform.claude.com is a host name, keep it."
+            )
+        case .unexpectedResponseShape:
+            String(
+                localized: "platform.claude.com did not return the expected data.",
+                comment: "API credit failure reason: the Console answered, but not in the expected shape. platform.claude.com is a host name, keep it."
+            )
+        case .notConfigured, .credentialRejected, .transportFailure:
+            message
+        }
+    }
 }

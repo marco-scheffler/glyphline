@@ -31,6 +31,9 @@ struct AccountsView: View {
     /// means no editor is open.
     @State private var renamingAccount: Account?
     @State private var renameDraft = ""
+    /// The account whose Console connect or disconnect is in flight.
+    @State private var consoleBusyAccountID: UUID?
+    @State private var consoleError: String?
 
     /// How much room the header claims above the list, beyond the row itself.
     /// Named so the probe test can subtract it rather than assume it.
@@ -99,6 +102,10 @@ struct AccountsView: View {
                                     .accessibilityLabel("Rename account")
                                     .help("Rename account")
 
+                                    if ConsoleConnection.isEligible(summary.account) {
+                                        consoleButton(for: summary.account)
+                                    }
+
                                     // Disabled only while this account's own delete
                                     // is in flight.
                                     Button {
@@ -152,6 +159,15 @@ struct AccountsView: View {
                                             }
                                         }
                                     }
+                                }
+
+                                // Outside the quota branch: a quota failure
+                                // never hides credit.
+                                ForEach(ConsoleCreditCardModel.models(
+                                    for: coordinator.consoleCredits[summary.account.id] ?? [],
+                                    now: Date()
+                                )) { credit in
+                                    ConsoleCreditBlock(model: credit)
                                 }
 
                             }
@@ -271,6 +287,11 @@ struct AccountsView: View {
                 } message: {
                     Text(deletionError ?? "")
                 }
+                .alert("Could not change the Console connection", isPresented: isShowingConsoleError) {
+                    Button("OK") { consoleError = nil }
+                } message: {
+                    Text(consoleError ?? "")
+                }
         }
     }
 
@@ -312,6 +333,62 @@ struct AccountsView: View {
             get: { deletionError != nil },
             set: { if !$0 { deletionError = nil } }
         )
+    }
+
+    private var isShowingConsoleError: Binding<Bool> {
+        Binding(
+            get: { consoleError != nil },
+            set: { if !$0 { consoleError = nil } }
+        )
+    }
+
+    /// "Connect" when the account has no Console organisation, or when one of
+    /// them reports an expired sign-in — reconnecting re-runs `connect`.
+    private func needsConsoleConnect(_ account: Account) -> Bool {
+        account.consoleOrganizations.isEmpty
+            || (coordinator.consoleCredits[account.id] ?? []).contains { $0.failure == .sessionExpired }
+    }
+
+    @ViewBuilder private func consoleButton(for account: Account) -> some View {
+        let connect = needsConsoleConnect(account)
+        let title = connect
+            ? String(localized: "Connect Console", comment: "Accounts list button: sign in to the Claude Console to show this account's API credit.")
+            : String(localized: "Disconnect Console", comment: "Accounts list button: stop showing this account's Claude Console API credit.")
+        Button {
+            changeConsoleConnection(account, connect: connect)
+        } label: {
+            Image(systemName: connect ? "link" : "link.badge.minus")
+        }
+        .buttonStyle(.borderless)
+        .accessibilityLabel(title)
+        .help(title)
+        .disabled(consoleBusyAccountID == account.id)
+    }
+
+    private func changeConsoleConnection(_ account: Account, connect: Bool) {
+        guard let ledgerStore, consoleBusyAccountID != account.id else { return }
+        consoleBusyAccountID = account.id
+        let connection = ConsoleConnection(
+            ledgerStore: ledgerStore,
+            signIn: ConsoleSignInWindowPresenter(),
+            sessions: ClaudeWebSessionStore()
+        )
+        Task {
+            let outcome = connect
+                ? await connection.connect(account)
+                : await connection.disconnect(account)
+            consoleBusyAccountID = nil
+            switch outcome {
+            case .done:
+                // The list renders from `accounts`; reload so the button flips.
+                onRenamed()
+                // Directly, not the on-demand variant: its 60 s floor would
+                // skip the read right after a connect.
+                await coordinator.collectRateWindows()
+            case let .failed(message):
+                consoleError = message
+            }
+        }
     }
 
     private func delete(_ account: Account) {
