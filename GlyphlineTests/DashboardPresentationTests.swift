@@ -400,11 +400,16 @@ final class DashboardPresentationTests: XCTestCase {
     /// Every identifier the pricing catalog carries has a name a person reads.
     func testEveryCatalogIdentifierHasItsFriendlyName() {
         let expected = [
+            "claude-fable-5-2": "Fable 5.2",
+            "claude-fable-5-1": "Fable 5.1",
             "claude-fable-5": "Fable 5",
+            "claude-opus-5-5": "Opus 5.5",
             "claude-opus-5": "Opus 5",
             "claude-opus-4-8": "Opus 4.8",
+            "claude-sonnet-5-5": "Sonnet 5.5",
             "claude-sonnet-5": "Sonnet 5",
             "claude-sonnet-4-6": "Sonnet 4.6",
+            "claude-haiku-5-5": "Haiku 5.5",
             "claude-haiku-4-5": "Haiku 4.5",
             "gpt-5.4": "GPT-5.4",
         ]
@@ -473,15 +478,63 @@ final class DashboardPresentationTests: XCTestCase {
     /// every hue is the one the design named.
     func testEveryKnownModelKeepsItsApprovedColour() {
         let expected: [String: UInt32] = [
+            "claude-fable-5-2": 0xff_be_db,
+            "claude-fable-5-1": 0xff_9c_c9,
             "claude-fable-5": 0xff_7a_b8,
+            "claude-opus-5-5": 0xc4_a3_ff,
             "claude-opus-5": 0xa9_7b_ff,
             "claude-opus-4-8": 0x8a_63_d6,
+            "claude-sonnet-5-5": 0x8f_c6_ff,
             "claude-sonnet-5": 0x5b_a9_ff,
             "claude-sonnet-4-6": 0x4a_86_c8,
+            "claude-haiku-5-5": 0x85_f0_bd,
             "claude-haiku-4-5": 0x3d_dc_91,
         ]
         for (identifier, hex) in expected {
             XCTAssertEqual(DashboardPresentation.modelColor(identifier), color(hex), identifier)
+        }
+    }
+
+    /// No two known models share a hue, or the chart would draw two models as
+    /// one and the legend could not tell them apart.
+    func testEveryKnownModelHasItsOwnColour() {
+        let models = [
+            "claude-fable-5-2", "claude-fable-5-1", "claude-fable-5",
+            "claude-opus-5-5", "claude-opus-5", "claude-opus-4-8",
+            "claude-sonnet-5-5", "claude-sonnet-5", "claude-sonnet-4-6",
+            "claude-haiku-5-5", "claude-haiku-4-5",
+        ]
+        for (index, model) in models.enumerated() {
+            for other in models[(index + 1)...] {
+                XCTAssertNotEqual(
+                    DashboardPresentation.modelColor(model),
+                    DashboardPresentation.modelColor(other),
+                    "\(model) and \(other)"
+                )
+            }
+        }
+    }
+
+    /// Within a family the newer generation is the lighter one, so a glance at
+    /// a purple bar says which Opus it was.
+    func testANewerGenerationIsLighterThanItsPredecessor() throws {
+        let families = [
+            ["claude-fable-5", "claude-fable-5-1", "claude-fable-5-2"],
+            ["claude-opus-4-8", "claude-opus-5", "claude-opus-5-5"],
+            ["claude-sonnet-4-6", "claude-sonnet-5", "claude-sonnet-5-5"],
+            ["claude-haiku-4-5", "claude-haiku-5-5"],
+        ]
+        func luminance(_ model: String) throws -> Double {
+            let color = try XCTUnwrap(
+                NSColor(DashboardPresentation.modelColor(model)).usingColorSpace(.sRGB)
+            )
+            return 0.2126 * Double(color.redComponent) + 0.7152 * Double(color.greenComponent)
+                + 0.0722 * Double(color.blueComponent)
+        }
+        for family in families {
+            for (older, newer) in zip(family, family.dropFirst()) {
+                XCTAssertGreaterThan(try luminance(newer), try luminance(older), "\(newer) vs \(older)")
+            }
         }
     }
 
@@ -509,8 +562,10 @@ final class DashboardPresentationTests: XCTestCase {
         XCTAssertEqual(DashboardPresentation.modelColor(DashboardPresentation.otherModelsLabel), grey)
 
         for known in [
-            "claude-fable-5", "claude-opus-5", "claude-opus-4-8",
-            "claude-sonnet-5", "claude-sonnet-4-6", "claude-haiku-4-5",
+            "claude-fable-5-2", "claude-fable-5-1", "claude-fable-5",
+            "claude-opus-5-5", "claude-opus-5", "claude-opus-4-8",
+            "claude-sonnet-5-5", "claude-sonnet-5", "claude-sonnet-4-6",
+            "claude-haiku-5-5", "claude-haiku-4-5",
         ] {
             XCTAssertNotEqual(DashboardPresentation.modelColor(known), grey, known)
         }

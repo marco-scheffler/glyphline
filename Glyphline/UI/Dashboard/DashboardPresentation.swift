@@ -359,11 +359,16 @@ enum DashboardPresentation {
     /// called that in Berlin too — and a translated one would stop matching what
     /// the reader sees in the provider's own tooling.
     private static let modelDisplayNames: [String: String] = [
+        "claude-fable-5-2": "Fable 5.2",
+        "claude-fable-5-1": "Fable 5.1",
         "claude-fable-5": "Fable 5",
+        "claude-opus-5-5": "Opus 5.5",
         "claude-opus-5": "Opus 5",
         "claude-opus-4-8": "Opus 4.8",
+        "claude-sonnet-5-5": "Sonnet 5.5",
         "claude-sonnet-5": "Sonnet 5",
         "claude-sonnet-4-6": "Sonnet 4.6",
+        "claude-haiku-5-5": "Haiku 5.5",
         "claude-haiku-4-5": "Haiku 4.5",
         "gpt-5.4": "GPT-5.4",
     ]
@@ -412,17 +417,22 @@ enum DashboardPresentation {
     /// would order the colours by whichever model happened to appear first, which
     /// says nothing at all.
     private static let modelColorHexes: [String: UInt32] = [
+        "claude-fable-5-2": 0xff_be_db,
+        "claude-fable-5-1": 0xff_9c_c9,
         "claude-fable-5": 0xff_7a_b8,
+        "claude-opus-5-5": 0xc4_a3_ff,
         "claude-opus-5": 0xa9_7b_ff,
         "claude-opus-4-8": 0x8a_63_d6,
+        "claude-sonnet-5-5": 0x8f_c6_ff,
         "claude-sonnet-5": 0x5b_a9_ff,
         "claude-sonnet-4-6": 0x4a_86_c8,
+        "claude-haiku-5-5": 0x85_f0_bd,
         "claude-haiku-4-5": 0x3d_dc_91,
     ]
 
     /// What a model nobody has a colour for is drawn in.
     ///
-    /// Grey rather than a seventh hue: letting the chart pick from its defaults
+    /// Grey rather than one more hue: letting the chart pick from its defaults
     /// would dress an unknown model in a known family's colour, and a reader who
     /// trusts the hue would misread the bill. Grey is the palette saying "this
     /// one is not in the scheme" — the visual half of the raw identifier

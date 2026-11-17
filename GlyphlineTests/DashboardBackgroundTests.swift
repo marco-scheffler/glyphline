@@ -209,6 +209,8 @@ final class DashboardBackgroundTests: XCTestCase {
             0.2126 * brightest.red + 0.7152 * brightest.green + 0.0722 * brightest.blue
 
         for model in [
+            "claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5",
+            "claude-fable-5-2", "claude-fable-5-1",
             "claude-opus-5", "claude-sonnet-5", "claude-haiku-4-5",
             "claude-fable-5", "claude-opus-4-8", "claude-sonnet-4-6",
         ] {
