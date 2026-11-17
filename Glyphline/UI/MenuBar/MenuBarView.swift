@@ -23,7 +23,7 @@ struct MenuBarView: View {
                 // Rows come from the coordinator, against the same freshness
                 // bound as the light and the header. The view has no bound of its
                 // own to get wrong.
-                MenuBarQuotaList(groups: quotaBars)
+                MenuBarQuotaList(groups: quotaBars, credits: creditSummaries)
             }
 
             // Whole-app failures only — the ledger being unavailable or
@@ -78,6 +78,13 @@ struct MenuBarView: View {
         }
     }
 
+    private var creditSummaries: [UUID: ConsoleCreditMenuSummary] {
+        let now = Date()
+        return coordinator.consoleCredits.compactMapValues {
+            ConsoleCreditMenuSummary.make($0, now: now)
+        }
+    }
+
     private func lightColor(for state: QuotaLightState) -> Color {
         switch state {
         case .green: .green
@@ -127,6 +134,9 @@ struct MenuBarQuotaList: View {
     static let sectionSpacing: CGFloat = 12
 
     let groups: [QuotaBarGroup]
+    /// Console credit per account, drawn on the account's heading line. Absent
+    /// for accounts without the Console connected or with nothing read yet.
+    var credits: [UUID: ConsoleCreditMenuSummary] = [:]
 
     var body: some View {
         VStack(alignment: .leading, spacing: Self.sectionSpacing) {
@@ -149,10 +159,23 @@ struct MenuBarQuotaList: View {
         VStack(alignment: .leading, spacing: 6) {
             // A quiet section header rather than a second body line: the account
             // name groups the bars, it is not one of the figures being read.
-            Text(group.displayName.uppercased())
-                .font(.caption2.weight(.semibold))
-                .kerning(0.6)
-                .foregroundStyle(.secondary)
+            //
+            // The Console credit shares this line so the panel does not grow for
+            // it. Both sides stay on one line; when space runs out the name
+            // gives way, never the figure.
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(group.displayName.uppercased())
+                    .font(.caption2.weight(.semibold))
+                    .kerning(0.6)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+
+                if let credit = credits[group.id] {
+                    Spacer(minLength: 4)
+                    creditLabel(credit)
+                }
+            }
 
             // Message *and* rows. Accounts without a quota source appear with
             // their reason, and that reason is not grounds to hide a billing
@@ -178,6 +201,28 @@ struct MenuBarQuotaList: View {
                 QuotaBarRowView(row: row, layout: .compact)
             }
         }
+    }
+
+    /// The figure, and an hourglass with a duration when credit lapses soon.
+    private func creditLabel(_ credit: ConsoleCreditMenuSummary) -> some View {
+        HStack(spacing: 6) {
+            Text(credit.balanceText)
+                .foregroundStyle(.secondary)
+
+            if let expiry = credit.expiryText {
+                // The symbol inline in the text rather than a `Label`: inside a
+                // `Text` it takes the text's line metrics, where a separate image
+                // made the heading a point taller.
+                Text("\(Image(systemName: "hourglass")) \(expiry)")
+                    .foregroundStyle(.orange)
+            }
+        }
+        .font(.caption2.monospacedDigit())
+        .lineLimit(1)
+        .fixedSize()
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(credit.accessibilityText)
+        .help(credit.accessibilityText)
     }
 }
 
