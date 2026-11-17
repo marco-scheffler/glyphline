@@ -284,14 +284,33 @@ struct AgentverseWindow: View {
 /// waiting for an answer.
 struct AgentverseSidebar: View {
     @EnvironmentObject private var coordinator: AgentverseCoordinator
+    @EnvironmentObject private var settings: AppSettingsStore
     @Binding var hovered: String?
 
+    /// The busiest session listed, on track and parked together, so every
+    /// card's token bar is measured against the same one.
+    private var largestWorkTokens: Int64 {
+        let ids = coordinator.onTrack.map(\.id) + coordinator.parked.map(\.sessionID)
+        return ids.map { coordinator.workTokens[$0] ?? 0 }.max() ?? 0
+    }
+
+    @ViewBuilder
+    private func row(_ model: AgentRowModel) -> some View {
+        if settings.agentverseView == .studio {
+            StudioAgentCard(model: model)
+        } else {
+            AgentRow(model: model)
+        }
+    }
+
     var body: some View {
+        let largest = largestWorkTokens
         List {
             Section("In the office") {
                 ForEach(coordinator.onTrack) { session in
-                    AgentRow(model: AgentRowModel(session: session,
-                                                  workTokens: coordinator.workTokens[session.id] ?? 0))
+                    let tokens = coordinator.workTokens[session.id] ?? 0
+                    row(AgentRowModel(session: session, workTokens: tokens,
+                                      tokenFraction: AgentRowModel.tokenFraction(tokens, largest: largest)))
                         // A `List` row is wider and taller than the content it
                         // was given, and `onHover` alone only fires over the
                         // content itself. In a 264 pt sidebar most of the row is
@@ -305,9 +324,10 @@ struct AgentverseSidebar: View {
             }
             Section("Off the clock") {
                 ForEach(coordinator.parked) { session in
+                    let tokens = coordinator.workTokens[session.sessionID] ?? 0
                     HStack(spacing: 6) {
-                        AgentRow(model: AgentRowModel(parked: session,
-                                                      workTokens: coordinator.workTokens[session.sessionID] ?? 0))
+                        row(AgentRowModel(parked: session, workTokens: tokens,
+                                          tokenFraction: AgentRowModel.tokenFraction(tokens, largest: largest)))
                         // Only while pointed at, so a column of crosses does not
                         // compete with the rows themselves.
                         if hovered == session.id {

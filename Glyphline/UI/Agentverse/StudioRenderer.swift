@@ -210,7 +210,7 @@ struct StudioRenderer {
 
     // MARK: Figure — the mockup's chibi, origin at the centre of the head.
 
-    private func drawFigure(_ c: GraphicsContext, figure f: StudioFigure, cup: Bool) {
+    func drawFigure(_ c: GraphicsContext, figure f: StudioFigure, cup: Bool) {
         let ink = Self.ink.color
         c.fill(Path(ellipseIn: CGRect(x: -30, y: 18, width: 60, height: 44)), with: .color(f.hoodie.alpha(0.95)))
         c.fill(Path(roundedRect: CGRect(x: -30, y: 34, width: 60, height: 26), cornerRadius: 10),
