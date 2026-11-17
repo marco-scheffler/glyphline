@@ -87,25 +87,22 @@ enum AgentAction: Equatable, Sendable {
     /// The program a command line runs, and nothing else from it — or nil
     /// whenever that cannot be said safely.
     ///
-    /// Deliberately not a shell parser. A leading `env` or `sudo` and leading
-    /// unquoted `NAME=value` assignments (the usual way to hand a command a
-    /// token) are skipped. Any quote on the way, a flag where the program should
-    /// be, or a name that does not look like a program gives up instead: a
-    /// quoted value split on whitespace, or an option's argument, could
-    /// otherwise be shown as the program.
+    /// Deliberately not a shell parser, and it skips nothing but a leading `env`
+    /// or `sudo`: every token skipped is a chance for later command text — an
+    /// assignment's quoted or escaped value — to surface as the "program". The
+    /// first word is named only when it plainly is a program path; an
+    /// assignment, a flag, a quote or anything unusual gives up instead.
     private static func programName(in command: String) -> String? {
-        for token in command.split(whereSeparator: \.isWhitespace) {
-            if token.contains(where: { $0 == "'" || $0 == "\"" }) { return nil }
-            if token == "env" || token == "sudo" { continue }
-            if let equals = token.firstIndex(of: "="),
-               token[..<equals].wholeMatch(of: /[A-Za-z_][A-Za-z0-9_]*/) != nil {
-                continue
-            }
-            if token.hasPrefix("-") { return nil }
-            let name = URL(fileURLWithPath: String(token)).lastPathComponent
-            return name.wholeMatch(of: /[A-Za-z0-9._+-]{1,32}/) != nil ? name : nil
-        }
-        return nil
+        let tokens = command.split(whereSeparator: \.isWhitespace)
+        let index = tokens.first == "env" || tokens.first == "sudo" ? 1 : 0
+        guard index < tokens.count else { return nil }
+        let candidate = tokens[index]
+        guard !candidate.contains("="),
+              !candidate.hasPrefix("-"),
+              candidate.wholeMatch(of: /[A-Za-z0-9._\/+-]{1,128}/) != nil
+        else { return nil }
+        let name = URL(fileURLWithPath: String(candidate)).lastPathComponent
+        return name.wholeMatch(of: /[A-Za-z0-9._+-]{1,32}/) != nil ? name : nil
     }
 
     var isToolAction: Bool { self != .thinking }

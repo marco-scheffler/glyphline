@@ -25,19 +25,34 @@ final class AgentActionTests: XCTestCase {
         XCTAssertFalse(action.text.contains("Bearer"))
     }
 
-    /// An inline assignment is the usual way to hand a command a token, so the
-    /// first word is not always the program.
+    /// An inline assignment is the usual way to hand a command a token. Rather
+    /// than skip it and risk surfacing later text, the bubble stays generic.
     func testAnEnvAssignmentIsNeverTheProgram() {
         let action = AgentAction.from(toolName: "Bash",
                                       input: Input(command: "ANTHROPIC_API_KEY=sk-ant-XYZ curl https://x"))
-        XCTAssertEqual(action, .runningProgram("curl"))
+        XCTAssertEqual(action, .usingTool("Bash"))
         XCTAssertFalse(action.text.contains("sk-ant"))
         XCTAssertFalse(action.text.contains("ANTHROPIC_API_KEY"))
 
         XCTAssertEqual(AgentAction.from(toolName: "Bash", input: Input(command: "env GH_TOKEN=ghp_abc gh pr list")),
-                       .runningProgram("gh"))
+                       .usingTool("Bash"))
         XCTAssertEqual(AgentAction.from(toolName: "Bash", input: Input(command: "FOO=1 BAR=2")),
                        .usingTool("Bash"))
+    }
+
+    func testAnEscapedSpaceNeverLeaks() {
+        let action = AgentAction.from(toolName: "Bash",
+                                      input: Input(command: #"AUTH=Bearer\ sk-ant-XYZ curl"#))
+        XCTAssertEqual(action, .usingTool("Bash"))
+        XCTAssertFalse(action.text.contains("sk-ant"))
+        XCTAssertFalse(action.text.contains("Bearer"))
+    }
+
+    func testEnvAndSudoStillNameTheirProgram() {
+        XCTAssertEqual(AgentAction.from(toolName: "Bash", input: Input(command: "sudo /usr/bin/make install")),
+                       .runningProgram("make"))
+        XCTAssertEqual(AgentAction.from(toolName: "Bash", input: Input(command: "env python3 x.py")),
+                       .runningProgram("python3"))
     }
 
     func testAQuotedProgramIsNotNamed() {
