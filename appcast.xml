@@ -6,6 +6,65 @@
     <description>Updates für Glyphline</description>
     <language>en</language>
     <item>
+      <title>1.11</title>
+      <pubDate>Tue, 17 Nov 2026 18:41:48 +0000</pubDate>
+      <sparkle:version>12</sparkle:version>
+      <sparkle:shortVersionString>1.11</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+      <description>&lt;h2&gt;Your API credit, next to your quota&lt;/h2&gt;
+
+&lt;p&gt;If your Anthropic login also has a Claude Console organisation with prepaid
+API credit, Glyphline can now show it. Under Accounts, the new link button on a
+Claude account signs in to the Console once, in the same private session as the
+account itself. From then on the account's card shows how much credit is left,
+how much lapses next and when, and what this month has cost so far.&lt;/p&gt;
+
+&lt;p&gt;The menu bar panel shows the balance on the account's own line, so the panel
+does not get taller. When credit is about to lapse within a week, an hourglass
+with the remaining time appears beside it.&lt;/p&gt;
+
+&lt;p&gt;Promotional credit, such as the monthly API credit that comes with a
+subscription, expires unused. Glyphline now tells you three days before that
+happens, and again when your balance drops below 5 dollars. Both follow the
+"Warn before quota or credit runs out" setting.&lt;/p&gt;
+
+&lt;p&gt;Glyphline only reads your balance; it never buys credit or changes anything in
+the Console. Disconnecting the Console leaves the account's claude.ai sign-in
+untouched.&lt;/p&gt;
+
+&lt;h2&gt;A studio for the Agentverse&lt;/h2&gt;
+
+&lt;p&gt;The Agentverse has a third view next to Office and Datastream. Studio draws
+every session as a figure on a studio floor, with neon cards in the sidebar
+showing what each agent is doing right now and how long a waiting one has been
+waiting. Tiles along the top show today's usage, a wave traces tokens per minute,
+and a feed lists what changed since the last sweep.&lt;/p&gt;
+
+&lt;p&gt;Sessions that are waiting on you gather in a break room, each in a spot of
+its own, longest wait first. When there are too many to fit, the figures shrink
+before anyone is left out, and only then does a "+N" badge appear.&lt;/p&gt;
+
+&lt;h2&gt;A crystal instead of a gauge&lt;/h2&gt;
+
+&lt;p&gt;The app icon is now the crystal from the Agentverse, and the menu bar mark
+follows it.&lt;/p&gt;
+
+&lt;h3&gt;Also&lt;/h3&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;The local cost estimate showed "—" for every model released since Fable 5.
+      Opus 5.5, Sonnet 5.5, Haiku 5.5, Fable 5.1 and Fable 5.2 are now priced,
+      and earlier days are revalued without a rebuild.&lt;/li&gt;
+  &lt;li&gt;Claude Sonnet 5 is now estimated at $2/$10 per million tokens: the planned
+      price rise was cancelled.&lt;/li&gt;
+  &lt;li&gt;The dashboard names these models and gives each its own colour, instead of
+      showing their raw ids in grey.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;Requires macOS 26.&lt;/p&gt;</description>
+      <enclosure url="https://github.com/marco-scheffler/glyphline/releases/download/v1.11/Glyphline-1.11.zip" length="7323382" type="application/octet-stream" sparkle:edSignature="KOG9h+4XgIWQVX5XrW7cYMwuVNnPTs8oUU1hwo0Pf5Ui6dcw+FSfbfqn+tUocAiw7fyr4bZ4muXZi/dId7XUCg==" />
+    </item>
+    <item>
       <title>1.10</title>
       <pubDate>Sat, 31 Oct 2026 10:37:05 +0000</pubDate>
       <sparkle:version>11</sparkle:version>
