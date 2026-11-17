@@ -10,6 +10,61 @@
   },
   {
     "providerID": "claude",
+    "model": "claude-fable-5-2",
+    "inputMicrosPerMillionTokens": 8000000,
+    "outputMicrosPerMillionTokens": 40000000,
+    "cacheCreationMicrosPerMillionTokens": 10000000,
+    "cacheReadMicrosPerMillionTokens": 200000,
+    "currency": "USD",
+    "effectiveDate": "2026-11-17",
+    "source": "anthropic-api-pricing"
+  },
+  {
+    "providerID": "claude",
+    "model": "claude-fable-5-1",
+    "inputMicrosPerMillionTokens": 10000000,
+    "outputMicrosPerMillionTokens": 50000000,
+    "cacheCreationMicrosPerMillionTokens": 12500000,
+    "cacheReadMicrosPerMillionTokens": 250000,
+    "currency": "USD",
+    "effectiveDate": "2026-11-17",
+    "source": "anthropic-api-pricing"
+  },
+  {
+    "providerID": "claude",
+    "model": "claude-opus-5-5",
+    "inputMicrosPerMillionTokens": 4000000,
+    "outputMicrosPerMillionTokens": 20000000,
+    "cacheCreationMicrosPerMillionTokens": 5000000,
+    "cacheReadMicrosPerMillionTokens": 200000,
+    "currency": "USD",
+    "effectiveDate": "2026-11-17",
+    "source": "anthropic-api-pricing"
+  },
+  {
+    "providerID": "claude",
+    "model": "claude-sonnet-5-5",
+    "inputMicrosPerMillionTokens": 2000000,
+    "outputMicrosPerMillionTokens": 10000000,
+    "cacheCreationMicrosPerMillionTokens": 2500000,
+    "cacheReadMicrosPerMillionTokens": 100000,
+    "currency": "USD",
+    "effectiveDate": "2026-11-17",
+    "source": "anthropic-api-pricing"
+  },
+  {
+    "providerID": "claude",
+    "model": "claude-haiku-5-5",
+    "inputMicrosPerMillionTokens": 100000,
+    "outputMicrosPerMillionTokens": 500000,
+    "cacheCreationMicrosPerMillionTokens": 125000,
+    "cacheReadMicrosPerMillionTokens": 10000,
+    "currency": "USD",
+    "effectiveDate": "2026-11-17",
+    "source": "anthropic-api-pricing"
+  },
+  {
+    "providerID": "claude",
     "model": "claude-fable-5",
     "inputMicrosPerMillionTokens": 10000000,
     "outputMicrosPerMillionTokens": 50000000,
@@ -44,12 +99,12 @@
   {
     "providerID": "claude",
     "model": "claude-sonnet-5",
-    "inputMicrosPerMillionTokens": 3000000,
-    "outputMicrosPerMillionTokens": 15000000,
-    "cacheCreationMicrosPerMillionTokens": 3750000,
-    "cacheReadMicrosPerMillionTokens": 300000,
+    "inputMicrosPerMillionTokens": 2000000,
+    "outputMicrosPerMillionTokens": 10000000,
+    "cacheCreationMicrosPerMillionTokens": 2500000,
+    "cacheReadMicrosPerMillionTokens": 200000,
     "currency": "USD",
-    "effectiveDate": "2026-07-30",
+    "effectiveDate": "2026-11-17",
     "source": "anthropic-api-pricing"
   },
   {

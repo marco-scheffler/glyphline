@@ -15,21 +15,39 @@ OpenAI bucket-boundary migration question.
 
 ### The pricing catalog has no time dimension
 
-One price per model, applied to every period the statistics screen offers. Two
-consequences, both understating nothing and overstating a little:
+One price per model, applied to every period the statistics screen offers.
+A price change of any kind is applied retroactively to the whole history the
+moment the catalog is edited. Estimates are computed when the statistics are
+read, never stored, so an edit needs no rebuild — and also cannot be scoped to
+the days after it.
 
-- Claude Sonnet 5 carried introductory pricing ($2/$10 per million rather than
-  $3/$15) through 2026-08-31. The catalog holds the standard rate, so tokens
-  spent inside that window are valued above what the API would have charged —
-  permanently, since the window has closed and the history keeps it.
-- A price change of any kind is applied retroactively to the whole history the
-  moment the catalog is edited.
+Claude Sonnet 5 is the case that already happened. It launched at an
+introductory $2/$10 per million with a rise to $3/$15 scheduled for
+2026-09-01; the catalog held $3/$15 so as not to carry a rate about to expire.
+The rise was cancelled and $2/$10 became the standard price, so the entry was
+corrected on 2026-11-17 — every Sonnet 5 day was revalued downwards with it.
 
 Fixing it means an effective-date range per entry and picking the entry by the
 bucket's own date — the `effectiveDate` field is already there and already
 unused for exactly this. Not worth it while the figure is labelled an estimate
 of what API billing would have cost, but it is the reason two runs of the same
 period can disagree after a catalog update.
+
+### Claude Haiku 5.5 is priced at its lower tier only
+
+Haiku 5.5 has two rates, chosen per request by prompt length: $0.10/$0.50 per
+million for prompts of up to 100,000 tokens, five times that above. The local
+ledger stores tokens summed per day and model, so the length of each request's
+prompt is gone by the time anything is priced, and the catalog holds a single
+rate per model. It holds the lower tier, so any Haiku 5.5 request over the
+threshold is valued at a fifth of what the API would charge — an understatement
+by up to 5x for that model. Small in practice: Haiku 5.5 was about 3 million of
+the reference install's tokens across its first 8 days, against tens of
+billions for Opus.
+
+Fixing it means recording, per request, which tier applied — at scan time,
+where the prompt length is still known — and pricing the two tiers as separate
+rows.
 
 ## Storage and lifecycle
 

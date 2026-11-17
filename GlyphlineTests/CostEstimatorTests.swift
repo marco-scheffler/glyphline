@@ -114,8 +114,13 @@ final class CostEstimatorTests: XCTestCase {
         // The models the local scan actually found on this machine. A miss here
         // renders as "No price on file" and drops that model out of the total.
         let models = [
+            "claude-fable-5-2",
+            "claude-fable-5-1",
             "claude-fable-5",
+            "claude-opus-5-5",
             "claude-opus-5",
+            "claude-sonnet-5-5",
+            "claude-haiku-5-5",
             "claude-opus-4-8",
             "claude-sonnet-5",
             "claude-sonnet-4-6",
@@ -130,6 +135,66 @@ final class CostEstimatorTests: XCTestCase {
             XCTAssertGreaterThan(entry.inputMicrosPerMillionTokens, 0, "\(model) input price")
             XCTAssertGreaterThan(entry.outputMicrosPerMillionTokens, 0, "\(model) output price")
         }
+    }
+
+    /// Pins the four published rates of each current model, so a typo in the
+    /// catalog — one zero too many or too few — fails here instead of shipping
+    /// as a plausible-looking figure. Values are Anthropic's API pricing page
+    /// as of 2026-11-17, cache creation at the 5-minute write rate.
+    func testBundledCatalogCarriesThePublishedRatesOfTheCurrentModels() throws {
+        let catalog = try PricingCatalog.bundled()
+
+        // model: (input, output, cache creation, cache read) in micros per MTok
+        let published: [String: (Int64, Int64, Int64, Int64)] = [
+            "claude-fable-5-2": (8_000_000, 40_000_000, 10_000_000, 200_000),
+            "claude-fable-5-1": (10_000_000, 50_000_000, 12_500_000, 250_000),
+            "claude-opus-5-5": (4_000_000, 20_000_000, 5_000_000, 200_000),
+            "claude-sonnet-5-5": (2_000_000, 10_000_000, 2_500_000, 100_000),
+            // The rate for prompts up to 100,000 tokens; see known-issues.
+            "claude-haiku-5-5": (100_000, 500_000, 125_000, 10_000),
+            // The introductory rate became the standard one.
+            "claude-sonnet-5": (2_000_000, 10_000_000, 2_500_000, 200_000),
+        ]
+
+        for (model, rates) in published {
+            let entry = try XCTUnwrap(
+                catalog.entry(providerID: .claude, model: model),
+                "no pricing for \(model)"
+            )
+            XCTAssertEqual(entry.model, model, "\(model) must match exactly, not via a fallback")
+            XCTAssertEqual(entry.inputMicrosPerMillionTokens, rates.0, "\(model) input")
+            XCTAssertEqual(entry.outputMicrosPerMillionTokens, rates.1, "\(model) output")
+            XCTAssertEqual(entry.cacheCreationMicrosPerMillionTokens, rates.2, "\(model) cache creation")
+            XCTAssertEqual(entry.cacheReadMicrosPerMillionTokens, rates.3, "\(model) cache read")
+            XCTAssertEqual(entry.currency, "USD", "\(model) currency")
+        }
+    }
+
+    /// The case that showed "—" for a whole day: Opus 5.5 tokens priced end to
+    /// end through the bundled catalog, all four token classes at their own rate.
+    func testBundledCatalogPricesADayOfOpus55Usage() throws {
+        let estimator = try CostEstimator(catalog: PricingCatalog.bundled())
+        let day = Date(timeIntervalSince1970: 1_800_000_000)
+        let usage = UsageSnapshot(
+            id: UUID(),
+            accountID: UUID(),
+            providerID: .claude,
+            bucketStart: day,
+            bucketEnd: day.addingTimeInterval(86_400),
+            model: "claude-opus-5-5",
+            inputTokens: 1_000_000,
+            cacheCreationTokens: 1_000_000,
+            cacheReadTokens: 1_000_000,
+            outputTokens: 1_000_000,
+            requests: nil,
+            quality: .exact
+        )
+
+        let estimate = try estimator.estimate(snapshot: usage)
+
+        // 4_000_000 + 5_000_000 + 200_000 + 20_000_000
+        XCTAssertEqual(estimate.estimatedAmountMicros, 29_200_000)
+        XCTAssertEqual(estimate.currency, "USD")
     }
 
     /// A dated snapshot id is the alias plus `-YYYYMMDD` and names the same model
