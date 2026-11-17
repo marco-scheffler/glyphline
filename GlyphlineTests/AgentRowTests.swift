@@ -181,4 +181,35 @@ final class AgentRowTests: XCTestCase {
 
         XCTAssertNotEqual(first.title, second.title)
     }
+
+    // MARK: Studio cards
+
+    func testAWorkingRowCarriesItsAction() {
+        var working = session()
+        working.action = .editing(file: "AgentRow.swift")
+        let row = AgentRowModel(session: working, workTokens: 0)
+
+        XCTAssertEqual(row.actionText, AgentAction.editing(file: "AgentRow.swift").text)
+    }
+
+    func testAWaitingRowSaysHowLong() {
+        let waiting = session(activity: .waitingForYou)
+        let now = waiting.lastActivityAt.addingTimeInterval(7 * 60)
+        let row = AgentRowModel(session: waiting, workTokens: 0, now: now)
+
+        XCTAssertEqual(row.actionText, "Waiting for you · \(7.formatted()) min")
+    }
+
+    func testAParkedRowSaysItIsParked() {
+        XCTAssertEqual(AgentRowModel(parked: parked(), workTokens: 0).actionText, "parked")
+    }
+
+    func testTokenFractionIsRelativeToTheBusiest() {
+        XCTAssertEqual(AgentRowModel.tokenFraction(4_000_000, largest: 4_000_000), 1)
+        XCTAssertEqual(AgentRowModel.tokenFraction(2_000_000, largest: 4_000_000), 0.5)
+        XCTAssertEqual(AgentRowModel.tokenFraction(0, largest: 0), 0)
+        XCTAssertEqual(AgentRowModel(session: session(), workTokens: 2_000_000,
+                                     tokenFraction: 0.5).tokenFraction, 0.5)
+        XCTAssertEqual(AgentRowModel(parked: parked(), workTokens: 0, tokenFraction: 0).tokenFraction, 0)
+    }
 }

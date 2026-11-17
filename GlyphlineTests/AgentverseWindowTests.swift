@@ -20,6 +20,19 @@ final class AgentverseWindowTests: XCTestCase {
         XCTAssertFalse(AgentverseRefreshSchedule.shouldRun(onScreen: false))
     }
 
+    /// The map reads its counters from the ledger and only a local scan moves
+    /// them, so every on-screen sweep has to scan before it refreshes, or the
+    /// wave reads the counters of the last scheduled sync.
+    @MainActor
+    func testASweepScansLocalUsageBeforeItRefreshesTheMap() async {
+        var calls: [String] = []
+        await AgentverseRefreshSchedule.sweep(
+            scanLocalUsage: { calls.append("scan") },
+            refreshMap: { calls.append("refresh") }
+        )
+        XCTAssertEqual(calls, ["scan", "refresh"])
+    }
+
     /// The fix itself. A visible window in an app that is not frontmost is the
     /// case the old `scenePhase == .active` gate got wrong — it is the intended
     /// way to use the map, and `occlusionState` still reports `.visible` there,

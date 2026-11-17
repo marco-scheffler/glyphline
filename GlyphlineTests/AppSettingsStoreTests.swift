@@ -115,6 +115,16 @@ final class AppSettingsStoreTests: XCTestCase {
         }
     }
 
+    func testTheStudioChoiceSurvivesARelaunch() {
+        let suiteName = "agentverse-studio-persist-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        AppSettingsStore(defaults: defaults).agentverseView = .studio
+
+        XCTAssertEqual(AppSettingsStore(defaults: defaults).agentverseView, .studio)
+    }
+
     func testAgentverseViewDefaultsToOffice() {
         let suiteName = "agentverse-view-default-\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!

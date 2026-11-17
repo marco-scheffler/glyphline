@@ -15,6 +15,8 @@ final class AgentverseCoordinator: ObservableObject {
     /// Work tokens per session — the laps. Read once per sweep rather than per
     /// frame: the figure only changes when the transcripts do.
     @Published private(set) var workTokens: [String: Int64] = [:]
+    /// The Studio's wave and feed, recorded once per successful sweep.
+    @Published private(set) var activityLog = StudioActivityLog()
 
     private let scanner: any AgentSessionScanning
     private let ledger: LedgerStore?
@@ -98,6 +100,7 @@ final class AgentverseCoordinator: ObservableObject {
         // A failure here costs the odometers, not the map; the cars still have
         // their places, so this does not set `failureMessage`.
         workTokens = (try? ledger.fetchSessionWorkTokens(sessionIDs: ids)) ?? [:]
+        activityLog.record(sessions: snapshot.onTrack, workTokens: workTokens, at: now)
     }
 
     /// Throwing a session out of the pit lane. It comes back on its own if it

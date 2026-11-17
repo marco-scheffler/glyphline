@@ -68,6 +68,20 @@ enum AgentverseRefreshSchedule {
     static func frameIndex(at date: Date) -> Int {
         Int(date.timeIntervalSinceReferenceDate * framesPerSecond)
     }
+
+    /// One on-screen sweep: the local usage scan first, then the map's own.
+    ///
+    /// The map reads its token counters from the ledger, and only a local scan
+    /// moves them. Without the scan here the counters stood still between the
+    /// sync interval's scans, so the wave read zero and then one spike, and the
+    /// odometers jumped the same way. The scan returns early while one is
+    /// running and is cheap when nothing changed, so asking every sweep costs
+    /// little.
+    @MainActor
+    static func sweep(scanLocalUsage: () async -> Void, refreshMap: () async -> Void) async {
+        await scanLocalUsage()
+        await refreshMap()
+    }
 }
 
 /// What the sun and weather loops are keyed on: they have to restart both when
@@ -89,6 +103,11 @@ struct AgentverseWindow: View {
     /// Where the last weather reading lives, and its timestamp — the throttle
     /// has to survive a window being closed and reopened.
     @EnvironmentObject private var settings: AppSettingsStore
+    /// The ledger and quotas the Studio's tiles read, through the dashboard's
+    /// own models.
+    @EnvironmentObject private var syncCoordinator: SyncCoordinator
+    /// Today's usage series, rebuilt when the ledger changes rather than per body.
+    @State private var usageSeries: DailyUsageSeries?
     /// Starts false and is corrected by the probe as soon as the view has a
     /// window: a true default would run one sweep for a window that turns out to
     /// be opening behind something else.
@@ -113,12 +132,11 @@ struct AgentverseWindow: View {
         .frame(minWidth: 900, minHeight: 560)
         .navigationTitle("Agentverse")
         .toolbar {
-            // Two segments, measured rather than assumed: the control fits in
-            // 155 pt, the title "Agentverse" in 72 pt and the refresh button in
-            // 27 pt, so with the traffic lights and the usual gaps the titlebar
-            // row needs about 370 pt of a window that cannot go below 900. The
-            // earlier version drew on top of itself because it put eleven
-            // controls up here, not because two do not fit.
+            // One segment per view, and few enough to fit: the control, the
+            // title "Agentverse" and the refresh button sit comfortably in the
+            // titlebar of a window that cannot go below 900 pt. The earlier
+            // version drew on top of itself because it put eleven controls up
+            // here, not because a handful of segments do not fit.
             ToolbarItem(placement: .principal) {
                 Picker("View", selection: $settings.agentverseView) {
                     ForEach(AgentverseView.allCases) { view in
@@ -203,6 +221,31 @@ struct AgentverseWindow: View {
     }
 
     @ViewBuilder private var stage: some View {
+        if settings.agentverseView == .studio {
+            // The tiles and the feed stay outside the timeline: they change per
+            // sweep, not per frame, and must not be rebuilt sixty times a second.
+            VStack(spacing: 10) {
+                StudioKPIRow(tiles: StudioDashboardModel.tiles(onTrack: coordinator.onTrack,
+                                                               series: usageSeries,
+                                                               quotaStates: syncCoordinator.quotaStates,
+                                                               now: Date()))
+                floor
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                StudioBottomRow(log: coordinator.activityLog, now: Date())
+            }
+            .padding(10)
+            .background(StudioChrome.background)
+            // The Studio is a night scene whatever the system appearance.
+            .environment(\.colorScheme, .dark)
+            .task(id: syncCoordinator.localUsageRevision) {
+                usageSeries = syncCoordinator.localUsageBreakdown(since: StudioDashboardModel.seriesStart())?.series
+            }
+        } else {
+            floor
+        }
+    }
+
+    @ViewBuilder private var floor: some View {
         // Read out here rather than inside the timeline's closure: the closure
         // is rebuilt per frame, and pulling the view's state into it each time
         // would tie the picture to when it was drawn.
@@ -221,6 +264,7 @@ struct AgentverseWindow: View {
                 // The clock enters here and nowhere below: the scene itself is
                 // a pure function of its inputs, so a test can pin the frame.
                 frame: AgentverseRefreshSchedule.frameIndex(at: timeline.date),
+                now: timeline.date,
                 lighting: lighting,
                 view: settings.agentverseView
             )
@@ -246,7 +290,10 @@ struct AgentverseWindow: View {
         // whose completion clears the flag out from under the first.
         guard !isRefreshing else { return }
         isRefreshing = true
-        await coordinator.refresh()
+        await AgentverseRefreshSchedule.sweep(
+            scanLocalUsage: { await syncCoordinator.scanLocalUsage() },
+            refreshMap: { await coordinator.refresh() }
+        )
         isRefreshing = false
     }
 }
@@ -255,14 +302,33 @@ struct AgentverseWindow: View {
 /// waiting for an answer.
 struct AgentverseSidebar: View {
     @EnvironmentObject private var coordinator: AgentverseCoordinator
+    @EnvironmentObject private var settings: AppSettingsStore
     @Binding var hovered: String?
 
+    /// The busiest session listed, on track and parked together, so every
+    /// card's token bar is measured against the same one.
+    private var largestWorkTokens: Int64 {
+        let ids = coordinator.onTrack.map(\.id) + coordinator.parked.map(\.sessionID)
+        return ids.map { coordinator.workTokens[$0] ?? 0 }.max() ?? 0
+    }
+
+    @ViewBuilder
+    private func row(_ model: AgentRowModel) -> some View {
+        if settings.agentverseView == .studio {
+            StudioAgentCard(model: model)
+        } else {
+            AgentRow(model: model)
+        }
+    }
+
     var body: some View {
+        let largest = largestWorkTokens
         List {
             Section("In the office") {
                 ForEach(coordinator.onTrack) { session in
-                    AgentRow(model: AgentRowModel(session: session,
-                                                  workTokens: coordinator.workTokens[session.id] ?? 0))
+                    let tokens = coordinator.workTokens[session.id] ?? 0
+                    row(AgentRowModel(session: session, workTokens: tokens,
+                                      tokenFraction: AgentRowModel.tokenFraction(tokens, largest: largest)))
                         // A `List` row is wider and taller than the content it
                         // was given, and `onHover` alone only fires over the
                         // content itself. In a 264 pt sidebar most of the row is
@@ -276,9 +342,10 @@ struct AgentverseSidebar: View {
             }
             Section("Off the clock") {
                 ForEach(coordinator.parked) { session in
+                    let tokens = coordinator.workTokens[session.sessionID] ?? 0
                     HStack(spacing: 6) {
-                        AgentRow(model: AgentRowModel(parked: session,
-                                                      workTokens: coordinator.workTokens[session.sessionID] ?? 0))
+                        row(AgentRowModel(parked: session, workTokens: tokens,
+                                          tokenFraction: AgentRowModel.tokenFraction(tokens, largest: largest)))
                         // Only while pointed at, so a column of crosses does not
                         // compete with the rows themselves.
                         if hovered == session.id {

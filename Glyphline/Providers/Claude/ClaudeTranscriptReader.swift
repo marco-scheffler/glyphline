@@ -21,9 +21,40 @@ struct ClaudeTranscriptReader: Sendable {
     private struct Record: Decodable {
         struct Message: Decodable {
             var stopReason: String?
+            /// The content blocks, or nil for any other shape. A typed prompt's
+            /// `content` is a plain string, and failing on it would drop the
+            /// whole record — and with it the session.
+            var content: [ContentBlock]?
 
             enum CodingKeys: String, CodingKey {
                 case stopReason = "stop_reason"
+                case content
+            }
+
+            init(from decoder: Decoder) throws {
+                let container = try decoder.container(keyedBy: CodingKeys.self)
+                stopReason = try container.decodeIfPresent(String.self, forKey: .stopReason)
+                content = try? container.decode([ContentBlock].self, forKey: .content)
+            }
+        }
+
+        /// One block of `message.content`. Only the fields a `tool_use` or
+        /// `tool_result` block needs; an `input` of an unexpected shape is
+        /// dropped rather than failing the block.
+        struct ContentBlock: Decodable {
+            var type: String?
+            var name: String?
+            var input: AgentAction.ToolInput?
+
+            enum CodingKeys: String, CodingKey {
+                case type, name, input
+            }
+
+            init(from decoder: Decoder) throws {
+                let container = try decoder.container(keyedBy: CodingKeys.self)
+                type = try? container.decodeIfPresent(String.self, forKey: .type)
+                name = try? container.decodeIfPresent(String.self, forKey: .name)
+                input = try? container.decodeIfPresent(AgentAction.ToolInput.self, forKey: .input)
             }
         }
 
@@ -44,6 +75,7 @@ struct ClaudeTranscriptReader: Sendable {
     /// hundreds of files.
     private static let titleMarker = Array(#""ai-title""#.utf8)
     private static let slugMarker = Array(#""slug""#.utf8)
+    private static let assistantMarker = Array(#""assistant""#.utf8)
 
     func readTail(at url: URL) throws -> TranscriptTail? {
         let handle = try FileHandle(forReadingFrom: url)
@@ -67,11 +99,17 @@ struct ClaudeTranscriptReader: Sendable {
         // it cannot be read off the conversational record and the walk cannot
         // stop there. It stops when all three are in hand, and otherwise runs out
         // the tail.
+        //
+        // The action is the last `tool_use` of the last assistant record. When
+        // the conversational record is a user record carrying a `tool_result`,
+        // that call sits further up, so the walk also waits for the first
+        // assistant record before it.
         let lines = data.split(separator: UInt8(ascii: "\n"), omittingEmptySubsequences: true)
         var found: Record?
         var timestamp: Date?
         var aiTitle: String?
         var slug: String?
+        var action: AgentAction?
 
         for line in lines.reversed() {
             if found != nil {
@@ -79,7 +117,8 @@ struct ClaudeTranscriptReader: Sendable {
                 // worth the cost of a decode.
                 let mayHaveTitle = aiTitle == nil && line.firstRange(of: Self.titleMarker) != nil
                 let mayHaveSlug = slug == nil && line.firstRange(of: Self.slugMarker) != nil
-                if !mayHaveTitle && !mayHaveSlug { continue }
+                let mayHaveCall = action == nil && line.firstRange(of: Self.assistantMarker) != nil
+                if !mayHaveTitle && !mayHaveSlug && !mayHaveCall { continue }
             }
             guard let record = try? decoder.decode(Record.self, from: Data(line)) else { continue }
 
@@ -90,6 +129,9 @@ struct ClaudeTranscriptReader: Sendable {
             if slug == nil, let value = record.slug, !value.isEmpty {
                 slug = value
             }
+            if found != nil, action == nil, record.type == "assistant" {
+                action = Self.lastCall(in: record) ?? .thinking
+            }
             if found == nil,
                let type = record.type,
                Self.conversational.contains(type),
@@ -98,8 +140,9 @@ struct ClaudeTranscriptReader: Sendable {
                let date = dates.date(from: stamp) {
                 found = record
                 timestamp = date
+                action = Self.immediateAction(for: record)
             }
-            if found != nil && aiTitle != nil && slug != nil { break }
+            if found != nil && action != nil && aiTitle != nil && slug != nil { break }
         }
 
         guard let record = found, let sessionID = record.sessionId, let timestamp else {
@@ -114,8 +157,28 @@ struct ClaudeTranscriptReader: Sendable {
             timestamp: timestamp,
             activity: Self.activity(for: record),
             aiTitle: aiTitle,
-            slug: slug
+            slug: slug,
+            action: action ?? .thinking
         )
+    }
+
+    /// The action as far as the conversational record alone can tell, or nil
+    /// when it is a tool result whose call sits further up.
+    private static func immediateAction(for record: Record) -> AgentAction? {
+        if record.type == "assistant" {
+            return lastCall(in: record) ?? .thinking
+        }
+        let answersACall = record.message?.content?.contains { $0.type == "tool_result" } ?? false
+        return answersACall ? nil : .thinking
+    }
+
+    /// The last `tool_use` block of an assistant record. Claude Code writes one
+    /// record per block, so there is usually exactly one.
+    private static func lastCall(in record: Record) -> AgentAction? {
+        guard let block = record.message?.content?.last(where: { $0.type == "tool_use" }),
+              let name = block.name
+        else { return nil }
+        return AgentAction.from(toolName: name, input: block.input ?? AgentAction.ToolInput())
     }
 
     /// The one judgement in this file.

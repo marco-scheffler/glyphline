@@ -146,6 +146,30 @@ final class AgentverseCoordinatorTests: XCTestCase {
         XCTAssertEqual(coordinator.workTokens["S1"], 1_500_000)
     }
 
+    /// The wave is fed from the sweep: two sweeps with the odometer moving in
+    /// between are one tokens-per-minute sample.
+    func testTwoRefreshesProduceAWaveSample() async throws {
+        let ledger = try makeLedger()
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let coordinator = AgentverseCoordinator(
+            scanner: StubScanner(sessions: [session("S1", at: now)]),
+            ledger: ledger
+        )
+        try ledger.applyLocalScan(scan(sessionID: "S1", outputTokens: 1_000))
+        await coordinator.refresh(now: now)
+        // A scan adds what it found since the last one to the ledger's counter.
+        try ledger.applyLocalScan(scan(sessionID: "S1", outputTokens: 1_000))
+        await coordinator.refresh(now: now.addingTimeInterval(15))
+
+        // The ledger's counter grew by 1 000 between two sweeps 15 s apart:
+        // the coordinator must turn exactly that into 4 000 a minute. The scans
+        // here stand in for the window's own scan before each sweep.
+        XCTAssertEqual(coordinator.workTokens["S1"], 2_000)
+        let samples = coordinator.activityLog.samples
+        XCTAssertEqual(samples.count, 1)
+        XCTAssertEqual(samples.first?.tokensPerMinute ?? 0, 4_000, accuracy: 0.001)
+    }
+
     /// Three things sweep — the background controller, the dashboard and the map
     /// window — and a sweep suspends while it scans. One arriving in that gap
     /// must not run alongside the first: both would reconcile against the same

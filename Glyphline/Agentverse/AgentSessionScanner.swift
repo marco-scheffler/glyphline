@@ -100,7 +100,8 @@ struct AgentSessionScanner {
                     activity: tail.activity,
                     lastActivityAt: tail.timestamp,
                     aiTitle: tail.aiTitle,
-                    slug: tail.slug
+                    slug: tail.slug,
+                    action: tail.action
                 )
             }
         }
