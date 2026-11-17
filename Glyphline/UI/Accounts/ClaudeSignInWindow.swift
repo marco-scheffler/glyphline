@@ -27,11 +27,34 @@ final class ClaudeSignInWindow: NSObject {
         case cancelled
     }
 
+    /// Which site the window signs in to. The window, its popups, its teardown
+    /// and its Continue handling are the same for both; only the start page,
+    /// the title, the check and the type of the result differ.
+    enum Target: Sendable {
+        /// claude.ai, for the subscription's quota. Reports `Outcome`.
+        case subscription
+        /// platform.claude.com, for prepaid credit. Reports `ConsoleSignInOutcome`.
+        case console
+    }
+
+    /// What the window settled with, before it is put in the caller's type.
+    /// One internal result keeps one continuation and one `settle` for both
+    /// targets; `present` and `presentConsole` each map it to their own outcome.
+    private enum Settlement {
+        case signedIn(organizationID: String)
+        case consoleConnected([ConsoleOrganization])
+        case failed(RateWindowSourceError)
+        case cancelled
+    }
+
     private static let promptText = "Sign in to Claude in this window, then choose Continue."
     private static let checkingText = "Checking your session…"
     private static let continueTitle = "Continue"
+    private static let consolePromptText = "Sign in to the Claude Console in this window, then choose Continue."
+    private static let consoleWindowTitle = "Connect Claude Console"
 
     private let dataStore: WKWebsiteDataStore
+    private let target: Target
     private let timeout: Duration
 
     private var window: NSWindow?
@@ -42,18 +65,24 @@ final class ClaudeSignInWindow: NSObject {
     /// Owned here so `settle` can close them with everything else.
     private var popups: [(window: NSWindow, webView: WKWebView)] = []
     private var verification: Task<Void, Never>?
-    private var continuation: CheckedContinuation<Outcome, Never>?
+    private var continuation: CheckedContinuation<Settlement, Never>?
     private var isSettled = false
 
     /// What closing the window will report. Stays `.cancelled` until a check
     /// establishes something the user cannot retry their way out of.
-    private var pendingOutcome: Outcome = .cancelled
+    private var pendingOutcome: Settlement = .cancelled
 
-    init(account: Account, sessionStore: ClaudeWebSessionStore, timeout: Duration = .seconds(30)) {
+    init(
+        account: Account,
+        sessionStore: ClaudeWebSessionStore,
+        target: Target = .subscription,
+        timeout: Duration = .seconds(30)
+    ) {
         // One data store instance is shared by the visible view and by every
         // check, so a session established a moment ago is visible immediately
         // rather than after WebKit gets around to flushing it.
         dataStore = sessionStore.dataStore(for: account.id)
+        self.target = target
         self.timeout = timeout
         super.init()
     }
@@ -69,8 +98,26 @@ final class ClaudeSignInWindow: NSObject {
     /// hand. Visible rather than silent, but still the "cancellation leaves a
     /// browser process" case this whole task exists to eliminate.
     func present() async -> Outcome {
+        switch await run() {
+        case .signedIn(let organizationID): .signedIn(organizationID: organizationID)
+        case .failed(let error): .failed(error)
+        // A console result cannot come out of a subscription window.
+        case .consoleConnected, .cancelled: .cancelled
+        }
+    }
+
+    /// `present` for a window built with `target: .console`.
+    func presentConsole() async -> ConsoleSignInOutcome {
+        switch await run() {
+        case .consoleConnected(let organizations): .connected(organizations)
+        case .failed(let error): .failed(error)
+        case .signedIn, .cancelled: .cancelled
+        }
+    }
+
+    private func run() async -> Settlement {
         await withTaskCancellationHandler {
-            await withCheckedContinuation { (continuation: CheckedContinuation<Outcome, Never>) in
+            await withCheckedContinuation { (continuation: CheckedContinuation<Settlement, Never>) in
                 // `self.continuation == nil` enforces single-shot rather than
                 // merely documenting it: a second `present` would otherwise
                 // overwrite the first continuation and orphan it.
@@ -105,6 +152,26 @@ final class ClaudeSignInWindow: NSObject {
     }
 
     private func verify() async {
+        switch target {
+        case .subscription:
+            await verifySubscription()
+        case .console:
+            await verifyConsole()
+        }
+    }
+
+    private func verifyConsole() async {
+        switch await ConsoleConnectVerifier.verify(fetch: { url, classify in
+            await self.fetch(url, classify: classify)
+        }) {
+        case .success(let organizations):
+            finish(.consoleConnected(organizations))
+        case .failure(let error):
+            report(error)
+        }
+    }
+
+    private func verifySubscription() async {
         let organizations: [ClaudeOrganization]
         switch await fetch(ClaudeWebEndpoints.organizations, classify: ClaudeWebResponseClassifier.classifyOrganizations) {
         case .failure(let error):
@@ -178,7 +245,7 @@ final class ClaudeSignInWindow: NSObject {
         webView.uiDelegate = self
         self.webView = webView
 
-        let statusLabel = NSTextField(labelWithString: Self.promptText)
+        let statusLabel = NSTextField(labelWithString: target == .console ? Self.consolePromptText : Self.promptText)
         statusLabel.lineBreakMode = .byWordWrapping
         // Four, not two: the failure sentences fit in fewer, but the extra room
         // costs nothing and a truncated failure message is worse than a slightly
@@ -215,27 +282,27 @@ final class ClaudeSignInWindow: NSObject {
             backing: .buffered,
             defer: false
         )
-        window.title = "Sign in to Claude"
+        window.title = target == .console ? Self.consoleWindowTitle : "Sign in to Claude"
         // Held here rather than by AppKit, so closing cannot over-release it.
         window.isReleasedWhenClosed = false
         window.contentView = root
         window.delegate = self
         self.window = window
 
-        webView.load(URLRequest(url: ClaudeWebEndpoints.signIn))
+        webView.load(URLRequest(url: target == .console ? ClaudeWebEndpoints.consoleSignIn : ClaudeWebEndpoints.signIn))
 
         window.center()
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
 
-    private func finish(_ outcome: Outcome) {
+    private func finish(_ outcome: Settlement) {
         settle(outcome)
     }
 
     /// The single exit. Tears the window and both web views down before resuming,
     /// so no browser process outlives the sign-in.
-    private func settle(_ outcome: Outcome) {
+    private func settle(_ outcome: Settlement) {
         guard !isSettled else { return }
         isSettled = true
 

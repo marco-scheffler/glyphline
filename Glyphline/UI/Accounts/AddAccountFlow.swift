@@ -20,6 +20,17 @@ struct ClaudeSignInWindowPresenter: ClaudeSignInPresenting {
     }
 }
 
+/// The real Console presenter: the same window, pointed at platform.claude.com,
+/// in the account's own data store.
+@MainActor
+struct ConsoleSignInWindowPresenter: ConsoleSignInPresenting {
+    var sessionStore = ClaudeWebSessionStore()
+
+    func presentConsoleSignIn(for account: Account) async -> ConsoleSignInOutcome {
+        await ClaudeSignInWindow(account: account, sessionStore: sessionStore, target: .console).presentConsole()
+    }
+}
+
 /// Turns a filled-in Add Account form into a persisted account.
 ///
 /// Lives outside the view because the rules it applies are the interesting part
