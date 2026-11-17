@@ -22,4 +22,20 @@ final class RecordingNotifier: UserNotifier {
     nonisolated func notifyQuotaRunningOut(accountDisplayName: String, window: RateWindowID, timeToEmpty: TimeInterval) async {
         await MainActor.run { runwayWarnings.append((accountDisplayName, window, timeToEmpty)) }
     }
+
+    private(set) var creditExpiring: [(name: String, amount: String, expiresIn: TimeInterval)] = []
+    private(set) var creditLow: [(name: String, balance: String)] = []
+    private(set) var consoleExpired: [String] = []
+
+    nonisolated func notifyCreditExpiring(accountDisplayName: String, amount: String, expiresIn: TimeInterval) async {
+        await MainActor.run { creditExpiring.append((accountDisplayName, amount, expiresIn)) }
+    }
+
+    nonisolated func notifyCreditLow(accountDisplayName: String, balance: String) async {
+        await MainActor.run { creditLow.append((accountDisplayName, balance)) }
+    }
+
+    nonisolated func notifyConsoleSessionExpired(accountDisplayName: String) async {
+        await MainActor.run { consoleExpired.append(accountDisplayName) }
+    }
 }

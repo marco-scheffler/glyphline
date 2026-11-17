@@ -1178,6 +1178,212 @@ final class SyncCoordinatorTests: XCTestCase {
         XCTAssertNil(coordinator.rateWindowMessages[accountID])
         XCTAssertTrue(coordinator.quotaStates.isEmpty)
     }
+
+    // MARK: - Console credit
+
+    private func saveConsoleAccount(_ name: String, in ledger: LedgerStore) throws -> Account {
+        let account = Account(
+            id: UUID(),
+            providerID: .claude,
+            displayName: name,
+            credentialReference: "local-source://\(name)",
+            createdAt: Self.now,
+            isEnabled: true,
+            consoleOrganizations: [ConsoleOrganization(id: "org-1")]
+        )
+        try ledger.saveAccount(account)
+        return account
+    }
+
+    private func makeCreditCoordinator(
+        ledger: LedgerStore,
+        credit: SwitchableCreditFetcher,
+        notifier: RecordingNotifier = RecordingNotifier(),
+        quota: (any RateWindowSource)? = FixedWindowsSource(windows: [RateWindow(
+            kind: .rollingFiveHours, usedFraction: 0.1,
+            resetAt: Date(timeIntervalSince1970: 1_800_003_600),
+            observedAt: Date(timeIntervalSince1970: 1_800_000_000)
+        )]),
+        warnings: Bool = true
+    ) -> SyncCoordinator {
+        let instant = Self.now
+        return SyncCoordinator(
+            ledger: ledger,
+            credentials: InMemoryCredentialStore(),
+            registry: ProviderAdapterRegistry(),
+            now: { instant },
+            rateWindowSourceProvider: { _ in quota },
+            consoleCreditSourceProvider: { _ in credit },
+            notifier: notifier,
+            quotaRunwayWarningsEnabled: { warnings }
+        )
+    }
+
+    private static func balance(_ minor: Int64, expiresAt: Date? = nil) -> ConsoleCreditBalance {
+        ConsoleCreditBalance(
+            currency: "USD", exponent: 2, balanceMinor: minor,
+            nextExpiry: expiresAt.map { .init(at: $0, amountMinor: 1_000) },
+            monthSpendMinor: nil, spendResetsAt: nil
+        )
+    }
+
+    func testCreditStillCollectedWhenQuotaSourceIsMissing() async throws {
+        let (_, ledger) = try makeLedger()
+        let account = try saveConsoleAccount("Max", in: ledger)
+        let credit = SwitchableCreditFetcher(.success(Self.balance(10_000)))
+        let coordinator = makeCreditCoordinator(ledger: ledger, credit: credit, quota: nil)
+
+        await coordinator.collectRateWindows()
+
+        XCTAssertEqual(coordinator.consoleCredits[account.id]?.first?.balance, Self.balance(10_000))
+        XCTAssertEqual(coordinator.consoleCredits[account.id]?.first?.observedAt, Self.now)
+        XCTAssertEqual(coordinator.rateWindowMessages[account.id], RateWindowSourceError.notAvailable.message)
+    }
+
+    func testCreditFailureDoesNotTouchQuotaState() async throws {
+        let (_, ledger) = try makeLedger()
+        let account = try saveConsoleAccount("Max", in: ledger)
+        let credit = SwitchableCreditFetcher(.failure(.sessionExpired))
+        let coordinator = makeCreditCoordinator(ledger: ledger, credit: credit)
+
+        await coordinator.collectRateWindows()
+
+        XCTAssertNil(coordinator.rateWindowMessages[account.id])
+        XCTAssertNil(coordinator.rateWindowFailureCodes[account.id])
+        XCTAssertEqual(coordinator.consoleCredits[account.id]?.first?.failure, .sessionExpired)
+        XCTAssertNil(coordinator.consoleCredits[account.id]?.first?.balance)
+    }
+
+    func testExpiringCreditIsAnnouncedOncePerTranche() async throws {
+        let (_, ledger) = try makeLedger()
+        try saveConsoleAccount("Max", in: ledger)
+        let notifier = RecordingNotifier()
+        let first = Self.now.addingTimeInterval(2 * 86_400)
+        let credit = SwitchableCreditFetcher(.success(Self.balance(10_000, expiresAt: first)))
+        let coordinator = makeCreditCoordinator(ledger: ledger, credit: credit, notifier: notifier)
+
+        await coordinator.collectRateWindows()
+        await coordinator.collectRateWindows()
+        XCTAssertEqual(notifier.creditExpiring.count, 1)
+        XCTAssertEqual(notifier.creditExpiring.first?.name, "Max")
+        XCTAssertEqual(notifier.creditExpiring.first?.amount,
+                       ConsoleCreditFormatting.amount(1_000, exponent: 2, currency: "USD"))
+
+        credit.result = .success(Self.balance(10_000, expiresAt: first.addingTimeInterval(3_600)))
+        await coordinator.collectRateWindows()
+        XCTAssertEqual(notifier.creditExpiring.count, 2)
+    }
+
+    func testLowBalanceIsAnnouncedOncePerCrossing() async throws {
+        let (_, ledger) = try makeLedger()
+        try saveConsoleAccount("Max", in: ledger)
+        let notifier = RecordingNotifier()
+        let credit = SwitchableCreditFetcher(.success(Self.balance(400)))
+        let coordinator = makeCreditCoordinator(ledger: ledger, credit: credit, notifier: notifier)
+
+        for minor: Int64 in [400, 400, 900, 400] {
+            credit.result = .success(Self.balance(minor))
+            await coordinator.collectRateWindows()
+        }
+
+        XCTAssertEqual(notifier.creditLow.count, 2)
+        XCTAssertEqual(notifier.creditLow.first?.balance,
+                       ConsoleCreditFormatting.amount(400, exponent: 2, currency: "USD"))
+    }
+
+    func testConsoleSessionExpiryIsAnnouncedOnTheTransition() async throws {
+        let (_, ledger) = try makeLedger()
+        try saveConsoleAccount("Max", in: ledger)
+        let notifier = RecordingNotifier()
+        let credit = SwitchableCreditFetcher(.failure(.sessionExpired))
+        let coordinator = makeCreditCoordinator(ledger: ledger, credit: credit, notifier: notifier)
+
+        let results: [Result<ConsoleCreditBalance, RateWindowSourceError>] = [
+            .failure(.sessionExpired), .failure(.sessionExpired),
+            .success(Self.balance(10_000)), .failure(.sessionExpired),
+        ]
+        for result in results {
+            credit.result = result
+            await coordinator.collectRateWindows()
+        }
+
+        XCTAssertEqual(notifier.consoleExpired, ["Max", "Max"])
+        XCTAssertEqual(notifier.sentCount, 0, "the claude.ai session did not expire")
+    }
+
+    func testNoCreditNotificationsWhenWarningsAreOff() async throws {
+        let (_, ledger) = try makeLedger()
+        try saveConsoleAccount("Max", in: ledger)
+        let notifier = RecordingNotifier()
+        let credit = SwitchableCreditFetcher(
+            .success(Self.balance(400, expiresAt: Self.now.addingTimeInterval(86_400)))
+        )
+        let coordinator = makeCreditCoordinator(ledger: ledger, credit: credit, notifier: notifier, warnings: false)
+
+        await coordinator.collectRateWindows()
+
+        XCTAssertTrue(notifier.creditExpiring.isEmpty)
+        XCTAssertTrue(notifier.creditLow.isEmpty)
+    }
+
+    func testForgetAccountDropsCreditState() async throws {
+        let (_, ledger) = try makeLedger()
+        let account = try saveConsoleAccount("Max", in: ledger)
+        let notifier = RecordingNotifier()
+        let credit = SwitchableCreditFetcher(.success(Self.balance(400)))
+        let coordinator = makeCreditCoordinator(ledger: ledger, credit: credit, notifier: notifier)
+
+        await coordinator.collectRateWindows()
+        XCTAssertNotNil(coordinator.consoleCredits[account.id])
+
+        coordinator.forgetAccount(id: account.id)
+        XCTAssertNil(coordinator.consoleCredits[account.id])
+
+        // The dedupe went with it: the same low balance is news again.
+        await coordinator.collectRateWindows()
+        XCTAssertEqual(notifier.creditLow.count, 2)
+    }
+
+    func testANotAvailableOrgNeverAnnouncesExpiry() async throws {
+        let (_, ledger) = try makeLedger()
+        let account = try saveConsoleAccount("Max", in: ledger)
+        let notifier = RecordingNotifier()
+        let credit = SwitchableCreditFetcher(.failure(.notAvailable))
+        let coordinator = makeCreditCoordinator(ledger: ledger, credit: credit, notifier: notifier)
+
+        await coordinator.collectRateWindows()
+        await coordinator.collectRateWindows()
+
+        XCTAssertEqual(coordinator.consoleCredits[account.id]?.first?.failure, .notAvailable)
+        XCTAssertTrue(notifier.consoleExpired.isEmpty)
+        XCTAssertTrue(notifier.creditExpiring.isEmpty)
+        XCTAssertTrue(notifier.creditLow.isEmpty)
+    }
+
+    func testCreditNotificationTextKeepsItsPlaceholders() {
+        let amount = ConsoleCreditFormatting.amount(1_234, exponent: 2, currency: "USD")
+        let expiring = UserNotificationText.creditExpiring(amount: amount, expiresIn: 2 * 86_400)
+        XCTAssertTrue(expiring.contains(amount))
+        XCTAssertTrue(expiring.contains(QuotaIndicator.compactDuration(2 * 86_400)))
+        XCTAssertTrue(UserNotificationText.creditLow(balance: amount).contains(amount))
+    }
+}
+
+/// A credit fetcher whose single organisation's result a test can change
+/// between ticks.
+@MainActor
+final class SwitchableCreditFetcher: ConsoleCreditFetching {
+    var result: Result<ConsoleCreditBalance, RateWindowSourceError>
+
+    init(_ result: Result<ConsoleCreditBalance, RateWindowSourceError>) {
+        self.result = result
+    }
+
+    nonisolated func fetchCredits(account: Account) async throws -> [ConsoleCreditReading] {
+        await MainActor.run {
+            [ConsoleCreditReading(organization: ConsoleOrganization(id: "org-1"), result: result)]
+        }
+    }
 }
 
 /// A session remover that always fails, so `DeleteAccountFlow` returns `.failed`.

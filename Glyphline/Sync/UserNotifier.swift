@@ -15,6 +15,7 @@ enum NotificationCategory: String {
     case agentsWaiting = "agents-waiting"
     case quotaRunway = "quota-runway"
     case sessionExpired = "session-expired"
+    case creditBalance = "credit-balance"
 }
 
 /// Every notification the app sends.
@@ -30,6 +31,10 @@ protocol UserNotifier: Sendable {
     func notifySessionExpired(accountDisplayName: String) async
     func notifyAgentsWaiting(_ agents: [WaitingAgent], now: Date) async
     func notifyQuotaRunningOut(accountDisplayName: String, window: RateWindowID, timeToEmpty: TimeInterval) async
+    /// `amount` and `balance` arrive already formatted in their own currency.
+    func notifyCreditExpiring(accountDisplayName: String, amount: String, expiresIn: TimeInterval) async
+    func notifyCreditLow(accountDisplayName: String, balance: String) async
+    func notifyConsoleSessionExpired(accountDisplayName: String) async
 }
 
 /// The words, kept apart from delivery so they can be tested.
@@ -67,6 +72,27 @@ enum UserNotificationText {
             comment: "Notification body warning that a quota window will run out before it resets. Placeholders: the window's name such as '5-hour' or 'Weekly', then a duration such as '20m'."
         )
     }
+
+    static func creditExpiring(amount: String, expiresIn: TimeInterval) -> String {
+        String(
+            localized: "\(amount) of API credit expires in \(QuotaIndicator.compactDuration(expiresIn))",
+            comment: "Notification body warning that prepaid Claude Console API credit is about to lapse. Placeholders: a formatted money amount such as '$10.00', then a duration such as '2d'."
+        )
+    }
+
+    static func creditLow(balance: String) -> String {
+        String(
+            localized: "API credit is down to \(balance)",
+            comment: "Notification body warning that the prepaid Claude Console API credit balance is low. Placeholder: a formatted money amount such as '$4.00'."
+        )
+    }
+
+    static var consoleSessionExpired: String {
+        String(
+            localized: "Your Claude Console sign-in has expired. Connect the Console again.",
+            comment: "Notification body when the Claude Console (platform.claude.com) sign-in used to read API credit has expired."
+        )
+    }
 }
 
 /// The shipping implementation.
@@ -92,6 +118,24 @@ struct SystemUserNotifier: UserNotifier {
         await deliver(title: accountDisplayName,
                       body: UserNotificationText.quotaRunningOut(window: window, timeToEmpty: timeToEmpty),
                       category: .quotaRunway)
+    }
+
+    func notifyCreditExpiring(accountDisplayName: String, amount: String, expiresIn: TimeInterval) async {
+        await deliver(title: accountDisplayName,
+                      body: UserNotificationText.creditExpiring(amount: amount, expiresIn: expiresIn),
+                      category: .creditBalance)
+    }
+
+    func notifyCreditLow(accountDisplayName: String, balance: String) async {
+        await deliver(title: accountDisplayName,
+                      body: UserNotificationText.creditLow(balance: balance),
+                      category: .creditBalance)
+    }
+
+    func notifyConsoleSessionExpired(accountDisplayName: String) async {
+        await deliver(title: accountDisplayName,
+                      body: UserNotificationText.consoleSessionExpired,
+                      category: .sessionExpired)
     }
 
     private func deliver(title: String, body: String, category: NotificationCategory) async {

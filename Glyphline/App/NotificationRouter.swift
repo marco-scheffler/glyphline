@@ -32,7 +32,7 @@ final class NotificationRouter: NSObject, ObservableObject, UNUserNotificationCe
     static func destination(forCategory category: String) -> NotificationDestination? {
         switch NotificationCategory(rawValue: category) {
         case .agentsWaiting: .agentverse
-        case .quotaRunway, .sessionExpired: .dashboard
+        case .quotaRunway, .sessionExpired, .creditBalance: .dashboard
         case nil: nil
         }
     }

@@ -2,6 +2,16 @@ import AppKit
 import Combine
 import Foundation
 
+/// One API organisation's credit as the card shows it. A failed reading keeps
+/// the last good balance, so the card can grey it out rather than lose it.
+struct ConsoleCreditState: Equatable, Sendable {
+    var organization: ConsoleOrganization
+    var balance: ConsoleCreditBalance?
+    var failure: RateWindowSourceError?
+    /// When `balance` was last read successfully.
+    var observedAt: Date?
+}
+
 @MainActor
 final class SyncCoordinator: ObservableObject {
     /// Set when a collection could not be attempted at all, so the failure is
@@ -25,7 +35,23 @@ final class SyncCoordinator: ObservableObject {
     private let ledger: LedgerStore?
     private let credentials: any CredentialStore
     private let rateWindowSourceProvider: @MainActor (Account) -> (any RateWindowSource)?
+    private let consoleCreditSourceProvider: @MainActor (Account) -> (any ConsoleCreditFetching)?
     private let notifier: any UserNotifier
+
+    /// Per account, one entry per connected API organisation, in stored order.
+    /// Only accounts with a Console connection have an entry.
+    @Published private(set) var consoleCredits: [UUID: [ConsoleCreditState]] = [:]
+
+    /// Kept apart from `rateWindowFetchesInFlight`: credit and quota are
+    /// separate sources and neither may hold the other back.
+    private var consoleCreditFetchesInFlight: Set<UUID> = []
+    /// Expiry events already announced, so each tranche is announced once.
+    private var creditExpiryWarned: Set<ConsoleCreditRule.ExpiryKey> = []
+    /// Organisations announced as low, per account; removed once the balance
+    /// recovers, so the next crossing is news again.
+    private var creditLowWarned: [UUID: Set<String>] = [:]
+    /// Accounts whose expired Console sign-in was already announced.
+    private var consoleSessionExpiryNotified: Set<UUID> = []
 
     /// Accounts already told about, so an expired session is announced on the
     /// transition and not on every tick. Cleared by the next successful fetch, so
@@ -285,6 +311,7 @@ final class SyncCoordinator: ObservableObject {
         },
         now: @escaping @Sendable () -> Date = Date.init,
         rateWindowSourceProvider: (@MainActor (Account) -> (any RateWindowSource)?)? = nil,
+        consoleCreditSourceProvider: (@MainActor (Account) -> (any ConsoleCreditFetching)?)? = nil,
         notifier: any UserNotifier = SystemUserNotifier(),
         // Off unless asked: a test that omits it can never post a real warning;
         // the app passes the settings closure.
@@ -316,6 +343,9 @@ final class SyncCoordinator: ObservableObject {
         self.now = now
         self.rateWindowSourceProvider = rateWindowSourceProvider ?? { account in
             registry.rateWindowSource(for: account)
+        }
+        self.consoleCreditSourceProvider = consoleCreditSourceProvider ?? { account in
+            registry.consoleCreditSource(for: account)
         }
         self.ledger = ledger
         self.credentials = credentials
@@ -493,6 +523,10 @@ final class SyncCoordinator: ObservableObject {
             }
         }
 
+        // After the quota loop and independent of it: a quota failure never
+        // hides credit, and a credit failure never touches the quota fields.
+        await collectConsoleCredits(for: accounts)
+
         // Rebuilt for every enabled account, including ones that were skipped or
         // failed: an account with no data belongs in the menu with its reason,
         // not filtered out.
@@ -520,6 +554,110 @@ final class SyncCoordinator: ObservableObject {
 
         // Retention runs regardless of how the fetches went.
         try? ledger.deleteRateWindowSamples(olderThan: now().addingTimeInterval(-365 * 86_400))
+    }
+
+    /// Reads the Console credit of every connected account. Reads accounts
+    /// only and never saves one: a stale copy would overwrite the stored
+    /// Console connection.
+    private func collectConsoleCredits(for accounts: [Account]) async {
+        let enabledIDs = Set(accounts.map(\.id))
+        // A disabled or removed account shows nothing.
+        for id in consoleCredits.keys where !enabledIDs.contains(id) {
+            consoleCredits[id] = nil
+        }
+
+        for account in accounts {
+            guard !account.consoleOrganizations.isEmpty,
+                  let source = consoleCreditSourceProvider(account)
+            else {
+                // Disconnected: nothing to show.
+                consoleCredits[account.id] = nil
+                continue
+            }
+
+            guard !consoleCreditFetchesInFlight.contains(account.id) else { continue }
+            consoleCreditFetchesInFlight.insert(account.id)
+            defer { consoleCreditFetchesInFlight.remove(account.id) }
+
+            guard let readings = try? await source.fetchCredits(account: account) else {
+                // Only cancellation throws; leave the last state standing.
+                continue
+            }
+
+            let previous = consoleCredits[account.id] ?? []
+            var states: [ConsoleCreditState] = []
+            var anySucceeded = false
+            var anyExpired = false
+
+            for reading in readings {
+                var state = previous.first { $0.organization == reading.organization }
+                    ?? ConsoleCreditState(organization: reading.organization)
+                switch reading.result {
+                case .success(let balance):
+                    anySucceeded = true
+                    state.balance = balance
+                    state.failure = nil
+                    state.observedAt = now()
+                    await warnAboutCredit(balance, organization: reading.organization, account: account)
+                case .failure(let error):
+                    if error == .sessionExpired { anyExpired = true }
+                    state.failure = error
+                }
+                states.append(state)
+            }
+            consoleCredits[account.id] = states
+
+            if anySucceeded {
+                consoleSessionExpiryNotified.remove(account.id)
+            } else if anyExpired, consoleSessionExpiryNotified.insert(account.id).inserted {
+                // Not gated by the warnings setting, like the claude.ai expiry:
+                // it asks the user to act.
+                await notifier.notifyConsoleSessionExpired(accountDisplayName: account.resolvedName)
+            }
+        }
+    }
+
+    private func warnAboutCredit(
+        _ balance: ConsoleCreditBalance,
+        organization: ConsoleOrganization,
+        account: Account
+    ) async {
+        let isLow = ConsoleCreditRule.isLow(balance)
+        // Tracked whether or not warnings are on, so turning them on later does
+        // not announce a crossing that happened while they were off.
+        let newlyLow: Bool
+        if isLow {
+            newlyLow = creditLowWarned[account.id, default: []].insert(organization.id).inserted
+        } else {
+            creditLowWarned[account.id]?.remove(organization.id)
+            newlyLow = false
+        }
+
+        guard quotaRunwayWarningsEnabled() else { return }
+
+        if let expiry = ConsoleCreditRule.expiringSoon(balance, now: now()) {
+            let key = ConsoleCreditRule.ExpiryKey(
+                accountID: account.id, organizationID: organization.id, expiresAt: expiry.at
+            )
+            if creditExpiryWarned.insert(key).inserted {
+                await notifier.notifyCreditExpiring(
+                    accountDisplayName: account.resolvedName,
+                    amount: ConsoleCreditFormatting.amount(
+                        expiry.amountMinor, exponent: balance.exponent, currency: balance.currency
+                    ),
+                    expiresIn: expiry.at.timeIntervalSince(now())
+                )
+            }
+        }
+
+        if newlyLow {
+            await notifier.notifyCreditLow(
+                accountDisplayName: account.resolvedName,
+                balance: ConsoleCreditFormatting.amount(
+                    balance.balanceMinor, exponent: balance.exponent, currency: balance.currency
+                )
+            )
+        }
     }
 
     /// Announces an expired sign-in once, on the transition into it.
@@ -626,5 +764,10 @@ final class SyncCoordinator: ObservableObject {
         sessionExpiryNotified.remove(accountID)
         runwayWarned = runwayWarned.filter { $0.accountID != accountID }
         quotaStates.removeAll { $0.accountID == accountID }
+        consoleCredits[accountID] = nil
+        consoleCreditFetchesInFlight.remove(accountID)
+        creditExpiryWarned = creditExpiryWarned.filter { $0.accountID != accountID }
+        creditLowWarned[accountID] = nil
+        consoleSessionExpiryNotified.remove(accountID)
     }
 }

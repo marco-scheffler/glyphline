@@ -163,6 +163,59 @@
         }
       }
     },
+    "%@ of API credit expires in %@" : {
+      "comment" : "Notification body warning that prepaid Claude Console API credit is about to lapse. Placeholders: a formatted money amount such as '$10.00', then a duration such as '2d'.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ API-Guthaben verfällt in %2$@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ of API credit expires in %2$@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ de crédito de API caduca en %2$@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ de crédit API expire dans %2$@"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ di credito API scade tra %2$@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ の API クレジットが %2$@ 後に失効します"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ de crédito de API expira em %2$@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ 的 API 额度将在 %2$@ 后过期"
+          }
+        }
+      }
+    },
     "%@ rate window sample recorded since %@." : {
       "comment" : "Delete dialog, singular. Placeholders: the sample count (always 1) and a date.",
       "localizations" : {
@@ -2280,6 +2333,59 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已完成的代理和正在提问的代理看起来一样，因此两者都会通知。"
+          }
+        }
+      }
+    },
+    "API credit is down to %@" : {
+      "comment" : "Notification body warning that the prepaid Claude Console API credit balance is low. Placeholder: a formatted money amount such as '$4.00'.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "API-Guthaben ist auf %@ gesunken"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "API credit is down to %@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El crédito de API ha bajado a %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le crédit API est tombé à %@"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il credito API è sceso a %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "API クレジットが %@ まで減りました"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O crédito de API caiu para %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "API 额度已降至 %@"
           }
         }
       }
@@ -10115,6 +10221,59 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "年"
+          }
+        }
+      }
+    },
+    "Your Claude Console sign-in has expired. Connect the Console again." : {
+      "comment" : "Notification body when the Claude Console (platform.claude.com) sign-in used to read API credit has expired.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deine Claude-Console-Anmeldung ist abgelaufen. Verbinde die Console erneut."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your Claude Console sign-in has expired. Connect the Console again."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tu inicio de sesión en Claude Console ha caducado. Vuelve a conectar la Console."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre connexion à Claude Console a expiré. Reconnectez la Console."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L'accesso a Claude Console è scaduto. Collega di nuovo la Console."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude Console のサインインの有効期限が切れました。Console を再接続してください。"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seu login no Claude Console expirou. Conecte o Console novamente."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的 Claude Console 登录已过期。请重新连接 Console。"
           }
         }
       }
