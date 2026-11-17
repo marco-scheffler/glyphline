@@ -218,7 +218,7 @@ struct GlyphlineApp: App {
             // lives in the panel that opens — its header dot and the tinted bar
             // on every row — so the menu bar keeps a single stable silhouette.
             //
-            // The mark is the app icon's gauge, drawn in `MenuBarMark`. It stays
+            // The mark is the app icon's crystal, drawn in `MenuBarMark`. It stays
             // one silhouette by design.
             //
             // `Image`, not `Label`: a `Label` generally resolves to title *and*

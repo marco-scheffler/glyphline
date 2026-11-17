@@ -25,7 +25,7 @@ final class MenuBarMarkTests: XCTestCase {
 
         var inked = 0
         for x in 0..<36 { for y in 0..<36 where (rep.colorAt(x: x, y: y)?.alphaComponent ?? 0) > 0.5 { inked += 1 } }
-        XCTAssertGreaterThan(inked, 60, "arc, needle and hub should cover a visible share of the square")
+        XCTAssertGreaterThan(inked, 60, "outline, girdle and core should cover a visible share of the square")
         XCTAssertLessThan(inked, 36 * 36 / 2, "a mark, not a filled square")
     }
 }

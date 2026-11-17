@@ -1,8 +1,12 @@
 import AppKit
 
-/// The app icon's gauge, reduced to what survives at menu bar size: the open
-/// arc, the needle and its hub. The three tick marks are left out — at 18 pt they
-/// are a pixel each and read as noise.
+/// The app icon's crystal, reduced to what survives at menu bar size: the
+/// hexagonal outline, the two girdle edges that make it read as a cut stone
+/// rather than an eye, and the core as a solid dot.
+///
+/// Upright, where the icon leans. At 18 pt a tilted outline lands between
+/// pixels and goes soft; upright, its sides fall on whole points and stay as
+/// crisp as the system symbols beside it.
 ///
 /// Drawn rather than shipped as an asset so it stays crisp at any scale, and a
 /// template so the system tints it for light, dark and the pressed highlight.
@@ -12,26 +16,35 @@ enum MenuBarMark {
     static func image() -> NSImage {
         let image = NSImage(size: size, flipped: false) { _ in
             NSColor.black.set()
-            let center = NSPoint(x: 9, y: 7)
+            let center = NSPoint(x: 9, y: 9)
+            let halfWidth = 3.4
+            let shoulder = 3.2  // from the centre to where the facets start
+            let tip = 7.4       // from the centre to either point
+            func point(_ x: Double, _ y: Double) -> NSPoint {
+                NSPoint(x: center.x + x, y: center.y + y)
+            }
 
-            // Open at the bottom, like the icon: from lower left over the top to
-            // lower right.
-            let arc = NSBezierPath()
-            arc.appendArc(withCenter: center, radius: 7, startAngle: 200, endAngle: -20, clockwise: true)
-            arc.lineWidth = 1.6
-            arc.lineCapStyle = .round
-            arc.stroke()
+            let outline = NSBezierPath()
+            outline.move(to: point(0, tip))
+            outline.line(to: point(halfWidth, shoulder))
+            outline.line(to: point(halfWidth, -shoulder))
+            outline.line(to: point(0, -tip))
+            outline.line(to: point(-halfWidth, -shoulder))
+            outline.line(to: point(-halfWidth, shoulder))
+            outline.close()
+            outline.lineWidth = 1.4
+            outline.lineJoinStyle = .miter
+            outline.stroke()
 
-            // Up and to the right, where the icon's needle points.
-            let angle = 35.0 * .pi / 180
-            let needle = NSBezierPath()
-            needle.move(to: center)
-            needle.line(to: NSPoint(x: center.x + 5.5 * cos(angle), y: center.y + 5.5 * sin(angle)))
-            needle.lineWidth = 1.6
-            needle.lineCapStyle = .round
-            needle.stroke()
+            let girdle = NSBezierPath()
+            girdle.move(to: point(-halfWidth, shoulder))
+            girdle.line(to: point(halfWidth, shoulder))
+            girdle.move(to: point(-halfWidth, -shoulder))
+            girdle.line(to: point(halfWidth, -shoulder))
+            girdle.lineWidth = 1.0
+            girdle.stroke()
 
-            NSBezierPath(ovalIn: NSRect(x: center.x - 1.7, y: center.y - 1.7, width: 3.4, height: 3.4)).fill()
+            NSBezierPath(ovalIn: NSRect(x: center.x - 1.4, y: center.y - 1.4, width: 2.8, height: 2.8)).fill()
             return true
         }
         image.isTemplate = true
