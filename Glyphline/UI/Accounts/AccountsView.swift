@@ -356,6 +356,13 @@ struct AccountsView: View {
         return (connect: !connected || expired, disconnect: connected)
     }
 
+    /// The Console buttons' symbols. A link with a plus to connect, a broken
+    /// link to disconnect. There is no `link.badge.minus` — an unknown name
+    /// draws nothing, and that is how Disconnect once went invisible.
+    static func consoleSymbol(connect: Bool) -> String {
+        connect ? "link.badge.plus" : "personalhotspot.slash"
+    }
+
     @ViewBuilder private func consoleButtons(for account: Account) -> some View {
         let actions = Self.consoleActions(
             organizations: account.consoleOrganizations,
@@ -376,7 +383,7 @@ struct AccountsView: View {
         Button {
             changeConsoleConnection(account, connect: connect)
         } label: {
-            Image(systemName: connect ? "link" : "link.badge.minus")
+            Image(systemName: Self.consoleSymbol(connect: connect))
         }
         .buttonStyle(.borderless)
         .accessibilityLabel(title)

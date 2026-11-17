@@ -1,3 +1,4 @@
+import AppKit
 import XCTest
 @testable import Glyphline
 
@@ -83,5 +84,16 @@ final class AccountsViewTests: XCTestCase {
         let lapsed = AccountsView.consoleActions(organizations: [org], states: [expired])
         XCTAssertTrue(lapsed.connect)
         XCTAssertTrue(lapsed.disconnect)
+    }
+
+    /// A symbol name SF Symbols does not know draws nothing, and an image-only
+    /// button with nothing to draw is invisible. Disconnect shipped that way
+    /// once, under a plausible-looking name that does not exist.
+    func testBothConsoleButtonSymbolsExist() {
+        for connect in [true, false] {
+            let name = AccountsView.consoleSymbol(connect: connect)
+            XCTAssertNotNil(NSImage(systemSymbolName: name, accessibilityDescription: nil), name)
+        }
+        XCTAssertNotEqual(AccountsView.consoleSymbol(connect: true), AccountsView.consoleSymbol(connect: false))
     }
 }
