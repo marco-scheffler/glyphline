@@ -171,10 +171,9 @@ struct StudioAgentCard: View {
                         .lineLimit(1).truncationMode(.tail)
                         .padding(.top, 1)
                 }
-                Text(model.actionText)
+                actionLine
                     .font(.system(size: 10.5, design: .monospaced))
                     .foregroundStyle(actionTint)
-                    .lineLimit(1).truncationMode(.tail)
                     .padding(.top, 4)
                 bar.padding(.top, 6)
             }
@@ -202,6 +201,24 @@ struct StudioAgentCard: View {
         .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(tint, lineWidth: 1.5))
         .shadow(color: parked ? .clear : tint.opacity(0.22), radius: 7)
         .opacity(parked ? 0.6 : 1)
+    }
+
+    /// While waiting, the minutes are the news: the sentence is split at its
+    /// last "·" and only the lead gives way, so "· 123 min" survives a 240 pt
+    /// sidebar. The wording stays `StudioBubble.waitingText`'s own.
+    @ViewBuilder
+    private var actionLine: some View {
+        let text = model.actionText
+        if model.state == .waiting, let split = text.range(of: "·", options: .backwards) {
+            HStack(spacing: 0) {
+                Text(verbatim: String(text[..<split.lowerBound]))
+                    .lineLimit(1).truncationMode(.tail)
+                Text(verbatim: String(text[split.lowerBound...]))
+                    .lineLimit(1).fixedSize().layoutPriority(1)
+            }
+        } else {
+            Text(verbatim: text).lineLimit(1).truncationMode(.tail)
+        }
     }
 
     private var dotColour: Color {
