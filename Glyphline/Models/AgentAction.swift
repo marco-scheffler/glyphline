@@ -54,10 +54,8 @@ enum AgentAction: Equatable, Sendable {
             if let description = present(input.description) {
                 return .running(description: description)
             }
-            guard let first = input.command?.split(whereSeparator: \.isWhitespace).first else {
-                return fallback
-            }
-            return .runningProgram(URL(fileURLWithPath: String(first)).lastPathComponent)
+            guard let program = programName(in: input.command ?? "") else { return fallback }
+            return .runningProgram(program)
         case "Edit", "MultiEdit":
             return fileName(input.file_path).map { .editing(file: $0) } ?? fallback
         case "NotebookEdit":
@@ -84,6 +82,25 @@ enum AgentAction: Equatable, Sendable {
             }
             return fallback
         }
+    }
+
+    /// The program a command line runs, and nothing else from it. Leading
+    /// `NAME=value` assignments — the usual way to hand a command a token — and
+    /// an `env` or `sudo` in front are skipped, so neither can be mistaken for
+    /// the program and shown.
+    private static func programName(in command: String) -> String? {
+        for token in command.split(whereSeparator: \.isWhitespace) {
+            if token == "env" || token == "sudo" { continue }
+            if let equals = token.firstIndex(of: "="),
+               equals != token.startIndex,
+               token[..<equals].allSatisfy({ $0 == "_" || $0.isLetter || $0.isNumber }) {
+                continue
+            }
+            let unquoted = token.trimmingCharacters(in: CharacterSet(charactersIn: "'\""))
+            guard !unquoted.isEmpty else { return nil }
+            return URL(fileURLWithPath: unquoted).lastPathComponent
+        }
+        return nil
     }
 
     var isToolAction: Bool { self != .thinking }

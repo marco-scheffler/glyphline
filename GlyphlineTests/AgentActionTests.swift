@@ -25,6 +25,26 @@ final class AgentActionTests: XCTestCase {
         XCTAssertFalse(action.text.contains("Bearer"))
     }
 
+    /// An inline assignment is the usual way to hand a command a token, so the
+    /// first word is not always the program.
+    func testAnEnvAssignmentIsNeverTheProgram() {
+        let action = AgentAction.from(toolName: "Bash",
+                                      input: Input(command: "ANTHROPIC_API_KEY=sk-ant-XYZ curl https://x"))
+        XCTAssertEqual(action, .runningProgram("curl"))
+        XCTAssertFalse(action.text.contains("sk-ant"))
+        XCTAssertFalse(action.text.contains("ANTHROPIC_API_KEY"))
+
+        XCTAssertEqual(AgentAction.from(toolName: "Bash", input: Input(command: "env GH_TOKEN=ghp_abc gh pr list")),
+                       .runningProgram("gh"))
+        XCTAssertEqual(AgentAction.from(toolName: "Bash", input: Input(command: "FOO=1 BAR=2")),
+                       .usingTool("Bash"))
+    }
+
+    func testAQuotedProgramLosesItsQuotes() {
+        XCTAssertEqual(AgentAction.from(toolName: "Bash", input: Input(command: "'/usr/bin/curl' -s")),
+                       .runningProgram("curl"))
+    }
+
     func testFileToolsUseTheFileName() {
         let path = "/a/b/OfficeRenderer.swift"
         XCTAssertEqual(AgentAction.from(toolName: "Edit", input: Input(file_path: path)),
