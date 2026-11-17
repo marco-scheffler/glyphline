@@ -84,21 +84,26 @@ enum AgentAction: Equatable, Sendable {
         }
     }
 
-    /// The program a command line runs, and nothing else from it. Leading
-    /// `NAME=value` assignments — the usual way to hand a command a token — and
-    /// an `env` or `sudo` in front are skipped, so neither can be mistaken for
-    /// the program and shown.
+    /// The program a command line runs, and nothing else from it — or nil
+    /// whenever that cannot be said safely.
+    ///
+    /// Deliberately not a shell parser. A leading `env` or `sudo` and leading
+    /// unquoted `NAME=value` assignments (the usual way to hand a command a
+    /// token) are skipped. Any quote on the way, a flag where the program should
+    /// be, or a name that does not look like a program gives up instead: a
+    /// quoted value split on whitespace, or an option's argument, could
+    /// otherwise be shown as the program.
     private static func programName(in command: String) -> String? {
         for token in command.split(whereSeparator: \.isWhitespace) {
+            if token.contains(where: { $0 == "'" || $0 == "\"" }) { return nil }
             if token == "env" || token == "sudo" { continue }
             if let equals = token.firstIndex(of: "="),
-               equals != token.startIndex,
-               token[..<equals].allSatisfy({ $0 == "_" || $0.isLetter || $0.isNumber }) {
+               token[..<equals].wholeMatch(of: /[A-Za-z_][A-Za-z0-9_]*/) != nil {
                 continue
             }
-            let unquoted = token.trimmingCharacters(in: CharacterSet(charactersIn: "'\""))
-            guard !unquoted.isEmpty else { return nil }
-            return URL(fileURLWithPath: unquoted).lastPathComponent
+            if token.hasPrefix("-") { return nil }
+            let name = URL(fileURLWithPath: String(token)).lastPathComponent
+            return name.wholeMatch(of: /[A-Za-z0-9._+-]{1,32}/) != nil ? name : nil
         }
         return nil
     }

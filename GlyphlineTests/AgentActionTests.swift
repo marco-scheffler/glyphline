@@ -40,9 +40,26 @@ final class AgentActionTests: XCTestCase {
                        .usingTool("Bash"))
     }
 
-    func testAQuotedProgramLosesItsQuotes() {
+    func testAQuotedProgramIsNotNamed() {
         XCTAssertEqual(AgentAction.from(toolName: "Bash", input: Input(command: "'/usr/bin/curl' -s")),
-                       .runningProgram("curl"))
+                       .usingTool("Bash"))
+    }
+
+    /// Splitting on whitespace cuts a quoted value apart, so its second half
+    /// would otherwise look like the program.
+    func testAQuotedAssignmentNeverLeaks() {
+        let action = AgentAction.from(toolName: "Bash",
+                                      input: Input(command: #"AUTH="Bearer sk-ant-XYZ" curl https://x"#))
+        XCTAssertEqual(action, .usingTool("Bash"))
+        XCTAssertFalse(action.text.contains("sk-ant"))
+        XCTAssertFalse(action.text.contains("Bearer"))
+    }
+
+    func testAFlagIsNeverTheProgram() {
+        for command in ["sudo -u root curl", "env -i FOO=bar cmd", "env --unset=X cmd"] {
+            XCTAssertEqual(AgentAction.from(toolName: "Bash", input: Input(command: command)),
+                           .usingTool("Bash"), command)
+        }
     }
 
     func testFileToolsUseTheFileName() {
