@@ -169,6 +169,8 @@ struct GlyphlineApp: App {
                 // The office's windows need the stored weather reading and the
                 // timestamp that throttles asking for a new one.
                 .environmentObject(settings)
+                // The Studio's tiles read the same ledger and quotas as the dashboard.
+                .environmentObject(coordinator)
         }
         .defaultSize(width: 1_400, height: 820)
         .windowStyle(.titleBar)

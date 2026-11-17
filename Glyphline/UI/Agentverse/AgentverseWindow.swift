@@ -89,6 +89,11 @@ struct AgentverseWindow: View {
     /// Where the last weather reading lives, and its timestamp — the throttle
     /// has to survive a window being closed and reopened.
     @EnvironmentObject private var settings: AppSettingsStore
+    /// The ledger and quotas the Studio's tiles read, through the dashboard's
+    /// own models.
+    @EnvironmentObject private var syncCoordinator: SyncCoordinator
+    /// Today's usage series, rebuilt when the ledger changes rather than per body.
+    @State private var usageSeries: DailyUsageSeries?
     /// Starts false and is corrected by the probe as soon as the view has a
     /// window: a true default would run one sweep for a window that turns out to
     /// be opening behind something else.
@@ -203,6 +208,29 @@ struct AgentverseWindow: View {
     }
 
     @ViewBuilder private var stage: some View {
+        if settings.agentverseView == .studio {
+            // The tiles and the feed stay outside the timeline: they change per
+            // sweep, not per frame, and must not be rebuilt sixty times a second.
+            VStack(spacing: 10) {
+                StudioKPIRow(tiles: StudioDashboardModel.tiles(onTrack: coordinator.onTrack,
+                                                               series: usageSeries,
+                                                               quotaStates: syncCoordinator.quotaStates,
+                                                               now: Date()))
+                floor
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                StudioBottomRow(log: coordinator.activityLog, now: Date())
+            }
+            .padding(10)
+            .background(StudioChrome.background)
+            .task(id: syncCoordinator.localUsageRevision) {
+                usageSeries = syncCoordinator.localUsageBreakdown(since: StudioDashboardModel.seriesStart())?.series
+            }
+        } else {
+            floor
+        }
+    }
+
+    @ViewBuilder private var floor: some View {
         // Read out here rather than inside the timeline's closure: the closure
         // is rebuilt per frame, and pulling the view's state into it each time
         // would tie the picture to when it was drawn.

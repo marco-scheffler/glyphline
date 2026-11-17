@@ -16,6 +16,7 @@
 		049C0147E863CBB427B03E41 /* AppActivationPolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E769EA9FCFFFED06FB7E27E /* AppActivationPolicyTests.swift */; };
 		05ADA18D2E958FB3A3558030 /* RateWindowSourceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11D41DE98E9E03A2433764CC /* RateWindowSourceTests.swift */; };
 		05B13717448F689D010D286A /* ClaudeOrganizationsDTOsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A44B6050C0E139657C97014 /* ClaudeOrganizationsDTOsTests.swift */; };
+		0733F333FBDFDEDFC61C28C5 /* StudioDashboard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7113F6C824444D7BFEE3A6DD /* StudioDashboard.swift */; };
 		074A23E34F366B500EF9F464 /* ClaudeTranscriptReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8EB4CDCE71718F453A076C59 /* ClaudeTranscriptReader.swift */; };
 		08456132774175B5BBE137D0 /* AgentverseLauncher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AADE4342C52A9A8F604D429 /* AgentverseLauncher.swift */; };
 		0845E0C1CB96288038309D3B /* AgentActionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B320B9BD5B3713D3FD4BBC51 /* AgentActionTests.swift */; };
@@ -58,6 +59,7 @@
 		37CFE0A06075136004EBA62F /* AppActivationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64891BE57A59E15EEFF1CD5F /* AppActivationController.swift */; };
 		380A032B21975B0786C28EB0 /* QuotaBarRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBDCA09F2919D27BE31E10C4 /* QuotaBarRowView.swift */; };
 		383C6EC1087E7FC1D05F6919 /* SyncCoordinatorLocalUsageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB71829869D2BDC5C53A536A /* SyncCoordinatorLocalUsageTests.swift */; };
+		3947C624BE48D303DE68DBEF /* StudioDashboardModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27834C3ABC724A899F8850D9 /* StudioDashboardModel.swift */; };
 		3B13749377F4210914EAAAA7 /* OfficeRendererBreakRoom.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38C5E2DBCCE33356D5552AC5 /* OfficeRendererBreakRoom.swift */; };
 		3B32AAF07D8E919F7FEC6852 /* QuotaIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B520B6C053C48D490AB06E62 /* QuotaIndicator.swift */; };
 		3DAEF60F7A2477A91507214B /* StudioModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B1D1C148BE9769FBDF4302B /* StudioModelTests.swift */; };
@@ -212,6 +214,7 @@
 		F7E4A6B277F8B556D8921A19 /* RecordingNotifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABEA664FCFB5FBA228DE5B40 /* RecordingNotifier.swift */; };
 		F8F8163B0CC89AA5FA267BFA /* IsoProjectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CABF3285E03EB09C5D9394E3 /* IsoProjectionTests.swift */; };
 		F9E695F2D682FA36D98FA962 /* WindowActivationObserverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13262C6395892E8101B0073A /* WindowActivationObserverTests.swift */; };
+		F9F6758D7C7B7CD31138CD51 /* StudioDashboardModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3B277E1836C9A2290A28531 /* StudioDashboardModelTests.swift */; };
 		FA0E6D06248BF58C8ECC4787 /* ClaudeOrganizationsDTOs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24490E8A33CB8C3CE1EFFAA3 /* ClaudeOrganizationsDTOs.swift */; };
 		FA24F260992AEF7BAABB68BE /* OfficeRendererShell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 294A09533288129B01331D6A /* OfficeRendererShell.swift */; };
 		FAAB4935C3A53DB6331C5F42 /* DashboardOverview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A8FE605EF3B33F256650E43 /* DashboardOverview.swift */; };
@@ -272,6 +275,7 @@
 		25497BF306FE34949D36DA77 /* UserNotifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserNotifier.swift; sourceTree = "<group>"; };
 		25763F9DE4C82450A3834BDC /* AgentSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentSession.swift; sourceTree = "<group>"; };
 		25CF48DAF9EE1D8F9862E87F /* AccountQuotaCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountQuotaCards.swift; sourceTree = "<group>"; };
+		27834C3ABC724A899F8850D9 /* StudioDashboardModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudioDashboardModel.swift; sourceTree = "<group>"; };
 		28A51A602B459C74D5B7B379 /* ClaudeWebResponseClassifierTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeWebResponseClassifierTests.swift; sourceTree = "<group>"; };
 		28DF65699C37FFD9D90CC4A0 /* QuotaBarTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuotaBarTests.swift; sourceTree = "<group>"; };
 		294A09533288129B01331D6A /* OfficeRendererShell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfficeRendererShell.swift; sourceTree = "<group>"; };
@@ -336,6 +340,7 @@
 		68867B1F76ECF4DE1E6FA098 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		69F038C1101F3228D2C607FB /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
 		6DDC448405B7A5F2656A0419 /* AgentRowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentRowTests.swift; sourceTree = "<group>"; };
+		7113F6C824444D7BFEE3A6DD /* StudioDashboard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudioDashboard.swift; sourceTree = "<group>"; };
 		71F686E68C6AD2A919ECD797 /* claude-usage.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "claude-usage.json"; sourceTree = "<group>"; };
 		73EF49578FAAD77F145A232A /* UserNotificationTextTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserNotificationTextTests.swift; sourceTree = "<group>"; };
 		796D825E9364FC95C09E72F6 /* StudioFloorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudioFloorTests.swift; sourceTree = "<group>"; };
@@ -377,6 +382,7 @@
 		9D74A02F678144371415AA39 /* MenuBarPanelDismisser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarPanelDismisser.swift; sourceTree = "<group>"; };
 		A1AADE473E53A645F034AE62 /* AccountAttentionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountAttentionTests.swift; sourceTree = "<group>"; };
 		A3534581CE8A3C491898D084 /* OfficeRendererLabels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfficeRendererLabels.swift; sourceTree = "<group>"; };
+		A3B277E1836C9A2290A28531 /* StudioDashboardModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudioDashboardModelTests.swift; sourceTree = "<group>"; };
 		A452BABCF11A72A0A23A41AE /* AgentverseParkedStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentverseParkedStoreTests.swift; sourceTree = "<group>"; };
 		A45728EFB1E15D3769095844 /* SettingsScene.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsScene.swift; sourceTree = "<group>"; };
 		A63DE4BE6B1E5DD6EBDEC233 /* AddAccountView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddAccountView.swift; sourceTree = "<group>"; };
@@ -493,6 +499,8 @@
 				590AB7BB7B2B0704E4EF7C23 /* SceneLight.swift */,
 				4ABF530307D06D892CBE9F72 /* SceneRGB.swift */,
 				2CEE811175655E96A48209E0 /* SessionPalette.swift */,
+				7113F6C824444D7BFEE3A6DD /* StudioDashboard.swift */,
+				27834C3ABC724A899F8850D9 /* StudioDashboardModel.swift */,
 				431C15E16B814FE16C941964 /* StudioFloor.swift */,
 				194537C13B859A8B6E888C96 /* StudioModel.swift */,
 				1B2B215F303C1752B35E4B26 /* StudioRenderer.swift */,
@@ -695,6 +703,7 @@
 				B5287B8477F8EF75ABA938B2 /* SnapshotSummaryTests.swift */,
 				39F2CB017DCE303DF2074D0E /* SpendSummaryTests.swift */,
 				F7E8BB95813E09B997F70BD5 /* StudioActivityLogTests.swift */,
+				A3B277E1836C9A2290A28531 /* StudioDashboardModelTests.swift */,
 				796D825E9364FC95C09E72F6 /* StudioFloorTests.swift */,
 				4B1D1C148BE9769FBDF4302B /* StudioModelTests.swift */,
 				F4E1FE1146583F38A8203043 /* SunPositionTests.swift */,
@@ -1058,6 +1067,7 @@
 				AC776B32695D0B125B30B305 /* SnapshotSummaryTests.swift in Sources */,
 				267FC40CA71C733DD3833754 /* SpendSummaryTests.swift in Sources */,
 				56A2E34C38AF067F0FED7203 /* StudioActivityLogTests.swift in Sources */,
+				F9F6758D7C7B7CD31138CD51 /* StudioDashboardModelTests.swift in Sources */,
 				41DF4413EFE837E52AACD484 /* StudioFloorTests.swift in Sources */,
 				3DAEF60F7A2477A91507214B /* StudioModelTests.swift in Sources */,
 				84A54ADAC7F03FF978AB6A90 /* SunPositionTests.swift in Sources */,
@@ -1177,6 +1187,8 @@
 				B077494A20202025E2ABBE46 /* SnapshotIdentity.swift in Sources */,
 				186E065E85D963E98285E6AF /* SpendPeriod.swift in Sources */,
 				7DEE41C3F605E1B71125FE32 /* StudioActivityLog.swift in Sources */,
+				0733F333FBDFDEDFC61C28C5 /* StudioDashboard.swift in Sources */,
+				3947C624BE48D303DE68DBEF /* StudioDashboardModel.swift in Sources */,
 				765DDD7BFC7613C82670C324 /* StudioFloor.swift in Sources */,
 				ACBE9B63CC29105E6B764988 /* StudioModel.swift in Sources */,
 				BD88B528ECF8CD5E26798730 /* StudioRenderer.swift in Sources */,
